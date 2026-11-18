@@ -1,0 +1,26 @@
+{
+  "name": "the-fourfold",
+  "productName": "The Fourfold",
+  "version": "0.1.0",
+  "description": "The Fourfold: a 4-player elemental board game with 40 minigames, for PC.",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win portable nsis",
+    "dist:mac": "electron-builder --mac dmg",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.aiconicstudios.fourfold",
+    "productName": "The Fourfold",
+    "files": ["index.html", "css/**", "js/**", "electron/**"],
+    "directories": { "output": "dist" },
+    "win": { "target": ["portable", "nsis"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
+  }
+}

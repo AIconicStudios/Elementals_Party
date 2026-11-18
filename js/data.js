@@ -1,0 +1,134 @@
+// The Fourfold - static game data (board layout, elements, items)
+'use strict';
+
+const ELEMENTS = [
+  { id: 0, key: 'air',   name: 'Air',   hold: 'Skyhold',   people: 'Stormborn', color: '#8fe0ff', dark: '#2a7fa8', glyph: '🌪️', ult: 'typhoon' },
+  { id: 1, key: 'water', name: 'Water', hold: 'Tidehold',  people: 'Tideborn',  color: '#4f8dff', dark: '#1f3f9a', glyph: '🌊', ult: 'washout' },
+  { id: 2, key: 'fire',  name: 'Fire',  hold: 'Emberhold', people: 'Emberkin',  color: '#ff6a3d', dark: '#a82a10', glyph: '🔥', ult: 'inferno' },
+  { id: 3, key: 'earth', name: 'Earth', hold: 'Stonehold', people: 'Rootbound', color: '#7ccf4a', dark: '#3f7a1c', glyph: '⛰️', ult: 'hollow' },
+];
+
+// Space types on the Crossing (main board)
+const SPACE = {
+  gate:     { name: 'Gate',            lore: 'Waygate',        color: '#d9c27a', icon: '🌀' },
+  bank:     { name: 'Bank / Shop',     lore: 'Counting House', color: '#f2d36b', icon: '🏛️' },
+  blue:     { name: 'Blue',            lore: 'Boon',           color: '#3d7bff', icon: '+5' },
+  red:      { name: 'Red',             lore: 'Bane',           color: '#e0443a', icon: '−3' },
+  summon:   { name: 'Summon the Ankar',lore: "Ankar's Altar",  color: '#6b3fa0', icon: '👁️' },
+  shutdown: { name: 'Shutdown',        lore: 'Eclipse',        color: '#2b2b3a', icon: '🌑' },
+  doubler:  { name: 'Money Doubler',   lore: 'Gilded Spring',  color: '#e8b923', icon: '×2' },
+  lucky:    { name: 'Lucky',           lore: 'Fortune Wheel',  color: '#2fbf8f', icon: '🎡' },
+  item:     { name: 'Item',            lore: "Pedlar's Stall", color: '#c46bd6', icon: '🎁' },
+  chameleon:{ name: 'Chameleon',       lore: 'Mirage',         color: '#8a8f99', icon: '❓' },
+};
+const SPECIAL_TYPES = ['summon', 'shutdown', 'doubler', 'lucky', 'item'];
+
+// 20-space half, mirrored to the second half (specials 20 apart, max 2 same colour in a row)
+const HALF = ['gate', 'blue', 'lucky', 'red', 'blue', 'bank', 'summon', 'red', 'blue', 'item',
+              'gate', 'red', 'doubler', 'blue', 'red', 'bank', 'shutdown', 'blue', 'red', 'chameleon'];
+const BOARD = HALF.concat(HALF);
+
+const RING_SIZE = 16;
+const RING_GATE = 16;
+const RING_VAULT = 8;
+const DEF_START = 9;
+
+const RARITY = { C: 'Common', U: 'Uncommon', R: 'Rare', L: 'Legendary', E: 'Elemental' };
+const RARITY_WEIGHT = { C: 60, U: 30, R: 8, L: 2 };
+
+// cat: defense | ultimate | raider | dice | money | chaos
+// use (hand items): play | passive
+// place (defenses): tile | loot | vault | hidden
+// target: enemy | any | selfOrEnemy | raider (raider in my ring)
+const ITEMS = [
+  // ---- Home defenses ----
+  { id: 'dog', name: 'Dog', lore: 'Hellhound', price: 8, r: 'U', cat: 'defense', place: 'tile', icon: '🐕', desc: 'Chases the raider to the Gate and out; one looted coin drops per space run (stars last) and returns to you.' },
+  { id: 'prison', name: 'Prison', lore: 'Oubliette', price: 8, r: 'U', cat: 'defense', place: 'tile', icon: '⛓️', desc: 'Locks the raider 2 turns and takes their loot. You set bail at 5, 10 or none.' },
+  { id: 'poison', name: 'Poison Elixir', lore: "Widow's Draught", price: 8, r: 'U', cat: 'defense', place: 'tile', icon: '☠️', desc: 'Raider hands back loot, then each turn their roll is −1 and they lose 1 coin until cured by an Antidote.' },
+  { id: 'atm', name: 'ATM Drill', lore: 'Tithe Hook', price: 4, r: 'C', cat: 'defense', place: 'tile', icon: '🪝', desc: 'The raider pays you 5 coins, or whatever they have.' },
+  { id: 'stardrill', name: 'Star Drill', lore: 'Starsiphon', price: 14, r: 'R', cat: 'defense', place: 'tile', icon: '🌠', desc: 'The raider loses 1 banked star to you, if they have one.' },
+  { id: 'vaultprot', name: 'Vault Protector', lore: 'Warding Seal', price: 14, r: 'R', cat: 'defense', place: 'vault', icon: '🔏', desc: 'On the Vault. Protects your stars for 2 turns.' },
+  { id: 'fakecoin', name: 'Fake Coin', lore: 'Gilded Lead', price: 3, r: 'C', cat: 'defense', place: 'loot', icon: '🪙', desc: 'Adds 5 fake coins to a Loot space. Raiders draw fakes as +0.' },
+  { id: 'fakestar', name: 'Fake Star (pack of 2)', lore: 'Paste Stars', price: 12, r: 'R', cat: 'defense', place: 'vault', icon: '✴️', desc: 'Adds 2 fake stars to your Vault. A raider draws randomly from real and fake.' },
+  { id: 'grace', name: 'Saving Grace', lore: 'Saving Grace', price: 16, r: 'L', cat: 'defense', place: 'hidden', icon: '😇', desc: 'Hidden mine placed on a random tile (even you don’t know where). Raider loses loot, is locked 3 turns, pays 3, sent to the Gate.' },
+  { id: 'lp1', name: 'Loot Protection L1', lore: 'Hoardward I', price: 2, r: 'C', cat: 'defense', place: 'loot', lvl: 1, icon: '🛡️', desc: 'Protects 1 of the 5 coins taken, for the next 2 loot events.' },
+  { id: 'lp2', name: 'Loot Protection L2', lore: 'Hoardward II', price: 4, r: 'C', cat: 'defense', place: 'loot', lvl: 2, icon: '🛡️', desc: 'Protects 2 coins per loot event, for 2 events.' },
+  { id: 'lp3', name: 'Loot Protection L3', lore: 'Hoardward III', price: 6, r: 'U', cat: 'defense', place: 'loot', lvl: 3, icon: '🛡️', desc: 'Protects 3 coins per loot event, for 2 events.' },
+  { id: 'lp4', name: 'Loot Protection L4', lore: 'Hoardward IV', price: 9, r: 'U', cat: 'defense', place: 'loot', lvl: 4, icon: '🛡️', desc: 'Protects 4 coins per loot event, for 2 events.' },
+  { id: 'lp5', name: 'Loot Protection L5', lore: 'Hoardward V', price: 12, r: 'R', cat: 'defense', place: 'loot', lvl: 5, icon: '🛡️', desc: 'Protects all 5 coins per loot event, for 2 events.' },
+  { id: 'mimic', name: 'Mimic Chest', lore: 'Mimic Chest', price: 4, r: 'C', cat: 'defense', place: 'loot', icon: '🧰', desc: 'On a Loot space. The first raider to loot it loses 5 coins instead of gaining them.' },
+  { id: 'banana', name: 'Banana Peel', lore: 'Slickmoss', price: 2, r: 'C', cat: 'defense', place: 'tile', icon: '🍌', desc: 'The raider slides back 1 to 6 spaces.' },
+  { id: 'alarm', name: 'Alarm Bell', lore: "Warden's Bell", price: 3, r: 'C', cat: 'defense', place: 'tile', icon: '🔔', desc: 'Your Defender gets a free move, without spending a turn.' },
+  { id: 'rust', name: 'Rust', lore: 'Verdigris Curse', price: 4, r: 'U', cat: 'defense', place: 'tile', icon: '🧪', desc: 'Strips all the raider’s armor.' },
+
+  // ---- Element ultimates ----
+  { id: 'typhoon', name: 'Typhoon', lore: 'Typhoon', el: 0, price: 25, r: 'E', cat: 'ultimate', icon: '🌪️', desc: 'Throws every raider out of your ring. You keep what they looted; they lose all unbanked resources.' },
+  { id: 'washout', name: 'Washout', lore: 'Great Ebb', el: 1, price: 20, r: 'E', cat: 'ultimate', icon: '🌊', desc: 'Washes a raider to a random Crossing space with its loot; your Warden raids a random Hoard or Vault of theirs.' },
+  { id: 'inferno', name: 'Inferno', lore: 'Sacrifice Pyre', el: 2, price: 20, r: 'E', cat: 'ultimate', icon: '🔥', desc: 'Burn 1 of your stars: a raider’s Traveller dies for good and their Defender must go to work.' },
+  { id: 'hollow', name: 'Hollow Ground', lore: 'Famished Earth', el: 3, price: 20, r: 'E', cat: 'ultimate', icon: '⛰️', desc: 'From now on, raiders landing on your Loot or Vault lose coins and stars to you instead of gaining them.' },
+
+  // ---- Raider and worker items ----
+  { id: 'armor', name: 'Normal Armor', lore: 'Hide Mantle', price: 5, r: 'C', cat: 'raider', use: 'play', icon: '🥋', desc: 'Equip: ignores 1 trap. No use against a catch or the Unicorn.' },
+  { id: 'heavy', name: 'Heavy Armor', lore: 'Ironplate', price: 10, r: 'U', cat: 'raider', use: 'play', icon: '🛡️', desc: 'Equip: ignores 2 traps. Against a catch or Unicorn: sent to the Gate with half the looted coins, looted stars lost.' },
+  { id: 'camo', name: 'Camouflage', lore: 'Veilcloak', price: 6, r: 'U', cat: 'raider', use: 'play', icon: '🫥', desc: 'Equip: the Defender misses you once. Also stops the Unicorn unless you carry a looted star.' },
+  { id: 'bag', name: 'Locked Bag', lore: 'Sealed Satchel', price: 10, r: 'U', cat: 'raider', use: 'play', icon: '👜', desc: 'Equip: holds 1 star and 5 coins safe from theft. Contents are banked at the end of the game.' },
+  { id: 'antidote', name: 'Antidote', lore: 'Wormwood Tonic', price: 5, r: 'C', cat: 'raider', use: 'play', icon: '🧴', desc: 'Cures Poison.' },
+  { id: 'biscuit', name: 'Dog Biscuit', lore: "Hound's Bone", price: 3, r: 'C', cat: 'raider', use: 'passive', icon: '🦴', desc: 'Automatic: when a Dog fires on you, you drop the biscuit and lose no loot.' },
+  { id: 'pouch', name: 'Star Pouch', lore: 'Starsilk Pouch', price: 6, r: 'R', cat: 'raider', use: 'passive', icon: '👝', desc: 'Automatic: one looted star can’t be taken by a catch, the Unicorn, a Dog or Prison.' },
+  { id: 'unicorn', name: 'Unicorn', lore: 'Moonmane', price: 22, r: 'L', cat: 'raider', use: 'play', target: 'raider', icon: '🦄', desc: 'Doubles your roll. Your Defender takes everything a raider holds without sharing a space and sends them to the Gate.' },
+  { id: 'charm', name: 'Lucky Charm', lore: "Saint's Charm", price: 6, r: 'L', cat: 'raider', use: 'passive', icon: '🍀', desc: 'Automatic: if you hit the hidden mine, you’re locked only 1 turn and keep your loot.' },
+  { id: 'smoke', name: 'Smoke Bomb', lore: 'Ashcloud Vial', price: 8, r: 'U', cat: 'raider', use: 'play', icon: '💨', desc: 'Teleports your raider to the Gate of its current home with all its loot.' },
+  { id: 'jailbreak', name: 'Jail Break', lore: 'Oubliette Pick', price: 3, r: 'C', cat: 'raider', use: 'play', icon: '🗝️', desc: 'Escape Prison at once, with no bail.' },
+  { id: 'stomach', name: 'Iron Stomach', lore: 'Ironbelly Charm', price: 4, r: 'C', cat: 'raider', use: 'passive', icon: '💪', desc: 'Automatic: immune to the next Poison tile you land on.' },
+  { id: 'ghost', name: 'Ghost Walk', lore: 'Wraithstep', price: 10, r: 'R', cat: 'raider', use: 'play', icon: '👻', desc: 'Ignore every trap for 3 moves.' },
+  { id: 'skeleton', name: 'Skeleton Key', lore: 'Skeleton Key', price: 4, r: 'R', cat: 'raider', use: 'passive', icon: '🔑', desc: 'Automatic: opens a Vault guarded by a Vault Protector.' },
+  { id: 'recall', name: 'Recall Horn', lore: 'Homecoming Horn', price: 6, r: 'U', cat: 'raider', use: 'play', icon: '📯', desc: 'Your Traveller appears inside your own ring, even mid-raid, and acts as a second defender.' },
+
+  // ---- Dice and movement ----
+  { id: 'custom', name: 'Custom Dice', lore: 'Fate Die', price: 8, r: 'U', cat: 'dice', use: 'play', icon: '🎯', desc: 'You choose your roll, 1 to 6.' },
+  { id: 'double', name: 'Double Dice', lore: 'Twin Fates', price: 3, r: 'C', cat: 'dice', use: 'play', icon: '🎲', desc: 'Your roll counts double.' },
+  { id: 'reverse', name: 'Reverse Dice', lore: 'Backwind Die', price: 3, r: 'C', cat: 'dice', use: 'play', target: 'selfOrEnemy', icon: '🔄', desc: 'On you or an enemy: the next roll moves the token backwards.' },
+  { id: 'cursed', name: 'Cursed Dice', lore: 'Hexed Die', price: 3, r: 'C', cat: 'dice', use: 'play', target: 'selfOrEnemy', icon: '🧿', desc: 'On you or an enemy: the next roll can only be 1, 2 or 3.' },
+  { id: 'supercursed', name: 'Super Cursed Dice', lore: 'Plague of Hexes', price: 6, r: 'R', cat: 'dice', use: 'play', icon: '🕸️', desc: 'Every enemy: their next roll can only be 1, 2 or 3.' },
+  { id: 'warp', name: 'Warp Pipe', lore: 'Waystone', price: 3, r: 'C', cat: 'dice', use: 'play', icon: '🪨', desc: 'Takes your Traveller to a random main-board space.' },
+  { id: 'shophop', name: 'Shop Hop', lore: 'Market Wind', price: 4, r: 'C', cat: 'dice', use: 'play', icon: '🍃', desc: 'Teleports your Traveller to a random Bank/Shop.' },
+  { id: 'mirror', name: 'Mirror', lore: 'Looking-Glass', price: 5, r: 'U', cat: 'dice', use: 'play', target: 'enemy', icon: '🪞', desc: 'Swap places with any Traveller on the main board.' },
+  { id: 'advantage', name: 'Advantage Dice', lore: "Seer's Die", price: 4, r: 'C', cat: 'dice', use: 'play', icon: '🔮', desc: 'Roll twice and keep the better roll.' },
+  { id: 'snail', name: 'Snail', lore: 'Leaden Boots', price: 3, r: 'C', cat: 'dice', use: 'play', target: 'enemy', icon: '🐌', desc: 'The target’s next roll is halved, never below 1.' },
+  { id: 'ice', name: 'Ice Block', lore: 'Frost Shackle', price: 5, r: 'U', cat: 'dice', use: 'play', target: 'enemy', icon: '🧊', desc: 'The target Traveller can’t move for 2 of its owner’s turns.' },
+
+  // ---- Money and shop ----
+  { id: 'deposit', name: 'Bank Deposit', lore: 'Courier Raven', price: 5, r: 'C', cat: 'money', use: 'play', icon: '🐦‍⬛', desc: 'Deposits everything you hold on hand, wherever you are.' },
+  { id: 'gold', name: 'Gold Card', lore: 'Oracle Card', price: 8, r: 'U', cat: 'money', use: 'play', icon: '🃏', desc: 'd10: 1-3 gives 5 coins, 4-6 gives 8, 7-9 gives 12, 10 gives a star.' },
+  { id: 'starsale', name: 'Star Sale', lore: 'Comet Sale', price: 8, r: 'R', cat: 'money', use: 'passive', icon: '☄️', desc: 'Automatic: halves the star price for one purchase.' },
+  { id: 'bulk', name: 'Bulk Buy', lore: "Merchant's Writ", price: 10, r: 'R', cat: 'money', use: 'passive', icon: '📜', desc: 'Automatic: buy several stars in one shop visit.' },
+  { id: 'itembag', name: 'Item Bag', lore: "Pedlar's Pack", price: 5, r: 'R', cat: 'money', use: 'play', icon: '🎒', desc: 'Gives you a random item, most likely a common one.' },
+  { id: 'coupon', name: 'Coupon', lore: 'Guild Voucher', price: 2, r: 'C', cat: 'money', use: 'passive', icon: '🎟️', desc: 'Automatic: your next item purchase is half price.' },
+  { id: 'interest', name: 'Interest Note', lore: "Usurer's Note", price: 3, r: 'C', cat: 'money', use: 'passive', icon: '📈', desc: 'Automatic: your next deposit earns 25% extra, at least 2 coins.' },
+  { id: 'masterkey', name: 'Master Key', lore: 'Eclipse Pass', price: 3, r: 'C', cat: 'money', use: 'passive', icon: '🗝', desc: 'Automatic: ignore a Shutdown once.' },
+  { id: 'chain', name: 'Chain Wallet', lore: 'Ironclasp Purse', price: 3, r: 'C', cat: 'money', use: 'play', icon: '⛓', desc: 'Your on-hand coins are safe from Red spaces for 3 turns.' },
+  { id: 'robin', name: 'Robin Hood', lore: "Outlaw's Share", price: 4, r: 'U', cat: 'money', use: 'play', icon: '🏹', desc: 'Take 3 coins from the player with the most stars.' },
+  { id: 'swap', name: 'Swap Wallets', lore: "Trickster's Switch", price: 6, r: 'R', cat: 'money', use: 'play', target: 'enemy', icon: '🔀', desc: 'Swap your on-hand coins with any Traveller.' },
+
+  // ---- Chaos and social ----
+  { id: 'thief', name: 'Thief', lore: 'Cutpurse', price: 2, r: 'C', cat: 'chaos', use: 'play', icon: '🦹', desc: 'For one round: steal 1 coin from every Traveller you pass.' },
+  { id: 'itemthief', name: 'Item Thief', lore: 'Magpie', price: 3, r: 'C', cat: 'chaos', use: 'play', icon: '🐦', desc: 'For one round: steal 1 random item from every Traveller you pass.' },
+  { id: 'starthief', name: 'Star Thief', lore: 'Skyfisher', price: 6, r: 'R', cat: 'chaos', use: 'play', icon: '🎣', desc: 'For one round: steal 1 carried star from every Traveller you pass.' },
+  { id: 'plunder', name: 'Plunder Chest', lore: 'Plunder Chest', price: 5, r: 'U', cat: 'chaos', use: 'play', target: 'enemy', icon: '💼', desc: 'Steal a random item from an opponent you choose.' },
+  { id: 'callankar', name: 'Call Ankar', lore: "Ankar's Summons", price: 5, r: 'U', cat: 'chaos', use: 'play', icon: '📣', desc: 'Calls the Ankar to the space 6 behind you.' },
+  { id: 'repel', name: 'Ankar Repellent', lore: 'Ankar Sigil', price: 3, r: 'C', cat: 'chaos', use: 'play', icon: '🧿', desc: 'The Ankar ignores you for 3 turns.' },
+  { id: 'leash', name: 'Ankar Leash', lore: "Ankar's Leash", price: 6, r: 'U', cat: 'chaos', use: 'play', icon: '🪢', desc: 'Move the Ankar up to 6 spaces either way.' },
+  { id: 'decoy', name: 'Decoy Star', lore: 'Lure Star', price: 5, r: 'U', cat: 'chaos', use: 'passive', icon: '⭐', desc: 'Automatic: if the Ankar would take your star, it takes this instead.' },
+  { id: 'bounty', name: 'Bounty Poster', lore: 'Bounty Poster', price: 5, r: 'U', cat: 'chaos', use: 'play', target: 'enemy', icon: '📃', desc: 'Marks a thief. Any Traveller who lands on that raider takes its loot back to its owners.' },
+];
+const ITEM = {};
+ITEMS.forEach(it => { ITEM[it.id] = it; });
+
+const HAND_ITEMS = ITEMS.filter(i => i.use);
+const DEFENSES = ITEMS.filter(i => i.cat === 'defense');
+const HAND_LIMIT = 4;
+
+function itemLabel(id) {
+  const it = ITEM[id];
+  return it.lore !== it.name ? `${it.lore} (${it.name})` : it.name;
+}

@@ -1,0 +1,68 @@
+'use strict';
+// Four-player input: shared keyboard + up to 4 gamepads + mouse (player 1 cursor)
+const Input = {
+  keys: new Set(),
+  maps: [
+    { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], a: ['KeyQ', 'Space'], b: ['KeyE'] },
+    { up: ['KeyT'], down: ['KeyG'], left: ['KeyF'], right: ['KeyH'], a: ['KeyR'], b: ['KeyY'] },
+    { up: ['KeyI'], down: ['KeyK'], left: ['KeyJ'], right: ['KeyL'], a: ['KeyU'], b: ['KeyO'] },
+    { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], a: ['Enter', 'Numpad0'], b: ['ShiftRight', 'NumpadDecimal'] },
+  ],
+  keyNames: [
+    'W A S D  ·  action Q / Space  ·  alt E',
+    'T F G H  ·  action R  ·  alt Y',
+    'I J K L  ·  action U  ·  alt O',
+    'Arrows  ·  action Enter  ·  alt Right Shift',
+  ],
+  mouse: { x: 0, y: 0, down: false, moved: false, canvas: null },
+  init() {
+    window.addEventListener('keydown', e => {
+      this.keys.add(e.code);
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) && document.activeElement && document.activeElement.tagName !== 'INPUT') e.preventDefault();
+    });
+    window.addEventListener('keyup', e => this.keys.delete(e.code));
+    window.addEventListener('blur', () => this.keys.clear());
+  },
+  bindMouse(canvas, w, h) {
+    this.mouse.canvas = canvas;
+    const upd = e => {
+      const r = canvas.getBoundingClientRect();
+      this.mouse.x = (e.clientX - r.left) / r.width * w;
+      this.mouse.y = (e.clientY - r.top) / r.height * h;
+      this.mouse.moved = true;
+    };
+    canvas.addEventListener('mousemove', upd);
+    canvas.addEventListener('mousedown', e => { upd(e); this.mouse.down = true; });
+    window.addEventListener('mouseup', () => { this.mouse.down = false; });
+  },
+  pad(i) {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const list = [];
+    for (const p of pads) if (p && p.connected) list.push(p);
+    return list[i] || null;
+  },
+  state(i) {
+    const m = this.maps[i];
+    const k = arr => arr.some(c => this.keys.has(c));
+    const s = { up: k(m.up), down: k(m.down), left: k(m.left), right: k(m.right), a: k(m.a), b: k(m.b), ax: 0, ay: 0 };
+    const p = this.pad(i);
+    if (p) {
+      const ax = p.axes[0] || 0, ay = p.axes[1] || 0, b = n => p.buttons[n] && p.buttons[n].pressed;
+      if (ax < -0.4 || b(14)) s.left = true;
+      if (ax > 0.4 || b(15)) s.right = true;
+      if (ay < -0.4 || b(12)) s.up = true;
+      if (ay > 0.4 || b(13)) s.down = true;
+      if (b(0) || b(2)) s.a = true;
+      if (b(1) || b(3)) s.b = true;
+      if (Math.abs(ax) > 0.2) s.ax = ax;
+      if (Math.abs(ay) > 0.2) s.ay = ay;
+    }
+    if (!s.ax) s.ax = (s.right ? 1 : 0) - (s.left ? 1 : 0);
+    if (!s.ay) s.ay = (s.down ? 1 : 0) - (s.up ? 1 : 0);
+    return s;
+  },
+  anyAction() {
+    for (let i = 0; i < 4; i++) { const s = this.state(i); if (s.a) return true; }
+    return false;
+  },
+};

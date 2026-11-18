@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Fourfold</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="boardWrap"><canvas id="board" width="900" height="900"></canvas></div>
+  <div id="side">
+    <div id="topbar"><span class="logo">THE FOURFOLD</span>
+      <span class="tb"><button id="muteBtn" title="Sound">🔊</button><button id="speedBtn" title="Animation speed">⏩</button><button id="quitBtn" title="Quit to menu">✖</button></span></div>
+    <div id="players"></div>
+    <div id="action"><div id="actTitle">Welcome</div><div id="actText"></div><div id="actOpts"></div></div>
+    <div id="log"></div>
+  </div>
+  <div id="banner"></div>
+  <div id="mgLayer" class="hidden"><canvas id="mg" width="1280" height="720"></canvas></div>
+  <div id="overlay"></div>
+</div>
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/input.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/game.js"></script>
+<script src="js/mg/core.js"></script>
+<script src="js/mg/games1.js"></script>
+<script src="js/mg/games2.js"></script>
+<script src="js/mg/games3.js"></script>
+<script src="js/mg/games4.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
