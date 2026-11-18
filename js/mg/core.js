@@ -139,7 +139,8 @@ const MG = {
       const x = 190 + i * 300;
       g.fillStyle = p.color; MGH.rr(g, x - 130, 480, 260, 150, 16); g.globalAlpha = 0.18; g.fill(); g.globalAlpha = 1;
       g.strokeStyle = p.color; g.lineWidth = 2; g.stroke();
-      MGH.text(g, `${p.el.glyph} ${p.name}`, x, 520, 22, p.color, 'center', 'bold');
+      Char.draw(g, x - 98, 528, 26, p.el.id, p.color, { mood: p.human && m.pressed(i, 'a') ? 'cheer' : 'happy', seed: i * 1.7, look: { x: 0.5, y: 0 } });
+      MGH.text(g, `${p.name}`, x + 14, 520, 22, p.color, 'center', 'bold');
       MGH.text(g, p.human ? 'Human' : 'Bot', x, 548, 16, '#ccc');
       if (p.human) MGH.wrap(g, MGH.keyHint(game, i), x, 576, 240, 18, '#fff', 14);
     });
@@ -161,12 +162,14 @@ const MG = {
   drawResult(g, game, m, ranking) {
     g.fillStyle = 'rgba(5,3,15,0.82)'; g.fillRect(0, 0, 1280, 720);
     const w = m.players[ranking[0].i];
-    MGH.text(g, '🏆 ' + w.name + ' wins!', 640, 220, 60, w.color, 'center', 'bold');
+    Char.draw(g, 640, 120, 52, w.el.id, w.color, { mood: 'cheer', seed: 1 });
+    MGH.text(g, '🏆 ' + w.name + ' wins!', 640, 230, 56, w.color, 'center', 'bold');
     MGH.text(g, '+2 banked coins and leads the next round', 640, 270, 22, '#ddd');
     ranking.forEach((r, k) => {
       const p = m.players[r.i];
       const s = game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100);
-      MGH.text(g, `${k + 1}. ${p.name} — ${s}`, 640, 350 + k * 48, 28, p.color, 'center', k === 0 ? 'bold' : '');
+      Char.draw(g, 380, 340 + k * 52, 19, p.el.id, p.color, { mood: k === 0 ? 'cheer' : k === 3 ? 'hurt' : k === 1 ? 'happy' : 'neutral', seed: r.i * 1.7 });
+      MGH.text(g, `${k + 1}. ${p.name} — ${s}`, 640, 350 + k * 52, 28, p.color, 'center', k === 0 ? 'bold' : '');
     });
   },
 };
@@ -247,18 +250,14 @@ const MGH = {
       }
     }
   },
-  drawBody(g, b, p, extra) {
-    g.save(); g.translate(b.x, b.y);
-    g.globalAlpha = b.alive ? 1 : 0.25;
-    g.shadowColor = 'rgba(0,0,0,0.5)'; g.shadowBlur = 8;
-    g.fillStyle = p.color; g.beginPath(); g.arc(0, 0, b.r, 0, 7); g.fill();
-    g.shadowBlur = 0; g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
-    g.fillStyle = '#111'; g.beginPath(); g.arc(b.face.x * b.r * 0.45, b.face.y * b.r * 0.45, b.r * 0.22, 0, 7); g.fill();
-    g.font = `${Math.round(b.r * 0.8)}px "Segoe UI Emoji"`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    if (extra) g.fillText(extra, 0, -b.r - 10);
-    g.textBaseline = 'alphabetic';
-    g.restore();
+  drawBody(g, b, p, extra, mood) {
+    const sp = Math.hypot(b.vx || 0, b.vy || 0);
+    if (!mood) mood = b.mood || (!b.alive ? 'out' : ((b.stun > 0 || b.frozen > 0) ? 'dizzy' : sp > 160 ? 'determined' : 'happy'));
+    Char.draw(g, b.x, b.y, b.r, p.el.id, p.color, { mood, look: b.face, walk: sp > 40 ? 1 : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
+    if (extra) { g.save(); g.font = `${Math.round(b.r * 0.9)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(extra, b.x, b.y - b.r * 1.75); g.restore(); }
   },
+  // draw player i's character
+  av(g, m, i, x, y, r, mood, o = {}) { const p = m.players[i]; Char.draw(g, x, y, r, p.el.id, p.color, Object.assign({ mood, seed: i * 1.7 }, o)); },
   // seat-to-bot "near" helpers
   nearest(b, others) { let best = null, bd = 1e9; for (const o of others) { if (o === b || !o.alive) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < bd) { bd = d; best = o; } } return best; },
   aim(m, i, x, y, b, deadzone = 6) {

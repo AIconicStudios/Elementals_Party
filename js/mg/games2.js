@@ -52,8 +52,10 @@ MG.def({
     MGH.bg(g, '#4a3626', '#1f140b'); MGH.lanes(g, m);
     for (let i = 0; i < 4; i++) {
       for (const r of S.rocks) { const y = this.y(r, m.t); if (y < 40 || y > 740) continue; g.fillStyle = '#8a7765'; g.beginPath(); g.arc(i * 320 + r.x, y, r.r, 0, 7); g.fill(); g.strokeStyle = '#3a2a1a'; g.lineWidth = 3; g.stroke(); }
-      if (S.alive[i]) { g.fillStyle = m.players[i].color; g.beginPath(); g.arc(i * 320 + S.x[i], 650, 16, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); }
-      else MGH.text(g, '💥 OUT', i * 320 + 160, 660, 28, '#fff', 'center', 'bold');
+      const near = S.rocks.some(r => { const y = this.y(r, m.t); return y > 470 && y < 660 && Math.abs(r.x - S.x[i]) < 60; });
+      const mv = m.axis(i).x;
+      MGH.av(g, m, i, i * 320 + S.x[i], 648, 18, S.alive[i] ? (near ? 'scared' : 'determined') : 'out', { walk: S.alive[i] ? Math.abs(mv) : 0, look: { x: mv, y: -0.8 } });
+      if (!S.alive[i]) MGH.text(g, '💥 OUT', i * 320 + 160, 600, 28, '#fff', 'center', 'bold');
     }
   },
 });
@@ -96,7 +98,7 @@ MG.def({
   hud(m, S, i) { return `❄${S.b[i].fr}`; },
   draw(m, S, g) {
     MGH.bg(g, '#1a1030', '#0a0618');
-    S.b.forEach((b, i) => { MGH.drawBody(g, b, m.players[i], b.frozen > 0 ? '🧊' : (b.imm > 0 ? '✨' : '')); });
+    S.b.forEach((b, i) => { MGH.drawBody(g, b, m.players[i], b.frozen > 0 ? '🧊' : (b.imm > 0 ? '✨' : ''), b.frozen > 0 ? 'dizzy' : dist(b.x, b.y, S.a.x, S.a.y) < 220 ? 'scared' : null); });
     g.save(); g.translate(S.a.x, S.a.y); g.shadowColor = '#b46bff'; g.shadowBlur = 30;
     g.fillStyle = '#3a1a5c'; g.beginPath(); g.ellipse(0, 0, 36, 24, 0, 0, 7); g.fill();
     g.fillStyle = '#ff4d6d'; g.beginPath(); g.arc(0, 0, 12, 0, 7); g.fill(); g.restore();
@@ -157,7 +159,7 @@ MG.def({
   hud(m, S, i) { return !S.b[i].alive ? 'out' : (i === S.holder ? '🔥' : ''); },
   draw(m, S, g) {
     MGH.bg(g, '#2a1208', '#0e0503');
-    S.b.forEach((b, i) => { if (b.alive) MGH.drawBody(g, b, m.players[i], i === S.holder ? '🔥' : ''); });
+    S.b.forEach((b, i) => { if (b.alive) MGH.drawBody(g, b, m.players[i], i === S.holder ? '🔥' : '', i === S.holder ? 'scared' : (dist(b.x, b.y, S.b[S.holder].x, S.b[S.holder].y) < 160 ? 'scared' : 'happy')); });
     if (S.pause > 0) MGH.text(g, '💥 BOOM!', 640, 380, 80, '#ffb347', 'center', 'bold');
   },
 });
@@ -197,7 +199,8 @@ MG.def({
     g.strokeStyle = '#ffe680'; g.lineWidth = 3; g.stroke(); MGH.text(g, '⭐', S.z.x, S.z.y + 14, 40, '#fff');
     S.b.forEach((b, i) => {
       if (b.push > 0) { g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.beginPath(); g.arc(b.x, b.y, 90 * (1 - b.push * 3), 0, 7); g.stroke(); }
-      MGH.drawBody(g, b, m.players[i]);
+      const inZ = dist(b.x, b.y, S.z.x, S.z.y) < S.z.r;
+      MGH.drawBody(g, b, m.players[i], '', inZ ? (S.contested ? 'determined' : 'cheer') : null);
     });
   },
 });
@@ -258,7 +261,7 @@ MG.def({
   hud(m, S, i) { return S.b[i].alive ? '♥'.repeat(S.b[i].hp) : 'out'; },
   draw(m, S, g) {
     MGH.bg(g, '#2b0d0d', '#0d0303');
-    S.b.forEach((b, i) => { if (b.alive && !(b.inv > 0 && Math.sin(m.t * 40) > 0)) MGH.drawBody(g, b, m.players[i], '♥'.repeat(b.hp)); });
+    S.b.forEach((b, i) => { if (b.alive && !(b.inv > 0 && Math.sin(m.t * 40) > 0)) MGH.drawBody(g, b, m.players[i], '♥'.repeat(b.hp), b.inv > 0 ? 'hurt' : (b.cd > 0.6 ? 'cheer' : 'determined')); });
     for (const f of S.balls) { g.fillStyle = m.players[f.o].color; g.shadowColor = '#ff7a3d'; g.shadowBlur = 16; g.beginPath(); g.arc(f.x, f.y, 10, 0, 7); g.fill(); g.shadowBlur = 0; }
   },
 });
@@ -311,7 +314,7 @@ MG.def({
       for (const pl of S.plats) { const x = pl.x - cam; if (x > 1280 || x + pl.w < 0) continue; g.fillStyle = '#fff'; MGH.rr(g, x, base + pl.y, pl.w, 16, 8); g.fill(); }
       const fx = S.end - cam; if (fx < 1280) { g.fillStyle = '#ffd34d'; g.fillRect(fx, top, 8, 170); }
       g.globalAlpha = p.resp > 0 ? 0.4 : 1;
-      g.fillStyle = m.players[i].color; MGH.rr(g, 236, base + p.y - 30, 28, 30, 8); g.fill(); g.strokeStyle = '#123'; g.lineWidth = 2; g.stroke();
+      MGH.av(g, m, i, 250, base + p.y - 16, 16, p.fin ? 'cheer' : p.resp > 0 ? 'dizzy' : (p.ground ? 'determined' : 'cheer'), { walk: p.ground ? 1 : 0, look: { x: 1, y: 0.2 } });
       g.globalAlpha = 1;
       MGH.text(g, m.players[i].name, 12, top + 24, 18, '#123', 'left', 'bold');
       g.restore();
@@ -365,7 +368,8 @@ MG.def({
         if (o.ring) { g.strokeStyle = p.hit.has(k) ? 'rgba(255,230,128,0.3)' : '#ffe680'; g.lineWidth = 5; g.beginPath(); g.ellipse(ox + o.x, y, 30, 12, 0, 0, 7); g.stroke(); }
         else { g.fillStyle = '#5a5248'; g.beginPath(); g.arc(ox + o.x, y, 22, 0, 7); g.fill(); }
       });
-      g.fillStyle = m.players[i].color; g.beginPath(); g.ellipse(ox + p.x, 580, 14, 28, 0, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = '#f4e3b5'; g.beginPath(); g.ellipse(ox + p.x, 592, 13, 30, 0, 0, 7); g.fill(); g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.stroke();
+      MGH.av(g, m, i, ox + p.x, 574, 17, p.slow > 0 ? 'hurt' : p.boost > 0 ? 'cheer' : 'determined', { noFeet: true, look: { x: m.axis(i).x * 0.7, y: -1 } });
       if (p.boost > 0) MGH.text(g, '💨', ox + p.x, 640, 24, '#fff');
     }
   },
@@ -413,8 +417,7 @@ MG.def({
       const by = 200 + (S.goal - p.d); if (by < 720) { g.fillStyle = '#ffd34d'; g.fillRect(ox + 4, by, 312, 10); }
       S.rocks.forEach((r, k) => { const y = 200 + (r.d - p.d); if (y < 40 || y > 720) return; g.fillStyle = p.hit.has(k) ? '#555' : '#8a8a8a'; g.beginPath(); g.arc(ox + r.x, y, 26, 0, 7); g.fill(); });
       g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(ox + p.x - 16, 40, 32, 160);
-      g.fillStyle = m.players[i].color; g.beginPath(); g.arc(ox + p.x, 200, 18, 0, 7); g.fill();
-      MGH.text(g, p.stun > 0 ? '💫' : '⛏️', ox + p.x, 236, 22, '#fff');
+      MGH.av(g, m, i, ox + p.x, 196, 19, p.fin ? 'cheer' : p.stun > 0 ? 'dizzy' : 'determined', { look: { x: 0, y: 1 }, walk: p.v > 60 ? 1 : 0, prop: '⛏️' });
     }
   },
 });
@@ -451,7 +454,8 @@ MG.def({
       const y = 140 + i * 145, p = S.p[i], x = 80 + p.d / S.goal * 1080;
       g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(60, y - 40, 1140, 80);
       g.fillStyle = '#fff'; g.fillRect(1160, y - 44, 6, 88);
-      MGH.text(g, '🦄', x, y + 16, 50, '#fff');
+      MGH.av(g, m, i, x - 2, y - 30, 16, p.fin ? 'cheer' : p.stum > 0 ? 'dizzy' : p.heat > 0.8 ? 'scared' : 'determined', { noFeet: true, look: { x: 1, y: 0 } });
+      g.save(); g.translate(x, y + 16); g.scale(-1, 1); MGH.text(g, '🦄', 0, 0, 50, '#fff'); g.restore();
       g.fillStyle = m.players[i].color; g.fillRect(x - 30, y + 26, 60, 6);
       g.fillStyle = '#222'; g.fillRect(60, y + 44, 200, 10);
       g.fillStyle = p.heat > 0.8 ? '#ff4d4d' : '#ffb347'; g.fillRect(60, y + 44, 200 * Math.min(1, p.heat), 10);
@@ -524,7 +528,8 @@ MG.def({
     MGH.text(g, S.phase === 'show' ? `Watch… (${S.seq.length})` : S.phase === 'input' ? 'Repeat it!' : 'Well done', 640, 600, 30, '#fff', 'center', 'bold');
     for (let i = 0; i < 4; i++) {
       const x = 160 + i * 320, p = m.players[i];
-      MGH.text(g, `${p.name}: ${S.alive[i] ? (S.done[i] ? '✔' : '…') : '✖ out'}`, x, 680, 22, p.color, 'center', 'bold');
+      MGH.av(g, m, i, x - 100, 670, 22, !S.alive[i] ? 'out' : S.done[i] ? 'cheer' : (S.phase === 'show' ? 'neutral' : 'determined'), { look: { x: 0.5, y: -1 } });
+      MGH.text(g, `${p.name}: ${S.alive[i] ? (S.done[i] ? '✔' : '…') : '✖ out'}`, x + 10, 680, 22, p.color, 'center', 'bold');
     }
   },
 });

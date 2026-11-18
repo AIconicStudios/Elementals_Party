@@ -11,7 +11,7 @@ MG.def({
     for (let t = 0.3; t < 29; t += R.range(0.28, 0.5)) S.items.push({ t, x: R.range(30, 290), ash: Math.random() < 0.28, v: 260 + t * 7 });
     S.bx = [160, 160, 160, 160]; S.pts = [0, 0, 0, 0];
     S.res = [new Set(), new Set(), new Set(), new Set()];
-    S.pops = [];
+    S.pops = []; S.mood = [0, 1, 2, 3].map(() => ({ m: 'happy', t: 0 }));
   },
   yOf(it, t) { return 40 + (t - it.t) * it.v; },
   update(m, S, dt) {
@@ -23,7 +23,7 @@ MG.def({
         if (y >= 650) {
           S.res[i].add(k);
           if (y < 700 && Math.abs(it.x - S.bx[i]) < 48) {
-            S.pts[i] += it.ash ? -2 : 1;
+            S.pts[i] += it.ash ? -2 : 1; S.mood[i] = { m: it.ash ? 'hurt' : 'cheer', t: 0.6 };
             S.pops.push({ x: i * 320 + it.x, y: 640, s: it.ash ? '−2' : '+1', t: 0, c: it.ash ? '#f66' : '#ffe680' });
             if (!m.bot(i)) { if (it.ash) Sfx.bad(); else Sfx.coin(); }
           }
@@ -31,6 +31,7 @@ MG.def({
       });
     }
     S.pops.forEach(p => { p.t += dt; }); S.pops = S.pops.filter(p => p.t < 0.8);
+    S.mood.forEach(x => { x.t -= dt; });
   },
   bot(m, S, i) {
     if (!S.target) S.target = [];
@@ -63,7 +64,9 @@ MG.def({
         g.font = '28px "Segoe UI Emoji"'; g.textAlign = 'center'; g.fillText(it.ash ? '☁️' : '⭐', i * 320 + it.x, y);
       });
       const x = i * 320 + S.bx[i];
-      g.fillStyle = m.players[i].color; MGH.rr(g, x - 45, 650, 90, 26, 10); g.fill();
+      const mv = m.axis(i).x;
+      MGH.av(g, m, i, x, 626, 24, S.mood[i].t > 0 ? S.mood[i].m : 'determined', { look: { x: mv * 0.5, y: -1 }, walk: Math.abs(mv) });
+      g.fillStyle = '#8a5a2b'; MGH.rr(g, x - 45, 650, 90, 26, 10); g.fill();
       g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
     }
     S.pops.forEach(p => MGH.text(g, p.s, p.x, p.y - p.t * 50, 26, p.c, 'center', 'bold'));
@@ -121,7 +124,9 @@ MG.def({
       g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(100, y - 30, 1000, 60);
       g.fillStyle = '#ffe680'; g.fillRect(1100, y - 34, 8, 68);
       const x = 100 + S.pos[i];
-      g.fillStyle = S.flash[i] > 0 ? '#fff' : p.color; g.beginPath(); g.arc(Math.min(x, 1100), y, 20, 0, 7); g.fill();
+      const run = m.held(i, 'a') && !S.fin[i];
+      const mood = S.fin[i] ? 'cheer' : S.flash[i] > 0 ? 'hurt' : (S.eye === 'open' ? 'scared' : S.eye === 'tell' ? 'scared' : run ? 'determined' : 'happy');
+      MGH.av(g, m, i, Math.min(x, 1100), y - 4, 22, mood, { walk: run ? 1 : 0, look: { x: 1, y: 0 } });
       MGH.text(g, p.name, 90, y + 6, 18, p.color, 'right', 'bold');
       if (S.fin[i]) MGH.text(g, '🏁', 1140, y + 10, 30, '#fff');
     }
@@ -165,7 +170,8 @@ MG.def({
     } else MGH.text(g, 'Wait for it…', 640, 360, 50, '#556', 'center', 'bold');
     for (let i = 0; i < 4; i++) {
       const x = 190 + i * 300, p = m.players[i];
-      g.fillStyle = p.color; g.globalAlpha = S.lock[i] ? 0.25 : 1; g.fillRect(x - 6, 560, 12, 120); g.globalAlpha = 1;
+      const mood = S.winner === i ? 'cheer' : S.lock[i] ? 'hurt' : (S.bolt ? 'scared' : 'determined');
+      MGH.av(g, m, i, x, 630, 34, mood, { look: { x: 0, y: -1 } });
       MGH.text(g, p.name + (S.lock[i] ? ' (too early!)' : '') + (S.winner === i ? ' ⚡' : ''), x, 700, 20, p.color, 'center', 'bold');
     }
     if (S.winner >= 0) MGH.text(g, `${m.players[S.winner].name} — ${(S.react * 1000).toFixed(0)} ms`, 640, 620, 30, m.players[S.winner].color, 'center', 'bold');
@@ -208,6 +214,8 @@ MG.def({
       if (show) { g.fillStyle = p.color; const f = Math.min(1.05, S.fill[i]); g.fillRect(x - 66, top + h - f * h, 132, f * h); }
       else { g.fillStyle = 'rgba(80,60,120,0.85)'; g.fillRect(x - 66, top + 4, 132, h - 8); MGH.text(g, S.state[i] === 2 ? '✔ done' : (S.state[i] === 1 ? 'pouring…' : 'hold'), x, top + h / 2, 22, '#fff'); }
       g.strokeStyle = '#ffe680'; g.lineWidth = 3; g.beginPath(); g.moveTo(x - 80, top + h - S.line * h); g.lineTo(x + 80, top + h - S.line * h); g.stroke();
+      const er = Math.abs(S.fill[i] - S.line);
+      MGH.av(g, m, i, x + 108, 540, 24, show ? (S.fill[i] > 1 ? 'hurt' : er < 0.05 ? 'cheer' : er < 0.15 ? 'happy' : 'neutral') : (S.state[i] === 1 ? 'determined' : 'happy'), { look: { x: -1, y: 0 } });
       MGH.text(g, p.name, x, 630, 22, p.color, 'center', 'bold');
       if (show) MGH.text(g, S.fill[i] > 1 ? 'overflow!' : `off by ${Math.abs(S.fill[i] - S.line).toFixed(3)}`, x, 660, 18, '#fff');
     }
@@ -252,7 +260,8 @@ MG.def({
     for (let i = 0; i < 4; i++) {
       const x = 190 + i * 300, p = m.players[i];
       const lt = S.taps[i].length ? S.taps[i][S.taps[i].length - 1] : -9;
-      g.fillStyle = p.color; g.globalAlpha = m.t - lt < 0.12 ? 1 : 0.35; g.beginPath(); g.arc(x, 560, 40, 0, 7); g.fill(); g.globalAlpha = 1;
+      const tap = m.t - lt < 0.15;
+      MGH.av(g, m, i, x, 560 - (tap ? 12 : 0), 40, tap ? 'cheer' : (silent ? 'determined' : 'sleepy'));
       MGH.text(g, p.name, x, 640, 22, p.color, 'center', 'bold');
     }
   },
@@ -300,6 +309,8 @@ MG.def({
       const bx = cx + Math.sin(a) * 300, by = 100 + Math.cos(a) * 300;
       g.strokeStyle = '#aaa'; g.lineWidth = 3; g.beginPath(); g.moveTo(cx, 100); g.lineTo(bx, by); g.stroke();
       g.fillStyle = p.color; g.beginPath(); g.arc(bx, by, 26, 0, 7); g.fill();
+      const l = S.last[i];
+      MGH.av(g, m, i, cx - 95, 640, 22, l === null ? 'determined' : l < 0.08 ? 'cheer' : l < 0.25 ? 'happy' : 'hurt', { look: { x: 1, y: -0.5 } });
       if (S.last[i] !== null) MGH.text(g, S.last[i] < 0.08 ? 'PERFECT' : S.last[i].toFixed(2), cx, 690, 22, '#fff', 'center', 'bold');
     }
   },
@@ -348,7 +359,8 @@ MG.def({
       g.fillStyle = '#ffd34d'; g.fillRect(x0 + (S.zone[i] - w / 2) * W, y - 22, w * W, 44);
       g.fillStyle = '#fff'; g.fillRect(x0 + S.pos[i] * W - 4, y - 32, 8, 64);
       MGH.text(g, '🔨', x0 + S.pos[i] * W, y - 36, 26, '#fff');
-      MGH.text(g, S.msg[i], 1180, y + 8, 22, '#ffe680', 'center', 'bold');
+      MGH.av(g, m, i, 1135, y - 2, 26, S.msg[i] === 'GOLD!' ? 'cheer' : S.msg[i] === 'miss' ? 'hurt' : 'determined', { look: { x: -1, y: 0 } });
+      MGH.text(g, S.msg[i], 1215, y + 8, 20, '#ffe680', 'center', 'bold');
     }
   },
 });
@@ -409,7 +421,7 @@ MG.def({
     for (const p of S.plats) { MGH.rr(g, p.x, p.y, p.w, 12, 5); g.fill(); }
     S.b.forEach((b, i) => {
       if (!b.alive) return;
-      g.fillStyle = m.players[i].color; MGH.rr(g, b.x - 14, b.y - 36, 28, 36, 8); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+      MGH.av(g, m, i, b.x, b.y - 17, 16, S.water - b.y < 90 ? 'scared' : (b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: Math.sign(b.vx) * 0.8, y: -0.5 } });
     });
     g.fillStyle = 'rgba(40,120,255,0.65)'; g.fillRect(0, S.water, 1280, 720 - S.water);
     g.fillStyle = 'rgba(160,210,255,0.5)'; for (let x = 0; x < 1280; x += 40) { g.beginPath(); g.arc(x + (m.t * 40) % 40, S.water, 14, Math.PI, 0); g.fill(); }
@@ -482,7 +494,7 @@ MG.def({
       g.fillRect(x, y, S.tw - 2, S.th - 2);
       if (s === 2) MGH.text(g, '🔥', x + S.tw / 2, y + S.th / 2 + 12, 34, '#fff');
     }
-    S.b.forEach((b, i) => { if (b.alive) MGH.drawBody(g, b, m.players[i]); });
+    S.b.forEach((b, i) => { if (b.alive) MGH.drawBody(g, b, m.players[i], '', S.state[this.tileAt(S, b.x, b.y)] === 1 ? 'scared' : null); });
   },
 });
 
@@ -527,6 +539,6 @@ MG.def({
     g.fillStyle = '#e9f7ff'; g.beginPath(); g.arc(S.cx, S.cy, S.rad, 0, 7); g.fill();
     g.strokeStyle = '#2a7fa8'; g.lineWidth = 8; g.stroke();
     for (let k = 0; k < 12; k++) { const a = m.t + k; g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 3; g.beginPath(); g.arc(S.cx, S.cy, S.rad + 30 + k * 8, a, a + 0.6); g.stroke(); }
-    S.b.forEach((b, i) => { if (b.alive) MGH.drawBody(g, b, m.players[i], b.dash > 0 ? '💨' : ''); });
+    S.b.forEach((b, i) => { if (b.alive) MGH.drawBody(g, b, m.players[i], b.dash > 0 ? '💨' : '', dist(b.x, b.y, S.cx, S.cy) > S.rad - 45 ? 'scared' : (b.dash > 0 ? 'determined' : null)); });
   },
 });

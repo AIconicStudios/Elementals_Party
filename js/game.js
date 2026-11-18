@@ -246,12 +246,20 @@ class Game {
   }
 
   async firstOrder() {
-    const rolls = this.players.map(p => ({ id: p.id, v: R.d6() + Math.random() * 0.01 }));
-    for (const r of rolls) { this.dice = { v: Math.floor(r.v), who: r.id }; UI.refresh(); Sfx.dice(); await sleep(300); }
+    const rolls = [];
+    for (const p of this.players) {
+      this.current = p; UI.turnStart(p);
+      if (p.human && !Settings.test) UI.note(`${p.name}: roll for turn order!`);
+      const v = await this.throwDie(p, [1, 2, 3, 4, 5, 6]);
+      rolls.push({ id: p.id, v: v + Math.random() * 0.01 });
+      this.log(`${this.name(p)} rolls ${v} for turn order.`);
+      await sleep(600);
+    }
+    Render.die = null; this.current = null;
     rolls.sort((a, b) => b.v - a.v);
     const first = rolls[0].id;
     this.order = [0, 1, 2, 3].map(k => (first + k) % 4);
-    this.log(`Opening rolls: ${rolls.map(r => `${this.P(r.id).name} ${Math.floor(r.v)}`).join(', ')}. ${this.name(this.P(first))} plays first, then clockwise.`);
+    this.log(`${this.name(this.P(first))} rolled highest and plays first, then clockwise.`);
     this.dice = null;
   }
 
@@ -315,7 +323,7 @@ class Game {
     if (t.chain > 0) t.chain--;
     if (t.repel > 0) t.repel--;
     this.fillBag(p);
-    this.dice = null;
+    this.dice = null; Render.die = null;
     UI.refresh();
     await sleep(200);
   }
@@ -407,16 +415,31 @@ class Game {
   }
 
   // ------------------------------------------------------------ dice
+  async throwDie(p, faces) {
+    Render.startRoll(p.id, faces);
+    UI.refresh();
+    if (p.human && !Settings.test) await UI.waitDieStop(p);
+    else await sleep(R.range(450, 850));
+    const v = R.pick(faces);
+    await Render.stopRoll(v);
+    return v;
+  }
+
   async roll(p) {
     const m = p.trav.mods; p.trav.mods = {};
     let v;
     if (m.custom) {
       v = await this.choose(p, { title: 'Custom Dice', text: 'Choose your roll.', options: [1, 2, 3, 4, 5, 6].map(n => ({ label: String(n), value: n })) }, () => AI.customRoll(this, p));
+      Render.die = { who: p.id, faces: [v], state: 'landed', face: v, rot: 0, hop: 1, spin: 0, note: '', total: null, t: 0, land: 0.0001 };
     } else {
-      const one = () => m.cursed ? R.int(1, 3) : R.d6();
-      for (let k = 0; k < 6; k++) { this.dice = { v: R.d6(), who: p.id, rolling: true }; UI.refresh(); Sfx.dice(); await sleep(55); }
-      v = one();
-      if (m.adv) { const v2 = one(); this.log(`Advantage: rolled ${v} and ${v2}.`); v = Math.max(v, v2); }
+      const faces = m.cursed ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
+      v = await this.throwDie(p, faces);
+      if (m.adv) {
+        await sleep(500);
+        const v2 = await this.throwDie(p, faces);
+        this.log(`Advantage: rolled ${v} and ${v2}.`);
+        v = Math.max(v, v2); Render.die.face = v;
+      }
     }
     let note = [];
     if (m.snail) { v = Math.max(1, Math.floor(v / 2)); note.push('snail ½'); }
@@ -427,6 +450,7 @@ class Game {
     const dir = m.reverse ? -1 : 1;
     if (m.reverse) note.push('reversed');
     this.dice = { v, who: p.id, note: note.join(', ') };
+    if (Render.die) { Render.die.total = v; Render.die.note = note.join(', '); }
     this.log(`${this.name(p)} rolls <b>${v}</b>${note.length ? ` (${note.join(', ')})` : ''}.`);
     UI.refresh();
     await sleep(500);

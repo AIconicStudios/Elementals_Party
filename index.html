@@ -8,14 +8,13 @@
 </head>
 <body>
 <div id="app">
-  <div id="boardWrap"><canvas id="board" width="900" height="900"></canvas></div>
-  <div id="side">
-    <div id="topbar"><span class="logo">THE FOURFOLD</span>
-      <span class="tb"><button id="muteBtn" title="Sound">🔊</button><button id="speedBtn" title="Animation speed">⏩</button><button id="quitBtn" title="Quit to menu">✖</button></span></div>
-    <div id="players"></div>
-    <div id="action"><div id="actTitle">Welcome</div><div id="actText"></div><div id="actOpts"></div></div>
-    <div id="log"></div>
-  </div>
+  <canvas id="board" width="1600" height="900"></canvas>
+  <div id="pc0" class="pc"></div><div id="pc1" class="pc"></div><div id="pc2" class="pc"></div><div id="pc3" class="pc"></div>
+  <div id="ctrl"><div class="logo">THE FOURFOLD</div>
+    <button id="muteBtn" title="Sound">🔊 Sound</button><button id="speedBtn" title="Animation speed">⏩ Speed</button><button id="quitBtn" title="Quit to menu">✖ Menu</button>
+    <div class="legend"><span>+5 Boon</span><span>−3 Bane</span><span>🏛️ Counting House</span><span>👁️ Ankar's Altar</span><span>🌑 Eclipse</span><span>×2 Gilded Spring</span><span>🎡 Fortune Wheel</span><span>🎁 Pedlar</span><span>❓ Mirage</span></div></div>
+  <div id="action"><div id="actTitle">Welcome</div><div id="actText"></div><div id="actOpts"></div></div>
+  <div id="log"></div>
   <div id="banner"></div>
   <div id="mgLayer" class="hidden"><canvas id="mg" width="1280" height="720"></canvas></div>
   <div id="overlay"></div>
@@ -23,6 +22,7 @@
 <script src="js/util.js"></script>
 <script src="js/data.js"></script>
 <script src="js/input.js"></script>
+<script src="js/chars.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/ai.js"></script>

@@ -8,7 +8,9 @@ const UI = {
   pending: null,
   init() {
     window.addEventListener('keydown', e => {
-      if (!this.pending || !$('#mgLayer').classList.contains('hidden')) return;
+      if (!$('#mgLayer').classList.contains('hidden')) return;
+      if ((e.code === 'Space' || e.code === 'Enter') && Render.die && Render.die.onStop) { e.preventDefault(); Render.die.onStop(); return; }
+      if (!this.pending) return;
       const n = parseInt(e.key, 10);
       if (n >= 1 && n <= 9) {
         const btns = [...document.querySelectorAll('#actOpts button:not([disabled])')];
@@ -35,7 +37,7 @@ const UI = {
 
   refresh() {
     const G = this.game; if (!G || Settings.test) return;
-    const html = G.players.map(p => {
+    G.players.forEach(p => {
       const t = p.trav;
       const st = [];
       if (t.armor) st.push(t.armor === 'heavy' ? `🛡️Ironplate(${t.armorLeft})` : '🥋Mantle');
@@ -45,24 +47,41 @@ const UI = {
       if (t.bag) st.push(`👜${t.bag.c}c/${t.bag.s}⭐`); if (p.ultHeld) st.push(`${ITEM[p.el.ult].icon}${ITEM[p.el.ult].lore}`);
       if (p.vaultProt) st.push(`🔏${p.vaultProt}`); if (p.fakeStars) st.push(`✴️×${p.fakeStars}`);
       if (p.gone) st.push('💀No Wayfarer'); else if (!p.def) st.push('No Warden');
-      const loc = p.gone ? '—' : t.loc === 'board' ? `Crossing ${t.pos} (${SPACE[G.board[t.pos]].lore})` : (t.ring === p.id ? `In own Hold, tile ${t.pos}` : `Raiding ${G.P(t.ring).el.hold}, tile ${t.pos}`);
+      const loc = p.gone ? '—' : t.loc === 'board' ? `On the Crossing: ${SPACE[G.board[t.pos]].lore}` : (t.ring === p.id ? `Guarding own Hold, tile ${t.pos}` : `⚔️ Raiding ${G.P(t.ring).el.hold}, tile ${t.pos}`);
       const items = p.items.map(id => `<span class="it" title="${esc(itemLabel(id) + ': ' + ITEM[id].desc)}">${ITEM[id].icon}</span>`).join('') || '<span class="dim">no items</span>';
-      return `<div class="pc ${G.current === p ? 'cur' : ''}" style="--c:${p.color}">
-        <div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="ord">#${G.order.indexOf(p.id) + 1}</span></div>
+      const el = $('#pc' + p.id);
+      el.className = 'pc' + (G.current === p ? ' cur' : '');
+      el.style.setProperty('--c', p.color);
+      el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="ord">turn order #${G.order.indexOf(p.id) + 1}</span></div>
         <div class="pcs"><span title="Banked stars (Starvault)">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 ${G.bank(p)}</span><span title="Coins on hand">💰 ${p.cash}</span>
-        <span title="Hot loot (unbanked)">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>${t.sHand ? `<span title="Carried stars">✨${t.sHand}</span>` : ''}<span title="Moot wins">🏆${p.mgWins}</span></div>
+        <span title="Hot loot (unbanked)">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>${t.sHand ? `<span title="Carried stars">✨${t.sHand}</span>` : ''}<span title="Moot wins">🏆 ${p.mgWins}</span></div>
         <div class="pcl">${esc(loc)}</div>
-        <div class="pci">${items}</div>
-        ${st.length ? `<div class="pct">${st.join(' · ')}</div>` : ''}
-      </div>`;
-    }).join('');
-    $('#players').innerHTML = html;
+        <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
+    });
+  },
+
+  note(text) { if (!Settings.test) $('#actText').textContent = text; },
+
+  waitDieStop(p) {
+    return new Promise(resolve => {
+      const box = $('#action'); box.style.setProperty('--c', p.color);
+      $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)} — roll!`;
+      $('#actText').textContent = 'The die is tumbling. Stop it when you feel lucky.';
+      const opts = $('#actOpts'); opts.innerHTML = '';
+      const b = document.createElement('button'); b.className = 'rollBtn'; b.innerHTML = '🎲 STOP THE DIE!<small>click here, click the die, or press SPACE</small>';
+      opts.appendChild(b);
+      const done = () => { if (!Render.die) return resolve(); Render.die.onStop = null; Render.die.waiting = false; this.pending = null; opts.innerHTML = ''; $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = 'The die is landing…'; resolve(); };
+      b.onclick = done;
+      Render.die.onStop = done; Render.die.waiting = true;
+      this.pending = done;
+    });
   },
 
   turnStart(p) {
     if (Settings.test) return;
+    $('#action').style.setProperty('--c', p.color);
     $('#actTitle').textContent = `${p.el.glyph} ${p.name}'s turn${p.human ? '' : ' (bot)'}`;
-    $('#actText').textContent = '';
+    $('#actText').textContent = p.human ? '' : 'Thinking…';
     $('#actOpts').innerHTML = '';
   },
 

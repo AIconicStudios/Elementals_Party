@@ -21,7 +21,9 @@ const PickR = {
   drawStatus(m, S, g, y = 690) {
     for (let i = 0; i < 4; i++) {
       const p = m.players[i];
-      MGH.text(g, `${p.name}: ${S.P[i].locked ? '🔒 locked' : 'choosing…'}`, 160 + i * 320, y, 20, p.color, 'center', 'bold');
+      const mood = S.phase === 'reveal' && S.mood ? S.mood[i] : (S.P[i].locked ? 'happy' : 'determined');
+      MGH.av(g, m, i, 160 + i * 320 - 110, y - 12, 20, mood, { look: { x: 0.6, y: -0.3 } });
+      MGH.text(g, `${p.name}: ${S.phase === 'reveal' ? '' : (S.P[i].locked ? '🔒 locked' : 'choosing…')}`, 160 + i * 320 + 10, y, 20, p.color, 'center', 'bold');
     }
     if (S.phase === 'pick') MGH.text(g, `⏱ ${Math.max(0, S.pickT - S.t).toFixed(1)}`, 640, 80, 24, '#fff', 'center', 'bold');
   },
@@ -61,6 +63,7 @@ MG.def({
     } else if (S.phase === 'pick') {
       const ans = S.slot.indexOf(S.coin);
       if (PickR.update(m, S, dt, 3, i => Math.random() < 0.95 - S.round * 0.09 ? ans : R.int(0, 2))) {
+        S.mood = [0, 1, 2, 3].map(i => S.P[i].locked && S.P[i].idx === ans ? 'cheer' : 'hurt');
         for (let i = 0; i < 4; i++) { if (S.P[i].locked && S.P[i].idx === ans) S.pts[i]++; S.ttot[i] += S.t; }
         S.phase = 'reveal'; S.t = 0;
       }
@@ -148,13 +151,14 @@ MG.def({
       g.save(); g.translate(p.x, p.y + 9); if (f && S.kind === 2) g.rotate(0.35); g.fillText('★', 0, 0); g.restore();
       if (S.pause > 0 && f) { g.strokeStyle = '#fff'; g.lineWidth = 5; g.beginPath(); g.arc(p.x, p.y, 42, 0, 7); g.stroke(); }
     }
-    MGH.cursors(m, g);
+    MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.pause > 0 && S.found === i ? 'cheer' : S.lock[i] > 0 ? 'hurt' : 'determined'));
     if (S.found >= 0 && S.pause > 0) MGH.text(g, `${m.players[S.found].name} found it!`, 640, 690, 30, m.players[S.found].color, 'center', 'bold');
   },
 });
-MGH.cursors = (m, g) => {
+MGH.cursors = (m, g, moods) => {
   m.players.forEach((p, i) => {
     const c = m.cur[i];
+    Char.draw(g, c.x + 26, c.y + 26, 12, p.el.id, p.color, { mood: (moods && moods[i]) || 'determined', seed: i * 1.7, look: { x: -0.7, y: -0.7 }, noFeet: true });
     g.strokeStyle = '#000'; g.lineWidth = 4; g.beginPath(); g.arc(c.x, c.y, 12, 0, 7); g.stroke();
     g.strokeStyle = p.color; g.lineWidth = 3; g.beginPath(); g.arc(c.x, c.y, 12, 0, 7); g.moveTo(c.x - 18, c.y); g.lineTo(c.x + 18, c.y); g.moveTo(c.x, c.y - 18); g.lineTo(c.x, c.y + 18); g.stroke();
     MGH.text(g, String(i + 1), c.x + 16, c.y - 14, 14, p.color, 'left', 'bold');
@@ -216,7 +220,7 @@ MG.def({
       g.stroke(); g.globalAlpha = 1;
       MGH.text(g, `${m.players[i].name}: ${S.prog[i]}/${S.pat.length}${S.out[i] ? ' ✖' : ''}`, 160 + i * 320, 690, 20, m.players[i].color, 'center', 'bold');
     }
-    MGH.cursors(m, g);
+    MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.out[i] ? 'hurt' : S.prog[i] >= S.pat.length ? 'cheer' : S.phase === 'show' ? 'neutral' : 'determined'));
   },
 });
 
@@ -237,6 +241,7 @@ MG.def({
     else if (S.phase === 'blink' && S.t > 0.5) { PickR.start(S, 8, 7, 0); }
     else if (S.phase === 'pick') {
       if (PickR.update(m, S, dt, 4, () => Math.random() < 0.75 - S.round * 0.05 ? S.miss : R.int(0, 7))) {
+        S.mood = [0, 1, 2, 3].map(i => S.P[i].locked && S.P[i].idx === S.miss ? 'cheer' : 'hurt');
         for (let i = 0; i < 4; i++) { if (S.P[i].locked && S.P[i].idx === S.miss) S.pts[i]++; S.tt[i] += S.t; }
         S.phase = 'reveal'; S.t = 0;
       }
@@ -273,6 +278,7 @@ MG.def({
         S.win = -1;
         for (let v = 0; v < 10; v++) { const who = picks.map((x, i) => x === v ? i : -1).filter(i => i >= 0); if (who.length === 1) { S.win = who[0]; break; } }
         if (S.win >= 0) S.pts[S.win]++;
+        S.mood = [0, 1, 2, 3].map(i => i === S.win ? 'cheer' : 'neutral');
         S.phase = 'reveal'; S.t = 0;
       }
     } else { S.t += dt; if (S.t > 2.5) { if (S.round >= 3) m.finish(S.pts.slice()); else { S.round++; PickR.start(S, 10, 8, 0); } } }
@@ -301,6 +307,7 @@ MG.def({
         const left = S.P.map((p, i) => p.idx === 0 ? i : -1).filter(i => i >= 0), right = S.P.map((p, i) => p.idx === 1 ? i : -1).filter(i => i >= 0);
         S.win = left.length === 1 ? left[0] : right.length === 1 ? right[0] : -1;
         if (S.win >= 0) S.pts[S.win]++;
+        S.mood = [0, 1, 2, 3].map(i => i === S.win ? 'cheer' : (S.win >= 0 ? 'hurt' : 'neutral'));
         S.phase = 'reveal'; S.t = 0;
       }
     } else { S.t += dt; if (S.t > 2.2) { if (S.round >= 5) m.finish(S.pts.slice()); else { S.round++; PickR.start(S, 2, 5, 0); } } }
@@ -353,6 +360,7 @@ MG.def({
       g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(240, y - 8, 800, 16);
       const show = S.phase === 'reveal' || !m.bot(i);
       if (show && !(S.phase === 'pick' && S.lock[i] && !m.bot(i) && false)) { g.fillStyle = p.color; g.beginPath(); g.arc(240 + S.v[i] * 8, y, 16, 0, 7); g.fill(); }
+      MGH.av(g, m, i, 80, y - 4, 22, S.phase === 'reveal' ? (S.winners.includes(i) ? 'cheer' : 'neutral') : (S.lock[i] ? 'happy' : 'determined'));
       MGH.text(g, p.name, 220, y + 7, 20, p.color, 'right', 'bold');
       MGH.text(g, S.phase === 'reveal' ? String(S.v[i]) : (S.lock[i] ? '🔒' : (m.bot(i) ? '…' : String(S.v[i]))), 1100, y + 8, 22, '#fff', 'center', 'bold');
     }
@@ -418,7 +426,7 @@ MG.def({
     MGH.text(g, `Round ${S.round}`, 640, 90, 26, '#ccb');
     for (let i = 0; i < 4; i++) {
       const x = 160 + i * 320, p = m.players[i];
-      MGH.text(g, S.alive[i] ? '🤠' : '💀', x, 200, 70, '#fff');
+      MGH.av(g, m, i, x, 190, 40, !S.alive[i] ? 'out' : (S.phase === 'reveal' ? 'scared' : S.ammo[i] > 0 ? 'determined' : 'neutral'), { prop: S.alive[i] && S.ammo[i] > 0 ? '🔫' : null });
       MGH.text(g, p.name, x, 250, 22, p.color, 'center', 'bold');
       MGH.text(g, `ammo: ${'●'.repeat(S.ammo[i]) || '—'}`, x, 280, 18, '#ddd');
       if (S.alive[i] && S.phase === 'pick' && !m.bot(i)) {
@@ -482,7 +490,8 @@ MG.def({
     rel.forEach(([e, v], k) => { MGH.text(g, e, 120, 210 + k * 130, 60, '#fff'); MGH.text(g, `${v} pt`, 120, 250 + k * 130, 18, '#ffe680'); });
     for (let i = 0; i < 4; i++) {
       const x = 330 + i * 250, p = m.players[i], show = S.phase === 'reveal' || !m.bot(i);
-      MGH.text(g, `${p.name} ${S.lock[i] ? '🔒' : ''}`, x, 150, 20, p.color, 'center', 'bold');
+      MGH.av(g, m, i, x - 95, 138, 16, S.phase === 'reveal' ? (S.res.includes(i) ? 'cheer' : 'hurt') : (S.lock[i] ? 'happy' : 'determined'), { noFeet: true });
+      MGH.text(g, `${p.name} ${S.lock[i] ? '🔒' : ''}`, x + 10, 150, 20, p.color, 'center', 'bold');
       for (let k = 0; k < 3; k++) {
         const y = 175 + k * 130;
         g.fillStyle = !m.bot(i) && S.sel[i] === k && S.phase === 'pick' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)'; MGH.rr(g, x - 100, y, 200, 80, 10); g.fill();
@@ -507,6 +516,7 @@ MG.def({
         const picks = S.P.map(p => p.locked ? p.idx : -1);
         S.gain = picks.map(v => v >= 0 && picks.filter(x => x === v).length === 1 ? v + 1 : 0);
         S.gain.forEach((g, i) => { S.pts[i] += g; });
+        S.mood = S.gain.map(v => v >= 3 ? 'cheer' : v > 0 ? 'happy' : 'hurt');
         S.phase = 'reveal'; S.t = 0;
       }
     } else { S.t += dt; if (S.t > 2.5) { if (S.round >= 3) m.finish(S.pts.slice()); else { S.round++; PickR.start(S, 4, 6, 0); } } }

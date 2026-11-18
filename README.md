@@ -30,6 +30,9 @@ In the desktop app, F11 toggles fullscreen.
 
 ## Controls
 
+**Rolling:** when it's your roll, the die tumbles until you stop it. Click the die or the big button, or press Space.
+
+
 **Board turns** use the mouse. Click an option or press `1`–`9`. In hot-seat play, every human seat takes its turn at the same screen.
 
 **Minigames:** up to four people share one keyboard, and gamepads 1–4 map to players 1–4.

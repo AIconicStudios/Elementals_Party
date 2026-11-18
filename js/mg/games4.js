@@ -42,6 +42,8 @@ MG.def({
       g.save(); g.translate(x, 300); g.rotate(m.held(i, 'a') && S.cool[i] <= 0 ? m.t * 12 : 0);
       for (let k = 0; k < 8; k++) { g.fillStyle = k === 0 ? '#222' : (k % 2 ? p.color : '#fff'); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 100, k * Math.PI / 4, (k + 1) * Math.PI / 4); g.fill(); }
       g.restore();
+      const holding = m.held(i, 'a') && S.cool[i] <= 0;
+      MGH.av(g, m, i, x - 115, 470, 24, S.fin[i] ? 'cheer' : S.last[i] === '💀' && S.cool[i] > 0 ? 'hurt' : S.last[i] === 'banked' ? 'cheer' : holding ? (S.pot[i] >= 6 ? 'scared' : 'determined') : 'happy', { look: { x: 1, y: -0.5 } });
       MGH.text(g, S.last[i], x, 460, 32, '#fff', 'center', 'bold');
       MGH.text(g, `pot ${S.pot[i]}`, x, 510, 26, '#ffe680', 'center', 'bold');
       g.fillStyle = '#333'; g.fillRect(x - 110, 560, 220, 20); g.fillStyle = p.color; g.fillRect(x - 110, 560, 220 * Math.min(1, S.bank[i] / 15), 20);
@@ -78,6 +80,7 @@ MG.def({
       g.fillStyle = '#f4f0e0'; MGH.rr(g, x - 90, 170, 80, 110, 10); g.fill();
       MGH.text(g, mine ? String(S.c1[i]) : '?', x - 50, 245, 44, '#222', 'center', 'bold');
       if (S.phase === 'reveal' && S.c2[i]) { g.fillStyle = '#f4f0e0'; MGH.rr(g, x + 10, 170, 80, 110, 10); g.fill(); MGH.text(g, String(S.c2[i]), x + 50, 245, 44, '#222', 'center', 'bold'); }
+      MGH.av(g, m, i, x + 128, 225, 24, S.phase === 'reveal' ? (S.win.includes(i) ? 'cheer' : S.tot[i] > 9 ? 'hurt' : 'neutral') : (S.P[i].locked ? 'happy' : 'determined'), { look: { x: -1, y: 0 } });
       MGH.text(g, p.name, x, 320, 22, p.color, 'center', 'bold');
       if (S.phase === 'pick' && !m.bot(i)) ['Draw', 'Stand'].forEach((l, k) => { const sel = S.P[i].idx === k; g.fillStyle = sel ? p.color : 'rgba(255,255,255,0.1)'; MGH.rr(g, x - 110 + k * 115, 360, 105, 50, 10); g.fill(); MGH.text(g, l, x - 57 + k * 115, 393, 20, sel ? '#000' : '#fff', 'center', 'bold'); });
       if (S.phase === 'reveal') MGH.text(g, S.tot[i] > 9 ? `${S.tot[i]} BUST` : `${S.tot[i]}${S.win.includes(i) ? ' ★' : ''}`, x, 400, 34, S.tot[i] > 9 ? '#f66' : '#ffe680', 'center', 'bold');
@@ -110,7 +113,7 @@ MG.def({
       const x0 = 30 + i * 320, p = m.players[i];
       for (let k = 0; k < 6; k++) { g.fillStyle = k < S.step[i] ? p.color : 'rgba(255,255,255,0.12)'; g.fillRect(x0 + k * 42, 620 - k * 70, 42, 70 + k * 70); MGH.text(g, String(k + 1), x0 + 21 + k * 42, 650, 18, '#000', 'center', 'bold'); }
       const sx = x0 + Math.max(0, S.step[i] - 1) * 42 + 21, sy = S.step[i] ? 620 - (S.step[i] - 1) * 70 - 20 : 680;
-      g.fillStyle = '#fff'; g.beginPath(); g.arc(sx, sy, 14, 0, 7); g.fill();
+      MGH.av(g, m, i, sx, sy - 6, 15, S.fin[i] ? 'cheer' : (S.anim[i] <= 0 && S.roll[i] && S.roll[i] !== S.step[i] ? 'hurt' : 'determined'), { look: { x: 0.6, y: -0.6 } });
       g.fillStyle = '#fff'; MGH.rr(g, x0 + 200, 120, 80, 80, 12); g.fill();
       MGH.text(g, S.anim[i] > 0 ? String(R.d6()) : (S.roll[i] || '-'), x0 + 240, 178, 46, S.roll[i] === S.step[i] && S.anim[i] <= 0 && S.roll[i] ? '#0a0' : '#222', 'center', 'bold');
       MGH.text(g, `${p.name} needs ${Math.min(6, S.step[i] + 1)}`, x0 + 140, 90, 20, p.color, 'center', 'bold');
@@ -151,7 +154,10 @@ MG.def({
     else MGH.text(g, '?', 800, 330, 120, '#555', 'center', 'bold');
     if (S.phase === 'pick') PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, false);
     else PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, true);
-    for (let i = 0; i < 4; i++) MGH.text(g, `${m.players[i].name}: ${S.alive[i] ? (S.P[i].locked ? '🔒' : '…') : '✖ out'}`, 160 + i * 320, 680, 20, m.players[i].color, 'center', 'bold');
+    for (let i = 0; i < 4; i++) {
+      MGH.av(g, m, i, 160 + i * 320 - 100, 668, 22, !S.alive[i] ? 'out' : S.phase === 'reveal' ? 'cheer' : (S.P[i].locked ? 'happy' : 'scared'));
+      MGH.text(g, `${m.players[i].name}: ${S.alive[i] ? (S.P[i].locked ? '🔒' : '…') : '✖ out'}`, 160 + i * 320 + 10, 680, 20, m.players[i].color, 'center', 'bold');
+    }
   },
 });
 
@@ -204,6 +210,7 @@ MG.def({
       else { const y = lerp(110, 690 - n * bh + scroll, Math.min(1, T.fall.y)); g.fillStyle = m.players[i].color; g.fillRect(ox + T.fall.x - T.fall.w / 2, y, T.fall.w, bh - 2); }
       if (T.miss > 0) MGH.text(g, 'missed!', ox + 160, 200, 26, '#f66', 'center', 'bold');
       g.restore();
+      MGH.av(g, m, i, ox + 38, 686, 18, T.miss > 0 ? 'hurt' : T.cd > 0 ? 'cheer' : 'determined', { look: { x: 0.6, y: -1 } });
     });
   },
 });
@@ -251,8 +258,9 @@ MG.def({
       g.save(); g.translate(cx, 560); g.rotate(p.a);
       g.strokeStyle = m.players[i].color; g.lineWidth = 8; g.lineCap = 'round';
       g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -120); g.moveTo(-70, -95); g.lineTo(70, -95); g.stroke();
-      g.fillStyle = m.players[i].color; g.beginPath(); g.arc(0, -140, 20, 0, 7); g.fill();
       g.restore();
+      const hx = cx + Math.sin(p.a) * 150, hy = 560 - Math.cos(p.a) * 150;
+      MGH.av(g, m, i, hx, hy, 24, Math.abs(p.a) > 0.5 ? 'scared' : Math.abs(p.a) > 0.25 ? 'determined' : 'happy', { noFeet: true, look: { x: -Math.sign(p.a), y: 0.3 } });
     });
   },
 });
@@ -310,7 +318,9 @@ MG.def({
       [46, 28, 12].forEach((r, k) => { g.fillStyle = ['#fff', '#e33', '#fff'][k]; g.beginPath(); g.arc(x, T.y, r, 0, 7); g.fill(); });
       g.fillStyle = '#e33'; g.beginPath(); g.arc(x, T.y, 6, 0, 7); g.fill();
     });
-    for (let i = 0; i < 4; i++) { const x = 160 + i * 320; g.strokeStyle = m.players[i].color; g.lineWidth = 6; g.beginPath(); g.moveTo(x - 20, 700); g.lineTo(x, 660); g.lineTo(x + 20, 700); g.stroke(); MGH.text(g, '●'.repeat(S.shots[i]), x, 640, 18, m.players[i].color, 'center', 'bold'); }
+    for (let i = 0; i < 4; i++) { const x = 160 + i * 320; g.strokeStyle = m.players[i].color; g.lineWidth = 6; g.beginPath(); g.moveTo(x - 20, 700); g.lineTo(x, 660); g.lineTo(x + 20, 700); g.stroke(); MGH.text(g, '●'.repeat(S.shots[i]), x, 640, 18, m.players[i].color, 'center', 'bold');
+      const lastHit = S.hits.filter(h => h.i === i).pop();
+      MGH.av(g, m, i, x + 52, 686, 18, lastHit ? (lastHit.p ? 'cheer' : 'hurt') : 'determined', { look: { x: (m.cur[i].x - x) / 400, y: -1 } }); }
     for (const s of S.stones) { const x = lerp(s.sx, s.tx, s.t), y = lerp(s.sy, s.ty, s.t) - Math.sin(s.t * Math.PI) * 60; g.fillStyle = '#ccc'; g.beginPath(); g.arc(x, y, 7 + (1 - s.t) * 4, 0, 7); g.fill(); }
     S.hits.forEach(h => MGH.text(g, h.p ? '+' + h.p : 'miss', h.x, h.y - h.t * 40, 24, h.p ? m.players[h.i].color : '#aaa', 'center', 'bold'));
     MGH.cursors(m, g);
@@ -362,6 +372,7 @@ MG.def({
       g.fillStyle = '#222'; g.fillRect(cx + 80, 200, 18, 400); g.fillStyle = m.players[i].color; g.fillRect(cx + 80, 600 - 400 * pw, 18, 400 * pw);
       const y = p.coin ? base - p.coin.y : base;
       g.fillStyle = '#e8b923'; g.beginPath(); g.arc(cx, y, 18, 0, 7); g.fill(); g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.stroke();
+      MGH.av(g, m, i, cx - 108, 664, 20, p.coin ? 'scared' : p.chg ? 'determined' : p.last === null ? 'happy' : p.last === 0 ? 'hurt' : p.last >= 85 ? 'cheer' : 'happy', { look: { x: 0.4, y: -1 } });
       MGH.text(g, `${p.n}/3 · last ${p.last === null ? '-' : p.last + '%'}`, cx, 110, 18, '#fff');
     });
   },
@@ -424,7 +435,7 @@ MG.def({
         else { const n = this.adj(S, k); MGH.text(g, n ? String(n) : '·', x + S.cell / 2, y + S.cell / 2 + 12, 32, '#9fd8ff', 'center', 'bold'); }
       }
     }
-    MGH.cursors(m, g);
+    MGH.cursors(m, g, S.pts.map((p, i) => S.left[i] <= 0 ? (p > 2 ? 'cheer' : 'neutral') : 'determined'));
   },
 });
 
@@ -485,6 +496,6 @@ MG.def({
     S.coins.forEach(c => { g.fillStyle = '#e8b923'; g.beginPath(); g.arc(c.x, c.y, 10, 0, 7); g.fill(); });
     g.fillStyle = 'rgba(255,240,170,0.28)'; g.beginPath(); g.moveTo(S.wx, S.wy); g.arc(S.wx, S.wy, 720, S.ang - 0.2, S.ang + 0.2); g.closePath(); g.fill();
     MGH.text(g, '🏮', S.wx, S.wy + 12, 40, '#fff');
-    S.b.forEach((b, i) => MGH.drawBody(g, b, m.players[i], b.stun > 0 ? '💫' : (b.carry ? '🪙' + b.carry : '')));
+    S.b.forEach((b, i) => MGH.drawBody(g, b, m.players[i], b.stun > 0 ? '💫' : (b.carry ? '🪙' + b.carry : ''), b.stun > 0 ? 'dizzy' : this.inBeam(S, b.x, b.y) ? 'scared' : b.carry ? 'cheer' : null));
   },
 });
