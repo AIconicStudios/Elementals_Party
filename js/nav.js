@@ -3,7 +3,15 @@
 // D-pad / stick / arrows move a highlight; A / Enter selects; B / Esc goes back;
 // Y toggles the map; X toggles help; A also stops a tumbling die.
 const Nav = {
-  sel: null, active: false, prev: {}, repeat: 0,
+  sel: null, active: false, prev: {}, rep: {},
+  // the seat that owns the current board decision, or null when anyone may act (menus, help, map)
+  ownerOnly() {
+    if (UI.helpOpen() || Render.mapMode) return null;
+    const ov = document.getElementById('overlay');
+    if (ov.innerHTML.trim() && !ov.classList.contains('hidden')) return null;
+    if (Render.die && Render.die.onStop) return Render.die.who;
+    return UI.askPlayer !== undefined && UI.askPlayer !== null ? UI.askPlayer : null;
+  },
   init() {
     window.addEventListener('keydown', e => {
       if (!this.boardContext()) return;
@@ -33,20 +41,25 @@ const Nav = {
   },
   poll() {
     if (!this.boardContext()) return;
-    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && p.connected) : [];
-    const now = {};
-    for (const p of pads) {
+    const pads = Input.pads();
+    // on a board decision only the deciding player's own gamepad may act (help/map work from any pad)
+    const owner = this.ownerOnly();
+    pads.forEach((p, idx) => {
       const b = n => p.buttons[n] && p.buttons[n].pressed;
       const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+      const now = {};
       if (b(12) || ay < -0.5) now.up = true; if (b(13) || ay > 0.5) now.down = true;
       if (b(14) || ax < -0.5) now.left = true; if (b(15) || ax > 0.5) now.right = true;
       if (b(0)) now.a = true; if (b(1)) now.b = true; if (b(2)) now.x = true; if (b(3)) now.y = true;
-    }
-    for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y']) {
-      if (now[k] && !this.prev[k]) { this.handle(k); this.repeat = 0.4; }
-      else if (now[k] && ['up', 'down', 'left', 'right'].includes(k)) { this.repeat -= 1 / 60; if (this.repeat <= 0) { this.handle(k); this.repeat = 0.12; } }
-    }
-    this.prev = now;
+      const prev = this.prev[idx] || {};
+      const mine = owner === null || Input.seatForPad(idx) === owner;
+      for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y']) {
+        if (!mine && k !== 'x' && k !== 'y') continue;
+        if (now[k] && !prev[k]) { this.handle(k); this.rep[idx] = 0.4; }
+        else if (now[k] && ['up', 'down', 'left', 'right'].includes(k)) { this.rep[idx] = (this.rep[idx] || 0) - 1 / 60; if (this.rep[idx] <= 0) { this.handle(k); this.rep[idx] = 0.12; } }
+      }
+      this.prev[idx] = now;
+    });
     if (this.sel && !document.body.contains(this.sel)) this.sel = null;
     if (this.active && !this.sel) { const l = this.items(); this.sel = l.find(x => x.classList.contains('rollBtn')) || l[0] || null; }
     if (this.active) this.paint();

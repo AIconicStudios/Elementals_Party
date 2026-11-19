@@ -185,17 +185,22 @@ const Char = {
   glove(g, r, C, mood, t, seed, walk, front) {
     const w = Math.sin(t * 10 + seed);
     const waving = mood === 'happy' && ((t + seed) % 5) < 1.6;
+    // Poses are chosen so the front hand never covers the eye (-0.42r,-0.12r), the nose or the mouth.
     let hx, hy, rot;
+    const sw = walk ? Math.sin(t * 14 + (front ? 0 : Math.PI)) * r * 0.15 : 0;
+    const limp = mood === 'hurt' || mood === 'dizzy' || mood === 'out';
     if (front) {
-      if (mood === 'cheer') { hx = -r * 0.85; hy = -r * 0.95 + Math.sin(t * 14) * r * 0.1; rot = -2.4; }
-      else if (mood === 'scared') { hx = -r * 0.6; hy = r * 0.45; rot = -2.2; }
-      else if (waving) { hx = -r * 1.05; hy = -r * 0.55 + w * r * 0.15; rot = -2.3; }
-      else if (mood === 'determined') { hx = -r * 0.5 + (walk ? Math.sin(t * 14) * r * 0.2 : 0); hy = r * 0.32; rot = -1.2; }
-      else if (mood === 'hurt' || mood === 'dizzy' || mood === 'out') { hx = -r * 0.25; hy = r * 0.78; rot = 0.3; }
-      else { hx = -r * 0.02; hy = r * 0.38 + (walk ? Math.sin(t * 14) * r * 0.12 : 0); rot = -0.6; }
+      if (mood === 'cheer') { hx = -r * 0.75; hy = -r * 1.25 + Math.sin(t * 14) * r * 0.1; rot = -2.5; }
+      else if (mood === 'scared') { hx = -r * 1.32; hy = r * 0.38 + Math.sin(t * 40) * r * 0.03; rot = -1.9; }
+      else if (waving) { hx = -r * 1.3; hy = -r * 0.5 + w * r * 0.12; rot = -2.3 + w * 0.3; }
+      else if (mood === 'determined') { hx = -r * 1.2 + sw; hy = r * 0.62; rot = -1.4; }
+      else if (limp) { hx = -r * 0.35; hy = r * 0.98; rot = 0.4; }
+      else { hx = -r * 0.2 + sw; hy = r * 0.62; rot = -0.5; }
     } else {
-      if (mood === 'cheer') { hx = r * 0.95; hy = -r * 0.85 + Math.sin(t * 14 + 1) * r * 0.1; rot = 2.4; }
-      else { hx = r * 1.08; hy = r * 0.25 + (walk ? Math.sin(t * 14 + 3) * r * 0.15 : 0); rot = 0.6; }
+      if (mood === 'cheer') { hx = r * 0.7; hy = -r * 1.22 + Math.sin(t * 14 + 1) * r * 0.1; rot = 2.5; }
+      else if (mood === 'scared') { hx = r * 1.0; hy = -r * 0.3; rot = 2.0; }
+      else if (limp) { hx = r * 0.75; hy = r * 0.98; rot = 0.3; }
+      else { hx = r * 0.92 + sw; hy = r * 0.55; rot = 0.5; }
     }
     const s = r * 0.24;
     g.save(); g.translate(hx, hy); g.rotate(rot);

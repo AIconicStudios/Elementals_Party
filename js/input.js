@@ -35,12 +35,14 @@ const Input = {
     canvas.addEventListener('mousedown', e => { upd(e); this.mouse.down = true; });
     window.addEventListener('mouseup', () => { this.mouse.down = false; });
   },
-  pad(i) {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    const list = [];
-    for (const p of pads) if (p && p.connected) list.push(p);
-    return list[i] || null;
-  },
+  // Each connected gamepad belongs to exactly one human seat, assigned in seat order:
+  // 1st gamepad -> 1st human seat, 2nd gamepad -> 2nd human seat, ...
+  humanSeats: [0, 1, 2, 3],
+  setHumans(seats) { this.humanSeats = seats.map((s, i) => s.human ? i : -1).filter(i => i >= 0); },
+  pads() { const list = []; const all = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of all) if (p && p.connected) list.push(p); return list; },
+  seatForPad(k) { return k < this.humanSeats.length ? this.humanSeats[k] : null; },
+  padNumberForSeat(i) { const k = this.humanSeats.indexOf(i); return k >= 0 ? k + 1 : null; },
+  pad(i) { const k = this.humanSeats.indexOf(i); return k >= 0 ? (this.pads()[k] || null) : null; },
   state(i) {
     const m = this.maps[i];
     const k = arr => arr.some(c => this.keys.has(c));
@@ -52,8 +54,8 @@ const Input = {
       if (ax > 0.4 || b(15)) s.right = true;
       if (ay < -0.4 || b(12)) s.up = true;
       if (ay > 0.4 || b(13)) s.down = true;
-      if (b(0) || b(2)) s.a = true;
-      if (b(1) || b(3)) s.b = true;
+      if (b(0)) s.a = true;   // A = primary action
+      if (b(1)) s.b = true;   // B = alt / peek
       if (Math.abs(ax) > 0.2) s.ax = ax;
       if (Math.abs(ay) > 0.2) s.ay = ay;
     }

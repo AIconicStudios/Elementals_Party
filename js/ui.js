@@ -66,6 +66,7 @@ const UI = {
   note(text) { if (!Settings.test) $('#actText').textContent = text; },
 
   waitDieStop(p) {
+    this.askPlayer = p.id;
     return new Promise(resolve => {
       const box = $('#action'); box.style.setProperty('--c', p.color);
       $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)} — roll!`;
@@ -73,7 +74,7 @@ const UI = {
       const opts = $('#actOpts'); opts.innerHTML = '';
       const b = document.createElement('button'); b.className = 'rollBtn'; b.innerHTML = '🎲 STOP THE DIE!<small>click here, click the die, or press SPACE</small>';
       opts.appendChild(b);
-      const done = () => { if (!Render.die) return resolve(); Render.die.onStop = null; Render.die.waiting = false; this.pending = null; opts.innerHTML = ''; $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = 'The die is landing…'; resolve(); };
+      const done = () => { this.askPlayer = null; if (!Render.die) return resolve(); Render.die.onStop = null; Render.die.waiting = false; this.pending = null; opts.innerHTML = ''; $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = 'The die is landing…'; resolve(); };
       b.onclick = done;
       Render.die.onStop = done; Render.die.waiting = true;
       this.pending = done;
@@ -89,6 +90,7 @@ const UI = {
   },
 
   ask(p, spec) {
+    this.askPlayer = p.id;
     return new Promise(resolve => {
       const box = $('#action');
       box.style.setProperty('--c', p.color);
@@ -98,6 +100,7 @@ const UI = {
       let n = 0;
       const tiles = [];
       const done = v => {
+        this.askPlayer = null;
         this.pending = null; Render.highlight = null;
         opts.innerHTML = ''; Sfx.click(); resolve(v);
       };
@@ -119,8 +122,9 @@ const UI = {
   },
 
   pickTile(p, owner, tiles, title) {
+    this.askPlayer = p.id;
     return new Promise(resolve => {
-      const done = v => { this.pending = null; Render.highlight = null; $('#actOpts').innerHTML = ''; Sfx.click(); resolve(v); };
+      const done = v => { this.askPlayer = null; this.pending = null; Render.highlight = null; $('#actOpts').innerHTML = ''; Sfx.click(); resolve(v); };
       Render.highlight = { owner, tiles, onPick: done };
       $('#actTitle').innerHTML = `${p.el.glyph} ${esc(title)}`;
       $('#actText').innerHTML = 'Click a highlighted tile on your Hold, or pick below.';
@@ -198,8 +202,8 @@ const UI = {
       body = `<div class="rtext">
       <p><b>Board (mouse):</b> click the options in the middle panel, click highlighted tiles to place things, or press 1–9.</p>
       <p><b>Board (keyboard):</b> arrow keys move the highlight, Enter selects, Space stops the die, M opens the map, H opens help, Esc goes back.</p>
-      <p><b>Board (gamepad, any pad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help.</p>
-      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br>Gamepads 1–4 control players 1–4 (stick/d-pad, A = action, B = alt). Player 1 can also use the mouse in cursor games.</p>
+      <p><b>Board (gamepad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help. Only the player whose turn or decision it is can answer with their own gamepad.</p>
+      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br><b>Gamepads:</b> each connected gamepad belongs to exactly one human player, in seat order (1st gamepad → 1st human seat, 2nd → 2nd human, …). A = action / select, B = back and secret-pick peek, X = help, Y = map, Start = pause in minigames. On the board, only the player whose decision it is can answer with their gamepad. Player 1 can also use the mouse in cursor games.</p>
       <p><b>Secret picks:</b> in bluffing games nobody’s cursor is shown. Hold your alt button (B) to peek at your own choice.</p>
       </div>`;
     }
@@ -222,7 +226,7 @@ const UI = {
         <div class="sg">${el.glyph}</div><div><b>${el.hold}</b><br><small>${el.name} · ${el.people}</small></div>
         <input id="sn${i}" value="${esc(seats[i].name)}" maxlength="14">
         <select id="sh${i}"><option value="1" ${seats[i].human ? 'selected' : ''}>Human</option><option value="0" ${!seats[i].human ? 'selected' : ''}>Bot</option></select>
-        <small class="keys">Moot keys: ${Input.keyNames[i]} · or gamepad ${i + 1}</small></div>`).join('')}</div>
+        <small class="keys">Moot keys: ${Input.keyNames[i]} · <span id="kh${i}"></span></small></div>`).join('')}</div>
       <div class="row"><label>Game length <select id="rounds"><option value="20">20 rounds (full)</option><option value="15">15 rounds</option><option value="10">10 rounds (quick)</option></select></label>
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label></div>
@@ -230,6 +234,9 @@ const UI = {
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
     const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1' }));
+    const padLabels = () => { Input.setHumans(readSeats()); ELEMENTS.forEach((el, i) => { const n = Input.padNumberForSeat(i); $('#kh' + i).textContent = n ? `🎮 gamepad ${n}` : 'bot — no gamepad'; }); };
+    ELEMENTS.forEach((el, i) => { $('#sh' + i).addEventListener('change', padLabels); });
+    padLabels();
     $('#startBtn').onclick = () => {
       const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s));
       Settings.speed = +$('#speed').value; Settings.sound = $('#snd').checked;
@@ -248,6 +255,7 @@ const UI = {
     $('#backBtn').onclick = () => this.showMenu();
     document.querySelectorAll('.mglist button').forEach(b => b.onclick = async () => {
       $('#overlay').classList.add('hidden');
+      Input.setHumans(seats);
       const pl = seats.map((s, i) => ({ id: i, name: s.name, color: ELEMENTS[i].color, human: s.human, el: ELEMENTS[i] }));
       await MG.run(b.dataset.id, pl, [0, 1, 2, 3]);
       $('#overlay').classList.remove('hidden');

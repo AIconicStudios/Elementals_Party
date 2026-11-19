@@ -4,6 +4,7 @@ let currentGame = null;
 
 function startGame(cfg) {
   if (currentGame) currentGame.aborted = true;
+  Input.setHumans(cfg.seats);
   const g = new Game(cfg);
   currentGame = g;
   UI.game = g; Render.game = g; Render.disp = {}; Render.floats = [];
