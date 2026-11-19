@@ -19,7 +19,7 @@ MG.def({
       S.x[i] = clamp(S.x[i] + m.axis(i).x * 400 * dt, 20, 300);
       for (const r of S.rocks) {
         const y = this.y(r, m.t);
-        if (y > 610 && y < 690 && dist(S.x[i], 650, r.x, y) < r.r + 16) { S.alive[i] = false; S.outT[i] = m.t; if (!m.bot(i)) Sfx.boom(); break; }
+        if (y > 610 && y < 690 && dist(S.x[i], 650, r.x, y) < r.r + 16) { S.alive[i] = false; S.outT[i] = m.t; MGH.burst(i * 320 + S.x[i], 650, ['#8a7765', '#d9c7a8', '#5a4a3a'], 30, { speed: 320, up: 100, grav: 600 }); MGH.shake(9); if (!m.bot(i)) Sfx.boom(); break; }
       }
     }
     if (S.alive.filter(a => a).length <= 1) m.finish(this.score(m, S));
@@ -81,7 +81,7 @@ MG.def({
     const sp = 215 + m.t * 3.2;
     if (t) { const d = dist(t.x, t.y, S.a.x, S.a.y) || 1; S.a.x += (t.x - S.a.x) / d * sp * dt; S.a.y += (t.y - S.a.y) / d * sp * dt; }
     S.b.forEach((b, i) => {
-      if (b.frozen <= 0 && b.imm <= 0 && dist(b.x, b.y, S.a.x, S.a.y) < b.r + S.a.r) { b.frozen = 3; b.fr++; if (!m.bot(i)) Sfx.bad(); }
+      if (b.frozen <= 0 && b.imm <= 0 && dist(b.x, b.y, S.a.x, S.a.y) < b.r + S.a.r) { b.frozen = 3; b.fr++; MGH.burst(b.x, b.y, ['#bfe9ff', '#ffffff', '#7fc8ff'], 24, { speed: 260, kind: 'spark', size: 3 }); MGH.shake(5); if (!m.bot(i)) Sfx.bad(); }
     });
   },
   bot(m, S, i) {
@@ -131,11 +131,11 @@ MG.def({
       for (let j = 0; j < 4; j++) {
         const o = S.b[j];
         if (j === S.holder || !o.alive || (j === S.prev && S.cool > -0.8)) continue;
-        if (dist(h.x, h.y, o.x, o.y) < h.r + o.r + 14) { S.prev = S.holder; S.holder = j; S.cool = 0.4; Sfx.tone(600, 0.08, 'square', 0.05); break; }
+        if (dist(h.x, h.y, o.x, o.y) < h.r + o.r + 14) { S.prev = S.holder; S.holder = j; S.cool = 0.4; MGH.burst((h.x + o.x) / 2, (h.y + o.y) / 2, ['#ff9a3d', '#ffd34d'], 12, { speed: 200 }); Sfx.tone(600, 0.08, 'square', 0.05); break; }
       }
     }
     if (S.fuse <= 0) {
-      h.alive = false; h.outT = ++S.place; Sfx.boom();
+      h.alive = false; h.outT = ++S.place; Sfx.boom(); MGH.burst(h.x, h.y, ['#ff5a1f', '#ffd34d', '#ff9a3d', '#333'], 60, { speed: 520 }); MGH.ring(h.x, h.y, '#ffd34d', 20, 200, 0.6); MGH.shake(18);
       if (S.b.filter(b => b.alive).length <= 1) m.finish(this.score(m, S));
       else S.pause = 1.5;
     }
@@ -175,7 +175,7 @@ MG.def({
     S.b.forEach((b, i) => {
       const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2200, 290, 6); b.cd -= dt; b.push -= dt;
       if (m.pressed(i, 'a') && b.cd <= 0) {
-        b.cd = 1; b.push = 0.25;
+        b.cd = 1; b.push = 0.25; MGH.ring(b.x, b.y, m.players[i].color, 20, 80, 0.35);
         S.b.forEach(o => { if (o === b) return; const d = dist(o.x, o.y, b.x, b.y); if (d < 90) { o.vx += (o.x - b.x) / d * 700; o.vy += (o.y - b.y) / d * 700; } });
       }
       MGH.integrate(b, dt);
@@ -230,7 +230,7 @@ MG.def({
       if (hitWall) { if (f.bounce > 0) f.bounce--; else f.dead = true; }
       S.b.forEach((b, i) => {
         if (f.dead || !b.alive || b.inv > 0 || (i === f.o && f.bounce > 0)) return;
-        if (dist(f.x, f.y, b.x, b.y) < b.r + 10) { f.dead = true; b.hp--; b.inv = 0.8; Sfx.bad(); if (b.hp <= 0) { b.alive = false; b.outT = m.t; } }
+        if (dist(f.x, f.y, b.x, b.y) < b.r + 10) { f.dead = true; b.hp--; b.inv = 0.8; Sfx.bad(); MGH.burst(f.x, f.y, ['#ff7a3d', '#ffd34d', m.players[f.o].color], 22, { speed: 300 }); MGH.shake(6); MGH.pop('-♥', b.x, b.y - 30, '#ff6b6b'); if (b.hp <= 0) { b.alive = false; b.outT = m.t; } }
       });
     }
     S.balls = S.balls.filter(f => !f.dead);
@@ -285,7 +285,7 @@ MG.def({
       const p = S.p[i]; if (p.fin) continue;
       if (p.resp > 0) { p.resp -= dt; continue; }
       p.x += 270 * dt;
-      if (m.pressed(i, 'a') && p.ground) { p.vy = -560; p.ground = false; if (!m.bot(i)) Sfx.tone(500, 0.08, 'triangle', 0.05); }
+      if (m.pressed(i, 'a') && p.ground) { p.vy = -560; p.ground = false; MGH.burst(250, 40 + i * 170 + 115 + p.y, '#ffffff', 6, { speed: 90, life: 0.4 }); if (!m.bot(i)) Sfx.tone(500, 0.08, 'triangle', 0.05); }
       const py = p.y; p.vy += 1500 * dt; p.y += p.vy * dt;
       const pl = this.platAt(S, p.x);
       p.ground = false;
@@ -341,7 +341,7 @@ MG.def({
       p.d += v * dt;
       S.obj.forEach((o, k) => {
         if (p.hit.has(k)) return;
-        if (Math.abs(o.d - p.d) < 18 && Math.abs(o.x - p.x) < (o.ring ? 34 : 30)) { p.hit.add(k); if (o.ring) { p.boost = 1; if (!m.bot(i)) Sfx.coin(); } else { p.slow = 1; if (!m.bot(i)) Sfx.bad(); } }
+        if (Math.abs(o.d - p.d) < 18 && Math.abs(o.x - p.x) < (o.ring ? 34 : 30)) { p.hit.add(k); if (o.ring) { MGH.burst(i * 320 + p.x, 570, ['#ffe680', '#ffffff'], 14, { speed: 220 }); p.boost = 1; if (!m.bot(i)) Sfx.coin(); } else { MGH.burst(i * 320 + p.x, 570, ['#ffffff', '#9fd8ff'], 14, { speed: 240, up: 120, grav: 500 }); p.slow = 1; if (!m.bot(i)) Sfx.bad(); } }
       });
     }
   },
@@ -390,10 +390,10 @@ MG.def({
       const p = S.p[i]; if (p.fin) continue;
       p.x = clamp(p.x + m.axis(i).x * 260 * dt, 20, 300);
       if (p.stun > 0) { p.stun -= dt; p.v = 0; continue; }
-      if (m.pressed(i, 'a')) p.v = Math.min(420, p.v + 55);
+      if (m.pressed(i, 'a')) { p.v = Math.min(420, p.v + 55); if (Math.random() < 0.5) MGH.burst(i * 320 + p.x, 214, ['#7a5230', '#5a3d22', '#a07040'], 3, { speed: 140, grav: 400, life: 0.5 }); }
       p.v = Math.max(0, p.v - 240 * dt);
       p.d += p.v * dt;
-      S.rocks.forEach((r, k) => { if (!p.hit.has(k) && Math.abs(r.d - p.d) < 20 && Math.abs(r.x - p.x) < 40) { p.hit.add(k); p.stun = 1; if (!m.bot(i)) Sfx.bad(); } });
+      S.rocks.forEach((r, k) => { if (!p.hit.has(k) && Math.abs(r.d - p.d) < 20 && Math.abs(r.x - p.x) < 40) { p.hit.add(k); p.stun = 1; MGH.burst(i * 320 + p.x, 210, ['#aaa', '#777'], 18, { speed: 260 }); if (!m.bot(i)) Sfx.bad(); } });
       if (p.d >= S.goal) p.fin = m.t;
     }
     if (S.p.some(p => p.fin) || m.t > 60) m.finish(this.score(m, S));
@@ -436,6 +436,7 @@ MG.def({
       else if (m.pressed(i, 'a')) { p.v = Math.min(480, p.v + 45); p.heat += 0.075; if (p.heat >= 1) { p.stum = 1; p.heat = 0.55; if (!m.bot(i)) Sfx.bad(); } }
       p.v = Math.max(0, p.v - 160 * dt);
       p.d += p.v * dt;
+      if (p.v > 200 && Math.random() < 0.4) MGH.burst(80 + p.d / S.goal * 1080 - 26, 160 + i * 145, ['#ff6b6b', '#ffd34d', '#7cf27c', '#6bb0ff', '#c58bff'], 1, { speed: 40, life: 0.6, size: 4 });
       if (p.d >= S.goal) p.fin = m.t;
     }
     if (S.p.some(p => p.fin) || m.t > 60) m.finish(this.score(m, S));
@@ -487,7 +488,7 @@ MG.def({
         for (let d = 0; d < 4; d++) if (m.pressed(i, this.dirs[d])) {
           S.flash[i] = d;
           if (S.seq[S.prog[i]] === d) { S.prog[i]++; if (S.prog[i] >= S.seq.length) { S.done[i] = true; S.best[i] = S.seq.length; } }
-          else { S.alive[i] = false; if (!m.bot(i)) Sfx.bad(); }
+          else { S.alive[i] = false; MGH.burst(160 + i * 320, 650, ['#ff4d6d', '#fff'], 20, { speed: 260 }); if (!m.bot(i)) Sfx.bad(); }
           break;
         }
       }

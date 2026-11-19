@@ -10,7 +10,10 @@ const UI = {
     window.addEventListener('keydown', e => {
       if (!$('#mgLayer').classList.contains('hidden')) return;
       if ((e.code === 'Space' || e.code === 'Enter') && Render.die && Render.die.onStop) { e.preventDefault(); Render.die.onStop(); return; }
-      if (!this.pending) return;
+      if (e.code === 'KeyM' && this.game && document.activeElement.tagName !== 'INPUT') { this.toggleMap(); return; }
+      if (e.code === 'KeyH' && document.activeElement.tagName !== 'INPUT') { this.toggleHelp(); return; }
+      if (e.code === 'Escape') { if (this.helpOpen()) this.toggleHelp(false); else if (Render.mapMode) this.toggleMap(false); return; }
+      if (!this.pending || this.helpOpen()) return;
       const n = parseInt(e.key, 10);
       if (n >= 1 && n <= 9) {
         const btns = [...document.querySelectorAll('#actOpts button:not([disabled])')];
@@ -137,6 +140,76 @@ const UI = {
     return sleep(1300);
   },
 
+  // ---------------------------------------------------------- map & help
+  toggleMap(on) {
+    if (!this.game) return;
+    Render.mapMode = on === undefined ? !Render.mapMode : on;
+    $('#app').classList.toggle('mapmode', Render.mapMode);
+    Sfx.click();
+  },
+  helpOpen() { return !$('#helpOv').classList.contains('hidden'); },
+  toggleHelp(on, tab) {
+    const open = on === undefined ? !this.helpOpen() : on;
+    $('#helpOv').classList.toggle('hidden', !open);
+    if (open) this.renderHelp(tab || this.helpTab || 'spaces');
+    Sfx.click();
+  },
+  renderHelp(tab) {
+    this.helpTab = tab;
+    const tabs = [['spaces', '🎲 Board spaces'], ['hold', '🏰 Your Hold'], ['items', '🎒 Items'], ['rules', '📖 Rules'], ['controls', '🎮 Controls']];
+    const row = (sw, title, meta, text, col) => `<div class="hrow" style="--c:${col || '#6b5bd6'}">${sw}<div><b>${title}</b>${meta ? `<span class="meta">${meta}</span>` : ''}<p>${text}</p></div></div>`;
+    const swatch = (bg, txt, fg = '#111') => `<div class="hsw" style="background:${bg};color:${fg}">${txt}</div>`;
+    let body = '', one = false;
+    if (tab === 'spaces') {
+      body = Object.keys(SPACE).map(k => {
+        const sp = SPACE[k];
+        const fg = ['blue', 'red', 'doubler', 'shutdown', 'summon'].includes(k) ? '#fff' : '#111';
+        return row(swatch(sp.color, sp.icon, fg), `${sp.lore}`, `(${sp.name})`, sp.desc, sp.color);
+      }).join('') + row(swatch('#3a1a5c', '👁️', '#fff'), 'The Ankar', '(the Tithe-Taker)', 'Once summoned it follows the nearest Wayfarer up to 3 spaces at the end of each round. If it lands on you, or you land on it, it takes 5 coins (cash first, then bank). Ankar Repellent and the Decoy Star protect you.', '#b46bff')
+        + row(swatch('#555', '🌑', '#fff'), 'Closed space', '(Eclipse)', 'A darkened Waygate or Counting House cannot be used until it reopens. A Master Key lets you through once.', '#888');
+    } else if (tab === 'hold') {
+      body = [
+        row(swatch('#8fe0ff', '🌀'), 'Waygate (tile 16)', '', 'The way in and out. A raider enters here and leaves by passing it again, coming out on this Hold’s Waygate on the Crossing.', '#8fe0ff'),
+        row(swatch('#6b5512', '⭐', '#fff'), 'Starvault (tile 8)', '', 'Your banked stars live here. A raider landing on it tries to steal one. A Warding Seal blocks this; Paste Stars make the raider draw a fake.', '#ffd34d'),
+        row(swatch('#8a6a12', '🪙', '#fff'), 'Hoards (4 tiles you choose)', '', 'Your banked coins are spread over these. A raider landing on one takes up to 5 coins (less with Hoardwards). The number shown includes fake coins.', '#e8b923'),
+        row(swatch('#5a1020', '⚠️', '#fff'), 'Trap tiles', '', 'The other tiles can hold one trap each, placed with a Fortify turn. Traps trigger only when a raider lands exactly on them, then vanish. Press M (or gamepad Y) to see every Hold’s traps.', '#ff6b6b'),
+        row(`<div class="hsw" style="background:#c9ced6">🛡️</div>`, 'Warden', '(Defender)', 'Guards your Hold. If the Warden and a raider end on the same tile — whoever moved — the raider is caught: loot goes back and the raider is sent home.', '#c9ced6'),
+        row(swatch('#ff9a3d', '🔥', '#fff'), 'Hot loot', '', 'Anything a raider takes is hot until banked at a Counting House or their own Waygate. It is lost if they are caught.', '#ff9a3d'),
+      ].join('');
+    } else if (tab === 'items') {
+      const cats = [['defense', 'Home defenses — placed with a Fortify turn, paid from your bank'], ['ultimate', 'Element ultimates — buy once at a Counting House, unleash with Fortify'], ['raider', 'Raider & worker items'], ['dice', 'Dice & movement'], ['money', 'Money & shop'], ['chaos', 'Chaos & social']];
+      body = cats.map(([c, title]) => `<div class="hsec">${title}</div>` + ITEMS.filter(it => it.cat === c).map(it => {
+        const meta = `${it.price}🪙 · ${RARITY[it.r]}${it.r === 'R' || it.r === 'L' ? ' (2nd half)' : ''}${it.use ? ' · ' + (it.use === 'play' ? 'play on your turn' : 'works automatically') : ''}${it.el !== undefined ? ' · ' + ELEMENTS[it.el].name + ' only' : ''}`;
+        return row(swatch('#2a2150', it.icon, '#fff'), `${it.lore}${it.lore !== it.name ? ` <span style="color:#a99bd8;font-weight:normal">(${it.name})</span>` : ''}`, meta, it.desc, '#6b5bd6');
+      }).join('')).join('');
+    } else if (tab === 'rules') {
+      one = true;
+      body = `<div class="rtext">
+      <p><b>Goal:</b> hold the most banked stars after the final round. Ties: banked coins, then Moot wins.</p>
+      <p><b>Your turn:</b> play any items (free), then choose one: move your Wayfarer (+3 coin wage), move your Warden either way around your Hold, or Fortify (buy and place a defense from your bank).</p>
+      <p><b>Rolling:</b> the die tumbles until you stop it — click it, press Space, or press A on a gamepad.</p>
+      <p><b>Counting Houses:</b> passing or landing lets you deposit what you carry, buy one star and one item per visit.</p>
+      <p><b>Raiding (from round 4):</b> when you pass or land on a rival’s Waygate you may raid. The rest of your roll is discarded; next turn you start walking their Hold from tile 16. Hoards give up to 5 coins, the Starvault a star. Leave by passing tile 16 again.</p>
+      <p><b>The Ankar:</b> summoned on an Ankar’s Altar (which then becomes a Boon or Bane). It follows the nearest Wayfarer and takes 5 coins on contact.</p>
+      <p><b>The Moot:</b> after each round but the last, a minigame. Everyone who ties for first banks +2 and plays first next round. The player with the fewest stars picks between two games.</p>
+      </div>`;
+    } else {
+      one = true;
+      body = `<div class="rtext">
+      <p><b>Board (mouse):</b> click the options in the middle panel, click highlighted tiles to place things, or press 1–9.</p>
+      <p><b>Board (keyboard):</b> arrow keys move the highlight, Enter selects, Space stops the die, M opens the map, H opens help, Esc goes back.</p>
+      <p><b>Board (gamepad, any pad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help.</p>
+      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br>Gamepads 1–4 control players 1–4 (stick/d-pad, A = action, B = alt). Player 1 can also use the mouse in cursor games.</p>
+      <p><b>Secret picks:</b> in bluffing games nobody’s cursor is shown. Hold your alt button (B) to peek at your own choice.</p>
+      </div>`;
+    }
+    $('#helpOv').innerHTML = `<h2>❓ Help</h2><button class="hclose" data-back="1">✖ Close (B / Esc)</button>
+      <div class="htabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="hbody ${one ? 'one' : ''}">${body}</div>`;
+    $('#helpOv').querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => { this.renderHelp(b.dataset.tab); Nav.focusFirst('[data-tab="' + b.dataset.tab + '"]'); }; });
+    $('#helpOv .hclose').onclick = () => this.toggleHelp(false);
+  },
+
   // ---------------------------------------------------------- screens
   showMenu() {
     Render.game = null;
@@ -153,8 +226,8 @@ const UI = {
       <div class="row"><label>Game length <select id="rounds"><option value="20">20 rounds (full)</option><option value="15">15 rounds</option><option value="10">10 rounds (quick)</option></select></label>
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label></div>
-      <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (40 minigames)</button><button id="rulesBtn">📖 How to play</button></div>
-      <p class="hint">Board turns are played with the mouse (or number keys 1-9). Minigames use the keys above — up to four players on one keyboard, plus gamepads. Empty seats are bots.</p>
+      <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (40 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
+      <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
     const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1' }));
     $('#startBtn').onclick = () => {
@@ -165,13 +238,13 @@ const UI = {
       startGame({ seats: s, rounds: +$('#rounds').value });
     };
     $('#practiceBtn').onclick = () => { const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); Settings.sound = $('#snd').checked; Sfx.init(); this.showPractice(s); };
-    $('#rulesBtn').onclick = () => this.showRules();
+    $('#rulesBtn').onclick = () => this.toggleHelp(true, 'rules');
   },
 
   showPractice(seats) {
     $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the 40 minigames. Seats set to Human use their keys; the rest are bots.</p>
       <div class="mglist">${MG.list.map((g, i) => `<button data-id="${g.id}"><b>${i + 1}. ${esc(g.name)}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
-      <div class="row btns"><button id="backBtn">← Back</button></div></div>`;
+      <div class="row btns"><button id="backBtn" data-back="1">← Back</button></div></div>`;
     $('#backBtn').onclick = () => this.showMenu();
     document.querySelectorAll('.mglist button').forEach(b => b.onclick = async () => {
       $('#overlay').classList.add('hidden');
@@ -180,22 +253,6 @@ const UI = {
       $('#overlay').classList.remove('hidden');
       this.showPractice(seats);
     });
-  },
-
-  showRules() {
-    $('#overlay').innerHTML = `<div class="panel rules"><h2>How to play</h2><div class="rtext">
-      <p><b>Goal:</b> hold the most banked stars (Starvault) after the final round. Tiebreak: banked coins, then minigame wins.</p>
-      <p><b>Your pieces:</b> a <b>Wayfarer</b> (Traveller) who walks the one-way Crossing earning coins, and a <b>Warden</b> (Defender) who guards your 16-tile Hold.</p>
-      <p><b>Your turn:</b> play any items (free), then choose one: move the Wayfarer (+4 wage), move the Warden either way around your Hold, or <b>Fortify</b> (buy and place a defense from your bank).</p>
-      <p><b>Counting Houses</b> (🏛️): landing or passing lets you deposit everything you carry and buy one star (15/20/25 coins) and items. Coins on hand are spent first, then the bank.</p>
-      <p><b>Spaces:</b> Boon +5, Bane −3, Ankar's Altar (summons the Ankar, who moves 3 per round and takes a star or 10 coins on contact), Eclipse (closes 2 Waygates and 2 Counting Houses for 2 rounds), Gilded Spring (doubles coins on hand, max +10), Fortune Wheel (1/3/5/10), Pedlar's Stall (item), Mirage (becomes another special).</p>
-      <p><b>Raiding</b> (from round 4): land exactly on a rival's Waygate to enter their Hold at tile 16. Each move goes clockwise; landing on a Hoard takes up to 5 coins, on the Starvault (tile 8) tries to steal a star. Everything taken is <b>hot loot</b> until you bank it at a Counting House or your own Waygate. Passing tile 16 again leaves the Hold.</p>
-      <p><b>Catches:</b> if a Warden and a raider end on the same tile, the raider dies (loot returns, cash goes to the defender). Armor, Veilcloak and other items change this. Traps trigger only on exact landing.</p>
-      <p><b>Ultimates:</b> each element can buy one ultimate per game at a Counting House and unleash it with a Fortify turn: Typhoon (Air), Great Ebb (Water), Sacrifice Pyre (Fire), Famished Earth (Earth).</p>
-      <p><b>The Moot:</b> after every round except the last, a random 4-player minigame. The winner banks +2 and plays first next round. The player with the fewest stars picks between two games.</p>
-      <p><b>Moot keys:</b><br>${Input.keyNames.map((k, i) => `P${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br>Gamepads 1-4 map to players 1-4 (stick/d-pad, A = action, B = alt). Player 1 can also use the mouse in cursor games.</p>
-      </div><div class="row btns"><button id="backBtn">← Back</button></div></div>`;
-    $('#backBtn').onclick = () => this.showMenu();
   },
 
   showResults(st, top) {

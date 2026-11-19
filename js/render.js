@@ -19,6 +19,7 @@ const Render = {
     canvas.addEventListener('mousemove', e => { const p = this.mpos(e); this.hover = this.hitTile(p.x, p.y); });
     canvas.addEventListener('click', e => {
       const p = this.mpos(e);
+      if (this.mapMode) { UI.toggleMap(false); return; }
       if (this.die && this.die.state === 'rolling' && this.die.onStop) { this.die.onStop(); return; }
       const h = this.hitTile(p.x, p.y);
       if (h && this.highlight && h.owner === this.highlight.owner && this.highlight.tiles.includes(h.tile)) this.highlight.onPick(h.tile);
@@ -69,6 +70,40 @@ const Render = {
     this.floats.push({ x: d.x, y: d.y - 26, text, color, t: 0 });
   },
 
+  // ---------------------------------------------------------- particles & effects
+  parts: [], trapAnims: [], mapMode: false,
+  addP(o) { if (Settings.test) return; if (this.parts.length < 700) this.parts.push(Object.assign({ t: 0, vx: 0, vy: 0, grav: 0, drag: 1.5, size: 4, life: 1, kind: 'dot' }, o)); },
+  burstAt(pt, color, n = 16, o = {}) {
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * Math.PI * 2, v = (o.speed || 180) * (0.3 + Math.random() * 0.7);
+      this.addP({ x: pt.x, y: pt.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (o.up || 0), grav: o.grav || 0, life: (o.life || 0.8) * (0.6 + Math.random() * 0.5), size: o.size || R.range(2, 5), color: Array.isArray(color) ? R.pick(color) : color, kind: o.kind || 'dot' });
+    }
+  },
+  stepPuff(pos) { const p = this.trackPos(pos); this.burstAt({ x: p.x, y: p.y + 18 }, ['rgba(255,255,255,0.7)', 'rgba(200,190,255,0.6)'], 5, { speed: 60, life: 0.45, size: 3 }); },
+  landFx(pos) {
+    if (!this.game) return;
+    const p = this.trackPos(pos), type = this.game.board[pos];
+    const col = type === 'gate' ? ELEMENTS[pos / 10].color : SPACE[type].color;
+    this.burstAt(p, [col, '#ffffff'], 22, { speed: 230, life: 0.7, kind: 'spark', size: 3 });
+    this.addP({ x: p.x, y: p.y, kind: 'ring', color: col, size: 20, grow: 60, life: 0.5 });
+    this.flash[pos] = 1;
+  },
+  flash: {},
+  coinBurst(pl, n) {
+    const d = this.disp['T' + pl.id] || this.tokenTarget(pl, 'T');
+    for (let k = 0; k < n; k++) this.addP({ x: d.x, y: d.y - 10, vx: R.range(-60, 60), vy: R.range(-260, -180), grav: 600, life: 0.9, size: 6, kind: 'coin', color: '#ffd34d' });
+  },
+  ankarSpawn(pos) {
+    const p = this.trackPos(pos);
+    this.burstAt(p, ['#b46bff', '#3a1a5c', '#ff2f5a', '#e0c3ff'], 60, { speed: 360, life: 1.2, size: 5 });
+    for (let k = 0; k < 3; k++) this.addP({ x: p.x, y: p.y, kind: 'ring', color: '#b46bff', size: 10 + k * 15, grow: 120, life: 0.8 + k * 0.2 });
+  },
+  trapFx(owner, tile, icon, label) {
+    if (Settings.test) return;
+    const at = tile ? this.ringPos(owner.id, tile) : this.homeCenter(owner.id);
+    this.trapAnims.push({ owner, tile, x: at.x, y: at.y, icon, label, t: 0 });
+  },
+
   // ---------------------------------------------------------- dice
   startRoll(who, faces) {
     this.die = { who, faces, state: 'rolling', face: R.pick(faces), rot: 0, hop: 0, spin: 0, note: '', total: null, t: 0 };
@@ -96,9 +131,18 @@ const Render = {
     const bg = g.createRadialGradient(800, 450, 80, 800, 450, 950);
     bg.addColorStop(0, '#271a4a'); bg.addColorStop(1, '#07060f');
     g.fillStyle = bg; g.fillRect(0, 0, 1600, 900);
+    for (let k = 0; k < 5; k++) {
+      const nx = 800 + Math.sin(now * 0.05 + k * 1.3) * 600, ny = 450 + Math.cos(now * 0.04 + k * 2.1) * 330;
+      const ng = g.createRadialGradient(nx, ny, 0, nx, ny, 320);
+      ng.addColorStop(0, ['rgba(120,80,255,0.10)', 'rgba(60,160,255,0.08)', 'rgba(255,90,140,0.07)', 'rgba(90,255,180,0.06)', 'rgba(255,200,90,0.06)'][k]); ng.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = ng; g.fillRect(0, 0, 1600, 900);
+    }
     for (const s of this.stars) { g.globalAlpha = 0.35 + 0.35 * Math.sin(now * 1.5 + s.t); g.fillStyle = '#fff'; g.beginPath(); g.arc(s.x, s.y, s.r, 0, 7); g.fill(); }
     g.globalAlpha = 1;
-    if (!G) { this.drawTitle(g, now); return; }
+    if (Math.random() < 0.006) this.addP({ x: R.range(0, 1600), y: R.range(0, 300), vx: R.range(400, 700), vy: R.range(150, 300), life: 0.8, size: 2, kind: 'streak', color: '#fff', drag: 0 });
+    if (!G) { this.stepParts(g); this.drawTitle(g, now); return; }
+    if (this.mapMode) { this.drawMap(g, now); return; }
+    this.ambient(G, now);
 
     // inner field
     g.fillStyle = 'rgba(255,255,255,0.035)'; this.rr(g, 392, 182, 816, 536, 26); g.fill();
@@ -126,7 +170,9 @@ const Render = {
     }
     // track
     for (let i = 0; i < 40; i++) {
-      const p = this.trackPos(i), sp = SPACE[G.board[i]], type = G.board[i];
+      const p0 = this.trackPos(i), sp = SPACE[G.board[i]], type = G.board[i];
+      const p = { x: p0.x, y: p0.y + Math.sin(now * 2.2 - i * 0.45) * 2.5 };
+      if (type === 'gate') this.drawPortal(g, p, ELEMENTS[i / 10].color, now, G.closedGates[i]);
       let col = sp.color; if (type === 'gate') col = ELEMENTS[i / 10].color;
       const w = type === 'gate' ? 66 : 56, h = type === 'gate' ? 62 : 52;
       g.fillStyle = 'rgba(0,0,0,0.4)'; this.rr(g, p.x - w / 2 + 3, p.y - h / 2 + 4, w, h, 10); g.fill();
@@ -134,6 +180,10 @@ const Render = {
       gr.addColorStop(0, Char.shade(col, 0.25)); gr.addColorStop(1, Char.shade(col, -0.2));
       g.fillStyle = gr; this.rr(g, p.x - w / 2, p.y - h / 2, w, h, 10); g.fill();
       g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.stroke();
+      // glossy shine sweeping around the track
+      const sh = (now * 0.5 - i / 40) % 1; if (sh > 0 && sh < 0.06) { g.fillStyle = `rgba(255,255,255,${0.35 * (1 - Math.abs(sh - 0.03) / 0.03)})`; this.rr(g, p.x - w / 2, p.y - h / 2, w, h, 10); g.fill(); }
+      if (this.flash[i] > 0) { g.fillStyle = `rgba(255,255,255,${this.flash[i] * 0.6})`; this.rr(g, p.x - w / 2 - 3, p.y - h / 2 - 3, w + 6, h + 6, 12); g.fill(); this.flash[i] -= 0.04; }
+      if (type === 'bank' && !G.closedBanks[i] && Math.random() < 0.04) this.addP({ x: p.x + R.range(-24, 24), y: p.y + R.range(-20, 20), vy: -30, life: 0.8, size: 2.5, kind: 'twinkle', color: '#fff3b0' });
       const closed = (type === 'gate' && G.closedGates[i]) || (type === 'bank' && G.closedBanks[i]);
       g.textAlign = 'center'; g.textBaseline = 'middle';
       const txt = /[0-9×+−]/.test(sp.icon) && sp.icon.length <= 2;
@@ -162,10 +212,23 @@ const Render = {
     // tokens (sorted by y so lower ones overlap)
     const toks = [];
     for (const pl of G.players) { if (pl.def) toks.push([pl, 'D']); if (!pl.gone) toks.push([pl, 'T']); }
-    toks.forEach(([pl, k]) => { const key = k + pl.id, tg = this.tokenTarget(pl, k); const d = this.disp[key] || (this.disp[key] = { x: tg.x, y: tg.y, px: tg.x }); d.px = d.x; d.x = lerp(d.x, tg.x, 0.22); d.y = lerp(d.y, tg.y, 0.22); });
+    toks.forEach(([pl, k]) => {
+      const key = k + pl.id, tg = this.tokenTarget(pl, k);
+      const d = this.disp[key] || (this.disp[key] = { x: tg.x, y: tg.y, px: tg.x, tx: tg.x, ty: tg.y, fx: tg.x, fy: tg.y, k: 1, hop: 0 });
+      if (Math.abs(d.tx - tg.x) > 0.5 || Math.abs(d.ty - tg.y) > 0.5) { d.fx = d.x; d.fy = d.y + d.hop; d.tx = tg.x; d.ty = tg.y; d.k = 0; }
+      d.px = d.x;
+      const far = Math.hypot(d.tx - d.fx, d.ty - d.fy) > 160;
+      d.k = Math.min(1, d.k + (far ? 0.06 : 0.13));
+      const e = d.k < 0.5 ? 2 * d.k * d.k : 1 - Math.pow(-2 * d.k + 2, 2) / 2;
+      d.x = lerp(d.fx, d.tx, e); const by = lerp(d.fy, d.ty, e);
+      d.hop = -Math.sin(d.k * Math.PI) * (far ? 50 : 16);
+      d.y = by + d.hop;
+    });
     toks.sort((a, b) => this.disp[a[1] + a[0].id].y - this.disp[b[1] + b[0].id].y);
     for (const [pl, k] of toks) this.drawToken(g, pl, k, now);
 
+    this.stepParts(g);
+    this.drawTrapAnims(g, now);
     if (this.highlight) {
       const o = this.highlight.owner;
       for (const k of this.highlight.tiles) {
@@ -247,10 +310,11 @@ const Render = {
     if (G.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.5 + 0.5 * Math.sin(now * 4); g.beginPath(); g.arc(c.x, c.y, 146, 0, 7); g.stroke(); g.globalAlpha = 1; }
     g.strokeStyle = 'rgba(255,255,255,0.13)'; g.lineWidth = 14; g.beginPath(); g.arc(c.x, c.y, this.RING, 0, 7); g.stroke();
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '40px "Segoe UI Emoji", sans-serif'; g.fillText(pl.el.glyph, c.x, c.y - 26);
-    g.font = 'bold 17px Georgia'; g.fillStyle = '#fff'; g.fillText(pl.el.hold, c.x, c.y + 12);
-    g.font = '15px Georgia'; g.fillStyle = '#ffe680'; g.fillText(`⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 34);
-    if (pl.hollow) { g.font = '12px Georgia'; g.fillStyle = '#7ccf4a'; g.fillText('Famished Earth', c.x, c.y + 54); }
+    const raided = G.raidersIn(pl).length > 0;
+    Char.draw(g, c.x, c.y - 22, 25, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
+    g.font = 'bold 15px Georgia'; g.fillStyle = '#fff'; g.fillText(pl.el.hold, c.x, c.y + 24);
+    g.font = '14px Georgia'; g.fillStyle = '#ffe680'; g.fillText(`⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 43);
+    if (pl.hollow) { g.font = '12px Georgia'; g.fillStyle = '#7ccf4a'; g.fillText('Famished Earth', c.x, c.y + 60); }
     for (let k = 1; k <= 16; k++) {
       const p = this.ringPos(pl.id, k);
       let fill = 'rgba(28,26,48,0.95)', label = String(k), lc = '#9a95b8';
@@ -265,7 +329,7 @@ const Render = {
       g.fillStyle = lc; g.font = (pile ? 'bold 15px' : '14px') + ' Georgia, "Segoe UI Emoji"';
       if (pile) { g.font = '11px "Segoe UI Emoji"'; g.fillText('🪙', p.x, p.y - 8); g.font = 'bold 13px Georgia'; g.fillText(label, p.x, p.y + 7); }
       else g.fillText(label, p.x, p.y + 1);
-      if (pl.traps[k]) { g.font = '14px "Segoe UI Emoji"'; g.fillText('⚠️', p.x + 15, p.y - 15); }
+      if (pl.traps[k]) { const it = ITEM[pl.traps[k].id]; g.save(); g.translate(p.x + 15, p.y - 15); g.scale(1 + 0.08 * Math.sin(now * 4 + k), 1 + 0.08 * Math.sin(now * 4 + k)); g.fillStyle = 'rgba(120,0,0,0.85)'; g.beginPath(); g.arc(0, 0, 10, 0, 7); g.fill(); g.strokeStyle = '#ffb0b0'; g.lineWidth = 1.5; g.stroke(); g.font = '12px "Segoe UI Emoji"'; g.fillText(it.icon, 0, 1); g.restore(); }
     }
     g.textBaseline = 'alphabetic';
     g.restore();
@@ -283,7 +347,7 @@ const Render = {
   },
   drawToken(g, pl, kind, now) {
     const d = this.disp[kind + pl.id];
-    const moving = Math.abs(d.x - d.px) > 0.4;
+    const moving = d.k < 1;
     const look = { x: clamp((d.x - d.px) * 0.3, -1, 1), y: 0.2 };
     const r = kind === 'T' ? 16 : 13;
     if (kind === 'T' && this.game.current === pl) {
@@ -297,6 +361,122 @@ const Render = {
       mood: this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
       hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop,
     });
+  },
+
+  ambient(G, now) {
+    if (Settings.test) return;
+    for (let el = 0; el < 4; el++) {
+      if (Math.random() > 0.25) continue;
+      const c = this.homeCenter(el), a = Math.random() * Math.PI * 2, rr = R.range(20, 150);
+      const x = c.x + Math.cos(a) * rr, y = c.y + Math.sin(a) * rr;
+      if (el === 0) this.addP({ x, y, vx: R.range(20, 50), vy: R.range(-10, 10), life: 2, size: 3, kind: 'wisp', color: 'rgba(230,250,255,0.7)', drag: 0 });
+      if (el === 1) this.addP({ x, y, vy: R.range(-40, -20), life: 2, size: R.range(2, 5), kind: 'bubble', color: 'rgba(180,220,255,0.8)', drag: 0 });
+      if (el === 2) this.addP({ x, y, vx: R.range(-10, 10), vy: R.range(-60, -30), life: 1.4, size: R.range(1.5, 3), kind: 'ember', color: R.pick(['#ffd34d', '#ff8a3d', '#ff5a1f']), drag: 0 });
+      if (el === 3) this.addP({ x, y: y - 40, vx: R.range(-15, 15), vy: R.range(15, 30), life: 2.2, size: 4, kind: 'leaf', color: R.pick(['#9be36b', '#7ccf4a', '#c8e66b']), drag: 0 });
+    }
+    if (G.ankar !== null && Math.random() < 0.5) { const p = this.trackPos(G.ankar); const d = this.disp.ANKAR || p; this.addP({ x: d.x + R.range(-14, 14), y: d.y - 30 + R.range(-8, 8), vy: -20, life: 0.9, size: R.range(3, 6), kind: 'dot', color: 'rgba(150,80,220,0.5)' }); }
+  },
+  stepParts(g) {
+    const dt = 1 / 60;
+    for (const p of this.parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.grav * dt; p.vx *= (1 - p.drag * dt); p.vy *= (1 - p.drag * dt); }
+    this.parts = this.parts.filter(p => p.t < p.life);
+    for (const p of this.parts) {
+      const k = 1 - p.t / p.life;
+      g.globalAlpha = Math.min(1, k * 1.6);
+      switch (p.kind) {
+        case 'ring': g.strokeStyle = p.color; g.lineWidth = 3 * k + 1; g.beginPath(); g.arc(p.x, p.y, p.size + (1 - k) * p.grow, 0, 7); g.stroke(); break;
+        case 'spark': g.strokeStyle = p.color; g.lineWidth = p.size * k; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05); g.stroke(); break;
+        case 'streak': g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.12, p.y - p.vy * 0.12); g.stroke(); break;
+        case 'coin': g.fillStyle = '#ffd34d'; g.strokeStyle = '#a8790a'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(p.x, p.y, p.size * Math.abs(Math.cos(p.t * 12)) + 1, p.size, 0, 0, 7); g.fill(); g.stroke(); break;
+        case 'bubble': g.strokeStyle = p.color; g.lineWidth = 1.2; g.beginPath(); g.arc(p.x + Math.sin(p.t * 5) * 4, p.y, p.size, 0, 7); g.stroke(); break;
+        case 'leaf': g.save(); g.translate(p.x + Math.sin(p.t * 3) * 10, p.y); g.rotate(Math.sin(p.t * 4) * 0.8); g.fillStyle = p.color; g.beginPath(); g.ellipse(0, 0, p.size, p.size * 0.45, 0, 0, 7); g.fill(); g.restore(); break;
+        case 'wisp': g.strokeStyle = p.color; g.lineWidth = 1.5; g.beginPath(); g.arc(p.x, p.y, 6, p.t * 3, p.t * 3 + 2); g.stroke(); break;
+        case 'twinkle': g.fillStyle = p.color; g.save(); g.translate(p.x, p.y); g.rotate(p.t * 3); g.fillRect(-p.size * 2, -0.7, p.size * 4, 1.4); g.fillRect(-0.7, -p.size * 2, 1.4, p.size * 4); g.restore(); break;
+        default: g.fillStyle = p.color; g.beginPath(); g.arc(p.x, p.y, Math.max(0.5, p.size * (0.4 + 0.6 * k)), 0, 7); g.fill();
+      }
+    }
+    g.globalAlpha = 1;
+  },
+  drawPortal(g, p, col, now, closed) {
+    g.save(); g.translate(p.x, p.y);
+    for (let k = 0; k < 3; k++) {
+      g.strokeStyle = closed ? 'rgba(80,80,90,0.5)' : col; g.globalAlpha = 0.25 + 0.15 * k; g.lineWidth = 3;
+      g.beginPath(); g.arc(0, 0, 40 + k * 7, now * (1.5 + k * 0.6) + k, now * (1.5 + k * 0.6) + k + 2.2); g.stroke();
+    }
+    g.restore(); g.globalAlpha = 1;
+  },
+  drawTrapAnims(g, now) {
+    for (const a of this.trapAnims) {
+      a.t += 1 / 60;
+      const t = a.t;
+      if (t < 0.5) { // falls from above, spinning
+        const k = t / 0.5, y = a.y - (1 - k * k) * 160;
+        g.save(); g.translate(a.x, y); g.rotate((1 - k) * 6); g.font = `${Math.round(26 + 20 * (1 - k))}px "Segoe UI Emoji"`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(a.icon, 0, 0); g.restore();
+      } else {
+        if (!a.landed) { a.landed = true; this.burstAt({ x: a.x, y: a.y }, [a.owner.color, '#fff', '#ff6b6b'], 30, { speed: 260, kind: 'spark', size: 3 }); for (let k = 0; k < 2; k++) this.addP({ x: a.x, y: a.y, kind: 'ring', color: a.owner.color, size: 16 + k * 10, grow: 70, life: 0.7 }); }
+        const k = Math.min(1, (t - 0.5) / 0.25), sc = 1 + (1 - k) * 0.6;
+        g.save(); g.translate(a.x, a.y); g.scale(sc, sc); g.font = '30px "Segoe UI Emoji"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = t > 1.8 ? Math.max(0, 1 - (t - 1.8) / 0.4) : 1; g.fillText(a.icon, 0, 0); g.restore();
+        g.globalAlpha = t > 1.8 ? Math.max(0, 1 - (t - 1.8) / 0.4) : 1;
+        g.font = 'bold 18px Georgia'; g.textAlign = 'center'; const tw = g.measureText(a.label).width + 20;
+        g.fillStyle = 'rgba(0,0,0,0.8)'; this.rr(g, a.x - tw / 2, a.y - 62, tw, 28, 8); g.fill();
+        g.strokeStyle = a.owner.color; g.lineWidth = 2; g.stroke(); g.fillStyle = '#fff'; g.fillText(a.label, a.x, a.y - 42);
+        g.globalAlpha = 1; g.textBaseline = 'alphabetic';
+      }
+    }
+    this.trapAnims = this.trapAnims.filter(a => a.t < 2.2);
+  },
+
+  // ---------------------------------------------------------- map view (key M / gamepad Y)
+  drawMap(g, now) {
+    const G = this.game;
+    g.fillStyle = 'rgba(8,6,20,0.92)'; g.fillRect(0, 0, 1600, 900);
+    g.textAlign = 'center'; g.font = 'bold 30px Georgia'; g.fillStyle = '#efe6ff';
+    g.fillText('🗺️ Map of the Holds — traps and defenses', 800, 42);
+    g.font = '15px Georgia'; g.fillStyle = '#a99bd8';
+    g.fillText('Press M, gamepad Y or B, or click to close. Hidden wards (Saving Grace) never appear here.', 800, 66);
+    G.players.forEach((pl, idx) => {
+      const ox = (idx % 2) * 800, oy = 80 + Math.floor(idx / 2) * 410;
+      g.fillStyle = 'rgba(255,255,255,0.04)'; this.rr(g, ox + 14, oy + 6, 772, 396, 18); g.fill();
+      g.strokeStyle = pl.color; g.lineWidth = 2; g.stroke();
+      const cx = ox + 190, cy = oy + 210, RR = 140;
+      const tp = k => { const a = -Math.PI / 2 + (k % 16) * Math.PI / 8; return { x: cx + Math.cos(a) * RR, y: cy + Math.sin(a) * RR }; };
+      Char.draw(g, cx, cy - 12, 30, pl.id, pl.color, { mood: G.raidersIn(pl).length ? 'scared' : 'happy', seed: pl.id });
+      g.font = 'bold 16px Georgia'; g.fillStyle = pl.color; g.fillText(`${pl.el.hold} (${pl.name})`, cx, cy + 40);
+      g.font = '13px Georgia'; g.fillStyle = '#ffe680'; g.fillText(`⭐${pl.vault}  🏦${G.bank(pl)}`, cx, cy + 58);
+      for (let k = 1; k <= 16; k++) {
+        const p = tp(k), pile = G.lootTile(pl, k), trap = pl.traps[k];
+        g.fillStyle = k === 16 ? pl.color : k === 8 ? '#6b5512' : pile ? '#8a6a12' : trap ? '#5a1020' : 'rgba(40,36,64,1)';
+        g.beginPath(); g.arc(p.x, p.y, 21, 0, 7); g.fill(); g.strokeStyle = pl.color; g.lineWidth = 2; g.stroke();
+        g.textBaseline = 'middle'; g.font = '15px Georgia, "Segoe UI Emoji"'; g.fillStyle = '#fff';
+        g.fillText(k === 16 ? '🌀' : k === 8 ? '⭐' : trap ? ITEM[trap.id].icon : pile ? String(pile.real + pile.fake) : String(k), p.x, p.y + 1);
+        g.font = '10px Georgia'; g.fillStyle = '#aaa'; g.fillText(String(k), p.x + 18, p.y - 18);
+        g.textBaseline = 'alphabetic';
+      }
+      if (pl.def) { const p = tp(pl.def.pos); Char.draw(g, p.x, p.y - 6, 11, pl.id, pl.color, { hat: 'helmet', noArms: true, mood: 'determined' }); }
+      for (const r of G.raidersIn(pl)) { const p = tp(r.trav.pos); Char.draw(g, p.x + 8, p.y - 10, 10, r.id, r.color, { noArms: true, mood: 'determined' }); }
+      // legend
+      const lines = [];
+      Object.keys(pl.traps).map(Number).sort((a, b) => a - b).forEach(k => { const it = ITEM[pl.traps[k].id]; lines.push([`Tile ${k}: ${it.icon} ${it.lore} (${it.name})`, it.desc]); });
+      pl.piles.forEach(x => { const extra = []; if (x.prot) extra.push(`Hoardward ${x.prot} (${x.protUses} uses)`); if (x.mimic) extra.push('Mimic Chest'); lines.push([`Tile ${x.tile}: 🪙 Hoard showing ${x.real + x.fake} coins`, extra.join(', ') || 'A raider landing here takes up to 5 coins.']); });
+      lines.push([`Tile 8: ⭐ Starvault — ${pl.vault} star${pl.vault === 1 ? '' : 's'}`, pl.vaultProt ? `🔏 Warding Seal active for ${pl.vaultProt} more turns.` : 'A raider landing here tries to steal a star.']);
+      if (pl.hollow) lines.push(['⛰️ Famished Earth is active', 'Raiders lose coins and stars on Hoards and the Starvault.']);
+      if (pl.ultHeld) lines.push([`${ITEM[pl.el.ult].icon} Holds the ${ITEM[pl.el.ult].lore} ultimate`, ITEM[pl.el.ult].desc]);
+      g.textAlign = 'left'; let y = oy + 40;
+      for (const [h, d] of lines) {
+        if (y > oy + 380) break;
+        g.font = 'bold 14px Georgia, "Segoe UI Emoji"'; g.fillStyle = '#fff'; g.fillText(h, ox + 370, y); y += 17;
+        g.font = '12.5px Georgia'; g.fillStyle = '#b9b3d6';
+        y = this.wrapText(g, d, ox + 382, y, 390, 15) + 6;
+      }
+      if (!Object.keys(pl.traps).length) { g.font = 'italic 13px Georgia'; g.fillStyle = '#888'; g.fillText('No traps set yet.', ox + 370, Math.min(y + 4, oy + 390)); }
+      g.textAlign = 'center';
+    });
+  },
+  wrapText(g, s, x, y, maxW, lh) {
+    const words = s.split(' '); let line = '';
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { g.fillText(line, x, y); y += lh; line = w; } else line = t; }
+    if (line) { g.fillText(line, x, y); y += lh; }
+    return y;
   },
 
   drawTitle(g, now) {

@@ -2,24 +2,24 @@
 'use strict';
 
 const ELEMENTS = [
-  { id: 0, key: 'air',   name: 'Air',   hold: 'Skyhold',   people: 'Stormborn', color: '#8fe0ff', dark: '#2a7fa8', glyph: '🌪️', ult: 'typhoon' },
-  { id: 1, key: 'water', name: 'Water', hold: 'Tidehold',  people: 'Tideborn',  color: '#4f8dff', dark: '#1f3f9a', glyph: '🌊', ult: 'washout' },
-  { id: 2, key: 'fire',  name: 'Fire',  hold: 'Emberhold', people: 'Emberkin',  color: '#ff6a3d', dark: '#a82a10', glyph: '🔥', ult: 'inferno' },
-  { id: 3, key: 'earth', name: 'Earth', hold: 'Stonehold', people: 'Rootbound', color: '#7ccf4a', dark: '#3f7a1c', glyph: '⛰️', ult: 'hollow' },
+  { id: 0, key: 'air', mascot: 'Zephi',    name: 'Air',   hold: 'Skyhold',   people: 'Stormborn', color: '#8fe0ff', dark: '#2a7fa8', glyph: '🌪️', ult: 'typhoon' },
+  { id: 1, key: 'water', mascot: 'Drip',  name: 'Water', hold: 'Tidehold',  people: 'Tideborn',  color: '#4f8dff', dark: '#1f3f9a', glyph: '🌊', ult: 'washout' },
+  { id: 2, key: 'fire', mascot: 'Pyra',   name: 'Fire',  hold: 'Emberhold', people: 'Emberkin',  color: '#ff6a3d', dark: '#a82a10', glyph: '🔥', ult: 'inferno' },
+  { id: 3, key: 'earth', mascot: 'Pebble',  name: 'Earth', hold: 'Stonehold', people: 'Rootbound', color: '#7ccf4a', dark: '#3f7a1c', glyph: '⛰️', ult: 'hollow' },
 ];
 
 // Space types on the Crossing (main board)
 const SPACE = {
-  gate:     { name: 'Gate',            lore: 'Waygate',        color: '#d9c27a', icon: '🌀' },
-  bank:     { name: 'Bank / Shop',     lore: 'Counting House', color: '#f2d36b', icon: '🏛️' },
-  blue:     { name: 'Blue',            lore: 'Boon',           color: '#3d7bff', icon: '+5' },
-  red:      { name: 'Red',             lore: 'Bane',           color: '#e0443a', icon: '−3' },
-  summon:   { name: 'Summon the Ankar',lore: "Ankar's Altar",  color: '#6b3fa0', icon: '👁️' },
-  shutdown: { name: 'Shutdown',        lore: 'Eclipse',        color: '#2b2b3a', icon: '🌑' },
-  doubler:  { name: 'Money Doubler',   lore: 'Gilded Spring',  color: '#e8b923', icon: '×2' },
-  lucky:    { name: 'Lucky',           lore: 'Fortune Wheel',  color: '#2fbf8f', icon: '🎡' },
-  item:     { name: 'Item',            lore: "Pedlar's Stall", color: '#c46bd6', icon: '🎁' },
-  chameleon:{ name: 'Chameleon',       lore: 'Mirage',         color: '#8a8f99', icon: '❓' },
+  gate:     { name: 'Gate',            lore: 'Waygate',        color: '#d9c27a', icon: '🌀' , desc: "One per Hold, every 10 spaces. Passing or landing on your own lets you bank what you carry; landing exactly lets you step inside as a second Warden. Passing or landing on a rival's Waygate (from round 4) lets you raid their Hold — the rest of your roll is discarded." },
+  bank:     { name: 'Bank / Shop',     lore: 'Counting House', color: '#f2d36b', icon: '🏛️' , desc: 'Landing on or passing it lets you deposit everything you carry, buy 1 star (price rolled 15, 20 or 25) and buy one item per visit.' },
+  blue:     { name: 'Blue',            lore: 'Boon',           color: '#3d7bff', icon: '+5' , desc: '+5 coins on hand.' },
+  red:      { name: 'Red',             lore: 'Bane',           color: '#e0443a', icon: '−3' , desc: '−3 coins on hand (never below 0).' },
+  summon:   { name: 'Summon the Ankar',lore: "Ankar's Altar",  color: '#6b3fa0', icon: '👁️' , desc: 'Sets the Ankar loose here. The Altar then crumbles into a Boon or Bane space. The Ankar follows the nearest Wayfarer up to 3 spaces each round and takes 5 coins from anyone it meets.' },
+  shutdown: { name: 'Shutdown',        lore: 'Eclipse',        color: '#2b2b3a', icon: '🌑' , desc: 'Closes 2 random Waygates and 2 Counting Houses for 2 rounds.' },
+  doubler:  { name: 'Money Doubler',   lore: 'Gilded Spring',  color: '#e8b923', icon: '×2' , desc: 'Doubles your coins on hand (max +10) and gives +1 carried star if you carry any.' },
+  lucky:    { name: 'Lucky',           lore: 'Fortune Wheel',  color: '#2fbf8f', icon: '🎡' , desc: 'Spin the wheel: win 1, 3, 5 or 10 coins.' },
+  item:     { name: 'Item',            lore: "Pedlar's Stall", color: '#c46bd6', icon: '🎁' , desc: 'Get a random item.' },
+  chameleon:{ name: 'Chameleon',       lore: 'Mirage',         color: '#8a8f99', icon: '❓' , desc: 'Turns into another special space (picked by a die roll) when you land on it.' },
 };
 const SPECIAL_TYPES = ['summon', 'shutdown', 'doubler', 'lucky', 'item'];
 
@@ -118,7 +118,7 @@ const ITEMS = [
   { id: 'callankar', name: 'Call Ankar', lore: "Ankar's Summons", price: 5, r: 'U', cat: 'chaos', use: 'play', icon: '📣', desc: 'Calls the Ankar to the space 6 behind you.' },
   { id: 'repel', name: 'Ankar Repellent', lore: 'Ankar Sigil', price: 3, r: 'C', cat: 'chaos', use: 'play', icon: '🧿', desc: 'The Ankar ignores you for 3 turns.' },
   { id: 'leash', name: 'Ankar Leash', lore: "Ankar's Leash", price: 6, r: 'U', cat: 'chaos', use: 'play', icon: '🪢', desc: 'Move the Ankar up to 6 spaces either way.' },
-  { id: 'decoy', name: 'Decoy Star', lore: 'Lure Star', price: 5, r: 'U', cat: 'chaos', use: 'passive', icon: '⭐', desc: 'Automatic: if the Ankar would take your star, it takes this instead.' },
+  { id: 'decoy', name: 'Decoy Star', lore: 'Lure Star', price: 5, r: 'U', cat: 'chaos', use: 'passive', icon: '⭐', desc: 'Automatic: if the Ankar would take your coins, it takes this instead.' },
   { id: 'bounty', name: 'Bounty Poster', lore: 'Bounty Poster', price: 5, r: 'U', cat: 'chaos', use: 'play', target: 'enemy', icon: '📃', desc: 'Marks a thief. Any Traveller who lands on that raider takes its loot back to its owners.' },
 ];
 const ITEM = {};

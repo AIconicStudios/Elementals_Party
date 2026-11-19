@@ -15,11 +15,11 @@ MG.def({
         S.tick[i] += dt;
         if (S.tick[i] >= 0.45) {
           S.tick[i] = 0;
-          if (Math.random() < 0.16) { S.pot[i] = 0; S.last[i] = '💀'; S.cool[i] = 0.9; if (!m.bot(i)) Sfx.bad(); }
+          if (Math.random() < 0.16) { MGH.burst(160 + i * 320, 300, ['#3a1a5c', '#b46bff', '#222'], 30, { speed: 320 }); MGH.shake(5); S.pot[i] = 0; S.last[i] = '💀'; S.cool[i] = 0.9; if (!m.bot(i)) Sfx.bad(); }
           else { const v = R.int(1, 3); S.pot[i] += v; S.last[i] = '+' + v; if (!m.bot(i)) Sfx.tone(500 + S.pot[i] * 30, 0.05, 'square', 0.04); }
         }
       } else if (m.released(i, 'a') || (S.pot[i] > 0 && !m.held(i, 'a'))) {
-        if (S.pot[i] > 0) { S.bank[i] += S.pot[i]; S.pot[i] = 0; S.last[i] = 'banked'; if (!m.bot(i)) Sfx.coin(); }
+        if (S.pot[i] > 0) { MGH.burst(160 + i * 320, 570, ['#ffe680', '#fff'], 20, { speed: 240, up: 120, grav: 500 }); S.bank[i] += S.pot[i]; S.pot[i] = 0; S.last[i] = 'banked'; if (!m.bot(i)) Sfx.coin(); }
         S.tick[i] = 0;
         if (S.bank[i] >= 15) S.fin[i] = m.t;
       }
@@ -76,13 +76,13 @@ MG.def({
     MGH.bg(g, '#0f2a18', '#051008');
     MGH.text(g, `Hand ${S.round} / 3`, 640, 100, 26, '#cdc');
     for (let i = 0; i < 4; i++) {
-      const x = 160 + i * 320, p = m.players[i], mine = !m.bot(i) || S.phase === 'reveal';
+      const x = 160 + i * 320, p = m.players[i], mine = MGH.peek(m, i) || S.phase === 'reveal';
       g.fillStyle = '#f4f0e0'; MGH.rr(g, x - 90, 170, 80, 110, 10); g.fill();
       MGH.text(g, mine ? String(S.c1[i]) : '?', x - 50, 245, 44, '#222', 'center', 'bold');
       if (S.phase === 'reveal' && S.c2[i]) { g.fillStyle = '#f4f0e0'; MGH.rr(g, x + 10, 170, 80, 110, 10); g.fill(); MGH.text(g, String(S.c2[i]), x + 50, 245, 44, '#222', 'center', 'bold'); }
       MGH.av(g, m, i, x + 128, 225, 24, S.phase === 'reveal' ? (S.win.includes(i) ? 'cheer' : S.tot[i] > 9 ? 'hurt' : 'neutral') : (S.P[i].locked ? 'happy' : 'determined'), { look: { x: -1, y: 0 } });
       MGH.text(g, p.name, x, 320, 22, p.color, 'center', 'bold');
-      if (S.phase === 'pick' && !m.bot(i)) ['Draw', 'Stand'].forEach((l, k) => { const sel = S.P[i].idx === k; g.fillStyle = sel ? p.color : 'rgba(255,255,255,0.1)'; MGH.rr(g, x - 110 + k * 115, 360, 105, 50, 10); g.fill(); MGH.text(g, l, x - 57 + k * 115, 393, 20, sel ? '#000' : '#fff', 'center', 'bold'); });
+      if (S.phase === 'pick' && !m.bot(i)) ['Draw', 'Stand'].forEach((l, k) => { const sel = S.P[i].idx === k && MGH.peek(m, i); g.fillStyle = sel ? p.color : 'rgba(255,255,255,0.1)'; MGH.rr(g, x - 110 + k * 115, 360, 105, 50, 10); g.fill(); MGH.text(g, l, x - 57 + k * 115, 393, 20, sel ? '#000' : '#fff', 'center', 'bold'); });
       if (S.phase === 'reveal') MGH.text(g, S.tot[i] > 9 ? `${S.tot[i]} BUST` : `${S.tot[i]}${S.win.includes(i) ? ' ★' : ''}`, x, 400, 34, S.tot[i] > 9 ? '#f66' : '#ffe680', 'center', 'bold');
     }
     if (S.phase === 'pick') PickR.drawStatus(m, S, g);
@@ -98,7 +98,7 @@ MG.def({
   update(m, S, dt) {
     for (let i = 0; i < 4; i++) {
       if (S.fin[i]) continue;
-      if (S.anim[i] > 0) { S.anim[i] -= dt; if (S.anim[i] <= 0) { if (S.roll[i] === S.step[i] + 1) { S.step[i]++; if (!m.bot(i)) Sfx.coin(); if (S.step[i] >= 6) S.fin[i] = m.t; } } continue; }
+      if (S.anim[i] > 0) { S.anim[i] -= dt; if (S.anim[i] <= 0) { if (S.roll[i] === S.step[i] + 1) { S.step[i]++; MGH.burst(30 + i * 320 + (S.step[i] - 1) * 42 + 21, 620 - (S.step[i] - 1) * 70, [m.players[i].color, '#fff'], 14, { speed: 200, up: 100, grav: 400 }); if (!m.bot(i)) Sfx.coin(); if (S.step[i] >= 6) S.fin[i] = m.t; } } continue; }
       if (m.pressed(i, 'a')) { S.roll[i] = R.d6(); S.anim[i] = 0.3; if (!m.bot(i)) Sfx.dice(); }
     }
     if (S.fin.some(f => f)) m.finish(this.score(m, S));
@@ -180,7 +180,7 @@ MG.def({
         T.fall.y += 900 * dt;
         if (T.fall.y >= 1) {
           const l = Math.max(T.fall.x - T.fall.w / 2, top.x - top.w / 2), r = Math.min(T.fall.x + T.fall.w / 2, top.x + top.w / 2);
-          if (r - l >= 12) { T.stack.push({ x: (l + r) / 2, w: r - l }); if (!m.bot(i)) Sfx.tone(400 + T.stack.length * 30, 0.08, 'triangle', 0.05); }
+          if (r - l >= 12) { MGH.burst(i * 320 + (l + r) / 2, 690 - T.stack.length * 26 + Math.max(0, (T.stack.length - 14) * 26), ['#d9c7a8', '#fff'], 10, { speed: 160 }); T.stack.push({ x: (l + r) / 2, w: r - l }); if (!m.bot(i)) Sfx.tone(400 + T.stack.length * 30, 0.08, 'triangle', 0.05); }
           else { T.miss = 0.6; if (!m.bot(i)) Sfx.bad(); }
           T.fall = null; T.cd = 0.25;
         }
@@ -233,7 +233,7 @@ MG.def({
       p.w += (Math.sin(p.a) * 3.2 + gf * 1.6 + ctrl * 4.2) * dt;
       p.w *= (1 - 1.2 * dt);
       p.a += p.w * dt;
-      if (Math.abs(p.a) > 0.95) { p.alive = false; p.outT = m.t; if (!m.bot(i)) Sfx.bad(); }
+      if (Math.abs(p.a) > 0.95) { MGH.burst(i * 320 + 160 + Math.sign(p.a) * 120, 500, [m.players[i].color, '#fff'], 24, { speed: 280, grav: 600 }); MGH.shake(6); p.alive = false; p.outT = m.t; if (!m.bot(i)) Sfx.bad(); }
     });
     if (S.p.filter(p => p.alive).length <= 1) m.finish(this.score(m, S));
   },
@@ -291,6 +291,7 @@ MG.def({
         let best = 0;
         S.tg.forEach(T => { const d = dist(s.tx, s.ty, this.tpos(T, m.t), T.y); const p = d < 12 ? 5 : d < 28 ? 3 : d < 46 ? 1 : 0; best = Math.max(best, p); });
         S.pts[s.i] += best; S.hits.push({ x: s.tx, y: s.ty, p: best, t: 0, i: s.i });
+        MGH.burst(s.tx, s.ty, best ? ['#ff3b3b', '#fff', '#ffe680'] : ['#8a7765', '#5a4a3a'], best ? 26 : 10, { speed: best ? 340 : 160, kind: best === 5 ? 'spark' : 'dot', size: 3 }); if (best === 5) { MGH.shake(5); MGH.ring(s.tx, s.ty, '#ffe680', 10, 80); }
         if (best) Sfx.coin();
       }
     }
@@ -337,7 +338,7 @@ MG.def({
     S.p.forEach((p, i) => {
       if (p.coin) {
         const c = p.coin; c.y += c.v * dt; c.v -= 520 * dt;
-        if (c.y >= S.L) { p.last = 0; p.coin = null; p.n++; if (!m.bot(i)) Sfx.bad(); }
+        if (c.y >= S.L) { MGH.burst(i * 320 + 160, 680 - S.L - 10, ['#e8b923', '#fff'], 18, { speed: 260, up: 150, grav: 700 }); p.last = 0; p.coin = null; p.n++; if (!m.bot(i)) Sfx.bad(); }
         else if (c.v <= 0) { const sc = Math.round(c.y / S.L * 100); p.last = sc; p.best = Math.max(p.best, sc); p.coin = null; p.n++; if (!m.bot(i)) Sfx.coin(); }
         return;
       }
@@ -397,8 +398,10 @@ MG.def({
       const k = this.idxAt(S, m.cur[i].x, m.cur[i].y);
       if (k < 0 || S.dug[k] >= 0) continue;
       S.dug[k] = i; S.left[i]--;
-      if (S.kind[k] === 1) { S.pts[i]++; if (!m.bot(i)) Sfx.coin(); }
-      else if (S.kind[k] === 2) { S.pts[i] -= 3; Sfx.boom(); }
+      const cx = S.x0 + (k % S.cols + 0.5) * S.cell, cy = S.y0 + (Math.floor(k / S.cols) + 0.5) * S.cell;
+      MGH.burst(cx, cy, ['#c9a36b', '#8a6a3a'], 10, { speed: 160, grav: 400 });
+      if (S.kind[k] === 1) { S.pts[i]++; MGH.burst(cx, cy, ['#9fe8ff', '#fff', '#5fd0ff'], 22, { speed: 260, kind: 'spark', size: 3 }); if (!m.bot(i)) Sfx.coin(); }
+      else if (S.kind[k] === 2) { S.pts[i] -= 3; Sfx.boom(); MGH.burst(cx, cy, ['#ff5a1f', '#ffd34d', '#333'], 50, { speed: 420 }); MGH.ring(cx, cy, '#ffd34d', 20, 140); MGH.shake(14); MGH.pop('−3', cx, cy - 30, '#ff6b6b', 34); }
     }
     if (S.left.every(l => l <= 0)) m.finish(S.pts.slice());
   },
@@ -464,13 +467,13 @@ MG.def({
       const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2400, 260 - b.carry * 8, 9); MGH.integrate(b, dt, 0, 130);
       if (m.pressed(i, 'a')) {
         const c = S.coins.findIndex(c => dist(c.x, c.y, b.x, b.y) < 42);
-        if (c >= 0) { S.coins.splice(c, 1); b.carry++; if (!m.bot(i)) Sfx.coin(); }
+        if (c >= 0) { MGH.burst(S.coins[c].x, S.coins[c].y, ['#ffe680', '#fff'], 10, { speed: 160 }); S.coins.splice(c, 1); b.carry++; if (!m.bot(i)) Sfx.coin(); }
       }
       if (b.carry > 0 && this.inBeam(S, b.x, b.y)) {
         for (let k = 0; k < b.carry; k++) S.coins.push({ x: clamp(b.x + R.range(-60, 60), 60, 1220), y: clamp(b.y + R.range(-60, 60), 160, 600) });
-        b.carry = 0; b.stun = 0.6; if (!m.bot(i)) Sfx.bad();
+        b.carry = 0; b.stun = 0.6; MGH.pop('Caught!', b.x, b.y - 30, '#ffe680', 26); MGH.shake(4); if (!m.bot(i)) Sfx.bad();
       }
-      if (b.y > 640 && Math.abs(b.x - 640) < 110 && b.carry) { b.bank += b.carry; b.carry = 0; if (!m.bot(i)) Sfx.star(); }
+      if (b.y > 640 && Math.abs(b.x - 640) < 110 && b.carry) { MGH.pop('+' + b.carry, b.x, b.y - 30, '#ffe680', 30); MGH.burst(b.x, b.y, ['#ffe680', '#fff'], 20, { speed: 240 }); b.bank += b.carry; b.carry = 0; if (!m.bot(i)) Sfx.star(); }
     });
     MGH.collide(S.b, 0.4);
   },

@@ -396,7 +396,7 @@ class Game {
     const canT = this.travCanMove(p);
     const fort = this.fortifyOptions(p);
     const canF = fort.some(f => f.ok);
-    let travLabel = t.loc === 'ring' ? (t.ring === p.id ? 'Move Wayfarer (inside your Hold)' : `Move Wayfarer (raiding ${this.P(t.ring).el.hold})`) : 'Move Wayfarer on the Crossing (+4 wage)';
+    let travLabel = t.loc === 'ring' ? (t.ring === p.id ? 'Move Wayfarer (inside your Hold)' : `Move Wayfarer (raiding ${this.P(t.ring).el.hold})`) : 'Move Wayfarer on the Crossing (+3 wage)';
     if (p.gone) travLabel = 'Wayfarer lost forever';
     else if (t.prison) travLabel = 'Wayfarer imprisoned';
     else if (t.frozen) travLabel = `Wayfarer frozen (${t.frozen})`;
@@ -462,7 +462,7 @@ class Game {
     const { v, dir } = await this.roll(p);
     const t = p.trav;
     if (t.loc === 'board') {
-      p.cash += 4; this.fx(p, '+4 wage', '#ffe680');
+      p.cash += 3; this.fx(p, '+3 wage', '#ffe680'); Render.coinBurst(p, 3);
       await this.moveBoard(p, v, dir);
     } else {
       await this.moveRing(p, v, dir);
@@ -478,8 +478,28 @@ class Game {
       await sleep(170);
       const last = s === steps;
       const sp = this.board[t.pos];
+      Render.stepPuff(t.pos);
       // thief items steal by passing
       if (t.thief) this.thiefPass(p);
+      // passing (or landing on) a rival's Waygate: may raid, discarding the rest of the roll
+      if (sp === 'gate' && t.pos !== p.gate) {
+        const owner = this.players.find(o => o.gate === t.pos);
+        if (this.round < 4) { if (last) this.log('The Waygates are sealed until round 4.'); }
+        else if (this.closedGates[t.pos] && !this.hasItem(p, 'masterkey')) { if (last) this.log('That Waygate is closed by the Eclipse.'); }
+        else {
+          const rest = steps - s;
+          const v = await this.choose(p, { title: `${owner.el.hold} Waygate`, text: `Raid ${owner.name}'s Hold? (Bank ${this.bank(owner)}, Vault ${owner.vault}⭐)${rest ? ` Raiding discards your remaining ${rest} step${rest > 1 ? 's' : ''}.` : ''}`, options: [
+            { label: `⚔️ Reave ${owner.el.hold}${rest ? ` (lose ${rest} step${rest > 1 ? 's' : ''})` : ''}`, value: true }, { label: rest ? `Keep walking (${rest} more)` : 'Pass by', value: false }] }, () => AI.wantRaid(this, p, owner));
+          if (v) {
+            this.gateOpen(t.pos, p);
+            t.loc = 'ring'; t.ring = owner.id; t.pos = RING_GATE;
+            this.log(`${this.name(p)} slips through the Waygate into ${this.name(owner)}'s ${owner.el.hold}!${rest ? ` (${rest} step${rest > 1 ? 's' : ''} discarded)` : ''}`, 'warn');
+            Render.burstAt(Render.ringPos(owner.id, RING_GATE), owner.color, 26); Sfx.bad();
+            UI.refresh();
+            return;
+          }
+        }
+      }
       if (sp === 'gate' && t.pos === p.gate && !last) {
         if (this.gateOpen(t.pos, p) && (p.cash + this.hotCoins(p) + this.carriedStars(p) > 0)) {
           const yes = await this.choose(p, { title: 'Your Waygate', text: 'Deposit everything you carry at home?', options: [{ label: 'Deposit', value: true }, { label: 'Keep walking', value: false }] }, () => AI.wantDeposit(this, p));
@@ -511,6 +531,7 @@ class Game {
   async resolveBoardLanding(p) {
     const t = p.trav;
     const sp = this.board[t.pos];
+    Render.landFx(t.pos);
     // other travellers on the same space: steal 1 coin; bounty
     for (const q of this.players) {
       if (q === p || q.gone || q.trav.loc !== 'board' || q.trav.pos !== t.pos) continue;
@@ -531,15 +552,7 @@ class Game {
           if (v === 'dep' || v === 'enter') await this.deposit(p, 'home');
           if (v === 'enter') { t.loc = 'ring'; t.ring = p.id; t.pos = RING_GATE; this.log(`${this.name(p)} enters their own Hold to guard it.`); }
         }
-      } else if (this.round >= 4 && this.gateOpen(t.pos, p)) {
-        const v = await this.choose(p, { title: `${owner.el.hold} Waygate`, text: `Raid ${owner.name}'s Hold? (Bank ${this.bank(owner)}, Vault ${owner.vault}⭐)`, options: [
-          { label: `⚔️ Reave ${owner.el.hold}`, value: true }, { label: 'Pass by', value: false }] }, () => AI.wantRaid(this, p, owner));
-        if (v) {
-          t.loc = 'ring'; t.ring = owner.id; t.pos = RING_GATE;
-          this.log(`${this.name(p)} slips through the Waygate into ${this.name(owner)}'s ${owner.el.hold}!`, 'warn');
-          Sfx.bad();
-        }
-      } else if (this.round < 4) this.log('The Waygates are sealed until round 4.');
+      }
     } else if (sp !== 'bank') {
       await this.resolveSpace(p, sp);
     }
@@ -555,9 +568,18 @@ class Game {
         if (t.chain > 0) { this.log(`${this.name(p)}'s Chain Wallet shrugs off the Bane.`); break; }
         { const l = Math.min(3, p.cash); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.log(`${this.name(p)} lands on a Bane: −${l} coins.`); }
         break;
-      case 'summon':
-        this.ankar = t.pos; this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing!`, 'warn'); Sfx.boom();
+      case 'summon': {
+        this.ankar = t.pos;
+        Render.ankarSpawn(t.pos);
+        if (this.board[t.pos] === 'summon') {
+          const nt = R.pick(['blue', 'red']);
+          this.board[t.pos] = nt;
+          this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing! The Altar crumbles into a ${SPACE[nt].lore} space.`, 'warn');
+        } else this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing!`, 'warn');
+        Sfx.boom();
+        await sleep(700);
         break;
+      }
       case 'shutdown': {
         const gates = R.shuffle([0, 10, 20, 30]).slice(0, 2), banks = R.shuffle([5, 15, 25, 35]).slice(0, 2);
         gates.forEach(g => { this.closedGates[g] = 2; }); banks.forEach(b => { this.closedBanks[b] = 2; });
@@ -595,18 +617,12 @@ class Game {
     if (this.ankar === null || p.gone || p.trav.loc !== 'board' || p.trav.pos !== this.ankar) return;
     const t = p.trav;
     if (t.repel > 0) { this.log(`The Ankar looks away from ${this.name(p)} (Repellent).`); return; }
-    const hasStar = t.sHand > 0 || this.hotStars(p) > 0 || p.vault > 0;
-    if (hasStar) {
-      if (this.consume(p, 'decoy')) { this.log(`The Ankar takes ${this.name(p)}'s Decoy Star instead!`); return; }
-      if (t.sHand > 0) t.sHand--;
-      else if (this.hotStars(p) > 0) t.hotS[t.hotS.findIndex(x => x > 0)]--;
-      else p.vault--;
-      this.log(`👁️ The Ankar takes a star from ${this.name(p)}!`, 'bad'); this.fx(p, '−1⭐', '#c58bff');
-    } else {
-      let n = Math.min(10, p.cash); p.cash -= n;
-      if (n < 10) n += this.bankTake(p, 10 - n);
-      this.log(`👁️ The Ankar takes ${n} coins from ${this.name(p)}.`, 'bad'); this.fx(p, `−${n}`, '#c58bff');
-    }
+    if (this.consume(p, 'decoy')) { this.log(`The Ankar snatches ${this.name(p)}'s Decoy Star and leaves their coins alone!`); return; }
+    let n = Math.min(5, p.cash); p.cash -= n;
+    if (n < 5) n += this.bankTake(p, 5 - n);
+    if (!n) { this.log(`👁️ The Ankar finds nothing to take from ${this.name(p)}.`); return; }
+    this.log(`👁️ The Ankar takes ${n} coins from ${this.name(p)}.`, 'bad'); this.fx(p, `👁️ −${n}`, '#c58bff');
+    Render.burstAt(Render.trackPos(t.pos), '#b46bff', 22);
     Sfx.boom();
   }
 
@@ -872,6 +888,11 @@ class Game {
     else if (id === 'grace') { const free = this.freeTrapTiles(p); p.grace = R.pick(free); }
     this.log(`${this.name(p)} fortifies with ${it.icon} ${it.lore}${tile ? ` on tile ${tile}` : ''} (−${it.price} from bank).`);
     Sfx.click();
+    if (id === 'grace') Render.trapFx(p, null, '😇', 'A hidden ward is set…');
+    else Render.trapFx(p, tile || (it.place === 'vault' ? RING_VAULT : null), it.icon, `${it.lore} set!`);
+    Sfx.tone(180, 0.25, 'square', 0.07, -60);
+    UI.refresh();
+    await sleep(1300);
   }
 
   async pickRaider(p, title) {
@@ -1037,7 +1058,7 @@ class Game {
     const offers = [];
     while (offers.length < 3) { const id = this.randomHandItem(); if (!offers.includes(id)) offers.push(id); }
     const ult = ITEM[p.el.ult];
-    let stars = 0;
+    let stars = 0, itemBought = false;
     const sold = new Set();
     for (;;) {
       const sale = this.hasItem(p, 'starsale');
@@ -1047,11 +1068,11 @@ class Game {
       const opts = [{ label: `⭐ Buy a star — ${sp}${sale ? ' (Comet Sale!)' : ''}`, value: 'star', disabled: !this.afford(p, sp) || (stars >= 1 && !bulk) }];
       offers.forEach((id, i) => {
         const pr = half ? Math.ceil(ITEM[id].price / 2) : ITEM[id].price;
-        opts.push({ label: `${ITEM[id].icon} ${itemLabel(id)} — ${pr}${half ? ' (Coupon)' : ''}`, value: 'i' + i, disabled: sold.has(i) || !this.afford(p, pr), desc: ITEM[id].desc });
+        opts.push({ label: `${ITEM[id].icon} ${itemLabel(id)} — ${pr}${half ? ' (Coupon)' : ''}`, value: 'i' + i, disabled: itemBought || sold.has(i) || !this.afford(p, pr), desc: ITEM[id].desc });
       });
-      if (!p.ultBought) opts.push({ label: `${ult.icon} ${p.el.name} ultimate: ${ult.lore} — ${ult.price}`, value: 'ult', disabled: !this.afford(p, ult.price), desc: ult.desc });
+      if (!p.ultBought) opts.push({ label: `${ult.icon} ${p.el.name} ultimate: ${ult.lore} — ${ult.price}`, value: 'ult', disabled: itemBought || !this.afford(p, ult.price), desc: ult.desc });
       opts.push({ label: 'Leave the Counting House', value: 'done' });
-      const v = await this.choose(p, { title: '🏛️ Counting House', text: `You have ${p.cash} cash + ${this.bank(p)} banked. Cash is spent first.`, options: opts, shop: true },
+      const v = await this.choose(p, { title: '🏛️ Counting House', text: `You have ${p.cash} cash + ${this.bank(p)} banked. Cash is spent first. One item per visit${itemBought ? ' (bought)' : ''}.`, options: opts, shop: true },
         () => AI.shop(this, p, opts, { sp, offers, half, sold }));
       if (!v || v === 'done') break;
       if (v === 'star') {
@@ -1059,14 +1080,14 @@ class Game {
         if (sale) this.consume(p, 'starsale');
         this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680');
       } else if (v === 'ult') {
-        this.pay(p, ult.price); p.ultBought = true; p.ultHeld = true;
+        this.pay(p, ult.price); p.ultBought = true; p.ultHeld = true; itemBought = true;
         this.log(`${this.name(p)} buys the ${p.el.name} ultimate: ${ult.icon} ${ult.lore}!`, 'good');
       } else {
         const i = +v.slice(1), id = offers[i];
         const pr = half ? Math.ceil(ITEM[id].price / 2) : ITEM[id].price;
         if (p.items.length >= HAND_LIMIT && !p.human) break;
         this.pay(p, pr); if (half) this.consume(p, 'coupon');
-        sold.add(i);
+        sold.add(i); itemBought = true;
         await this.giveItem(p, id);
       }
       UI.refresh();
@@ -1078,7 +1099,19 @@ class Game {
   async endOfRound() {
     this.phase = 'roundEnd';
     if (this.ankar !== null) {
-      for (let s = 0; s < 3; s++) { this.ankar = (this.ankar + 1) % 40; UI.refresh(); await sleep(160); }
+      // the Ankar follows the nearest Wayfarer on the Crossing, up to 3 spaces
+      const cands = this.players.filter(q => !q.gone && q.trav.loc === 'board' && !(q.trav.repel > 0));
+      let dir = 1, maxSteps = 3;
+      if (cands.length) {
+        let best = null, bd = 99;
+        for (const q of cands) {
+          const fwd = (q.trav.pos - this.ankar + 40) % 40, back = (this.ankar - q.trav.pos + 40) % 40;
+          const d = Math.min(fwd, back);
+          if (d < bd) { bd = d; best = { d, dir: fwd <= back ? 1 : -1 }; }
+        }
+        dir = best.dir; maxSteps = Math.min(3, best.d);
+      }
+      for (let s = 0; s < maxSteps; s++) { this.ankar = (this.ankar + dir + 40) % 40; UI.refresh(); await sleep(220); }
       for (const q of this.players) if (q.trav.loc === 'board') this.ankarContact(q);
     }
     for (const k of Object.keys(this.closedGates)) { if (--this.closedGates[k] <= 0) delete this.closedGates[k]; }
@@ -1101,11 +1134,10 @@ class Game {
     }
     this.mgPlayed.push(id);
     const res = await MG.run(id, this.players.map(p => ({ id: p.id, name: p.name, color: p.color, human: p.human, el: p.el })), this.order.slice());
-    const w = this.P(res.winner);
-    w.mgWins++;
-    this.bankAdd(w, 2);
-    this.log(`🏆 ${this.name(w)} wins the Moot <b>${MG.byId[id].name}</b>: +2 banked and leads the next round.`, 'good');
-    this.order = [w.id].concat(this.order.filter(x => x !== w.id));
+    const winners = this.order.filter(x => res.winners.includes(x));
+    winners.forEach(x => { const w = this.P(x); w.mgWins++; this.bankAdd(w, 2); });
+    this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and each win' : 'wins'} the Moot <b>${MG.byId[id].name}</b>: +2 banked${winners.length > 1 ? ' each' : ''} and ${winners.length > 1 ? 'lead' : 'leads'} the next round.`, 'good');
+    this.order = winners.concat(this.order.filter(x => !winners.includes(x)));
     UI.refresh();
   }
 

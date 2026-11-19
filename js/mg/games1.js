@@ -24,6 +24,7 @@ MG.def({
           S.res[i].add(k);
           if (y < 700 && Math.abs(it.x - S.bx[i]) < 48) {
             S.pts[i] += it.ash ? -2 : 1; S.mood[i] = { m: it.ash ? 'hurt' : 'cheer', t: 0.6 };
+            MGH.burst(i * 320 + it.x, 645, it.ash ? ['#555', '#888', '#333'] : ['#ffe680', '#fff', '#ffd34d'], 16, { speed: 220, up: 80, grav: 200 });
             S.pops.push({ x: i * 320 + it.x, y: 640, s: it.ash ? '−2' : '+1', t: 0, c: it.ash ? '#f66' : '#ffe680' });
             if (!m.bot(i)) { if (it.ash) Sfx.bad(); else Sfx.coin(); }
           }
@@ -91,7 +92,7 @@ MG.def({
       if (S.fin[i]) continue;
       const run = m.held(i, 'a');
       if (run) {
-        if (S.eye === 'open' && S.grace <= 0) { S.pos[i] = 0; S.flash[i] = 0.6; if (!m.bot(i)) Sfx.bad(); }
+        if (S.eye === 'open' && S.grace <= 0) { MGH.burst(100 + S.pos[i], 226 + i * 120, ['#ff4d6d', '#b46bff'], 22, { speed: 300 }); MGH.shake(6); S.pos[i] = 0; S.flash[i] = 0.6; if (!m.bot(i)) Sfx.bad(); }
         else S.pos[i] += 95 * dt;
       }
       if (S.pos[i] >= 1000) { S.fin[i] = m.t; }
@@ -143,7 +144,7 @@ MG.def({
   newRound(S) { S.round++; S.wait = R.range(1, 5); S.bolt = false; S.bt = 0; S.lock = [false, false, false, false]; S.winner = -1; S.pause = 0; S.botT = [0, 1, 2, 3].map(() => R.range(0.2, 0.5)); S.botEarly = [0, 1, 2, 3].map(() => Math.random() < 0.06 ? R.range(0.3, S.wait) : -1); },
   update(m, S, dt) {
     if (S.pause > 0) { S.pause -= dt; if (S.pause <= 0) { if (S.round >= 5) m.finish(S.pts.slice()); else this.newRound(S); } return; }
-    if (!S.bolt) { S.wait -= dt; if (S.wait <= 0) { S.bolt = true; S.bt = 0; Sfx.boom(); } }
+    if (!S.bolt) { S.wait -= dt; if (S.wait <= 0) { S.bolt = true; S.bt = 0; Sfx.boom(); MGH.shake(16); MGH.burst(620, 450, ['#ffe680', '#fff', '#9fd8ff'], 50, { speed: 600, kind: 'spark', size: 4 }); } }
     else S.bt += dt;
     for (let i = 0; i < 4; i++) {
       if (S.lock[i] || !m.pressed(i, 'a')) continue;
@@ -232,7 +233,7 @@ MG.def({
     const k = Math.floor(m.t / S.beat);
     if (k !== S.lastBeat) { S.lastBeat = k; if (m.t < 8) Sfx.tone(1000, 0.05, 'square', 0.06); S.pulse = 0.15; }
     if (S.pulse > 0) S.pulse -= dt;
-    for (let i = 0; i < 4; i++) if (m.pressed(i, 'a') && m.t >= 8) S.taps[i].push(m.t);
+    for (let i = 0; i < 4; i++) if (m.pressed(i, 'a') && m.t >= 8) { S.taps[i].push(m.t); MGH.ring(190 + i * 300, 560, m.players[i].color, 30, 50, 0.4); }
   },
   bot(m, S, i, dt) {
     const v = m.vin[i]; v.a = false;
@@ -284,6 +285,7 @@ MG.def({
       if (m.pressed(i, 'a') || S.timer[i] > 6) {
         const d = S.timer[i] > 6 ? 1 : Math.abs(this.x(S, i));
         S.tot[i] += d; S.last[i] = d; S.n[i]++; S.cool[i] = 0.5; S.timer[i] = 0;
+        MGH.ring(i * 320 + 160, 630, d < 0.1 ? '#ffe680' : '#fff', 14, d < 0.1 ? 120 : 60, 0.6);
         if (!m.bot(i)) Sfx.tone(900 - d * 500, 0.3, 'triangle', 0.07);
       }
     }
@@ -334,6 +336,7 @@ MG.def({
         const d = Math.abs(S.pos[i] - S.zone[i]), w = this.w(S.n[i]);
         const pt = d < w / 2 ? 3 : d < w * 1.3 ? 1 : 0;
         S.pts[i] += pt; S.msg[i] = pt === 3 ? 'GOLD!' : pt ? 'near' : 'miss';
+        MGH.burst(200 + S.pos[i] * 880, 140 + i * 145, pt === 3 ? ['#ffe680', '#fff', '#ff9a3d'] : ['#ff9a3d', '#aa5522'], pt === 3 ? 28 : 10, { speed: 380, kind: 'spark', size: 3, grav: 500 });
         S.n[i]++; S.cool[i] = 0.45; S.zone[i] = R.range(0.15, 0.85);
         if (!m.bot(i)) Sfx.tone(pt === 3 ? 1200 : pt ? 700 : 200, 0.15, 'square', 0.06);
       }
@@ -385,7 +388,7 @@ MG.def({
       const b = S.b[i]; if (!b.alive) continue;
       const ax = m.axis(i).x;
       b.vx = ax * 300;
-      if (m.pressed(i, 'a') && b.ground) { b.vy = -820; b.ground = false; }
+      if (m.pressed(i, 'a') && b.ground) { b.vy = -820; b.ground = false; MGH.burst(b.x, b.y, '#d9c7a8', 6, { speed: 90, life: 0.4 }); }
       b.vy += 1900 * dt;
       const py = b.y;
       b.x = clamp(b.x + b.vx * dt, S.wall + 14, 1280 - S.wall - 14); b.y += b.vy * dt;
@@ -393,7 +396,7 @@ MG.def({
       if (b.vy >= 0) for (const p of S.plats) {
         if (b.x > p.x && b.x < p.x + p.w && py <= p.y && b.y >= p.y) { b.y = p.y; b.vy = 0; b.ground = true; break; }
       }
-      if (b.y > S.water || b.y > 760) { b.alive = false; b.outT = m.t; if (!m.bot(i)) Sfx.bad(); }
+      if (b.y > S.water || b.y > 760) { b.alive = false; b.outT = m.t; MGH.burst(b.x, S.water, ['#9fd8ff', '#ffffff', '#4f8dff'], 26, { speed: 300, up: 250, grav: 900 }); if (!m.bot(i)) Sfx.bad(); }
     }
     if (S.b.filter(b => b.alive).length <= 1) m.finish(this.score(m, S));
   },
@@ -459,13 +462,13 @@ MG.def({
     const speedUp = Math.max(0.55, 1 - m.t / 70);
     if (S.next <= 0) {
       if (S.phase === 'idle') { S.cur = this.pattern(S, m.t); S.cur.forEach(i => { S.state[i] = 1; }); S.phase = 'warn'; S.next = 1.1 * speedUp; }
-      else if (S.phase === 'warn') { S.cur.forEach(i => { S.state[i] = 2; }); S.phase = 'fire'; S.next = 0.7; Sfx.tone(140, 0.25, 'sawtooth', 0.04); }
+      else if (S.phase === 'warn') { S.cur.forEach(i => { S.state[i] = 2; MGH.burst((i % 10 + 0.5) * S.tw, 40 + (Math.floor(i / 10) + 0.5) * S.th, ['#ff5a1f', '#ffd34d'], 3, { speed: 120, up: 100, life: 0.6 }); }); S.phase = 'fire'; S.next = 0.7; MGH.shake(3); Sfx.tone(140, 0.25, 'sawtooth', 0.04); }
       else { S.state.fill(0); S.phase = 'idle'; S.next = 0.5 * speedUp; }
     }
     S.b.forEach((b, i) => {
       if (!b.alive) return;
       const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2600, 330, 9); MGH.integrate(b, dt);
-      if (S.state[this.tileAt(S, b.x, b.y)] === 2) { b.alive = false; b.outT = m.t; if (!m.bot(i)) Sfx.bad(); }
+      if (S.state[this.tileAt(S, b.x, b.y)] === 2) { b.alive = false; b.outT = m.t; MGH.burst(b.x, b.y, ['#ff5a1f', '#ffd34d', '#333'], 30, { speed: 280, up: 120 }); MGH.shake(8); if (!m.bot(i)) Sfx.bad(); }
     });
     MGH.collide(S.b, 0.5);
     if (S.b.filter(b => b.alive).length <= 1) m.finish(this.score(m, S));
@@ -513,12 +516,12 @@ MG.def({
       if (!b.alive) return;
       const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 1400, 260, 2.2);
       b.cd -= dt; b.dash -= dt;
-      if (m.pressed(i, 'a') && b.cd <= 0) { b.vx += b.face.x * 720; b.vy += b.face.y * 720; b.cd = 2; b.dash = 0.3; if (!m.bot(i)) Sfx.tone(300, 0.15, 'sawtooth', 0.05, 300); }
+      if (m.pressed(i, 'a') && b.cd <= 0) { b.vx += b.face.x * 720; b.vy += b.face.y * 720; b.cd = 2; b.dash = 0.3; MGH.burst(b.x - b.face.x * 20, b.y - b.face.y * 20, '#ffffff', 10, { speed: 160 }); if (!m.bot(i)) Sfx.tone(300, 0.15, 'sawtooth', 0.05, 300); }
       b.x += b.vx * dt; b.y += b.vy * dt;
       const v = Math.hypot(b.vx, b.vy); if (v > 900) { b.vx *= 900 / v; b.vy *= 900 / v; }
     });
     MGH.collide(S.b, 1.6);
-    S.b.forEach((b, i) => { if (b.alive && dist(b.x, b.y, S.cx, S.cy) > S.rad + 8) { b.alive = false; b.outT = m.t; Sfx.boom(); } });
+    S.b.forEach((b, i) => { if (b.alive && dist(b.x, b.y, S.cx, S.cy) > S.rad + 8) { b.alive = false; b.outT = m.t; Sfx.boom(); MGH.burst(b.x, b.y, [m.players[i].color, '#fff'], 30, { speed: 400 }); MGH.shake(10); MGH.pop('OUT!', b.x, b.y - 30, '#fff', 34); } });
     if (S.b.filter(b => b.alive).length <= 1) m.finish(this.score(m, S));
   },
   bot(m, S, i) {

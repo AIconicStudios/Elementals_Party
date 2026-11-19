@@ -33,7 +33,7 @@ In the desktop app, F11 toggles fullscreen.
 **Rolling:** when it's your roll, the die tumbles until you stop it. Click the die or the big button, or press Space.
 
 
-**Board turns** use the mouse. Click an option or press `1`–`9`. In hot-seat play, every human seat takes its turn at the same screen.
+**Board turns** work with the mouse (click an option or press `1`–`9`), the keyboard (arrows + Enter, Space stops the die) or any gamepad (D-pad/stick to move, A to select or stop the die, B to go back). Press **M** or gamepad **Y** for the map of every Hold's traps, and **H** or gamepad **X** for Help (all board spaces, Hold tiles, items, rules and controls). In hot-seat play, every human seat takes its turn at the same screen.
 
 **Minigames:** up to four people share one keyboard, and gamepads 1–4 map to players 1–4.
 
@@ -44,27 +44,27 @@ In the desktop app, F11 toggles fullscreen.
 | 3 (Fire) | I J K L | U | O |
 | 4 (Earth) | Arrow keys | Enter | Right Shift |
 
-Seats set to *Bot* are played by the AI. The menu's **Moot practice** mode lets you play any of the 40 minigames directly.
+Seats set to *Bot* are played by the AI. Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — hold your alt button to peek at your own choice. The menu's **Moot practice** mode lets you play any of the 40 minigames directly.
 
 ## What is implemented
 
 - **Setup:** 10 coins banked over 4 player-chosen Hoard tiles, plus a random Common item. Travellers start on their Gate and Defenders on tile 9. Gates are sealed for rounds 1–3, and round 1 order is set by a die roll.
-- **Turn:** play any items as free actions, then choose one: move the Traveller (+4 wage), move the Defender either way around the ring, or Fortify.
+- **Turn:** play any items as free actions, then choose one: move the Traveller (+3 wage), move the Defender either way around the ring, or Fortify.
 - **Main board:** a one-way loop of 40 spaces with the exact mix from the rulebook (4 Gates, 4 Banks, 10 Blue, 10 Red, and 2 each of Summon Ankar, Shutdown, Money Doubler, Lucky, Item and Chameleon). Each pair of specials sits 20 spaces apart.
 - **Banks/shops:**
   - Deposit when you land on or pass a Bank.
   - Buy 1 star at a price rolled as 15, 20 or 25.
-  - Buy from 3 random item offers and your element's ultimate.
+  - Buy one item per visit, from 3 random offers or your element's ultimate.
   - Coins on hand are spent first, then the bank.
 - **Home rings:** 16 tiles, with the Vault on tile 8 and the Gate on tile 16. Loot piles stay balanced, fake coins and fake stars work, and Loot Protection levels 1–5 are included.
-- **Raiding:** follows the rulebook's rules for entering, looting, hot loot, leaving and banking. Catches use exact landing by either piece. The armor/catch table is implemented, along with the Unicorn, Camouflage, Star Pouch, Locked Bag and Dog Biscuit.
+- **Raiding:** from round 4, passing or landing on a rival's Gate lets you raid; the rest of your roll is discarded and you walk their ring from tile 16 next turn. Looting, hot loot, leaving and banking follow the rulebook. Catches use exact landing by either piece. The armor/catch table is implemented, along with the Unicorn, Camouflage, Star Pouch, Locked Bag and Dog Biscuit.
 - **Items:** all 18 home defenses, 4 element ultimates, 15 raider items, 11 dice items, 11 money items and 9 chaos items, at the rulebook's prices and rarities. Rare and Legendary items only appear in the second half of the game.
-- **Ankar, Shutdown, Chameleon:** behave as written in the rulebook.
+- **Ankar:** an Ankar's Altar becomes a Blue or Red space once the Ankar is summoned there. Each round the Ankar follows the nearest Traveller up to 3 spaces and takes 5 coins on contact (never stars).
+- **Shutdown, Chameleon:** behave as written in the rulebook.
 - **Moot:**
   - The minigames never repeat until all 40 have been played.
   - The player with the fewest stars picks between two games.
-  - The winner banks +2 coins and moves to the front of the turn order.
-  - Ties go to whoever was earlier in the previous order.
+  - Every player tied for first banks +2 coins; the winners move to the front of the turn order.
 - **End of game:** banked stars plus Locked Bag stars are counted. Ties are broken by banked coins, then by minigame wins. You can play 20, 15 or 10 rounds.
 - **Lore names:** used throughout the game (Wayfarer, Warden, Waygate, Counting House, Hoard, Starvault, Hellhound, and so on).
 

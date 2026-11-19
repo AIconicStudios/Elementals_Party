@@ -24,10 +24,13 @@ window.addEventListener('load', () => {
   q('quitBtn').onclick = () => {
     if (!currentGame || confirm('Quit this game and return to the menu?')) {
       if (currentGame) { currentGame.aborted = true; if (UI.pending) UI.pending(null); }
-      currentGame = null; UI.game = null;
+      currentGame = null; UI.game = null; UI.toggleMap(false); Render.mapMode = false; document.getElementById('app').classList.remove('mapmode');
       [0, 1, 2, 3].forEach(i => { document.getElementById('pc' + i).innerHTML = ''; }); Render.die = null;
       UI.showMenu();
     }
   };
+  q('mapBtn').onclick = () => UI.toggleMap();
+  q('helpBtn').onclick = () => UI.toggleHelp();
+  Nav.init();
   UI.showMenu();
 });

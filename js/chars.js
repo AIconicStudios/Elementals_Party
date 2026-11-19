@@ -37,11 +37,14 @@ const Char = {
     }
 
     g.scale(1 / Math.sqrt(squash), squash);
+    if (!o.simple) this.behind(g, r, el, color, t, seed, mood);
     this.body(g, r, el, color, t, seed);
 
     // face
     const lx = o.look ? clamp(o.look.x, -1, 1) : 0, ly = o.look ? clamp(o.look.y, -1, 1) : 0;
     this.face(g, r, mood, lx, ly, t, seed);
+    if (!o.noArms) this.arms(g, r, el, color, mood, t, seed, walk);
+    if (!o.simple) this.front(g, r, el, color, t, seed);
 
     if (o.hat === 'helmet') {
       g.fillStyle = '#c9ced6'; g.strokeStyle = '#6b7280'; g.lineWidth = Math.max(1, r * 0.08);
@@ -69,7 +72,7 @@ const Char = {
     }
     if (el === 2) { // Fire: flame crown behind the body
       for (let k = -1; k <= 1; k++) {
-        const h = r * (0.75 + 0.25 * Math.sin(t * 9 + k * 2 + seed)) * (k === 0 ? 1.25 : 0.95);
+        const h = r * (1.05 + 0.3 * Math.sin(t * 9 + k * 2 + seed)) * (k === 0 ? 1.3 : 0.95);
         g.fillStyle = k === 0 ? '#ffd34d' : '#ff8a3d';
         g.beginPath(); g.moveTo(k * r * 0.45 - r * 0.32, -r * 0.55);
         g.quadraticCurveTo(k * r * 0.5 + Math.sin(t * 7 + k) * r * 0.15, -r * 0.55 - h * 1.4, k * r * 0.45 + r * 0.32, -r * 0.55);
@@ -99,8 +102,74 @@ const Char = {
       const sw = Math.sin(t * 4 + seed) * 0.2;
       g.beginPath(); g.arc(r * 0.05, -r * 1.12, r * 0.28, Math.PI * 0.2 + sw, Math.PI * 1.7 + sw); g.stroke();
       g.beginPath(); g.arc(-r * 0.25, -r * 1.02, r * 0.16, Math.PI * 1.1 + sw, Math.PI * 2.4 + sw); g.stroke();
-      g.fillStyle = 'rgba(255,255,255,0.85)';
-      [[-1, 1], [1, -1]].forEach(([s]) => { g.beginPath(); g.arc(s * r * 1.02, r * 0.15 + Math.sin(t * 3 + s) * r * 0.06, r * 0.22, 0, 7); g.arc(s * r * 1.18, r * 0.32, r * 0.16, 0, 7); g.fill(); });
+    }
+  },
+
+  // things drawn behind the body: Air wings, Fire aura
+  behind(g, r, el, color, t, seed, mood) {
+    if (el === 0) {
+      const flap = Math.sin(t * (mood === 'cheer' || mood === 'scared' ? 18 : 6) + seed) * 0.35;
+      for (const s of [-1, 1]) {
+        g.save(); g.translate(s * r * 0.75, -r * 0.2); g.rotate(s * (0.5 + flap)); g.scale(s * 0.72, 0.72);
+        g.fillStyle = 'rgba(255,255,255,0.92)'; g.strokeStyle = 'rgba(120,190,230,0.9)'; g.lineWidth = Math.max(1, r * 0.05);
+        g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(r * 0.7, -r * 0.9, r * 1.1, -r * 0.55);
+        g.quadraticCurveTo(r * 0.85, -r * 0.35, r * 1.0, -r * 0.2); g.quadraticCurveTo(r * 0.7, -r * 0.05, r * 0.8, r * 0.1);
+        g.quadraticCurveTo(r * 0.4, r * 0.1, 0, 0); g.fill(); g.stroke();
+        g.restore();
+      }
+    }
+    if (el === 2) {
+      g.fillStyle = 'rgba(255,140,40,0.18)'; g.beginPath(); g.arc(0, 0, r * (1.35 + Math.sin(t * 6 + seed) * 0.06), 0, 7); g.fill();
+    }
+  },
+  // things drawn in front: Water bubbles, Fire embers, Earth crystal, Air breeze
+  front(g, r, el, color, t, seed) {
+    if (el === 1) {
+      for (let k = 0; k < 3; k++) {
+        const ph = ((t * 0.6 + k / 3 + seed * 0.13) % 1);
+        const bx = Math.sin(ph * 9 + k * 2) * r * 0.25 + (k - 1) * r * 0.6, by = -r * 0.6 - ph * r * 1.3;
+        g.globalAlpha *= 1; g.strokeStyle = `rgba(200,235,255,${0.85 * (1 - ph)})`; g.lineWidth = Math.max(0.8, r * 0.05);
+        g.beginPath(); g.arc(bx, by, r * (0.08 + 0.05 * k), 0, 7); g.stroke();
+      }
+      // wave curl crest
+      g.strokeStyle = '#d4f0ff'; g.lineWidth = Math.max(1, r * 0.07); g.lineCap = 'round';
+      g.beginPath(); g.arc(r * 0.18, -r * 0.95, r * 0.14, Math.PI * 0.9, Math.PI * 2.1); g.stroke();
+    }
+    if (el === 2) {
+      for (let k = 0; k < 3; k++) {
+        const ph = ((t * 0.9 + k / 3 + seed * 0.21) % 1);
+        g.fillStyle = `rgba(255,${180 + k * 20},60,${1 - ph})`;
+        g.beginPath(); g.arc((k - 1) * r * 0.5 + Math.sin(ph * 10 + k) * r * 0.15, -r * 0.9 - ph * r * 1.1, r * 0.06 * (1 - ph * 0.5), 0, 7); g.fill();
+      }
+    }
+    if (el === 3) {
+      g.fillStyle = '#b48cff'; g.strokeStyle = '#6b3fa0'; g.lineWidth = Math.max(0.8, r * 0.04);
+      g.beginPath(); g.moveTo(-r * 0.62, -r * 0.62); g.lineTo(-r * 0.5, -r * 0.98); g.lineTo(-r * 0.36, -r * 0.66); g.lineTo(-r * 0.48, -r * 0.5); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(-r * 0.5, -r * 0.75, r * 0.03, 0, 7); g.fill();
+    }
+  },
+  arms(g, r, el, color, mood, t, seed, walk) {
+    const handCol = el === 0 ? '#ffffff' : this.shade(color, 0.15), edge = this.shade(color, -0.5);
+    const pose = s => {
+      const w = Math.sin(t * 10 + seed);
+      switch (mood) {
+        case 'cheer': return [s * r * 1.08, -r * 0.95 + Math.sin(t * 14 + s) * r * 0.12];
+        case 'happy': return s > 0 && ((t + seed) % 5) < 1.6 ? [r * 1.2, -r * 0.5 + w * r * 0.18] : [s * r * 1.02, r * 0.5];
+        case 'scared': return [s * r * 0.66, r * 0.42 + Math.sin(t * 40) * r * 0.03];
+        case 'determined': return [s * r * 1.08, r * 0.2 + (walk ? Math.sin(t * 14 + s * 3) * r * 0.2 : 0)];
+        case 'hurt': case 'dizzy': return [s * r * 1.0, r * 0.68];
+        case 'out': return [s * r * 1.15, r * 0.5];
+        default: return [s * r * 1.02, r * 0.52 + (walk ? Math.sin(t * 14 + s * 3) * r * 0.12 : 0)];
+      }
+    };
+    g.lineCap = 'round';
+    for (const s of [-1, 1]) {
+      const [hx, hy] = pose(s);
+      const sx = s * r * 0.78, sy = r * 0.18;
+      if (mood !== 'scared') { g.strokeStyle = edge; g.lineWidth = r * 0.2; g.beginPath(); g.moveTo(sx, sy); g.lineTo(hx, hy); g.stroke();
+        g.strokeStyle = this.shade(color, -0.1); g.lineWidth = r * 0.12; g.beginPath(); g.moveTo(sx, sy); g.lineTo(hx, hy); g.stroke(); }
+      g.fillStyle = handCol; g.strokeStyle = edge; g.lineWidth = Math.max(0.8, r * 0.05);
+      g.beginPath(); g.arc(hx, hy, r * 0.17, 0, 7); g.fill(); g.stroke();
     }
   },
 

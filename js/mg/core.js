@@ -54,10 +54,32 @@ const MG = {
   },
 
   rank(scores, order) {
-    // higher is better; ties broken by earlier position in previous order
+    // higher is better; listed in previous turn order on ties
     return scores.map((s, i) => ({ i, s })).sort((a, b) => (b.s - a.s) || (order.indexOf(a.i) - order.indexOf(b.i)));
   },
+  winnersOf(ranking) { const top = ranking[0].s; return ranking.filter(r => Math.abs(r.s - top) < 1e-9).map(r => r.i); },
 
+  // ---------------------------------------------------------- particles / shake
+  fx: [], shakeAmt: 0,
+  stepFx(dt) {
+    for (const p of this.fx) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.grav || 0) * dt; p.vx *= (1 - (p.drag || 0) * dt); p.vy *= (1 - (p.drag || 0) * dt); }
+    this.fx = this.fx.filter(p => p.t < p.life);
+    if (this.fx.length > 900) this.fx.splice(0, this.fx.length - 900);
+    this.shakeAmt = Math.max(0, this.shakeAmt - dt * 30);
+  },
+  drawFx(g) {
+    for (const p of this.fx) {
+      const k = 1 - p.t / p.life;
+      g.globalAlpha = Math.max(0, Math.min(1, k * 1.5));
+      if (p.kind === 'ring') { g.strokeStyle = p.color; g.lineWidth = 4 * k + 1; g.beginPath(); g.arc(p.x, p.y, p.size + (1 - k) * p.grow, 0, 7); g.stroke(); }
+      else if (p.kind === 'text') { MGH.text(g, p.text, p.x, p.y, p.size, p.color, 'center', 'bold'); }
+      else if (p.kind === 'spark') { g.strokeStyle = p.color; g.lineWidth = p.size * k; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.04, p.y - p.vy * 0.04); g.stroke(); }
+      else { g.fillStyle = p.color; g.beginPath(); g.arc(p.x, p.y, Math.max(0.5, p.size * (0.4 + 0.6 * k)), 0, 7); g.fill(); }
+    }
+    g.globalAlpha = 1;
+  },
+
+  // ---------------------------------------------------------- run
   async run(id, players, order) {
     const game = this.byId[id];
     if (Settings.test) return this.simulate(game, players, order);
@@ -65,10 +87,13 @@ const MG = {
     layer.classList.remove('hidden');
     const m = this.makeCtx(game, players);
     const S = {};
+    this.fx = []; this.shakeAmt = 0;
     game.init(m, S);
     const g = this.g;
-    let phase = 'card', phaseT = 0, last = performance.now(), resultT = 0;
-    let ranking = null;
+    let phase = 'card', phaseT = 0, last = performance.now();
+    let ranking = null, winners = null;
+    const ready = m.players.map(p => !p.human);
+    const demo = this.makeDemo(game, players);
     Input.mouse.moved = false;
     return new Promise(resolve => {
       const frame = nowT => {
@@ -76,13 +101,14 @@ const MG = {
         m.dt = dt; phaseT += dt;
         this.readInputs(m);
         if (phase === 'card') {
-          this.drawCard(g, game, m, phaseT);
-          const humans = m.players.filter(p => p.human);
-          if (phaseT > 6 || (phaseT > 1.2 && humans.some(p => m.pressed(p.i, 'a'))) || (!humans.length && phaseT > 2.5)) { phase = 'count'; phaseT = 0; }
+          m.players.forEach((p, i) => { if (p.human && !ready[i] && m.pressed(i, 'a')) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } });
+          this.drawCard(g, game, m, phaseT, ready, demo, dt);
+          const humans = m.players.some(p => p.human);
+          if ((humans && ready.every(r => r)) || (!humans && phaseT > 4)) { phase = 'count'; phaseT = 0; this.fx = []; }
         } else if (phase === 'count') {
-          game.draw(m, S, g); this.hud(m, S, game, g);
+          this.drawGame(g, game, m, S, dt);
           const n = 3 - Math.floor(phaseT / 0.7);
-          this.bigText(g, n > 0 ? String(n) : 'GO!', '#fff');
+          this.bigText(g, n > 0 ? String(n) : 'GO!', '#fff', phaseT % 0.7);
           if (phaseT > 2.6) { phase = 'play'; phaseT = 0; Sfx.tone(880, 0.2, 'triangle', 0.08); }
           else if (Math.floor(phaseT / 0.7) !== Math.floor((phaseT - dt) / 0.7)) Sfx.tone(440, 0.12, 'triangle', 0.06);
         } else if (phase === 'play') {
@@ -90,18 +116,18 @@ const MG = {
           m.t += dt;
           game.update(m, S, dt);
           if (game.dur && m.t >= game.dur && !m.done) m.finish(game.score(m, S));
-          game.draw(m, S, g); this.hud(m, S, game, g);
+          this.drawGame(g, game, m, S, dt);
           if (m.done) {
-            ranking = this.rank(m.scores, order);
+            ranking = this.rank(m.scores, order); winners = this.winnersOf(ranking);
             phase = 'result'; phaseT = 0; Sfx.win();
+            for (let k = 0; k < 6; k++) MGH.burst(R.range(200, 1080), R.range(150, 400), R.pick(['#ffe680', '#8fe0ff', '#ff6a3d', '#7ccf4a']), 24, { speed: 380, life: 1.6, grav: 300 });
           }
         } else if (phase === 'result') {
-          game.draw(m, S, g);
-          this.drawResult(g, game, m, ranking);
-          resultT += dt;
-          if (phaseT > 4.5 || (phaseT > 1.5 && m.players.some(p => p.human && m.pressed(p.i, 'a')))) {
+          this.drawGame(g, game, m, S, dt, true);
+          this.drawResult(g, game, m, ranking, winners, phaseT);
+          if (phaseT > 5 || (phaseT > 1.5 && m.players.some(p => p.human && m.pressed(p.i, 'a')))) {
             layer.classList.add('hidden');
-            resolve({ winner: m.players[ranking[0].i].id, scores: m.scores });
+            resolve({ winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores });
             return;
           }
         }
@@ -109,6 +135,46 @@ const MG = {
       };
       requestAnimationFrame(frame);
     });
+  },
+
+  drawGame(g, game, m, S, dt, frozen) {
+    this.stepFx(dt);
+    g.save();
+    if (this.shakeAmt > 0) g.translate(R.range(-1, 1) * this.shakeAmt, R.range(-1, 1) * this.shakeAmt);
+    game.draw(m, S, g);
+    this.drawFx(g);
+    g.restore();
+    // vignette
+    const v = g.createRadialGradient(640, 380, 380, 640, 380, 820);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+    g.fillStyle = v; g.fillRect(0, 0, 1280, 720);
+    this.hud(m, S, game, g);
+  },
+
+  // live bot-played preview of a minigame, shown on its intro card
+  makeDemo(game, players) {
+    if (!this.demoCanvas) { this.demoCanvas = document.createElement('canvas'); this.demoCanvas.width = 1280; this.demoCanvas.height = 720; }
+    const d = { g: this.demoCanvas.getContext('2d'), game, players: players.map(p => Object.assign({}, p, { human: false })), fx: [] };
+    d.reset = () => { d.m = this.makeCtx(game, d.players); d.S = {}; game.init(d.m, d.S); d.fx = []; d.end = 0; };
+    d.reset();
+    return d;
+  },
+  stepDemo(d, dt) {
+    const keepFx = this.fx, keepShake = this.shakeAmt;
+    this.fx = d.fx; Sfx.suppress = true;
+    try {
+      const { m, S, game } = d;
+      m.dt = dt;
+      if (!m.done && m.t < 16) {
+        this.readInputs(m);
+        for (let i = 0; i < 4; i++) if (game.bot) game.bot(m, S, i, dt);
+        m.t += dt; game.update(m, S, dt);
+        if (game.dur && m.t >= game.dur && !m.done) m.finish(game.score(m, S));
+      } else { d.end += dt; if (d.end > 1.2) d.reset(); }
+      this.stepFx(dt);
+      game.draw(d.m, d.S, d.g); this.drawFx(d.g); this.hud(d.m, d.S, game, d.g);
+    } catch (e) { console.error(e); }
+    d.fx = this.fx; this.fx = keepFx; this.shakeAmt = keepShake; Sfx.suppress = false;
   },
 
   simulate(game, players, order) {
@@ -120,56 +186,73 @@ const MG = {
       for (let i = 0; i < 4; i++) if (game.bot) game.bot(m, S, i, m.dt);
       m.t += m.dt; game.update(m, S, m.dt);
       if (game.dur && m.t >= game.dur && !m.done) m.finish(game.score(m, S));
+      if (this.fx.length > 200) this.fx = [];
     }
+    this.fx = [];
     if (!m.done) m.finish(game.score ? game.score(m, S) : [0, 0, 0, 0]);
-    const ranking = this.rank(m.scores, order);
-    return { winner: m.players[ranking[0].i].id, scores: m.scores, simTime: m.t };
+    const ranking = this.rank(m.scores, order), w = this.winnersOf(ranking);
+    return { winners: w.map(i => m.players[i].id), winner: m.players[w[0]].id, scores: m.scores, simTime: m.t };
   },
 
   // ---------------------------------------------------------- drawing
-  drawCard(g, game, m, t) {
+  drawCard(g, game, m, t, ready, demo, dt) {
     MGH.bg(g, '#1c1236', '#06040d');
-    g.textAlign = 'center';
-    MGH.text(g, `THE MOOT · #${game.n}`, 640, 120, 22, '#b6a9e0');
-    MGH.text(g, game.name, 640, 190, 64, '#fff', 'center', 'bold');
-    MGH.text(g, `${game.type} · Controls: ${game.controls}`, 640, 240, 22, '#ffd34d');
-    MGH.wrap(g, game.how, 640, 300, 900, 26, '#e8e0ff');
-    MGH.text(g, `Wins: ${game.wins}`, 640, 430, 24, '#8fe0ff');
+    MGH.text(g, `THE MOOT · #${game.n} · ${game.type}`, 640, 50, 20, '#b6a9e0');
+    MGH.text(g, game.name, 640, 108, 56, '#fff', 'center', 'bold');
+    MGH.text(g, `Controls: ${game.controls}`, 640, 142, 20, '#ffd34d');
+    MGH.wrap(g, game.how, 640, 176, 1080, 24, '#e8e0ff', 19);
+    // demo
+    this.stepDemo(demo, dt);
+    const dx = 360, dy = 228, dw = 560, dh = 315;
+    g.save(); g.shadowColor = '#7b5cff'; g.shadowBlur = 24; g.fillStyle = '#000'; MGH.rr(g, dx - 6, dy - 6, dw + 12, dh + 12, 14); g.fill(); g.restore();
+    g.save(); MGH.rr(g, dx, dy, dw, dh, 10); g.clip(); g.drawImage(this.demoCanvas, dx, dy, dw, dh); g.restore();
+    g.fillStyle = 'rgba(0,0,0,0.6)'; MGH.rr(g, dx + 10, dy + 10, 110, 26, 8); g.fill();
+    g.fillStyle = '#ff4d6d'; g.beginPath(); g.arc(dx + 26, dy + 23, 6 * (0.7 + 0.3 * Math.sin(t * 6)), 0, 7); g.fill();
+    MGH.text(g, 'DEMO', dx + 72, dy + 29, 16, '#fff', 'center', 'bold');
+    MGH.text(g, `🏆 Wins: ${game.wins}`, 640, 570, 21, '#8fe0ff');
     m.players.forEach((p, i) => {
-      const x = 190 + i * 300;
-      g.fillStyle = p.color; MGH.rr(g, x - 130, 480, 260, 150, 16); g.globalAlpha = 0.18; g.fill(); g.globalAlpha = 1;
-      g.strokeStyle = p.color; g.lineWidth = 2; g.stroke();
-      Char.draw(g, x - 98, 528, 26, p.el.id, p.color, { mood: p.human && m.pressed(i, 'a') ? 'cheer' : 'happy', seed: i * 1.7, look: { x: 0.5, y: 0 } });
-      MGH.text(g, `${p.name}`, x + 14, 520, 22, p.color, 'center', 'bold');
-      MGH.text(g, p.human ? 'Human' : 'Bot', x, 548, 16, '#ccc');
-      if (p.human) MGH.wrap(g, MGH.keyHint(game, i), x, 576, 240, 18, '#fff', 14);
+      const x = 160 + i * 320, y0 = 590, w = 296, h = 118;
+      g.fillStyle = p.color; MGH.rr(g, x - w / 2, y0, w, h, 14); g.globalAlpha = ready[i] && p.human ? 0.32 : 0.14; g.fill(); g.globalAlpha = 1;
+      g.strokeStyle = p.color; g.lineWidth = ready[i] && p.human ? 4 : 2; g.stroke();
+      Char.draw(g, x - 104, y0 + 50, 28, p.el.id, p.color, { mood: ready[i] && p.human ? 'cheer' : (p.human ? 'happy' : 'neutral'), seed: i * 1.7, look: { x: 0.5, y: 0 } });
+      MGH.text(g, p.name, x + 20, y0 + 30, 21, p.color, 'center', 'bold');
+      if (p.human) {
+        MGH.text(g, ready[i] ? '✔ READY' : 'Press action when ready', x + 20, y0 + 56, ready[i] ? 20 : 15, ready[i] ? '#7f7' : '#fff', 'center', 'bold');
+        MGH.wrap(g, MGH.keyHint(game, i), x + 20, y0 + 80, 220, 16, '#ccc', 13);
+      } else MGH.text(g, 'Bot — ready', x + 20, y0 + 58, 16, '#aaa');
     });
-    const hum = m.players.some(p => p.human);
-    MGH.text(g, hum ? `Press action to start · ${Math.max(0, Math.ceil(6 - t))}` : 'Bots only — starting…', 640, 680, 18, '#aaa');
+    if (!m.players.some(p => p.human)) MGH.text(g, 'Bots only — starting…', 640, 715, 14, '#aaa');
   },
   hud(m, S, game, g) {
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, 1280, 40);
-    g.textAlign = 'left';
     m.players.forEach((p, i) => {
       const s = game.hud ? game.hud(m, S, i) : '';
-      MGH.text(g, `${p.name}${s !== '' ? ': ' + s : ''}`, 16 + i * 250, 27, 18, p.color, 'left', 'bold');
+      Char.draw(g, 26 + i * 250, 20, 12, p.el.id, p.color, { noFeet: true, noArms: true, simple: true, seed: i, mood: 'happy' });
+      MGH.text(g, `${p.name}${s !== '' ? ': ' + s : ''}`, 46 + i * 250, 27, 17, p.color, 'left', 'bold');
     });
     if (game.dur) MGH.text(g, `⏱ ${Math.max(0, game.dur - m.t).toFixed(1)}`, 1264, 27, 20, '#fff', 'right', 'bold');
   },
-  bigText(g, s, c) {
-    g.save(); g.font = 'bold 140px Georgia'; g.textAlign = 'center'; g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillText(s, 646, 426); g.fillStyle = c; g.fillText(s, 640, 420); g.restore();
+  bigText(g, s, c, k = 0) {
+    const sc = 1 + Math.max(0, 0.3 - k) * 1.5;
+    g.save(); g.translate(640, 400); g.scale(sc, sc);
+    g.font = 'bold 140px Georgia'; g.textAlign = 'center'; g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillText(s, 6, 6);
+    g.lineWidth = 8; g.strokeStyle = '#3a1a7a'; g.strokeText(s, 0, 0); g.fillStyle = c; g.fillText(s, 0, 0); g.restore();
   },
-  drawResult(g, game, m, ranking) {
-    g.fillStyle = 'rgba(5,3,15,0.82)'; g.fillRect(0, 0, 1280, 720);
-    const w = m.players[ranking[0].i];
-    Char.draw(g, 640, 120, 52, w.el.id, w.color, { mood: 'cheer', seed: 1 });
-    MGH.text(g, '🏆 ' + w.name + ' wins!', 640, 230, 56, w.color, 'center', 'bold');
-    MGH.text(g, '+2 banked coins and leads the next round', 640, 270, 22, '#ddd');
+  drawResult(g, game, m, ranking, winners, t) {
+    g.fillStyle = `rgba(5,3,15,${Math.min(0.85, t * 2)})`; g.fillRect(0, 0, 1280, 720);
+    // light rays
+    g.save(); g.translate(640, 130); g.rotate(t * 0.3);
+    for (let k = 0; k < 12; k++) { g.rotate(Math.PI / 6); g.fillStyle = 'rgba(255,230,128,0.07)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-60, -700); g.lineTo(60, -700); g.fill(); }
+    g.restore();
+    const W = winners.map(i => m.players[i]);
+    W.forEach((w, k) => Char.draw(g, 640 + (k - (W.length - 1) / 2) * 140, 120 + Math.sin(t * 6 + k) * 6, 50, w.el.id, w.color, { mood: 'cheer', seed: k }));
+    MGH.text(g, '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!'), 640, 232, W.length > 2 ? 40 : 52, W[0].color, 'center', 'bold');
+    MGH.text(g, W.length > 1 ? 'Each winner banks +2 coins and they lead the next round' : '+2 banked coins and leads the next round', 640, 270, 21, '#ddd');
     ranking.forEach((r, k) => {
-      const p = m.players[r.i];
+      const p = m.players[r.i], win = winners.includes(r.i);
       const s = game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100);
-      Char.draw(g, 380, 340 + k * 52, 19, p.el.id, p.color, { mood: k === 0 ? 'cheer' : k === 3 ? 'hurt' : k === 1 ? 'happy' : 'neutral', seed: r.i * 1.7 });
-      MGH.text(g, `${k + 1}. ${p.name} — ${s}`, 640, 350 + k * 52, 28, p.color, 'center', k === 0 ? 'bold' : '');
+      Char.draw(g, 380, 340 + k * 52, 19, p.el.id, p.color, { mood: win ? 'cheer' : k === 3 ? 'hurt' : 'neutral', seed: r.i * 1.7 });
+      MGH.text(g, `${win ? '🏆' : k + 1 + '.'} ${p.name} — ${s}`, 640, 350 + k * 52, 28, p.color, 'center', win ? 'bold' : '');
     });
   },
 };
@@ -177,7 +260,31 @@ const MG = {
 // ---------------------------------------------------------- helpers
 const MGH = {
   rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); },
-  bg(g, a, b) { const gr = g.createLinearGradient(0, 0, 0, 720); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, 1280, 720); },
+  bg(g, a, b) {
+    const gr = g.createLinearGradient(0, 0, 0, 720); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.fillRect(0, 0, 1280, 720);
+    // drifting glowing motes for atmosphere
+    const t = performance.now() / 1000;
+    const mote = Char.shade(a.length === 7 ? a : '#ffffff', 0.6);
+    for (let k = 0; k < 26; k++) {
+      const x = ((k * 197.3 + t * (12 + (k % 5) * 6)) % 1340) - 30, y = (k * 113.7 + Math.sin(t * 0.7 + k) * 30) % 720;
+      g.globalAlpha = 0.18 + 0.15 * Math.sin(t * 2 + k); g.fillStyle = mote;
+      g.beginPath(); g.arc(x, y, 1.5 + (k % 4), 0, 7); g.fill();
+    }
+    g.globalAlpha = 1;
+  },
+  burst(x, y, color, n = 16, o = {}) {
+    if (Settings.test) return;
+    const sp = o.speed || 260;
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * Math.PI * 2, v = sp * (0.35 + Math.random() * 0.65);
+      MG.fx.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (o.up || 0), t: 0, life: (o.life || 0.7) * (0.6 + Math.random() * 0.5), size: o.size || R.range(2.5, 6), color: Array.isArray(color) ? R.pick(color) : color, grav: o.grav || 0, drag: o.drag || 2, kind: o.kind || 'dot' });
+    }
+  },
+  ring(x, y, color, size = 10, grow = 70, life = 0.5) { if (!Settings.test) MG.fx.push({ x, y, vx: 0, vy: 0, t: 0, life, size, grow, color, kind: 'ring' }); },
+  pop(text, x, y, color = '#fff', size = 30) { if (!Settings.test) MG.fx.push({ x, y, vx: 0, vy: -70, t: 0, life: 0.9, size, text, color, kind: 'text' }); },
+  peek(m, i) { return !m.bot(i) && m.held(i, 'b'); },
+  secretHint(g, y = 640) { MGH.text(g, '🤫 Picks are secret — hold your ALT button (B) to peek at your own choice', 640, y, 16, '#bdb4e0'); },
+  shake(a = 8) { MG.shakeAmt = Math.max(MG.shakeAmt, a); },
   text(g, s, x, y, size, color, align = 'center', weight = '') {
     g.font = `${weight} ${size}px Georgia, "Segoe UI Emoji", serif`; g.textAlign = align; g.fillStyle = color; g.fillText(s, x, y);
   },
@@ -197,7 +304,7 @@ const MGH = {
     if (/Cursor/.test(c)) s = `${k[2]} move cursor · ${k[3]} click${i === 0 ? ' (or mouse)' : ''}`;
     else if (/Move/.test(c)) s = `${k[2]} move · ${k[3]} action`;
     else if (/Left\/Right/.test(c)) s = `${k[0]} steer${/mash|\+/.test(c) ? ' · ' + k[3] + ' action' : ''}`;
-    else if (/Pick/.test(c)) s = `${k[2]} choose · ${k[3]} confirm`;
+    else if (/Pick/.test(c)) s = `${k[2]} choose · ${k[3]} confirm · ${['E', 'Y', 'O', 'R-Shift'][i]} peek`;
     else s = `${k[3]} = the button`;
     return s + ' (or gamepad)';
   },
