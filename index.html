@@ -16,7 +16,10 @@
   <div id="action"><div id="actTitle">Welcome</div><div id="actText"></div><div id="actOpts"></div></div>
   <div id="log"></div>
   <div id="banner"></div>
-  <div id="mgLayer" class="hidden"><canvas id="mg" width="1280" height="720"></canvas></div>
+  <div id="mgLayer" class="hidden"><canvas id="mg" width="1280" height="720"></canvas>
+    <button id="mgPauseBtn" class="hidden" title="Pause (Esc / gamepad Start)">⏸ Pause</button>
+    <div id="mgPause" class="hidden"><h2>⏸ Paused</h2><button id="mgResume">▶ Resume</button><button id="mgQuit">✖ Quit minigame</button>
+      <p>Esc or gamepad Start to resume · up/down + action to choose.<br>Quitting during a game ends this Moot with no winner and no reward.</p></div></div>
   <div id="overlay"></div>
   <div id="helpOv" class="hidden"></div>
 </div>
@@ -33,6 +36,8 @@
 <script src="js/mg/games2.js"></script>
 <script src="js/mg/games3.js"></script>
 <script src="js/mg/games4.js"></script>
+<script src="js/mg/games5.js"></script>
+<script src="js/mg/games6.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/main.js"></script>
 </body>

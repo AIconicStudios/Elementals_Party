@@ -30,6 +30,9 @@ window.addEventListener('load', () => {
     }
   };
   q('mapBtn').onclick = () => UI.toggleMap();
+  q('mgPauseBtn').onclick = () => MG.onPauseClick && MG.onPauseClick();
+  q('mgResume').onclick = () => { MG.paused = false; MG.pauseUI(false); };
+  q('mgQuit').onclick = () => MG.onQuitClick && MG.onQuitClick();
   q('helpBtn').onclick = () => UI.toggleHelp();
   Nav.init();
   UI.showMenu();

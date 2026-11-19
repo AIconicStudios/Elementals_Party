@@ -1,6 +1,6 @@
 # The Fourfold (PC)
 
-A four-player board game for PC, built from *The Fourfold Rulebook, Draft 1*. Four elemental Holds (Air, Water, Fire, Earth) walk the Crossing, bank coins, buy stars and raid each other's Holds over 20 rounds. After every round there is a Moot, picked from **40 four-player minigames**.
+A four-player board game for PC, built from *The Fourfold Rulebook, Draft 1*. Four elemental Holds (Air, Water, Fire, Earth) walk the Crossing, bank coins, buy stars and raid each other's Holds over 20 rounds. After every round there is a Moot, picked from **60 four-player minigames**.
 
 The game is HTML5 canvas and JavaScript with no dependencies. An Electron shell turns it into a desktop app for Windows, macOS and Linux.
 
@@ -44,7 +44,7 @@ In the desktop app, F11 toggles fullscreen.
 | 3 (Fire) | I J K L | U | O |
 | 4 (Earth) | Arrow keys | Enter | Right Shift |
 
-Seats set to *Bot* are played by the AI. Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — hold your alt button to peek at your own choice. The menu's **Moot practice** mode lets you play any of the 40 minigames directly.
+Seats set to *Bot* are played by the AI. Pause any minigame with Esc, gamepad Start or the ⏸ button; from there you can resume or quit (quitting a Moot gives no reward). Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — hold your alt button to peek at your own choice. The menu's **Moot practice** mode lets you play any of the 60 minigames directly.
 
 ## What is implemented
 
@@ -62,7 +62,7 @@ Seats set to *Bot* are played by the AI. Before each minigame an intro card play
 - **Ankar:** an Ankar's Altar becomes a Blue or Red space once the Ankar is summoned there. Each round the Ankar follows the nearest Traveller up to 3 spaces and takes 5 coins on contact (never stars).
 - **Shutdown, Chameleon:** behave as written in the rulebook.
 - **Moot:**
-  - The minigames never repeat until all 40 have been played.
+  - The minigames never repeat until all 60 have been played.
   - The player with the fewest stars picks between two games.
   - Every player tied for first banks +2 coins; the winners move to the front of the turn order.
 - **End of game:** banked stars plus Locked Bag stars are counted. Ties are broken by banked coins, then by minigame wins. You can play 20, 15 or 10 rounds.
@@ -98,6 +98,6 @@ js/render.js        canvas board renderer
 js/ui.js            side panel, prompts, menus
 js/input.js         keyboard / gamepad / mouse for 4 players
 js/mg/core.js       minigame framework (cards, countdown, results, bots, simulation)
-js/mg/games1-4.js   the 40 minigames
+js/mg/games1-6.js   the 60 minigames (41-60 use only Left/Right + one button)
 electron/main.js    desktop window
 ```

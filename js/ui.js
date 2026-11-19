@@ -226,7 +226,7 @@ const UI = {
       <div class="row"><label>Game length <select id="rounds"><option value="20">20 rounds (full)</option><option value="15">15 rounds</option><option value="10">10 rounds (quick)</option></select></label>
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label></div>
-      <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (40 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
+      <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (60 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
     const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1' }));
@@ -242,7 +242,7 @@ const UI = {
   },
 
   showPractice(seats) {
-    $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the 40 minigames. Seats set to Human use their keys; the rest are bots.</p>
+    $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the 60 minigames. Seats set to Human use their keys; the rest are bots.</p>
       <div class="mglist">${MG.list.map((g, i) => `<button data-id="${g.id}"><b>${i + 1}. ${esc(g.name)}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
       <div class="row btns"><button id="backBtn" data-back="1">← Back</button></div></div>`;
     $('#backBtn').onclick = () => this.showMenu();

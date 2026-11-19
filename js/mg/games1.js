@@ -370,20 +370,29 @@ MG.def({
 
 // 8 ---------------------------------------------------------------- Rising Tide
 MG.def({
-  id: 'tide', name: 'Rising Tide', type: 'Survival', controls: 'Move + jump', dur: 45,
-  how: 'Climb the platforms as the water rises and the arena shrinks. Touch the water and you are out.',
+  id: 'tide', name: 'Rising Tide', type: 'Survival', controls: 'Move + jump', dur: 50,
+  how: 'Climb as the water rises all the way to the sky. Platforms crumble about a second after anyone stands on them and come back later, so keep hopping. Touch the water and you are out.',
   wins: 'Last one alive.',
   init(m, S) {
-    S.plats = [{ x: 0, y: 690, w: 1280 }];
-    for (let y = 600; y > 60; y -= 95) {
+    S.plats = [{ x: 0, y: 690, w: 1280, floor: true, load: 0, st: 'ok', tt: 0 }];
+    for (let y = 600; y > 80; y -= 92) {
       const n = R.int(3, 4);
-      for (let k = 0; k < n; k++) S.plats.push({ x: k * (1280 / n) + R.range(0, 1280 / n - 200), y: y + R.range(-12, 12), w: R.range(150, 210) });
+      for (let k = 0; k < n; k++) S.plats.push({ x: k * (1280 / n) + R.range(0, 1280 / n - 190), y: y + R.range(-12, 12), w: R.range(130, 185), load: 0, st: 'ok', tt: 0 });
     }
-    S.b = [0, 1, 2, 3].map(i => ({ x: 220 + i * 280, y: 690, vx: 0, vy: 0, ground: true, alive: true, outT: 0 }));
-    S.water = 740; S.wall = 0;
+    S.b = [0, 1, 2, 3].map(i => ({ x: 220 + i * 280, y: 690, vx: 0, vy: 0, ground: true, alive: true, outT: 0, on: null }));
+    S.water = 800; S.wall = 0;
   },
+  solid(p) { return p.st === 'ok' || p.st === 'crack'; },
   update(m, S, dt) {
-    S.water = 800 - m.t * 15.5; S.wall = Math.min(260, m.t * 6);
+    S.water = 800 - m.t * 15.2; S.wall = Math.min(240, m.t * 5);
+    // platform life cycle: ok -> (stood on 1.1s) crack 0.6s -> gone 4.5s -> back
+    for (const p of S.plats) {
+      if (p.floor) continue;
+      const stood = S.b.some(b => b.alive && b.on === p);
+      if (p.st === 'ok') { if (stood) p.load += dt; else p.load = Math.max(0, p.load - dt * 0.5); if (p.load > 1.1) { p.st = 'crack'; p.tt = 0.6; } }
+      else if (p.st === 'crack') { p.tt -= dt; if (p.tt <= 0) { p.st = 'gone'; p.tt = 4.5; MGH.burst(p.x + p.w / 2, p.y, ['#9b7b55', '#6b5233', '#c9a36b'], 18, { speed: 160, grav: 700 }); } }
+      else if (p.st === 'gone') { p.tt -= dt; if (p.tt <= 0 && p.y < S.water - 60) { p.st = 'ok'; p.load = 0; MGH.ring(p.x + p.w / 2, p.y, '#ffe680', 10, 60, 0.5); } }
+    }
     for (let i = 0; i < 4; i++) {
       const b = S.b[i]; if (!b.alive) continue;
       const ax = m.axis(i).x;
@@ -392,9 +401,9 @@ MG.def({
       b.vy += 1900 * dt;
       const py = b.y;
       b.x = clamp(b.x + b.vx * dt, S.wall + 14, 1280 - S.wall - 14); b.y += b.vy * dt;
-      b.ground = false;
+      b.ground = false; b.on = null;
       if (b.vy >= 0) for (const p of S.plats) {
-        if (b.x > p.x && b.x < p.x + p.w && py <= p.y && b.y >= p.y) { b.y = p.y; b.vy = 0; b.ground = true; break; }
+        if (this.solid(p) && b.x > p.x && b.x < p.x + p.w && py <= p.y && b.y >= p.y) { b.y = p.y; b.vy = 0; b.ground = true; b.on = p; break; }
       }
       if (b.y > S.water || b.y > 760) { b.alive = false; b.outT = m.t; MGH.burst(b.x, S.water, ['#9fd8ff', '#ffffff', '#4f8dff'], 26, { speed: 300, up: 250, grav: 900 }); if (!m.bot(i)) Sfx.bad(); }
     }
@@ -402,17 +411,26 @@ MG.def({
   },
   bot(m, S, i) {
     const b = S.b[i], v = m.vin[i]; if (!b.alive) return;
-    if (b.ground && (!b.goal || b.goal.y >= b.y - 5 || Math.random() < 0.01)) {
-      const above = S.plats.filter(p => p.y < b.y - 20 && p.y > b.y - 150 && p.x + p.w > S.wall + 20 && p.x < 1280 - S.wall - 20);
-      b.goal = above.length ? above.sort((a, c) => Math.abs(a.x + a.w / 2 - b.x) - Math.abs(c.x + c.w / 2 - b.x))[0] : null;
-    }
     v.a = false;
-    if (b.goal) {
-      const gx = clamp(b.goal.x + b.goal.w / 2, S.wall + 30, 1280 - S.wall - 30);
-      const dx = gx - b.x;
-      MGH.setLR(m, i, Math.abs(dx) < 15 ? 0 : Math.sign(dx));
-      if (b.ground && Math.abs(dx) < b.goal.w / 2 - 10) v.a = !m.prev[i].a;
-    } else MGH.setLR(m, i, 0);
+    const usable = p => p.st === 'ok' && p.load < 0.45 && p !== b.on && p.x + p.w > S.wall + 25 && p.x < 1280 - S.wall - 25 && p.y < S.water - 50;
+    const onBad = !b.on || b.on.st !== 'ok' || b.on.load > 0.5 || b.on.floor;
+    if (b.ground && (onBad || !b.goal || !usable(b.goal))) {
+      let best = null, bs = -1e9;
+      for (const p of S.plats) {
+        if (!usable(p) || p.y < b.y - 140 || p.y > b.y + 160) continue;
+        const dx = Math.abs(p.x + p.w / 2 - b.x);
+        if (dx > 420) continue;
+        const sc = (b.y - p.y) * 1.4 - dx * 0.5 + (p.y < S.water - 160 ? 60 : 0) + R.range(0, 20);
+        if (sc > bs) { bs = sc; best = p; }
+      }
+      b.goal = best;
+    }
+    if (!b.goal) { MGH.setLR(m, i, 0); return; }
+    const gx = clamp(b.goal.x + b.goal.w / 2, S.wall + 30, 1280 - S.wall - 30), dx = gx - b.x;
+    MGH.setLR(m, i, Math.abs(dx) < 10 ? 0 : Math.sign(dx));
+    const reach = b.goal.y < b.y - 5 ? b.goal.w / 2 + 70 : 230;
+    if (b.ground && Math.abs(dx) < reach && (onBad || b.goal.y < b.y - 5 || Math.abs(dx) > b.goal.w / 2)) v.a = !m.prev[i].a;
+    if (b.on === b.goal) b.goal = null;
   },
   score(m, S) { return S.b.map(b => b.alive ? 1000 + (740 - b.y) : b.outT); },
   fmt(s) { return s >= 1000 ? 'Survived' : `out at ${s.toFixed(1)}s`; },
@@ -420,11 +438,17 @@ MG.def({
   draw(m, S, g) {
     MGH.bg(g, '#0b2440', '#06101d');
     g.fillStyle = '#2a1a0a'; g.fillRect(0, 40, S.wall, 680); g.fillRect(1280 - S.wall, 40, S.wall, 680);
-    g.fillStyle = '#9b7b55';
-    for (const p of S.plats) { MGH.rr(g, p.x, p.y, p.w, 12, 5); g.fill(); }
+    for (const p of S.plats) {
+      if (p.st === 'gone') { if (p.tt < 1) { g.globalAlpha = 0.25; g.strokeStyle = '#ffe680'; g.setLineDash([6, 6]); MGH.rr(g, p.x, p.y, p.w, 12, 5); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; } continue; }
+      const sx = p.st === 'crack' ? Math.sin(m.t * 60) * 3 : (p.load > 0.5 ? Math.sin(m.t * 40) * 1.5 : 0);
+      const heat = p.floor ? 0 : clamp(p.load / 1.1, 0, 1);
+      g.fillStyle = p.st === 'crack' ? '#5a4022' : `rgb(${155 - heat * 50},${123 - heat * 50},${85 - heat * 40})`;
+      MGH.rr(g, p.x + sx, p.y, p.w, 12, 5); g.fill();
+      if (heat > 0.3 || p.st === 'crack') { g.strokeStyle = '#2a1a0a'; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x + p.w * 0.3 + sx, p.y); g.lineTo(p.x + p.w * 0.38 + sx, p.y + 12); g.moveTo(p.x + p.w * 0.7 + sx, p.y); g.lineTo(p.x + p.w * 0.62 + sx, p.y + 12); g.stroke(); }
+    }
     S.b.forEach((b, i) => {
       if (!b.alive) return;
-      MGH.av(g, m, i, b.x, b.y - 17, 16, S.water - b.y < 90 ? 'scared' : (b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: Math.sign(b.vx) * 0.8, y: -0.5 } });
+      MGH.av(g, m, i, b.x, b.y - 17, 16, S.water - b.y < 90 || (b.on && b.on.st === 'crack') ? 'scared' : (b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: Math.sign(b.vx) * 0.8, y: -0.5 } });
     });
     g.fillStyle = 'rgba(40,120,255,0.65)'; g.fillRect(0, S.water, 1280, 720 - S.water);
     g.fillStyle = 'rgba(160,210,255,0.5)'; for (let x = 0; x < 1280; x += 40) { g.beginPath(); g.arc(x + (m.t * 40) % 40, S.water, 14, Math.PI, 0); g.fill(); }

@@ -9,6 +9,7 @@ const MG = {
   init(canvas) {
     this.canvas = canvas; this.g = canvas.getContext('2d');
     Input.bindMouse(canvas, this.W, this.H);
+    window.addEventListener('keydown', e => { if (e.code === 'Escape' && !document.getElementById('mgLayer').classList.contains('hidden')) { this._escQueued = true; e.preventDefault(); } });
   },
 
   makeCtx(game, players) {
@@ -96,8 +97,23 @@ const MG = {
     const demo = this.makeDemo(game, players);
     Input.mouse.moved = false;
     return new Promise(resolve => {
+      const finishWith = res => { this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
+      document.getElementById('mgPauseBtn').classList.remove('hidden');
+      this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
+      this.onQuitClick = () => { this.paused = false; finishWith({ winners: [], winner: null, scores: null, quit: true }); };
+      this.paused = false;
       const frame = nowT => {
         const dt = Math.min(0.05, (nowT - last) / 1000); last = nowT;
+        // pause toggle: Esc, any gamepad Start, or the on-screen button
+        const pin = this.pauseInput();
+        if (pin.toggle && phase !== 'result') { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); }
+        if (this.paused) {
+          if (pin.up || pin.down) { this.pauseSel = 1 - this.pauseSel; this.pauseUI(true); }
+          if (pin.a) { if (this.pauseSel === 0) { this.paused = false; this.pauseUI(false); } else { this.onQuitClick(); return; } }
+          if (!layer.classList.contains('hidden')) requestAnimationFrame(frame);
+          return;
+        }
+        if (layer.classList.contains('hidden')) return;
         m.dt = dt; phaseT += dt;
         this.readInputs(m);
         if (phase === 'card') {
@@ -126,8 +142,7 @@ const MG = {
           this.drawGame(g, game, m, S, dt, true);
           this.drawResult(g, game, m, ranking, winners, phaseT);
           if (phaseT > 5 || (phaseT > 1.5 && m.players.some(p => p.human && m.pressed(p.i, 'a')))) {
-            layer.classList.add('hidden');
-            resolve({ winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores });
+            finishWith({ winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores });
             return;
           }
         }
@@ -135,6 +150,23 @@ const MG = {
       };
       requestAnimationFrame(frame);
     });
+  },
+
+  // pause menu input from any keyboard player, any gamepad, or Esc
+  pauseInput() {
+    const now = { esc: false, start: false, up: false, down: false, a: false };
+    const escTap = !!this._escQueued; this._escQueued = false;
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && p.connected) : [];
+    for (const p of pads) if (p.buttons[9] && p.buttons[9].pressed) now.start = true;
+    for (let i = 0; i < 4; i++) { const st = Input.state(i); if (st.up) now.up = true; if (st.down) now.down = true; if (st.a) now.a = true; }
+    const pv = this._pin || {}; this._pin = now;
+    const e = k => now[k] && !pv[k];
+    return { toggle: escTap || e('start'), up: e('up'), down: e('down'), a: e('a') };
+  },
+  pauseUI(on) {
+    const el = document.getElementById('mgPause'); if (!el) return;
+    el.classList.toggle('hidden', !on);
+    el.querySelectorAll('button').forEach((b, k) => b.classList.toggle('navsel', k === (this.pauseSel || 0)));
   },
 
   drawGame(g, game, m, S, dt, frozen) {
@@ -230,7 +262,7 @@ const MG = {
       Char.draw(g, 26 + i * 250, 20, 12, p.el.id, p.color, { noFeet: true, noArms: true, simple: true, seed: i, mood: 'happy' });
       MGH.text(g, `${p.name}${s !== '' ? ': ' + s : ''}`, 46 + i * 250, 27, 17, p.color, 'left', 'bold');
     });
-    if (game.dur) MGH.text(g, `⏱ ${Math.max(0, game.dur - m.t).toFixed(1)}`, 1264, 27, 20, '#fff', 'right', 'bold');
+    if (game.dur) MGH.text(g, `⏱ ${Math.max(0, game.dur - m.t).toFixed(1)}`, 1150, 27, 20, '#fff', 'right', 'bold');
   },
   bigText(g, s, c, k = 0) {
     const sc = 1 + Math.max(0, 0.3 - k) * 1.5;

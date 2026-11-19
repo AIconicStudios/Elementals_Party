@@ -1134,6 +1134,7 @@ class Game {
     }
     this.mgPlayed.push(id);
     const res = await MG.run(id, this.players.map(p => ({ id: p.id, name: p.name, color: p.color, human: p.human, el: p.el })), this.order.slice());
+    if (res.quit || !res.winners.length) { this.log(`The Moot <b>${MG.byId[id].name}</b> was abandoned — no winner, no reward.`); UI.refresh(); return; }
     const winners = this.order.filter(x => res.winners.includes(x));
     winners.forEach(x => { const w = this.P(x); w.mgWins++; this.bankAdd(w, 2); });
     this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and each win' : 'wins'} the Moot <b>${MG.byId[id].name}</b>: +2 banked${winners.length > 1 ? ' each' : ''} and ${winners.length > 1 ? 'lead' : 'leads'} the next round.`, 'good');

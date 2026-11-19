@@ -376,11 +376,11 @@ MG.def({
   id: 'standoff', name: 'Standoff', type: 'Bluff', controls: 'Pick',
   how: 'Each round everyone secretly chooses Reload, Block or Shoot (naming a target). Shooting needs ammo from a Reload. A shot player who isn’t blocking is out.',
   wins: 'Last one alive.',
-  init(m, S) { S.alive = [true, true, true, true]; S.ammo = [0, 0, 0, 0]; S.blocks = [0, 0, 0, 0]; S.round = 0; S.outR = [0, 0, 0, 0]; this.start(S); },
+  init(m, S) { S.names = m.players.map(p => p.name); S.chosen = [null, null, null, null]; S.alive = [true, true, true, true]; S.ammo = [0, 0, 0, 0]; S.blocks = [0, 0, 0, 0]; S.round = 0; S.outR = [0, 0, 0, 0]; this.start(S); },
   opts(S, i) {
     const o = [{ k: 'reload', l: '🔄 Reload' }];
     if (S.blocks[i] < 2) o.push({ k: 'block', l: '🛡️ Block' });
-    if (S.ammo[i] > 0) for (let j = 0; j < 4; j++) if (j !== i && S.alive[j]) o.push({ k: 'shoot', t: j, l: `🔫 Shoot P${j + 1}` });
+    if (S.ammo[i] > 0) for (let j = 0; j < 4; j++) if (j !== i && S.alive[j]) o.push({ k: 'shoot', t: j, l: `🔫 Shoot ${S.names ? S.names[j] : 'P' + (j + 1)}` });
     return o;
   },
   start(S) { S.round++; S.P = [0, 1, 2, 3].map(() => ({ idx: 0, locked: false })); S.t = 0; S.phase = 'pick'; S.botAt = [0, 1, 2, 3].map(() => R.range(0.8, 3)); S.log = []; },
@@ -405,6 +405,7 @@ MG.def({
       if (S.P.every(p => p.locked) || S.t > 8) {
         const ch = S.P.map((P, i) => S.alive[i] ? this.opts(S, i)[P.locked ? P.idx : 0] : null);
         const shot = [false, false, false, false];
+        S.chosen = ch.map(c => c ? (c.k === 'reload' ? '🔄' : c.k === 'block' ? '🛡️' : '🔫→' + S.names[c.t]) : null);
         ch.forEach((c, i) => {
           if (!c) return;
           if (c.k === 'reload') { S.ammo[i]++; S.blocks[i] = 0; S.log.push(`${m.players[i].name} reloads`); }
@@ -418,7 +419,7 @@ MG.def({
       if (S.alive.filter(a => a).length <= 1 || S.round >= 12) m.finish(this.score(m, S)); else this.start(S);
     }
   },
-  score(m, S) { return S.alive.map((a, i) => a ? 100 + S.ammo[i] : S.outR[i]); },
+  score(m, S) { return S.alive.map((a, i) => a ? 100 : S.outR[i]); },
   fmt(s) { return s >= 100 ? 'Survived' : `out in round ${s}`; },
   hud(m, S, i) { return S.alive[i] ? `ammo ${S.ammo[i]}` : 'out'; },
   draw(m, S, g) {
@@ -428,6 +429,7 @@ MG.def({
       const x = 160 + i * 320, p = m.players[i];
       MGH.av(g, m, i, x, 190, 40, !S.alive[i] ? 'out' : (S.phase === 'reveal' ? 'scared' : S.ammo[i] > 0 ? 'determined' : 'neutral'), { prop: S.alive[i] && S.ammo[i] > 0 ? '🔫' : null });
       MGH.text(g, p.name, x, 250, 22, p.color, 'center', 'bold');
+      if (S.phase === 'reveal' && S.chosen[i]) MGH.text(g, S.chosen[i], x, 128, 22, '#ffe680', 'center', 'bold');
       MGH.text(g, `ammo: ${'●'.repeat(S.ammo[i]) || '—'}`, x, 280, 18, '#ddd');
       if (S.alive[i] && S.phase === 'pick' && !m.bot(i)) {
         const o = this.opts(S, i);
