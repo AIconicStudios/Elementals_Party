@@ -86,6 +86,8 @@ const Char = {
       g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip();
       const ss = g.createRadialGradient(0, 0, r * 0.72, 0, 0, r * 1.02); ss.addColorStop(0, 'rgba(255,110,70,0)'); ss.addColorStop(1, skin.sss || 'rgba(255,90,60,0.2)');
       g.fillStyle = ss; g.fillRect(-r, -r, r * 2, r * 2);
+      const tg = g.createRadialGradient(-r * 0.1, r * 0.5, 0, -r * 0.1, r * 0.5, r * 0.55); tg.addColorStop(0, 'rgba(255,244,222,0.42)'); tg.addColorStop(1, 'rgba(255,244,222,0)');
+      g.fillStyle = tg; g.fillRect(-r, -r * 0.1, r * 2, r * 1.1);
       const bb = g.createLinearGradient(0, r * 0.5, 0, r); bb.addColorStop(0, 'rgba(255,236,196,0)'); bb.addColorStop(1, 'rgba(255,236,196,0.38)');
       g.fillStyle = bb; g.fillRect(-r, r * 0.5, r * 2, r * 0.5);
       g.restore();
@@ -98,7 +100,7 @@ const Char = {
     ng.addColorStop(0, skin.light); ng.addColorStop(0.55, skin.mid); ng.addColorStop(1, skin.dark);
     g.fillStyle = ng; g.beginPath(); g.arc(nx, ny, nr, 0, 7); g.fill();
     g.beginPath(); g.arc(nx, ny, nr, 1.66, 4.62); g.stroke();
-    g.fillStyle = 'rgba(150,55,20,0.16)'; g.beginPath(); g.ellipse(nx + nr * 0.9, ny + nr * 0.95, nr * 0.75, nr * 0.32, -0.2, 0, 7); g.fill();
+    g.fillStyle = 'rgba(150,55,20,0.07)'; g.beginPath(); g.ellipse(nx + nr * 0.9, ny + nr * 0.95, nr * 0.75, nr * 0.32, -0.2, 0, 7); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.75)'; g.beginPath(); g.ellipse(nx - nr * 0.35, ny - nr * 0.45, nr * 0.28, nr * 0.2, -0.5, 0, 7); g.fill();
   },
 
@@ -174,8 +176,6 @@ const Char = {
       g.fillStyle = vg; wrapPath(); g.fill();
       const rg = g.createRadialGradient(-r * 0.25, -r * 0.75, r * 0.1, 0, -r * 0.3, r * 1.1); rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(0.7, 'rgba(0,0,0,0.05)'); rg.addColorStop(1, 'rgba(20,10,30,0.3)');
       g.fillStyle = rg; wrapPath(); g.fill();
-      g.strokeStyle = 'rgba(20,10,30,0.16)'; g.lineWidth = r * 0.035; g.lineCap = 'round';
-      for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(r * 0.92, -r * 0.48 - k * r * 0.05); g.quadraticCurveTo(r * (0.6 - k * 0.1), -r * (0.62 + k * 0.08), r * (0.3 - k * 0.15), -r * (0.72 + k * 0.1)); g.stroke(); }
     }
     g.restore();
     // rolled hem band with a highlight and running stitches
@@ -188,9 +188,17 @@ const Char = {
       g.setLineDash([r * 0.06, r * 0.05]); g.strokeStyle = this.shade(C.hem, 0.45); g.lineWidth = Math.max(0.6, r * 0.018); hemPath(r * 0.005); g.stroke(); g.setLineDash([]);
     }
     // tails of the knot hanging at the back
-    g.fillStyle = C.wrap; g.strokeStyle = this.shade(C.wrap, -0.35); g.lineWidth = Math.max(0.8, r * 0.04);
-    const sw = Math.sin(t * 4 + seed) * 0.15;
-    g.save(); g.translate(r * 0.9, -r * 0.42); g.rotate(0.5 + sw); g.beginPath(); g.moveTo(0, 0); g.lineTo(r * 0.32, r * 0.05); g.lineTo(r * 0.26, r * 0.2); g.closePath(); g.fill(); g.stroke(); g.restore();
+    g.strokeStyle = this.shade(C.wrap, -0.45); g.lineWidth = Math.max(0.8, r * 0.035); g.lineJoin = 'round';
+    for (let k = 0; k < 2; k++) {
+      const sw = Math.sin(t * 4.5 + seed + k * 1.3) * 0.18, len = r * (k ? 0.36 : 0.44), w = r * 0.1;
+      g.save(); g.translate(r * 0.88, -r * 0.44); g.rotate(0.35 + k * 0.55 + sw);
+      const tip = Math.sin(t * 6 + k + seed) * r * 0.04;
+      if (r > 10) { const tg = g.createLinearGradient(0, -w, 0, w); tg.addColorStop(0, this.shade(C.wrap, 0.25)); tg.addColorStop(1, this.shade(C.wrap, -0.25)); g.fillStyle = tg; } else g.fillStyle = C.wrap;
+      g.beginPath(); g.moveTo(0, -w * 0.5); g.quadraticCurveTo(len * 0.5, -w * 0.9 + tip, len, -w * 0.6 + tip); g.lineTo(len * 0.86, tip); g.lineTo(len, w * 0.6 + tip); g.quadraticCurveTo(len * 0.5, w * 0.9 + tip, 0, w * 0.5); g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    }
+    // the knot itself
+    g.fillStyle = this.shade(C.wrap, -0.1); g.beginPath(); g.ellipse(r * 0.88, -r * 0.44, r * 0.1, r * 0.08, 0.4, 0, 7); g.fill(); g.stroke();
     // ornament on top
     g.save(); g.translate(r * 0.42, -r * 0.92);
     if (el === 1) {
@@ -317,9 +325,8 @@ const Char = {
     g.fillStyle = sky; g.fillRect(-r, -r, r * 2, r * 0.6);
     // sun rim: soft wide glow plus a crisp edge
     g.lineCap = 'round';
-    const a0 = lx > 0 ? -Math.PI * 0.6 : Math.PI * 0.95, a1 = lx > 0 ? Math.PI * 0.05 : Math.PI * 1.6;
-    g.strokeStyle = 'rgba(255,246,215,0.14)'; g.lineWidth = r * 0.16; g.beginPath(); g.arc(0, 0, r * 0.94, a0 + 0.2, a1 - 0.15); g.stroke();
-    g.strokeStyle = 'rgba(255,250,230,0.32)'; g.lineWidth = r * 0.035; g.beginPath(); g.arc(0, 0, r * 0.97, a0 + 0.35, a1 - 0.3); g.stroke();
+    const a0 = lx > 0 ? -0.65 : Math.PI - 0.25, a1 = lx > 0 ? 0.25 : Math.PI + 0.65;
+        g.strokeStyle = 'rgba(255,250,230,0.2)'; g.lineWidth = r * 0.03; g.beginPath(); g.arc(0, 0, r * 0.97, a0, a1); g.stroke();
     // satin specular with a tiny sharp glint
     const sx = lx * r * 0.36, sy = -r * 0.56;
     const sp = g.createRadialGradient(sx, sy, 0, sx, sy, r * 0.34);
@@ -338,7 +345,7 @@ const Char = {
   // the extended emotions: returns true when it drew the whole face
   faceEx(g, r, mood, t, seed, skin) {
     const ink = '#2a1410';
-    const ex = -r * 0.42, ey = -r * 0.12, ew = r * 0.17, eh = r * 0.23, mx = -r * 0.8, my = r * 0.3;
+    const ex = -r * 0.42, ey = -r * 0.11, ew = r * 0.185, eh = r * 0.245, mx = -r * 0.8, my = r * 0.3;
     const lw = Math.max(1, r * 0.05);
     const eye = (sc = 1, pr = 0.68, lid = 0, pdx = -0.25, pdy = 0.08) => this.eyeball(g, ex, ey, ew * sc, eh * sc, pr, lid, pdx, pdy, skin, r);
     const brow = (x1, y1, x2, y2, w = 1) => { g.strokeStyle = ink; g.lineWidth = lw * w; g.beginPath(); g.moveTo(ex + x1 * ew, ey + y1 * eh); g.lineTo(ex + x2 * ew, ey + y2 * eh); g.stroke(); };
@@ -574,7 +581,7 @@ const Char = {
   face(g, r, mood, ly, t, seed, skin) {
     if (this.faceEx(g, r, mood, t, seed, skin)) return;
     const ink = '#2a1410';
-    const ex = -r * 0.42, ey = -r * 0.12, ew = r * 0.17, eh = r * 0.23;
+    const ex = -r * 0.42, ey = -r * 0.11, ew = r * 0.185, eh = r * 0.245;
     const blink = ((t + seed * 1.7) % 3.6) < 0.12;
     g.lineCap = 'round'; g.lineJoin = 'round';
     this.blushAt(g, r, skin, 1);
@@ -641,25 +648,55 @@ const Char = {
       else if (limp) { hx = r * 0.75; hy = r * 0.98; rot = 0.3; }
       else { hx = r * 0.92 + sw; hy = r * 0.55; rot = 0.5; }
     }
-    const s = r * 0.24;
+    this.mitt(g, r, C, hx, hy, rot, front, mood);
+  },
+
+  // chubby cartoon fist: puffy palm, three knuckle bumps, a hugging thumb and a flared rolled cuff.
+  // Local space: knuckles point to -x, cuff (wrist) to +x, thumb on the -y side.
+  mitt(g, r, C, hx, hy, rot, front, mood) {
+    const s = r * 0.27, hi = r > 10, lw = Math.max(0.8, r * 0.034);
+    const L = this.shade(C.glove, front ? 0.5 : 0.22), M = front ? this.shade(C.glove, 0) : this.shade(C.glove, -0.16), D = this.shade(C.glove, front ? -0.38 : -0.5);
+    const ink = this.shade(C.glove, -0.65);
+    const open = mood === 'cheer' || mood === 'shock' || mood === 'starry' || this._wave; // open, waving hand
     g.save(); g.translate(hx, hy); g.rotate(rot);
-    const k0 = front ? 0 : -0.16, hi = r > 10;
-    const fillG = (base, x, y, rad) => { if (!hi) return front ? base : this.shade(base, -0.15); const gg = g.createRadialGradient(x - rad * 0.4, y - rad * 0.45, rad * 0.05, x, y, rad * 1.2); gg.addColorStop(0, this.shade(base, k0 < 0 ? 0.15 : 0.42)); gg.addColorStop(0.55, front ? base : this.shade(base, -0.15)); gg.addColorStop(1, this.shade(base, -0.42 + k0)); return gg; };
-    if (hi) { g.fillStyle = 'rgba(40,15,10,0.18)'; g.beginPath(); g.ellipse(s * 0.15, s * 0.25, s * 1.05, s * 0.85, 0, 0, 7); g.fill(); } // soft contact shadow
-    g.strokeStyle = this.shade(C.glove, -0.6); g.lineWidth = Math.max(0.8, r * 0.035);
-    g.fillStyle = fillG(C.glove, 0, 0, s); g.beginPath(); g.ellipse(0, 0, s * 1.05, s * 0.9, 0, 0, 7); g.fill(); g.stroke();
-    g.fillStyle = fillG(C.glove, -s * 0.85, -s * 0.45, s * 0.38); g.beginPath(); g.ellipse(-s * 0.85, -s * 0.45, s * 0.38, s * 0.28, -0.6, 0, 7); g.fill(); g.stroke();
+    if (hi && front) { g.fillStyle = 'rgba(40,15,10,0.16)'; g.beginPath(); g.ellipse(s * 0.2, s * 0.3, s * 1.05, s * 0.85, 0, 0, 7); g.fill(); }
+    const parts = open ? [
+      ['e', 0, 0, s * 0.88, s * 0.8, 0],
+      ['e', -s * 0.85, -s * 0.36, s * 0.42, s * 0.2, -0.12], ['e', -s * 0.95, 0.02 * s, s * 0.46, s * 0.21, 0], ['e', -s * 0.85, s * 0.4, s * 0.4, s * 0.19, 0.14],
+      ['e', -s * 0.2, -s * 0.86, s * 0.38, s * 0.2, -0.9],
+    ] : [
+      ['e', 0, 0, s * 0.9, s * 0.84, 0],
+      ['c', -s * 0.62, -s * 0.42, s * 0.34], ['c', -s * 0.72, 0, s * 0.36], ['c', -s * 0.62, s * 0.42, s * 0.34],
+      ['e', -s * 0.32, -s * 0.76, s * 0.4, s * 0.25, -0.3],
+    ];
+    const path = q => { g.beginPath(); if (q[0] === 'c') g.arc(q[1], q[2], q[3], 0, 7); else g.ellipse(q[1], q[2], q[3], q[4], q[5], 0, 7); };
+    // union outline: stroke every part thick, then fill on top
+    g.strokeStyle = ink; g.lineWidth = lw * 2; g.lineJoin = 'round';
+    parts.forEach(q => { path(q); g.stroke(); });
+    let fill = M;
+    if (hi) { const gg = g.createRadialGradient(-s * 0.4, -s * 0.5, s * 0.05, -s * 0.1, 0, s * 1.5); gg.addColorStop(0, L); gg.addColorStop(0.5, M); gg.addColorStop(1, D); fill = gg; }
+    g.fillStyle = fill; parts.forEach(q => { path(q); g.fill(); });
     if (hi) {
-      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = Math.max(0.6, r * 0.022); g.beginPath(); g.arc(-s * 0.2, s * 0.05, s * 0.55, 2.3, 3.6); g.stroke(); // knuckle crease
-      g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.ellipse(-s * 0.3, -s * 0.42, s * 0.34, s * 0.16, -0.25, 0, 7); g.fill();
+      g.strokeStyle = ink; g.globalAlpha *= 0.4; g.lineWidth = lw * 0.8; g.lineCap = 'round';
+      if (open) { for (const y of [-0.18, 0.21]) { g.beginPath(); g.moveTo(-s * 1.25, s * y); g.quadraticCurveTo(-s * 0.85, s * (y - 0.02), -s * 0.5, s * y * 0.8); g.stroke(); } }
+      else { for (const y of [-0.22, 0.22]) { g.beginPath(); g.moveTo(-s * 1.06, s * y); g.quadraticCurveTo(-s * 0.8, s * y * 1.1, -s * 0.52, s * y * 0.8); g.stroke(); } }
+      g.beginPath(); g.arc(-s * 0.32, -s * 0.76, s * 0.3, open ? 0.6 : 0.3, open ? 2.0 : 1.7); g.stroke(); // thumb seam
+      g.globalAlpha /= 0.4;
+      // soft sheen and knuckle glints
+      g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.ellipse(-s * 0.15, -s * 0.38, s * 0.38, s * 0.15, -0.2, 0, 7); g.fill();
     }
-    if (C.pattern === 'flame') { g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(-s * 0.3, s * 0.2); g.quadraticCurveTo(-s * 0.1, -s * 0.8, s * 0.2, s * 0.2); g.fill(); g.fillStyle = 'rgba(255,250,210,0.8)'; g.beginPath(); g.moveTo(-s * 0.18, s * 0.18); g.quadraticCurveTo(-s * 0.08, -s * 0.35, s * 0.06, s * 0.18); g.fill(); }
-    if (C.pattern === 'wave') { g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = Math.max(0.8, r * 0.03); g.beginPath(); g.moveTo(-s * 0.6, 0); g.quadraticCurveTo(-s * 0.1, -s * 0.15, s * 0.4, 0); g.moveTo(-s * 0.5, s * 0.35); g.quadraticCurveTo(-s * 0.05, s * 0.2, s * 0.4, s * 0.35); g.stroke(); }
-    // cuff with a rolled ridge
-    g.strokeStyle = this.shade(C.glove, -0.6); g.lineWidth = Math.max(0.8, r * 0.035);
-    if (hi) { const cg = g.createLinearGradient(s * 0.6, 0, s * 1.15, 0); cg.addColorStop(0, this.shade(C.cuff, 0.3)); cg.addColorStop(0.5, C.cuff); cg.addColorStop(1, this.shade(C.cuff, -0.3)); g.fillStyle = cg; } else g.fillStyle = C.cuff;
-    g.beginPath(); rrPath(g, s * 0.6, -s * 0.55, s * 0.55, s * 1.1, s * 0.2); g.fill(); g.stroke();
-    if (hi) { g.strokeStyle = 'rgba(0,0,0,0.15)'; g.lineWidth = Math.max(0.5, r * 0.018); for (let k = 1; k < 3; k++) { g.beginPath(); g.moveTo(s * (0.6 + k * 0.18), -s * 0.48); g.lineTo(s * (0.6 + k * 0.18), s * 0.48); g.stroke(); } }
+    if (C.pattern === 'flame') { g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(-s * 0.25, s * 0.3); g.quadraticCurveTo(-s * 0.05, -s * 0.6, s * 0.25, s * 0.3); g.quadraticCurveTo(0, s * 0.12, -s * 0.25, s * 0.3); g.fill(); g.fillStyle = 'rgba(255,250,210,0.85)'; g.beginPath(); g.moveTo(-s * 0.1, s * 0.28); g.quadraticCurveTo(0, -s * 0.15, s * 0.1, s * 0.28); g.fill(); }
+    if (C.pattern === 'wave') { g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = Math.max(0.8, r * 0.03); g.lineCap = 'round'; g.beginPath(); g.moveTo(-s * 0.35, s * 0.12); g.quadraticCurveTo(-s * 0.1, -s * 0.05, s * 0.15, s * 0.12); g.quadraticCurveTo(s * 0.35, s * 0.28, s * 0.5, s * 0.1); g.stroke(); }
+    if (C.pattern === 'leaf') { g.fillStyle = '#a6e86a'; g.save(); g.translate(0, s * 0.15); g.rotate(-0.4); g.beginPath(); g.ellipse(0, 0, s * 0.28, s * 0.12, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(40,90,20,0.6)'; g.lineWidth = Math.max(0.5, r * 0.014); g.beginPath(); g.moveTo(-s * 0.24, 0); g.lineTo(s * 0.24, 0); g.stroke(); g.restore(); }
+    if (C.pattern === 'swirl') { g.strokeStyle = 'rgba(150,170,200,0.9)'; g.lineWidth = Math.max(0.7, r * 0.025); g.beginPath(); g.arc(0, s * 0.1, s * 0.2, 0.5, 5.2); g.stroke(); }
+    // flared, rolled cuff
+    const cuff = () => { g.beginPath(); g.moveTo(s * 0.62, -s * 0.5); g.lineTo(s * 1.12, -s * 0.66); g.quadraticCurveTo(s * 1.34, 0, s * 1.12, s * 0.66); g.lineTo(s * 0.62, s * 0.5); g.quadraticCurveTo(s * 0.72, 0, s * 0.62, -s * 0.5); g.closePath(); };
+    if (hi) { const cg = g.createLinearGradient(0, -s * 0.66, 0, s * 0.66); cg.addColorStop(0, this.shade(C.cuff, 0.35)); cg.addColorStop(0.45, front ? C.cuff : this.shade(C.cuff, -0.12)); cg.addColorStop(1, this.shade(C.cuff, -0.35)); g.fillStyle = cg; } else g.fillStyle = C.cuff;
+    g.strokeStyle = ink; g.lineWidth = lw; cuff(); g.fill(); g.stroke();
+    if (hi) {
+      g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = Math.max(0.7, r * 0.025); g.beginPath(); g.moveTo(s * 1.1, -s * 0.55); g.quadraticCurveTo(s * 1.28, 0, s * 1.1, s * 0.55); g.stroke();
+      g.strokeStyle = 'rgba(0,0,0,0.14)'; g.lineWidth = Math.max(0.5, r * 0.016); g.beginPath(); g.moveTo(s * 0.86, -s * 0.54); g.quadraticCurveTo(s * 0.96, 0, s * 0.86, s * 0.54); g.stroke();
+    }
     g.restore();
   },
 
@@ -694,18 +731,31 @@ const Char = {
       const p2 = ph + (s > 0 ? Math.PI : 0);
       const swing = walk > 0.1 ? Math.sin(p2) * r * 0.25 : 0, lift = walk > 0.1 ? Math.max(0, Math.cos(p2)) * r * 0.1 : 0;
       g.save(); g.translate(s * r * 0.36 + swing, r * 1.2 - lift); if (out) g.rotate(0.3 * s);
-      const hi = r > 10, back = s < 0;
+      const hi = r > 10, back = s < 0, lw = Math.max(0.8, r * 0.034), ink = this.shade(C.shoe, -0.62);
       let sf = C.shoe;
-      if (hi) { const sg = g.createLinearGradient(0, -r * 0.3, 0, 0); sg.addColorStop(0, this.shade(C.shoe, back ? 0.1 : 0.35)); sg.addColorStop(0.6, back ? this.shade(C.shoe, -0.12) : C.shoe); sg.addColorStop(1, this.shade(C.shoe, -0.35)); sf = sg; }
-      g.fillStyle = sf; g.strokeStyle = this.shade(C.shoe, -0.6); g.lineWidth = Math.max(0.8, r * 0.035);
-      if (C.boot) { g.beginPath(); rrPath(g, -r * 0.12, -r * 0.3, r * 0.26, r * 0.3, r * 0.06); g.fill(); g.stroke(); }
-      g.beginPath(); g.moveTo(r * 0.16, -r * 0.12); g.quadraticCurveTo(r * 0.16, -r * 0.2, -r * 0.05, -r * 0.18); g.quadraticCurveTo(-r * 0.32, -r * 0.16, -r * 0.34, -r * 0.02); g.lineTo(r * 0.16, -r * 0.02); g.closePath(); g.fill(); g.stroke();
-      g.fillStyle = C.sole; g.beginPath(); rrPath(g, -r * 0.36, -r * 0.04, r * 0.54, r * 0.08, r * 0.035); g.fill();
-      if (hi) {
-        g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(-r * 0.33, -r * 0.04, r * 0.48, r * 0.018);
-        g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.ellipse(-r * 0.2, -r * 0.12, r * 0.07, r * 0.03, -0.3, 0, 7); g.fill();
+      if (hi) { const sg = g.createLinearGradient(0, -r * (C.boot ? 0.4 : 0.3), 0, 0); sg.addColorStop(0, this.shade(C.shoe, back ? 0.12 : 0.4)); sg.addColorStop(0.55, back ? this.shade(C.shoe, -0.12) : C.shoe); sg.addColorStop(1, this.shade(C.shoe, -0.38)); sf = sg; }
+      // upper: a round puffy toe joined to the heel (stroke the union, then fill)
+      const up = [() => { g.beginPath(); g.ellipse(-r * 0.15, -r * 0.12, r * 0.22, r * 0.14, 0, 0, 7); },
+        () => { g.beginPath(); rrPath(g, -r * 0.12, -r * (C.boot ? 0.34 : 0.26), r * 0.3, r * (C.boot ? 0.32 : 0.24), r * (C.boot ? 0.13 : 0.09)); }];
+      g.strokeStyle = ink; g.lineWidth = lw * 2; up.forEach(f => { f(); g.stroke(); });
+      g.fillStyle = sf; up.forEach(f => { f(); g.fill(); });
+      if (C.boot) {
+        g.fillStyle = this.shade(C.shoe, 0.2); g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); rrPath(g, -r * 0.15, -r * 0.37, r * 0.36, r * 0.09, r * 0.045); g.fill(); g.stroke(); // folded boot top
       }
-      if (!C.boot) { g.strokeStyle = C.lace; g.lineWidth = Math.max(0.8, r * 0.035); g.beginPath(); g.moveTo(-r * 0.02, -r * 0.16); g.lineTo(r * 0.08, -r * 0.1); g.moveTo(-r * 0.07, -r * 0.17); g.lineTo(r * 0.03, -r * 0.11); g.stroke(); }
+      // chunky rubber sole with a toe cap
+      g.fillStyle = C.sole; g.strokeStyle = this.shade(C.sole, -0.5); g.lineWidth = lw;
+      g.beginPath(); g.moveTo(-r * 0.36, -r * 0.06); g.quadraticCurveTo(-r * 0.42, r * 0.05, -r * 0.3, r * 0.05); g.lineTo(r * 0.17, r * 0.05); g.quadraticCurveTo(r * 0.23, r * 0.05, r * 0.21, -r * 0.05); g.closePath(); g.fill(); g.stroke();
+      if (!C.boot) { g.fillStyle = C.sole; g.beginPath(); g.ellipse(-r * 0.3, -r * 0.06, r * 0.085, r * 0.07, -0.3, Math.PI * 0.5, Math.PI * 1.5); g.fill(); }
+      if (hi) {
+        g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(-r * 0.33, -r * 0.05, r * 0.5, r * 0.02);
+        g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = Math.max(0.5, r * 0.014); for (let k = 0; k < 5; k++) { g.beginPath(); g.moveTo(-r * 0.26 + k * r * 0.1, r * 0.01); g.lineTo(-r * 0.24 + k * r * 0.1, r * 0.05); g.stroke(); }
+        g.fillStyle = 'rgba(255,255,255,0.65)'; g.beginPath(); g.ellipse(-r * 0.2, -r * 0.18, r * 0.08, r * 0.035, -0.25, 0, 7); g.fill();
+      }
+      if (!C.boot) { // laces and a little side stripe
+        g.strokeStyle = C.lace; g.lineWidth = Math.max(0.8, r * 0.032); g.lineCap = 'round';
+        g.beginPath(); g.moveTo(-r * 0.06, -r * 0.23); g.lineTo(r * 0.05, -r * 0.19); g.moveTo(-r * 0.1, -r * 0.18); g.lineTo(r * 0.01, -r * 0.14); g.stroke();
+        if (hi) { g.strokeStyle = C.sole; g.lineWidth = Math.max(0.8, r * 0.03); g.beginPath(); g.moveTo(r * 0.02, -r * 0.08); g.quadraticCurveTo(r * 0.1, -r * 0.14, r * 0.16, -r * 0.08); g.stroke(); }
+      } else if (hi) { g.fillStyle = C.lace; g.beginPath(); g.arc(r * 0.08, -r * 0.22, r * 0.03, 0, 7); g.fill(); }
       g.restore();
     }
   },
