@@ -63,6 +63,7 @@ const Char = {
     if (o.hat !== 'helmet') this.wrap(g, r, C, el, t, seed);
     this.face(g, r, faceMood, o.look ? clamp(o.look.y, -1, 1) : 0, t, seed, skin);
     if (o.hat === 'helmet') this.helmet(g, r, color);
+    if (!o.flat) this.lightPass(g, r, -face * idle.flip);
     g.restore();
     if (!o.noArms) this.glove(g, r, C, faceMood, t, seed, walk, true);
     if (!o.simple) this.flair(g, r, el, t, seed);
@@ -224,6 +225,20 @@ const Char = {
     g.restore();
   },
 
+  // light the round body like a soft toy under the sun (upper right in screen space)
+  lightPass(g, r, lx) {
+    g.save(); g.beginPath(); g.arc(0, 0, r * 1.01, 0, 7); g.clip();
+    const sh = g.createRadialGradient(-lx * r * 0.55, r * 0.75, r * 0.1, -lx * r * 0.3, r * 0.4, r * 1.4);
+    sh.addColorStop(0, 'rgba(90,30,10,0.32)'); sh.addColorStop(1, 'rgba(90,30,10,0)');
+    g.fillStyle = sh; g.fillRect(-r * 1.2, -r * 1.2, r * 2.4, r * 2.4);
+    g.strokeStyle = 'rgba(255,250,225,0.55)'; g.lineWidth = r * 0.13; g.beginPath();
+    if (lx > 0) g.arc(0, 0, r * 0.97, -Math.PI * 0.62, Math.PI * 0.05); else g.arc(0, 0, r * 0.97, Math.PI * 0.95, Math.PI * 1.62);
+    g.stroke();
+    const sp = g.createRadialGradient(lx * r * 0.38, -r * 0.55, 0, lx * r * 0.38, -r * 0.55, r * 0.3);
+    sp.addColorStop(0, 'rgba(255,255,255,0.55)'); sp.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sp; g.fillRect(-r, -r, r * 2, r * 2);
+    g.restore();
+  },
   // the extended emotions: returns true when it drew the whole face
   faceEx(g, r, mood, t, seed, skin) {
     const ink = '#2a1410';
@@ -524,7 +539,7 @@ const Char = {
   // floating mitten; front = the one in front of the body
   glove(g, r, C, mood, t, seed, walk, front) {
     const w = Math.sin(t * 10 + seed);
-    const waving = mood === 'happy' && ((t + seed) % 5) < 1.6;
+    const waving = (this._wave && mood !== 'scared') || (mood === 'happy' && ((t + seed) % 5) < 1.6);
     // Poses are chosen so the front hand never covers the eye (-0.42r,-0.12r), the nose or the mouth.
     let hx, hy, rot;
     const sw = walk ? Math.sin(t * 14 + (front ? 0 : Math.PI)) * r * 0.15 : 0;

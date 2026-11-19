@@ -225,6 +225,7 @@ const MG = {
     const v = g.createRadialGradient(640, 380, 380, 640, 380, 820);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
     g.fillStyle = v; g.fillRect(0, 0, 1280, 720);
+    if (!frozen) Render.bloom(g, 1280, 720, 0.14);
     this.hud(m, S, game, g);
   },
 

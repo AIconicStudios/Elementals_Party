@@ -25,7 +25,7 @@ const Render = {
       const h = this.hitTile(p.x, p.y);
       if (h && this.highlight && h.owner === this.highlight.owner && this.highlight.tiles.includes(h.tile)) this.highlight.onPick(h.tile);
     });
-    const loop = () => { try { this.draw(); } catch (e) { console.error(e); try { this.g.setTransform(1, 0, 0, 1, 0, 0); Stage.drawWorld(this.g); Stage.drawScreen(this.g); } catch (e2) { /* keep shows ticking */ } } requestAnimationFrame(loop); };
+    const loop = () => { try { this.portraits(); } catch (e) { /* cards may be mid-refresh */ } try { this.draw(); } catch (e) { console.error(e); try { this.g.setTransform(1, 0, 0, 1, 0, 0); Stage.drawWorld(this.g); Stage.drawScreen(this.g); } catch (e2) { /* keep shows ticking */ } } requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   },
   mpos(e) { const r = this.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * this.W, y: (e.clientY - r.top) / r.height * this.H }; },
@@ -87,7 +87,7 @@ const Render = {
   landFx(pos) {
     if (!this.game) return;
     const p = this.trackPos(pos), type = this.game.board[pos];
-    Sfx.land(type);
+    Sfx.land(type); this.attention = { x: p.x, y: p.y, t: performance.now() / 1000 };
     const col = type === 'gate' ? ELEMENTS[pos / 10].color : SPACE[type].color;
     this.burstAt(p, [col, '#ffffff'], 22, { speed: 230, life: 0.7, kind: 'spark', size: 3 });
     this.addP({ x: p.x, y: p.y, kind: 'ring', color: col, size: 20, grow: 60, life: 0.5 });
@@ -295,6 +295,7 @@ const Render = {
     g.globalAlpha = 1;
     g.restore();
     World.light(g, now);
+    this.bloom(g, 1600, 900, 0.14);
     // the die floats above whoever is rolling
     if (this.die) {
       const who = G.players[this.die.who], d = who && this.disp['T' + who.id];
@@ -303,6 +304,27 @@ const Render = {
     }
     if (this.zoom) this.drawZoomHud(g, now);
     Stage.drawScreen(g);
+  },
+  // tiny live portraits on the player cards
+  portraits() {
+    if (!this.game || Settings.test) return;
+    this._pf = (this._pf || 0) + 1; if (this._pf % 2) return;
+    const now = performance.now() / 1000;
+    document.querySelectorAll('canvas.pport').forEach(cv => {
+      const p = this.game.players[+cv.dataset.pid]; if (!p) return;
+      const c = cv.getContext('2d'); c.clearRect(0, 0, 84, 84);
+      const gr = c.createRadialGradient(42, 40, 4, 42, 42, 42); gr.addColorStop(0, Char.shade(p.color, 0.6)); gr.addColorStop(1, p.color); c.fillStyle = gr; c.beginPath(); c.arc(42, 42, 40, 0, 7); c.fill();
+      c.save(); c.beginPath(); c.arc(42, 42, 38, 0, 7); c.clip();
+      const re = this.reactionOf(p.id);
+      Char.draw(c, 44, 46, 25, p.id, p.color, { mood: re ? re.mood : this.game.current === p ? 'cheer' : 'happy', seed: p.id * 3, noFeet: true, look: { x: 0.4 * Math.sin(now * 0.6 + p.id), y: 0.1 }, t: now });
+      c.restore(); c.strokeStyle = '#fff'; c.lineWidth = 4; c.beginPath(); c.arc(42, 42, 39, 0, 7); c.stroke();
+    });
+  },
+  bloom(g, W, H, amt) {
+    if (Settings.test || Settings.fx === false) return;
+    const b = this._bloom || (this._bloom = document.createElement('canvas')); b.width = W / 4; b.height = H / 4;
+    const c = b.getContext('2d'); c.filter = 'brightness(1.05) contrast(2.6) saturate(1.3) blur(3px)'; c.drawImage(g.canvas, 0, 0, W / 4, H / 4); c.filter = 'none';
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'screen'; g.globalAlpha = amt; g.imageSmoothingEnabled = true; g.drawImage(b, 0, 0, W, H); g.restore();
   },
   drawAnkar(g, x, y, now) {
     g.save(); g.translate(x, y - 46 + Math.sin(now * 2) * 5);
@@ -496,7 +518,7 @@ const Render = {
   // the upright part of a Hold: its mascot, name, and any guard items
   drawHomeUp(g, pl, now) {
     const c = this.homeCenter(pl.id), G = this.game, raided = G.raidersIn(pl).length > 0;
-    if (!this.reactionOf(pl.id)) Char.draw(g, c.x, c.y - 34, 28, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
+    if (!this.reactionOf(pl.id)) { const lf = this.life('H' + pl.id, now, false, false); g.save(); if (lf.rot) { g.translate(c.x, c.y); g.rotate(lf.rot); g.translate(-c.x, -c.y); } Char.draw(g, c.x, c.y - 34 + (lf.dy || 0), 28, pl.id, pl.color, { mood: raided ? 'scared' : (lf.mood || (G.current === pl ? 'cheer' : 'happy')), seed: pl.id * 5, look: { x: lf.lookX !== undefined ? lf.lookX : Math.sin(now * 0.7 + pl.id), y: 0.2 } }); g.restore(); }
     g.textAlign = 'center';
     this.outlined(g, pl.el.hold, c.x, c.y + 22, 'bold 17px Georgia', '#fff', 5);
     if (G.simple) { const guards = ['sdog', 'speel', 'slock', 'sbell', 'sshield'].filter(x => pl.items.includes(x)); guards.forEach((x, k) => { g.font = '24px "Segoe UI Emoji"'; g.textBaseline = 'middle'; g.fillText(ITEM[x].icon, c.x - 40 + k * 40, c.y - 96 + Math.sin(now * 3 + k) * 3); g.textBaseline = 'alphabetic'; }); }
@@ -518,21 +540,49 @@ const Render = {
     g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(d.x, d.y, r * 1.1 * k, r * 0.9 * k, 0, 0, 7); g.fill();
     if (kind === 'T' && this.game.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6 + 0.3 * Math.sin(now * 5); g.beginPath(); g.arc(d.x, d.y, r * 1.6, 0, 7); g.stroke(); g.globalAlpha = 1; }
   },
+  // little idle "life" for characters standing around: waves, hops, dances, yawns, stretches, spins
+  lifeState: {}, attention: null,
+  life(key, now, busy, isCur) {
+    const L = this.lifeState[key] || (this.lifeState[key] = { next: now + R.range(1.5, 5), act: null, t0: 0 });
+    if (busy) { L.act = null; L.next = now + R.range(2, 5); return {}; }
+    if (now > L.next) { L.act = R.pick(isCur ? ['hop', 'wave', 'dance', 'look'] : ['wave', 'hop', 'dance', 'look', 'yawn', 'stretch', 'spin', 'look']); L.t0 = now; L.next = now + R.range(3.5, 8); }
+    const k = now - L.t0, D = { wave: 1.6, hop: 0.9, dance: 2.2, look: 1.6, yawn: 1.5, stretch: 1.1, spin: 0.7 }[L.act] || 0;
+    if (!L.act || k > D) return {};
+    switch (L.act) {
+      case 'wave': return { mood: 'happy', wave: true, lookX: 0, dy: -Math.abs(Math.sin(k * 6)) * 3 };
+      case 'hop': return { dy: -Math.abs(Math.sin(k / 0.45 * Math.PI)) * 16, sq: Math.max(0, 1 - k / 0.15) * 0.15 };
+      case 'dance': return { mood: 'cheer', dy: -Math.abs(Math.sin(k * 7)) * 9, rot: Math.sin(k * 7) * 0.22 };
+      case 'look': return { lookX: Math.sin(k * 3) > 0 ? 1 : -1, lookY: -0.5 };
+      case 'yawn': return { mood: 'sleepy', sq: -Math.sin(k / D * Math.PI) * 0.08 };
+      case 'stretch': return { sq: -Math.sin(k / D * Math.PI) * 0.18 };
+      case 'spin': return { flip: Math.cos(k / D * Math.PI * 2) };
+    }
+    return {};
+  },
   drawToken(g, pl, kind, now) {
     const d = this.disp[kind + pl.id];
     const moving = d.k < 1;
     const look = { x: clamp((d.x - d.px) * 0.3, -1, 1), y: 0.2 };
-    const r = kind === 'T' ? 21 : 16, cy = d.y + d.hop - r * 1.28;
+    // when standing still, watch whoever is playing (or whatever just happened)
+    if (!moving) { const cur = this.game.current, cd = cur && this.disp['T' + cur.id]; const tgt = this.attention && now - this.attention.t < 1.8 ? this.attention : cd && cur !== pl ? cd : null; if (tgt) look.x = clamp((tgt.x - d.x) / 80, -1, 1); }
+    const lf = kind === 'T' ? this.life(kind + pl.id, now, moving || !!this.anim[pl.id] || !!this.reactionOf(pl.id) || (this.die && this.die.who === pl.id), this.game.current === pl) : {};
+    if (lf.lookX !== undefined) look.x = lf.lookX; if (lf.lookY !== undefined) look.y = lf.lookY;
+    const r = kind === 'T' ? 21 : 16, cy = d.y + d.hop - r * 1.28 + (lf.dy || 0);
     const t = pl.trav;
     let prop = null;
     if (kind === 'T') { if (t.prison) prop = '⛓️'; else if (t.armor) prop = '🛡️'; else if (this.game.hotCoins(pl) + this.game.hotStars(pl) > 0) prop = '💰'; }
     const an = kind === 'T' ? this.anim[pl.id] : null;
     g.save();
     if (an) { g.translate(d.x + (an.dx || 0), cy + (an.dy || 0)); if (an.rot) g.rotate(an.rot); g.translate(-d.x, -cy); if (an.dx) look.x = clamp(-Math.sign(an.dx), -1, 1); }
+    if (lf.rot) { g.translate(d.x, cy + r); g.rotate(lf.rot); g.translate(-d.x, -cy - r); }
+    if (lf.sq) { g.translate(d.x, cy + r * 1.3); g.scale(1 + lf.sq, 1 - lf.sq); g.translate(-d.x, -cy - r * 1.3); }
+    if (lf.flip !== undefined) { g.translate(d.x, 0); g.scale(Math.abs(lf.flip) < 0.15 ? 0.15 * Math.sign(lf.flip || 1) : lf.flip, 1); g.translate(-d.x, 0); }
+    Char._wave = !!lf.wave;
     Char.draw(g, d.x, cy, r, pl.id, pl.color, {
-      mood: an && an.mood ? an.mood : this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
+      mood: an && an.mood ? an.mood : lf.mood && this.tokenMood(pl, kind) !== 'scared' ? lf.mood : this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
       hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop,
     });
+    Char._wave = false;
     g.restore();
   },
 

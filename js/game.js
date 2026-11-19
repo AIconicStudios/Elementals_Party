@@ -1224,7 +1224,11 @@ class Game {
         () => R.pick(two));
     }
     this.mgPlayed.push(id);
+    await Stage.mgReveal(id);
+    await UI.wipe(true, MG.byId[id].name);
+    setTimeout(() => UI.wipe(false), 200);
     const res = await MG.run(id, this.players.map(p => ({ id: p.id, name: p.name, color: p.color, human: p.human, el: p.el })), this.order.slice());
+    await UI.wipe(true, ''); UI.wipe(false);
     if (res.quit || !res.winners.length) { this.log(`The Moot <b>${MG.byId[id].name}</b> was abandoned — no winner, no reward.`); UI.refresh(); return; }
     const winners = this.order.filter(x => res.winners.includes(x));
     // prizes: 1st 3 coins, 2nd 2, 3rd 1 (ties share the better place)

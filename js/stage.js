@@ -81,6 +81,39 @@ const Stage = {
   scr(pt) { return Render.toScreen(pt.x, pt.y); },
   tokPt(p) { const d = Render.disp['T' + p.id] || Render.tokenTarget(p, 'T'); return { x: d.x, y: d.y - 27 / Render.T }; }, // middle of the standing character
 
+  // ---------------------------------------------------------- the next minigame: a slot-machine reveal
+  mgReveal(id) {
+    if (this.off()) return Promise.resolve();
+    const list = R.shuffle(MG.list.filter(x => x.id !== id)).slice(0, 14).concat([MG.byId[id]]);
+    const len = 3.6, TY = { Arcade: '#ff6a8a', Timing: '#ffd34d', Reaction: '#ff9a3d', Rhythm: '#c58bff', Survival: '#ff4d4d', Arena: '#5fb8ff', Race: '#6fdc8c', Memory: '#5fe3d0', Bluff: '#b48aff', Luck: '#ffd34d', Skill: '#7cc0ff', Search: '#ffb36b', Strategy: '#9fe07a', Stealth: '#8a8aff' };
+    let last = -1;
+    Sfx.crowd('ooh');
+    return this.play({ len, draw: (g, t) => {
+      const a = this.fade(t, len, 0.25, 0.3);
+      g.save(); g.globalAlpha = a; this.dim(g, 0.6);
+      this.rays(g, 800, 450, 700, 'rgba(255,230,140,0.08)', t, 16);
+      this.word(g, '🎉 MOOT TIME! 🎉', 800, 190, 56, '#ffe680');
+      // reel: decelerates and lands on the chosen game
+      const k = this.E.out(Math.min(1, t / 2.6)), pos = k * (list.length - 1), idx = Math.round(pos);
+      if (idx !== last && t < 2.7) { last = idx; Sfx.tick(); }
+      if (t > 2.6 && t - (s => s)(0) < 2.7 && !this._mgDone) { this._mgDone = true; Sfx.win(); setTimeout(() => { this._mgDone = false; }, 1500); }
+      g.save(); this.rrect(g, 420, 300, 760, 300, 30); g.clip();
+      for (let j = -2; j <= 2; j++) {
+        const gi = Math.floor(pos) + j, game = list[gi]; if (!game) continue;
+        const y = 450 + (gi - pos) * 120, sc = 1 - Math.min(0.4, Math.abs(gi - pos) * 0.25), col = TY[game.type] || '#fff';
+        g.save(); g.translate(800, y); g.scale(sc, sc);
+        g.fillStyle = 'rgba(20,14,48,0.95)'; this.rrect(g, -340, -48, 680, 96, 22); g.fill(); g.strokeStyle = col; g.lineWidth = 5; g.stroke();
+        g.fillStyle = col; this.rrect(g, -320, -22, 150, 44, 14); g.fill(); this.word(g, game.type, -245, 9, 20, '#1a0f3a');
+        this.word(g, game.name, 70, 14, 40, '#fff', 480);
+        g.restore();
+      }
+      g.restore();
+      g.strokeStyle = '#ffe680'; g.lineWidth = 6; this.rrect(g, 420, 300, 760, 300, 30); g.stroke();
+      g.fillStyle = '#ff4d6d'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(800 + s * 400, 450); g.lineTo(800 + s * 372, 432); g.lineTo(800 + s * 372, 468); g.fill(); }
+      if (t > 2.6) { const z = this.E.back((t - 2.6) / 0.4); MGH.glow(g, 800, 450, 300 * z, 'rgba(255,230,120,0.35)'); this.word(g, 'Get ready!', 800, 680, 34 * z, '#fff'); }
+      g.restore();
+    } });
+  },
   // ---------------------------------------------------------- 0. opening fly-over of the four Holds
   async intro(G) {
     if (this.off()) return;

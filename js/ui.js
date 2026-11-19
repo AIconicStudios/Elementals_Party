@@ -62,7 +62,7 @@ const UI = {
       el.style.setProperty('--c', p.color);
       const rank = ranks.indexOf(p) + 1, ord = ['1st', '2nd', '3rd', '4th'][rank - 1];
       const sig = `${p.vault}|${p.cash}|${G.simple ? 0 : G.bank(p)}`, bump = el.dataset.sig !== undefined && el.dataset.sig !== sig; el.dataset.sig = sig;
-      el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="rank">${ord}</span></div>
+      el.innerHTML = `<canvas class="pport" width="84" height="84" data-pid="${p.id}"></canvas><div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="rank">${ord}</span></div>
         <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b></span><span title="Coins">🪙 <b>${p.cash}</b></span>` : `<span title="Banked stars">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 <b>${G.bank(p)}</b></span><span title="Coins on hand">💰 <b>${p.cash}</b></span>${G.hotCoins(p) + G.hotStars(p) ? `<span title="Hot loot">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>` : ''}`}<span title="Moot wins">🏆 ${p.mgWins}</span></div>
         <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
       if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
@@ -87,6 +87,14 @@ const UI = {
     });
   },
 
+  // a circular wipe between the board and the minigames
+  wipe(cover, title = '') {
+    if (Settings.test) return Promise.resolve();
+    const w = $('#wipe'); w.querySelector('.wt').textContent = title;
+    w.classList.toggle('on', cover);
+    if (cover) Sfx.whoosh(true);
+    return new Promise(r => setTimeout(r, cover ? 650 : 50));
+  },
   // generic "stop it!" prompt (fortune wheels): click, Space/Enter or the player's gamepad A
   waitStop(p, label) {
     this.askPlayer = p.id;
