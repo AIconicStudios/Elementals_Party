@@ -55,8 +55,17 @@ class SimpleGame extends Game {
       await this.useSimpleItem(p, v);
       UI.refresh();
     }
+    if (p.trav.sfrozen) {
+      p.trav.sfrozen = false;
+      this.log(`🧊 ${this.name(p)} is frozen solid and can't move this turn!`);
+      this.react(p, 'angry', R.pick(['Brrr! Let me out!', 'So... cold...', 'Not cool. Literally.']));
+      Render.burstAt(Stage.tokPt(p), ['#bfe9ff', '#fff'], 24, { speed: 200, kind: 'spark', size: 3 }); Sfx.item('ice');
+      await sleep(1400);
+      this.dice = null; Render.die = null; UI.refresh(); return;
+    }
     const { v, dir } = await this.roll(p);
     await this.moveSimple(p, v, dir);
+    await sleep(700);
     this.dice = null; Render.die = null;
     UI.refresh();
     await sleep(200);
@@ -66,6 +75,11 @@ class SimpleGame extends Game {
     const has = id => p.items.includes(id);
     const richest = this.players.filter(q => q !== p).sort((a, b) => b.cash - a.cash)[0];
     if (has('smagnet') && richest.cash >= 3) return 'smagnet';
+    if (has('sthief') && richest.cash >= 3) return 'sthief';
+    if (has('sice') && Math.random() < 0.6) return 'sice';
+    if (has('sreverse') && Math.random() < 0.5) return 'sreverse';
+    if (has('smirror') && Math.random() < 0.35) return 'smirror';
+    if (has('swarp') && Math.random() < 0.3) return 'swarp';
     if (has('sbox')) return 'sbox';
     if (has('swind') && p.cash >= SIMPLE_STAR_PRICE) return 'swind';
     if (has('ssnail') && Math.random() < 0.5) return 'ssnail';
@@ -102,6 +116,26 @@ class SimpleGame extends Game {
         this.react(p, 'evil', 'Come to me, coins!'); this.react(rich, 'shock', 'Hey! My coins!', 0.3);
         break;
       }
+      case 'sice': target.trav.sfrozen = true; this.react(target, 'shock', 'Hey! I’m an ice cube!', 0.2); this.react(p, 'smug', 'Chill out~'); break;
+      case 'sreverse': target.trav.mods.reverse = true; this.react(target, 'angry', 'Backwards?! Rude!', 0.2); this.react(p, 'evil', 'Moonwalk time!'); break;
+      case 'sthief': {
+        const n = Math.min(3, target.cash);
+        await Stage.coinsTo(() => Stage.scr(Stage.tokPt(target)), () => Stage.scr(Stage.tokPt(p)), Math.max(1, n));
+        target.cash -= n; p.cash += n; this.log(`🦹 ${this.name(p)} pickpockets ${n} coins from ${this.name(target)}!`);
+        this.react(p, 'evil', R.pick(['Mine now~', 'Finders keepers!'])); this.react(target, 'angry', 'My pocket!!', 0.3);
+        break;
+      }
+      case 'smirror': {
+        const a = t.pos; t.pos = target.trav.pos; target.trav.pos = a; UI.refresh(); Sfx.whoosh(true);
+        this.log(`🪞 ${this.name(p)} swaps places with ${this.name(target)}!`); this.react(target, 'shock', 'Whoa, where am I?!', 0.4);
+        await sleep(900);
+        break;
+      }
+      case 'swarp': {
+        t.pos = R.int(0, 39); UI.refresh(); await Stage.look(Render.trackPos(t.pos), 900);
+        this.log(`🌀 ${this.name(p)} warps across the Crossing!`); await this.landSimple(p);
+        break;
+      }
       case 'sbox':
         if (await Stage.wheel(p, [{ icon: '⭐', color: '#ffd34d' }, { icon: '🪙', text: '+3', color: '#6fdc8c' }, { icon: '🪙', text: '+3', color: '#5fb8ff' }, { icon: '⭐', color: '#ffd34d' }, { icon: '🪙', text: '+3', color: '#6fdc8c' }, { icon: '🪙', text: '+3', color: '#5fb8ff' }], '🎁 Lucky Star Box') % 3 === 0) { p.vault++; this.log(`🎁 ${this.name(p)} opens the box… a STAR!`, 'good'); Sfx.star(); this.react(p, 'starry', 'A FREE STAR!!'); this.crowd([p], ['shock', 'angry'], 0.4); }
         else { p.cash += 3; this.log(`🎁 ${this.name(p)} opens the box… 3 coins.`); this.emote(p, '🙂'); }
@@ -123,7 +157,7 @@ class SimpleGame extends Game {
     for (let s = 1; s <= steps; s++) {
       t.pos = (t.pos + dir + 40) % 40;
       Sfx.step(); Render.stepPuff(t.pos); UI.refresh();
-      await sleep(320);
+      await sleep(430);
       const last = s === steps, sp = this.board[t.pos];
       if (sp === 'bank') await this.shopSimple(p);
       if (sp === 'gate') {
@@ -151,6 +185,13 @@ class SimpleGame extends Game {
       this.log(`🐕 ${this.name(owner)}'s Guard Dog chases ${this.name(p)} away! ${this.name(p)} pays ${n} coins.`, 'bad');
       Render.burstAt(Render.homeCenter(owner.id), ['#c98a4a', '#fff'], 30, { speed: 280 }); Sfx.bad();
       this.react(owner, 'evil', 'Sic \'em, boy!'); this.react(p, 'shock', 'A DOG?! RUN!', 0.25); this.crowd([p, owner], 'laugh', 0.6);
+      return;
+    }
+    if (this.consume(owner, 'sbell')) {
+      await Stage.item(owner, '🔔', 'Alarm Bell', p, 'sbell');
+      const n = Math.min(5, p.cash); p.cash -= n; owner.cash += n;
+      this.log(`🔔 ${this.name(owner)}'s Alarm Bell rings! ${this.name(p)} is caught and pays ${n} coins.`, 'bad');
+      this.react(owner, 'laugh', 'DING DING! Caught ya!'); this.react(p, 'cry', 'Noooo, the bell!', 0.25);
       return;
     }
     if (this.consume(owner, 'speel')) {
@@ -198,6 +239,7 @@ class SimpleGame extends Game {
     // landing on someone: POW! and grab one of their coins
     for (const q of this.players) {
       if (q === p || q.gone || q.trav.pos !== t.pos) continue;
+      if (q.items.includes('sshield')) { await Stage.item(q, '🫧', 'Bubble Shield', null, 'sshield'); this.react(q, 'smug', 'Bounce! Nice try~'); this.react(p, 'angry', 'Pop that bubble!', 0.3); continue; }
       const got = q.cash > 0;
       await Stage.punch(p, q, got);
       if (got) { q.cash--; p.cash++; this.log(`👊 ${this.name(p)} bops ${this.name(q)} and grabs 1 coin!`); }
@@ -206,7 +248,7 @@ class SimpleGame extends Game {
     }
     switch (sp) {
       case 'blue': await Stage.space(p, t.pos, 'blue', 3); p.cash += 3; this.fx(p, '+3', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on blue: +3 coins.`); break;
-      case 'red': { const l = Math.min(3, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on red: −${l} coins.`); break; }
+      case 'red': if (p.items.includes('sshield')) { this.log(`🫧 ${this.name(p)}'s Bubble Shield laughs off the red space.`); this.react(p, 'smug', 'Bubble power~'); Sfx.item('sshield'); break; } { const l = Math.min(3, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on red: −${l} coins.`); break; }
       case 'lucky': {
         const v = await this.coinWheel(p, '🎡 Lucky Wheel');
         p.cash += v; this.fx(p, `+${v}`, '#5fe3b0'); Sfx.coin(); Render.coinBurst(p, Math.min(8, v));
@@ -255,7 +297,7 @@ class SimpleGame extends Game {
       if (yes) {
         await Stage.buy(0);
         p.cash -= SIMPLE_STAR_PRICE; p.vault++;
-        this.log(`⭐ ${this.name(p)} buys a star!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680');
+        this.log(`⭐ ${this.name(p)} buys a star!`, 'good'); Sfx.star(); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680');
         this.react(p, 'starry'); this.react(R.pick(this.players.filter(q => q !== p)), R.pick(['sad', 'angry']), R.pick(['Show-off…', 'Hmph!']), 0.4);
         UI.refresh();
       }

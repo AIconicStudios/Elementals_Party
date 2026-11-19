@@ -148,25 +148,31 @@ const MG = {
           }
         } else if (phase === 'count') {
           this.drawGame(g, game, m, S, dt);
-          const n = 3 - Math.floor(phaseT / 0.7);
-          this.bigText(g, n > 0 ? String(n) : 'GO!', '#fff', phaseT % 0.7);
-          if (phaseT > 2.6) { phase = 'play'; phaseT = 0; Sfx.tone(880, 0.2, 'triangle', 0.08); }
-          else if (Math.floor(phaseT / 0.7) !== Math.floor((phaseT - dt) / 0.7)) Sfx.tone(440, 0.12, 'triangle', 0.06);
+          if (phaseT < 0.9) { this.bigText(g, 'READY?', '#9fe0ff', phaseT, 110); if (phaseT - dt <= 0) Sfx.tone(660, 0.25, 'triangle', 0.06, 200); }
+          else {
+            const q = phaseT - 0.9, n = 3 - Math.floor(q / 0.6);
+            this.bigText(g, n > 0 ? String(n) : 'GO!', n === 3 ? '#ff6b6b' : n === 2 ? '#ffd34d' : n === 1 ? '#7cf06a' : '#ffffff', q % 0.6, n > 0 ? 170 : 190);
+            if (Math.floor(q / 0.6) !== Math.floor((q - dt) / 0.6) || q - dt <= 0) { if (n > 0) Sfx.tone(440, 0.14, 'triangle', 0.07); else { Sfx.tone(880, 0.3, 'square', 0.06); Sfx.tone(1320, 0.4, 'triangle', 0.06, 0, 0.05); } }
+          }
+          if (phaseT > 3.2) { phase = 'play'; phaseT = 0; }
         } else if (phase === 'play') {
           for (let i = 0; i < 4; i++) if (m.bot(i) && game.bot) game.bot(m, S, i, dt);
           m.t += dt;
           game.update(m, S, dt);
           if (game.dur && m.t >= game.dur && !m.done) m.finish(game.score(m, S));
+          if (game.dur) { const left = game.dur - m.t; if (left > 0 && left <= 5 && Math.ceil(left) !== Math.ceil(left + dt)) Sfx.tick(); }
           this.drawGame(g, game, m, S, dt);
           if (m.done) {
+            Sfx.whistle(); setTimeout(() => Sfx.crowd('cheer'), 500);
             ranking = this.rank(m.scores, order); winners = this.winnersOf(ranking);
             phase = 'result'; phaseT = 0; Sfx.win();
             for (let k = 0; k < 6; k++) MGH.burst(R.range(200, 1080), R.range(150, 400), R.pick(['#ffe680', '#8fe0ff', '#ff6a3d', '#7ccf4a']), 24, { speed: 380, life: 1.6, grav: 300 });
           }
         } else if (phase === 'result') {
           this.drawGame(g, game, m, S, dt, true);
-          this.drawResult(g, game, m, ranking, winners, phaseT);
-          if (phaseT > 5 || (phaseT > 1.5 && m.players.some(p => p.human && m.pressed(p.i, 'a')))) {
+          if (phaseT < 1.1) this.bigText(g, 'FINISH!', '#ffd34d', phaseT, 150);
+          else this.drawResult(g, game, m, ranking, winners, phaseT - 1.1);
+          if (phaseT > 6.5 || (phaseT > 2.6 && m.players.some(p => p.human && m.pressed(p.i, 'a')))) {
             finishWith({ winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores });
             return;
           }
@@ -345,29 +351,45 @@ const MG = {
     });
     if (game.dur) MGH.text(g, `⏱ ${Math.max(0, game.dur - m.t).toFixed(1)}`, 1150, 27, 20, '#fff', 'right', 'bold');
   },
-  bigText(g, s, c, k = 0) {
-    const sc = 1 + Math.max(0, 0.3 - k) * 1.5;
-    g.save(); g.translate(640, 400); g.scale(sc, sc);
-    g.font = 'bold 140px Georgia'; g.textAlign = 'center'; g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillText(s, 6, 6);
-    g.lineWidth = 8; g.strokeStyle = '#3a1a7a'; g.strokeText(s, 0, 0); g.fillStyle = c; g.fillText(s, 0, 0); g.restore();
+  bigText(g, s, c, k = 0, size = 140) {
+    const pop = k < 0.18 ? 1.6 - (k / 0.18) * 0.7 : k < 0.3 ? 0.9 + (k - 0.18) / 0.12 * 0.1 : 1, rot = Math.sin(k * 20) * 0.05 * Math.max(0, 1 - k * 3);
+    // burst behind the number
+    g.save(); g.translate(640, 380); g.globalAlpha = Math.max(0, 0.5 - k * 0.4);
+    for (let r = 0; r < 14; r++) { g.rotate(Math.PI / 7); g.fillStyle = c; g.beginPath(); g.moveTo(0, 0); g.lineTo(-30, -420); g.lineTo(30, -420); g.fill(); }
+    g.restore();
+    g.save(); g.translate(640, 400); g.scale(pop, pop); g.rotate(rot);
+    g.font = `bold ${size}px Georgia`; g.textAlign = 'center'; g.lineJoin = 'round';
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillText(s, 8, 10);
+    g.lineWidth = 18; g.strokeStyle = '#1a0f3a'; g.strokeText(s, 0, 0);
+    g.lineWidth = 8; g.strokeStyle = '#fff'; g.strokeText(s, 0, 0);
+    const gr = g.createLinearGradient(0, -size * 0.8, 0, size * 0.1); gr.addColorStop(0, '#fff'); gr.addColorStop(0.45, c); gr.addColorStop(1, Char.shade(c, -0.35));
+    g.fillStyle = gr; g.fillText(s, 0, 0); g.restore();
   },
   drawResult(g, game, m, ranking, winners, t) {
-    g.fillStyle = `rgba(5,3,15,${Math.min(0.85, t * 2)})`; g.fillRect(0, 0, 1280, 720);
-    // light rays
-    g.save(); g.translate(640, 130); g.rotate(t * 0.3);
-    for (let k = 0; k < 12; k++) { g.rotate(Math.PI / 6); g.fillStyle = 'rgba(255,230,128,0.07)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-60, -700); g.lineTo(60, -700); g.fill(); }
+    g.fillStyle = `rgba(8,5,24,${Math.min(0.88, t * 2.5)})`; g.fillRect(0, 0, 1280, 720);
+    g.save(); g.translate(640, 150); g.rotate(t * 0.25);
+    for (let k = 0; k < 16; k++) { g.rotate(Math.PI / 8); g.fillStyle = k % 2 ? 'rgba(255,230,128,0.08)' : 'rgba(255,255,255,0.04)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-70, -800); g.lineTo(70, -800); g.fill(); }
     g.restore();
-    const W = winners.map(i => m.players[i]);
-    W.forEach((w, k) => Char.draw(g, 640 + (k - (W.length - 1) / 2) * 140, 120 + Math.sin(t * 6 + k) * 6, 50, w.el.id, w.color, { mood: 'cheer', seed: k }));
-    MGH.text(g, '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!'), 640, 232, W.length > 2 ? 40 : 52, W[0].color, 'center', 'bold');
-    MGH.text(g, '🥇 +3   🥈 +2   🥉 +1 coins', 640, 270, 24, '#ffe680', 'center', 'bold');
+    MGH.glow(g, 640, 160, 220, 'rgba(255,230,140,0.35)');
+    const W = winners.map(i => m.players[i]), e = Math.min(1, t / 0.4), bounce = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2);
+    W.forEach((w, k) => { const x = 640 + (k - (W.length - 1) / 2) * 150; g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, 214, 60, 14, 0, 0, 7); g.fill(); Char.draw(g, x, 150 - Math.abs(Math.sin(t * 5 + k)) * 18, 56 * bounce, w.el.id, w.color, { mood: 'cheer', seed: k }); });
+    if (Math.random() < 0.5) MGH.burst(R.range(200, 1080), -10, ['#ff6a8a', '#5fb8ff', '#ffd34d', '#6fdc8c'], 2, { speed: 60, grav: 260, life: 2.2, size: 4 });
+    MGH.label(g, '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!'), 640, 268, W.length > 2 ? 36 : 46, W[0].color, 'rgba(0,0,0,0.55)');
+    const medal = ['🥇', '🥈', '🥉', ''], coins = { 1: 3, 2: 2, 3: 1 };
     ranking.forEach((r, k) => {
-      const p = m.players[r.i], win = winners.includes(r.i);
-      const s = game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100);
-      Char.draw(g, 380, 340 + k * 52, 19, p.el.id, p.color, { mood: win ? 'cheer' : k === 3 ? 'hurt' : 'neutral', seed: r.i * 1.7 });
-      MGH.text(g, `${win ? '🏆' : k + 1 + '.'} ${p.name} — ${s}`, 640, 350 + k * 52, 28, p.color, 'center', win ? 'bold' : '');
+      const p = m.players[r.i], win = winners.includes(r.i), y = 330 + k * 86, slide = Math.max(0, 1 - (t - 0.15 * k) / 0.35) * 600;
+      const place = 1 + ranking.filter(o => o.s > r.s + 1e-9).length;
+      g.save(); g.translate(slide, 0);
+      g.fillStyle = win ? 'rgba(255,220,120,0.22)' : 'rgba(255,255,255,0.08)'; MGH.rr(g, 330, y - 34, 620, 70, 18); g.fill();
+      g.strokeStyle = p.color; g.lineWidth = win ? 4 : 2; g.stroke();
+      Char.draw(g, 385, y + 4, 24, p.el.id, p.color, { mood: win ? 'cheer' : place === 4 ? 'sad' : 'happy', seed: r.i * 1.7 });
+      MGH.text(g, `${medal[place - 1] || place + '.'} ${p.name}`, 430, y + 10, 28, p.color, 'left', 'bold');
+      MGH.text(g, game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100), 760, y + 10, 22, '#fff', 'center');
+      if (coins[place]) { MGH.coin(g, 880, y + 2, 14, t * 3 + k); MGH.text(g, '+' + coins[place], 915, y + 11, 24, '#ffe680', 'center', 'bold'); }
+      g.restore();
     });
   },
+
 };
 
 // ---------------------------------------------------------- helpers

@@ -37,12 +37,25 @@ const Input = {
   },
   // Each connected gamepad belongs to exactly one human seat, assigned in seat order:
   // 1st gamepad -> 1st human seat, 2nd gamepad -> 2nd human seat, ...
-  humanSeats: [0, 1, 2, 3],
-  setHumans(seats) { this.humanSeats = seats.map((s, i) => s.human ? i : -1).filter(i => i >= 0); },
+  // A seat's gamepad can be chosen in the menu (gamepad 1..4) or left on Auto, in which case
+  // human seats take the remaining gamepads in order. One gamepad never drives two seats.
+  humanSeats: [0, 1, 2, 3], padOf: [null, null, null, null],
+  setHumans(seats) {
+    this.humanSeats = seats.map((s, i) => s.human ? i : -1).filter(i => i >= 0);
+    const chosen = seats.map((s, i) => s.human && s.pad !== undefined && s.pad !== null && s.pad !== 'auto' ? +s.pad : null);
+    const used = new Set(chosen.filter(x => x !== null && x >= 0));
+    let next = 0;
+    this.padOf = seats.map((s, i) => {
+      if (!s.human) return null;
+      if (chosen[i] !== null) return chosen[i] >= 0 && !(chosen.indexOf(chosen[i]) < i) ? chosen[i] : null; // -1 = keyboard only
+      while (used.has(next)) next++;
+      used.add(next); return next++;
+    });
+  },
   pads() { const list = []; const all = navigator.getGamepads ? navigator.getGamepads() : []; for (const p of all) if (p && p.connected) list.push(p); return list; },
-  seatForPad(k) { return k < this.humanSeats.length ? this.humanSeats[k] : null; },
-  padNumberForSeat(i) { const k = this.humanSeats.indexOf(i); return k >= 0 ? k + 1 : null; },
-  pad(i) { const k = this.humanSeats.indexOf(i); return k >= 0 ? (this.pads()[k] || null) : null; },
+  seatForPad(k) { const i = this.padOf.indexOf(k); return i >= 0 ? i : null; },
+  padNumberForSeat(i) { const k = this.padOf[i]; return k !== null && k !== undefined ? k + 1 : null; },
+  pad(i) { const k = this.padOf[i]; return k !== null && k !== undefined ? (this.pads()[k] || null) : null; },
   state(i) {
     const m = this.maps[i];
     const k = arr => arr.some(c => this.keys.has(c));

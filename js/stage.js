@@ -81,9 +81,22 @@ const Stage = {
   scr(pt) { return Render.toScreen(pt.x, pt.y); },
   tokPt(p) { const d = Render.disp['T' + p.id] || Render.tokenTarget(p, 'T'); return { x: d.x, y: d.y - 27 / Render.T }; }, // middle of the standing character
 
+  // ---------------------------------------------------------- 0. opening fly-over of the four Holds
+  async intro(G) {
+    if (this.off()) return;
+    this.lookAt({ x: 800, y: 450 }, 0.9); await sleep(900);
+    for (const p of G.players) {
+      const c = Render.homeCenter(p.id); this.lookAt({ x: c.x, y: c.y - 20 }, 2.0);
+      Sfx.turn(p.id); Render.react(p.id, 'cheer', R.pick(['This is my Hold!', 'Welcome to my place~', 'Hehe, hi!', 'Hmph. Mine.']));
+      await sleep(450);
+      this.play({ len: 1.6, draw: (g, t) => { const a = this.fade(t, 1.5, 0.2, 0.3); g.save(); g.globalAlpha = a; this.word(g, p.el.hold, 800, 760, 52, p.color); this.word(g, p.name, 800, 810, 26, '#fff'); g.restore(); } });
+      await sleep(1500);
+    }
+    this.lookOff(); await sleep(600);
+  },
   // ---------------------------------------------------------- 1. turn intro
   turn(p) {
-    const len = 1.15;
+    const len = 1.7; Sfx.turn(p.id);
     return this.play({ len, draw: (g, t) => {
       const a = this.fade(t, len, 0.2, 0.25), e = this.E.back(t / 0.4);
       g.save(); g.globalAlpha = a;
@@ -213,7 +226,7 @@ const Stage = {
       else if (t >= 1.25) { vx = dir * 18 * (1 - this.E.out((t - 1.25) / 0.8)); vm = t > 1.6 ? 'angry' : 'dizzy'; }
       A[q.id] = { dx: vx, dy: vy, mood: vm, rot };
       if (t > 0.45 && !A._g) { A._g = true; Sfx.voice(p.id, 'grunt'); }
-      if (t > 0.6 && !powFx) { powFx = true; Sfx.punch(); setTimeout(() => Sfx.voice(q.id, 'ouch'), 60); Render.burstAt({ x: at.x, y: at.y - 8 }, ['#fff', '#ffe680', '#ff6a3d'], 26, { speed: 260, kind: 'spark', size: 3 }); }
+      if (t > 0.6 && !powFx) { powFx = true; Sfx.punch(); setTimeout(() => Sfx.crowd('ooh'), 250); setTimeout(() => Sfx.voice(q.id, 'ouch'), 60); Render.burstAt({ x: at.x, y: at.y - 8 }, ['#fff', '#ffe680', '#ff6a3d'], 26, { speed: 260, kind: 'spark', size: 3 }); }
       if (t > 1.0 && !coinFx && stole) { coinFx = true; Sfx.coin(); }
       if (t >= len - 0.02) { delete A[p.id]; delete A[q.id]; delete A._g; }
     }, world: true }, true);
@@ -323,6 +336,7 @@ const Stage = {
 
   // ---------------------------------------------------------- minigame podium: 1st +3, 2nd +2, 3rd +1
   podium(places) {
+    Sfx.crowd('cheer');
     const len = 3.4, H = { 1: 170, 2: 120, 3: 80, 4: 0 }, X = { 1: 800, 2: 610, 3: 990, 4: 1180 };
     const order = places.slice().sort((a, b) => a.place - b.place);
     const used = {};

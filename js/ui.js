@@ -61,9 +61,11 @@ const UI = {
       el.className = 'pc' + (G.current === p ? ' cur' : '');
       el.style.setProperty('--c', p.color);
       const rank = ranks.indexOf(p) + 1, ord = ['1st', '2nd', '3rd', '4th'][rank - 1];
+      const sig = `${p.vault}|${p.cash}|${G.simple ? 0 : G.bank(p)}`, bump = el.dataset.sig !== undefined && el.dataset.sig !== sig; el.dataset.sig = sig;
       el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="rank">${ord}</span></div>
         <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b></span><span title="Coins">🪙 <b>${p.cash}</b></span>` : `<span title="Banked stars">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 <b>${G.bank(p)}</b></span><span title="Coins on hand">💰 <b>${p.cash}</b></span>${G.hotCoins(p) + G.hotStars(p) ? `<span title="Hot loot">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>` : ''}`}<span title="Moot wins">🏆 ${p.mgWins}</span></div>
         <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
+      if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
     });
   },
 
@@ -271,6 +273,7 @@ const UI = {
         <div class="sg">${el.glyph}</div><div><b>${el.hold}</b><br><small>${el.name} · ${el.people}</small></div>
         <input id="sn${i}" value="${esc(seats[i].name)}" maxlength="14">
         <select id="sh${i}"><option value="1" ${seats[i].human ? 'selected' : ''}>Human</option><option value="0" ${!seats[i].human ? 'selected' : ''}>Bot</option></select>
+        <select id="sp${i}" title="Which gamepad plays this character">${[['auto', '🎮 Auto'], ['0', '🎮 Gamepad 1'], ['1', '🎮 Gamepad 2'], ['2', '🎮 Gamepad 3'], ['3', '🎮 Gamepad 4'], ['-1', '⌨️ Keyboard only']].map(([v, l]) => `<option value="${v}" ${String(seats[i].pad ?? 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <small class="keys">Moot keys: ${Input.keyNames[i]} · <span id="kh${i}"></span></small></div>`).join('')}</div>
       <div class="row"><label>Board <select id="boardSel"><option value="simple">🌱 Starter Crossing — for beginners</option><option value="full">⚔️ The Crossing — full game</option></select></label>
       <label>Game length <select id="rounds"><option value="20">20 rounds</option><option value="15">15 rounds</option><option value="12">12 rounds</option><option value="10">10 rounds (quick)</option></select></label>
@@ -280,9 +283,9 @@ const UI = {
       <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (60 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
-    const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1' }));
-    const padLabels = () => { Input.setHumans(readSeats()); ELEMENTS.forEach((el, i) => { const n = Input.padNumberForSeat(i); $('#kh' + i).textContent = n ? `🎮 gamepad ${n}` : 'bot — no gamepad'; }); };
-    ELEMENTS.forEach((el, i) => { $('#sh' + i).addEventListener('change', padLabels); });
+    const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1', pad: $('#sp' + i).value }));
+    const padLabels = () => { const S = readSeats(); Input.setHumans(S); ELEMENTS.forEach((el, i) => { const n = Input.padNumberForSeat(i); $('#sp' + i).disabled = !S[i].human; $('#kh' + i).textContent = !S[i].human ? 'bot' : n ? `🎮 gamepad ${n}` : 'keyboard only'; }); };
+    ELEMENTS.forEach((el, i) => { $('#sh' + i).addEventListener('change', padLabels); $('#sp' + i).addEventListener('change', () => { const v = $('#sp' + i).value; if (v !== 'auto' && v !== '-1') ELEMENTS.forEach((e2, j) => { if (j !== i && $('#sp' + j).value === v) $('#sp' + j).value = 'auto'; }); padLabels(); }); });
     padLabels();
     const board0 = localStorageGet('ff_board') || 'full';
     $('#boardSel').value = board0; $('#rounds').value = board0 === 'simple' ? '12' : '20';

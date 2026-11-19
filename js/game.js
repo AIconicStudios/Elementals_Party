@@ -199,6 +199,7 @@ class Game {
     if (p.items.length < HAND_LIMIT) {
       if (fx) await Stage.gain(p, ITEM[id].icon);
       p.items.push(id);
+      if (ITEM[id].guard) (p.guardExp = p.guardExp || []).push({ id, exp: Math.max(1, this.round) + 1 });
       this.log(`${this.name(p)} gets ${ITEM[id].icon} ${itemLabel(id)}.`);
       UI.refresh();
       return true;
@@ -229,7 +230,7 @@ class Game {
   async choose(p, spec, botFn) {
     if (this.aborted) throw new Error('aborted');
     if (p.human) return UI.ask(p, spec);
-    await sleep(550);
+    await sleep(850);
     if (botFn) { const v = botFn(); if (v !== undefined) return v; }
     const o = spec.options.find(x => !x.disabled);
     return o ? o.value : null;
@@ -245,6 +246,7 @@ class Game {
   async run() {
     try {
       UI.refresh();
+      await Stage.intro(this);
       await this.setup();
       for (let r = 1; r <= this.rounds; r++) {
         this.round = r;
@@ -365,9 +367,10 @@ class Game {
     if (t.chain > 0) t.chain--;
     if (t.repel > 0) t.repel--;
     this.fillBag(p);
+    await sleep(700);
     this.dice = null; Render.die = null;
     UI.refresh();
-    await sleep(200);
+    await sleep(300);
   }
 
   fillBag(p) {
@@ -494,8 +497,8 @@ class Game {
     this.dice = { v, who: p.id, note: note.join(', ') };
     if (Render.die) { Render.die.total = v; Render.die.note = note.join(', '); }
     this.log(`${this.name(p)} rolls <b>${v}</b>${note.length ? ` (${note.join(', ')})` : ''}.`);
-    UI.refresh();
-    await sleep(500);
+    UI.refresh(); Sfx.thud();
+    await sleep(800);
     return { v, dir };
   }
 
@@ -517,7 +520,7 @@ class Game {
     for (let s = 1; s <= steps; s++) {
       t.pos = (t.pos + dir + 40) % 40;
       Sfx.step(); UI.refresh();
-      await sleep(320);
+      await sleep(430);
       const last = s === steps;
       const sp = this.board[t.pos];
       Render.stepPuff(t.pos);
@@ -620,7 +623,7 @@ class Game {
         Render.ankarSpawn(t.pos);
         await Stage.space(p, t.pos, 'summon');
         if (this.board[t.pos] === 'summon') {
-          const nt = R.pick(['blue', 'red']);
+          const nt = 'blue';
           this.board[t.pos] = nt;
           this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing! The Altar crumbles into a ${SPACE[nt].lore} space.`, 'warn'); this.react(p, 'evil', 'Rise, Tithe-Taker!'); this.crowd([p], ['nervous', 'shock']);
         } else this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing!`, 'warn');
@@ -672,7 +675,7 @@ class Game {
     if (!n) { this.log(`👁️ The Ankar finds nothing to take from ${this.name(p)}.`); return; }
     this.log(`👁️ The Ankar takes ${n} coins from ${this.name(p)}.`, 'bad'); this.fx(p, `👁️ −${n}`, '#c58bff'); this.react(p, R.pick(['cry', 'angry']), R.pick(['Not my coins!', 'Shoo! Go away!', 'Waaah, the Ankar!'])); this.crowd([p], ['laugh', 'nervous', 'shock']);
     Render.burstAt(Render.trackPos(t.pos), '#b46bff', 22);
-    Sfx.boom();
+    Sfx.boom(); setTimeout(() => Sfx.crowd('aww'), 300);
   }
 
   async moveRing(p, steps, dir) {
@@ -932,15 +935,16 @@ class Game {
     if (it.place === 'tile') tile = await this.pickTile(p, p, this.freeTrapTiles(p), `Place ${it.lore}`, () => AI.trapTile(this, p, id));
     else if (it.place === 'loot') tile = await this.pickTile(p, p, p.piles.map(x => x.tile), `Place ${it.lore} on a Hoard`, () => AI.lootTileFor(this, p, id));
     this.pay(p, it.price, true);
-    if (it.place === 'tile') p.traps[tile] = { id };
+    const exp = Math.max(1, this.round) + 1; // defenses last 2 rounds
+    if (it.place === 'tile') p.traps[tile] = { id, exp };
     else if (it.place === 'loot') {
       const pile = this.lootTile(p, tile);
       if (id === 'fakecoin') pile.fake += 5;
-      else if (id === 'mimic') pile.mimic = true;
-      else { pile.prot = it.lvl; pile.protUses = 2; }
+      else if (id === 'mimic') { pile.mimic = true; pile.mimicExp = exp; }
+      else { pile.prot = it.lvl; pile.protUses = 2; pile.protExp = exp; }
     } else if (id === 'vaultprot') p.vaultProt = 2;
     else if (id === 'fakestar') p.fakeStars += 2;
-    else if (id === 'grace') { const free = this.freeTrapTiles(p); p.grace = R.pick(free); }
+    else if (id === 'grace') { const free = this.freeTrapTiles(p); p.grace = R.pick(free); p.graceExp = exp; }
     this.log(`${this.name(p)} fortifies with ${it.icon} ${it.lore}${tile ? ` on tile ${tile}` : ''} (−${it.price} from bank).`);
     Sfx.click();
     if (id === 'grace') Render.trapFx(p, null, '😇', 'A hidden ward is set…');
@@ -1145,7 +1149,7 @@ class Game {
         wares[0].keep = bulk; await Stage.buy(0);
         this.pay(p, sp); p.vault++; stars++;
         if (sale) this.consume(p, 'starsale');
-        this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680'); this.react(p, 'starry'); { const riv = this.players.filter(q => q !== p); this.react(R.pick(riv), R.pick(['sad', 'angry', 'nervous']), R.pick(['Show-off…', 'Hmph!', 'Must… catch up…']), 0.4); }
+        this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680'); this.react(p, 'starry'); { const riv = this.players.filter(q => q !== p); this.react(R.pick(riv), R.pick(['sad', 'angry', 'nervous']), R.pick(['Show-off…', 'Hmph!', 'Must… catch up…']), 0.4); }
       } else if (v === 'ult') {
         await Stage.buy(wares.length - 1);
         this.pay(p, ult.price); p.ultBought = true; p.ultHeld = true; itemBought = true;
@@ -1166,8 +1170,25 @@ class Game {
   }
 
   // ------------------------------------------------------------ round end
+  // defenses fade after two rounds
+  async expireDefenses() {
+    const R0 = this.round;
+    for (const p of this.players) {
+      const gone = [];
+      for (const k of Object.keys(p.traps || {})) if (p.traps[k].exp !== undefined && R0 >= p.traps[k].exp) { gone.push([ITEM[p.traps[k].id].icon, +k]); delete p.traps[k]; }
+      for (const pile of p.piles || []) { if (pile.protExp !== undefined && R0 >= pile.protExp) { pile.prot = 0; pile.protExp = undefined; gone.push(['🛡️', pile.tile]); } if (pile.mimicExp !== undefined && R0 >= pile.mimicExp) { pile.mimic = false; pile.mimicExp = undefined; gone.push(['🧰', pile.tile]); } }
+      if (p.grace && p.graceExp !== undefined && R0 >= p.graceExp) { p.grace = null; }
+      if (p.guardExp) { p.guardExp = p.guardExp.filter(gd => { if (R0 < gd.exp) return true; const i = p.items.indexOf(gd.id); if (i >= 0) { p.items.splice(i, 1); gone.push([ITEM[gd.id].icon, null]); } return false; }); }
+      if (gone.length) {
+        this.log(`💨 ${this.name(p)}'s ${gone.map(g => g[0]).join(' ')} wore off after two rounds.`);
+        gone.forEach(([ic, tile]) => { const at = tile && !this.simple ? Render.ringPos(p.id, tile) : Render.homeCenter(p.id); Render.burstAt(at, ['rgba(255,255,255,0.8)', '#ccc'], 14, { speed: 90, life: 0.7, size: 5 }); Render.addP({ x: at.x, y: at.y - 30, vy: -40, life: 1.4, kind: 'text', text: ic + ' poof!', color: '#fff', size: 16 }); });
+        Sfx.noise(0.4, 1200, 0.06, 'bandpass', 0, -900);
+      }
+    }
+  }
   async endOfRound() {
     this.phase = 'roundEnd';
+    await this.expireDefenses();
     if (this.ankar !== null) {
       // the Ankar follows the nearest Wayfarer on the Crossing, up to 3 spaces
       const cands = this.players.filter(q => !q.gone && q.trav.loc === 'board' && !(q.trav.repel > 0));

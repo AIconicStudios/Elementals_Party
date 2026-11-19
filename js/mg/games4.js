@@ -423,8 +423,8 @@ MG.def({
 
 // 39 ---------------------------------------------------------------- Dig Site
 MG.def({
-  id: 'dig', name: 'Dig Site', type: 'Strategy', controls: 'Move + dig', dur: 30,
-  how: 'A shared grid of buried tiles. Step your shovel around with the arrows / stick and press the button to dig. Everyone has 10 digs in 30 seconds. Gems score, bombs cost 3. Dug sand shows how many gems are next to it.',
+  id: 'dig', name: 'Dig Site', type: 'Strategy', controls: 'Move + dig', dur: 55,
+  how: 'A shared grid of buried tiles. Step your shovel around with the arrows / stick and press the button to dig. Everyone has 10 digs in 55 seconds. Gems score, bombs cost 3. Dug sand shows how many gems are next to it.',
   wins: 'Most gems.',
   init(m, S) {
     S.cols = 12; S.rows = 6; S.cell = 92; S.x0 = (1280 - 12 * 92) / 2; S.y0 = 110;

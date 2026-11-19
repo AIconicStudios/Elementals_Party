@@ -62,7 +62,46 @@ const Sfx = {
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(f); f.connect(g); g.connect(this.bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
   },
-  step() { this.tone(520, 0.04, 'triangle', 0.04); this.noise(0.03, 900, 0.03, 'lowpass'); },
+  _st: 0,
+  step() { this._st ^= 1; this.tone(this._st ? 420 : 500, 0.07, 'triangle', 0.045, 260); this.noise(0.04, 700, 0.035, 'lowpass'); },
+  // every space type has its own landing sound
+  land(type) {
+    const T = (f, d, ty, v, sl, at) => this.tone(f, d, ty, v, sl || 0, at || 0);
+    switch (type) {
+      case 'blue': [784, 988, 1175, 1568].forEach((f, i) => T(f, 0.16, 'triangle', 0.05, 0, i * 0.06)); this.coin(); break;
+      case 'red': [392, 370, 349, 262].forEach((f, i) => T(f, i === 3 ? 0.5 : 0.16, 'sawtooth', 0.035, i === 3 ? -40 : 0, i * 0.15)); break;
+      case 'item': case 'gift': for (let k = 0; k < 8; k++) T(1046 * Math.pow(2, k / 8), 0.12, 'sine', 0.04, 0, k * 0.035); this.noise(0.3, 6000, 0.03, 'highpass', 0.1); break;
+      case 'lucky': for (let k = 0; k < 6; k++) this.noise(0.02, 2500, 0.06, 'bandpass', k * 0.06, 0, 4); T(1318, 0.3, 'triangle', 0.05, 0, 0.4); break;
+      case 'bank': T(1568, 0.6, 'sine', 0.06); T(2093, 0.5, 'sine', 0.03, 0, 0.01); break;
+      case 'summon': T(110, 1.2, 'sawtooth', 0.05, -30); T(117, 1.2, 'sawtooth', 0.05, -30); this.noise(1, 300, 0.06, 'lowpass', 0.1); break;
+      case 'doubler': this.noise(0.05, 4000, 0.08, 'bandpass'); T(1760, 0.12, 'square', 0.04, 0, 0.06); T(2637, 0.3, 'square', 0.04, 0, 0.12); break;
+      case 'chameleon': T(500, 0.6, 'sine', 0.05, 600); T(700, 0.6, 'sine', 0.04, -300, 0.1); break;
+      case 'swirl': this.whoosh(true); T(300, 0.5, 'sine', 0.04, 900); break;
+      case 'party': T(330, 0.35, 'sawtooth', 0.05, 330); this.crowd('cheer'); break;
+      case 'shutdown': T(220, 0.8, 'triangle', 0.05, -150); this.noise(0.8, 500, 0.05, 'lowpass'); break;
+      case 'gate': T(523, 0.4, 'sine', 0.04, 260); T(784, 0.4, 'sine', 0.03, 260, 0.05); break;
+    }
+  },
+  // each clan's little turn-start motif
+  turn(el) {
+    const M = [[784, 988, 1175, 1568], [659, 784, 988, 784], [523, 659, 784, 1046], [392, 392, 523, 392]][el] || [523, 659, 784];
+    const ty = ['triangle', 'sine', 'square', 'triangle'][el] || 'triangle';
+    M.forEach((f, i) => this.tone(f, 0.14, ty, 0.045, 0, i * 0.09));
+  },
+  // a little audience: cheers, "ooooh"s, "awww"s and laughter
+  crowd(kind = 'cheer') {
+    const c = this.ok(); if (!c) return;
+    if (kind === 'cheer') { this.noise(1.3, 1400, 0.09, 'bandpass', 0, 600, 0.7); for (let k = 0; k < 6; k++) this.syl(k % 4, 0.05 + k * 0.07, 'e', 1.0 + k * 0.05, 1.5, 0.3, 0.025); }
+    if (kind === 'ooh') for (let k = 0; k < 5; k++) this.syl(k % 4, k * 0.03, 'o', 1.0 + k * 0.02, 1.3, 0.7, 0.03);
+    if (kind === 'aww') for (let k = 0; k < 5; k++) this.syl(k % 4, k * 0.03, 'a', 1.3, 0.9, 0.8, 0.028);
+    if (kind === 'laugh') for (let k = 0; k < 4; k++) this.voice(k, 'laugh');
+  },
+  whistle() { this.tone(2200, 0.18, 'sine', 0.07, 200); this.tone(2400, 0.35, 'sine', 0.07, -100, 0.2); },
+  tick() { this.tone(1500, 0.03, 'square', 0.04); },
+  bird() { const f = 2400 + Math.random() * 1600; for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) this.tone(f + k * 120, 0.07, 'sine', 0.015, Math.random() > 0.5 ? 500 : -500, k * 0.09); },
+  breeze() { this.noise(2.5, 500, 0.018, 'bandpass', 0, 400, 0.6); },
+  pop() { this.tone(600, 0.06, 'sine', 0.06, 500); },
+  thud() { this.tone(90, 0.18, 'sine', 0.12, -40); this.noise(0.08, 400, 0.06, 'lowpass'); },
   coin() { this.tone(988, 0.07, 'square', 0.04); this.tone(1319, 0.14, 'square', 0.04, 0, 0.06); this.tone(2637, 0.1, 'sine', 0.02, 0, 0.06); },
   bad() { this.tone(240, 0.22, 'sawtooth', 0.05, -120); this.tone(180, 0.25, 'square', 0.03, -60, 0.05); },
   star() { [784, 988, 1175, 1568, 1976].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.05, 0, i * 0.06)); this.noise(0.4, 6000, 0.02, 'highpass', 0.1); },
@@ -126,6 +165,32 @@ const Sfx = {
       case 'nervous': for (let k = 0; k < 3; k++) S(k * 0.09, 'e', 1.3, 1.25, 0.07, 0.05); break;
       case 'yay': S(0, 'a', 1.1, 1.6, 0.18, 0.1); break;
       case 'grunt': S(0, 'u', 1.0, 0.85, 0.09, 0.09); break;
+    }
+  },
+  // cartoon "talking": babbled syllables timed to a speech bubble, with each clan's own attitude
+  talking: 0,
+  babble(el, text, mood = 'happy') {
+    if (el < 0 || el > 3 || !this.ok() || this.talking >= 2) return;
+    const letters = String(text).replace(/[^a-z]/gi, '');
+    const cfg = [ { step: 0.075, max: 9, wob: 0.18 }, { step: 0.09, max: 9, wob: 0.22 }, { step: 0.065, max: 10, wob: 0.14 }, { step: 0.13, max: 5, wob: 0.06 } ][el];
+    let n = clamp(Math.round(letters.length / 3), 2, cfg.max);
+    const q = /\?\s*$/.test(text), ex = /!/.test(text);
+    let mood0 = mood, lo = 1;
+    if (mood === 'angry' || mood === 'grim') lo = 0.85; if (mood === 'shock' || mood === 'scared' || mood === 'nervous') lo = 1.25; if (mood === 'cry' || mood === 'sad') lo = 0.95;
+    if (mood === 'laugh' || mood === 'evil') { this.voice(el, mood === 'evil' ? 'evil' : 'laugh'); n = Math.min(n, 4); }
+    const vow = 'aeiouaoeia';
+    this.talking++; setTimeout(() => { this.talking = Math.max(0, this.talking - 1); }, n * cfg.step * 1000 + 300);
+    const off = mood === 'laugh' || mood === 'evil' ? 0.55 : 0;
+    for (let k = 0; k < n; k++) {
+      const ch = letters.charCodeAt(k * 3 % Math.max(1, letters.length)) || 97, v = 'aeiou'.includes(String.fromCharCode(ch).toLowerCase()) ? String.fromCharCode(ch).toLowerCase() : vow[ch % vow.length];
+      const last = k === n - 1;
+      let p0 = lo * (1 + (Math.sin(k * 2.3 + ch) * cfg.wob)), p1 = p0 * (last ? (q ? 1.45 : ex ? 0.82 : el === 3 ? 0.8 : 0.9) : 1.04);
+      if (el === 1) p0 *= 1 + 0.12 * Math.sin(k * 1.4); // sing-song
+      if (mood0 === 'cry') { p1 = p0 * 0.8; }
+      const d = cfg.step * (last ? 1.9 : 0.85 + 0.3 * Math.abs(Math.sin(ch + k)));
+      const at = off + k * cfg.step * 1.05;
+      this.syl(el, at, v, p0, p1, d, (last && ex ? 0.12 : 0.085) * (lo < 1 ? 1.2 : 1));
+      if (ch % 3 === 0) this.noise(0.018, el === 3 ? 900 : 3200, 0.03, 'bandpass', at, 0, 3); // little consonant clicks
     }
   },
   moodVoice(el, mood) {

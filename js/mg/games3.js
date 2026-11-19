@@ -5,6 +5,7 @@
 const PickR = {
   start(S, n, time, startIdx = 0) {
     S.P = [0, 1, 2, 3].map(() => ({ idx: startIdx, locked: false }));
+    time = Math.max(12, time * 2.2); // plenty of time to think, peek and decide
     S.n = n; S.pickT = time; S.phase = 'pick'; S.t = 0;
     S.botAt = [0, 1, 2, 3].map(() => R.range(0.8, Math.min(time - 0.5, 4)));
   },
@@ -204,7 +205,7 @@ MG.def({
         if (k === S.pat[S.prog[i]]) { S.prog[i]++; S.pts[i]++; MGH.burst(S.stars[k].x, S.stars[k].y, [m.players[i].color, '#fff'], 10, { speed: 160, kind: 'spark', size: 2 }); if (!m.bot(i)) Sfx.tone(700 + S.prog[i] * 80, 0.08, 'triangle', 0.05); if (S.prog[i] >= S.pat.length) S.time[i] += S.t; }
         else if (!S.pat.slice(0, S.prog[i]).includes(k)) { S.out[i] = true; S.time[i] += S.t; if (!m.bot(i)) Sfx.bad(); }
       }
-      if (S.t > 14 || S.prog.every((p, i) => S.out[i] || p >= S.pat.length)) { S.phase = 'reveal'; S.t = 0; }
+      if (S.t > 28 || S.prog.every((p, i) => S.out[i] || p >= S.pat.length)) { S.phase = 'reveal'; S.t = 0; }
       return;
     }
     if (S.phase === 'reveal' && S.t > 1.8) { if (S.round >= 3) m.finish(this.score(m, S)); else this.next(S); }
@@ -359,7 +360,7 @@ MG.def({
         else S.rep[i] = 0;
         if (m.pressed(i, 'a')) { S.lock[i] = true; Sfx.click(); }
       }
-      if (S.lock.every(l => l) || S.t > 10) {
+      if (S.lock.every(l => l) || S.t > 22) {
         const avg = sum(S.v) / 4; S.target = avg * 2 / 3;
         const d = S.v.map(v => Math.abs(v - S.target)); const best = Math.min(...d);
         S.winners = d.map((x, i) => x === best ? i : -1).filter(i => i >= 0);
@@ -387,7 +388,7 @@ MG.def({
       const x = 240 + S.target * 8; MGH.glow(g, x, 360, 60, 'rgba(255,230,120,0.4)');
       g.strokeStyle = '#ffe680'; g.lineWidth = 4; g.setLineDash([10, 6]); g.beginPath(); g.moveTo(x, 170); g.lineTo(x, 560); g.stroke(); g.setLineDash([]);
       MGH.label(g, `⅔ of average = ${S.target.toFixed(1)} — ${S.winners.map(i => m.players[i].name).join(' & ')} win${S.winners.length > 1 ? '' : 's'}`, 640, 620, 24, '#ffe680');
-    } else { MGH.phase(g, false, m.t); MGH.label(g, `⏱ ${Math.max(0, 10 - S.t).toFixed(1)}`, 1180, 92, 22, '#fff'); MGH.secretHint(g, 690); }
+    } else { MGH.phase(g, false, m.t); MGH.label(g, `⏱ ${Math.max(0, 22 - S.t).toFixed(1)}`, 1180, 92, 22, '#fff'); MGH.secretHint(g, 690); }
   },
 });
 
@@ -422,7 +423,7 @@ MG.def({
           }
         } else { P.idx = Math.min(P.idx, o.length - 1); MGH.pick(m, i, P, o.length, o.length); }
       }
-      if (S.P.every(p => p.locked) || S.t > 8) {
+      if (S.P.every(p => p.locked) || S.t > 20) {
         const ch = S.P.map((P, i) => S.alive[i] ? this.opts(S, i)[P.locked ? P.idx : 0] : null);
         const shot = [false, false, false, false];
         S.chosen = ch.map(c => c ? (c.k === 'reload' ? '🔄' : c.k === 'block' ? '🛡️' : '🔫→' + S.names[c.t]) : null);
@@ -466,7 +467,7 @@ MG.def({
       }
     }
     if (S.phase === 'reveal') S.log.forEach((l, k) => MGH.label(g, l, 640, 400 + k * 40, 22, '#ffe680'));
-    else PickR.drawStatus(m, { P: S.P, phase: 'pick', pickT: 8, t: S.t }, g);
+    else PickR.drawStatus(m, { P: S.P, phase: 'pick', pickT: 20, t: S.t }, g);
   },
 });
 
@@ -496,7 +497,7 @@ MG.def({
         if (m.pressed(i, 'left') && b[S.sel[i]] > 0) b[S.sel[i]]--;
         if (m.pressed(i, 'a')) { S.lock[i] = true; Sfx.click(); }
       }
-      if (S.lock.every(l => l) || S.t > 15) {
+      if (S.lock.every(l => l) || S.t > 35) {
         S.res = [0, 1, 2].map(k => {
           const bids = S.b.map((b, i) => ({ i, v: b[k] })).filter(x => x.v > 0);
           const vals = {}; bids.forEach(x => { vals[x.v] = (vals[x.v] || 0) + 1; });
@@ -535,7 +536,7 @@ MG.def({
       }
       if (mine) { const left = 6 - sum(S.b[i]); for (let t = 0; t < 6; t++) { g.globalAlpha = t < left ? 1 : 0.2; MGH.coin(g, x - 70 + t * 28, 590, 10, 0); } g.globalAlpha = 1; MGH.text(g, `${left} token${left === 1 ? '' : 's'} left`, x, 622, 15, '#ddd'); }
     }
-    if (S.phase === 'pick') { MGH.label(g, `↑↓ treasure · ←→ add/remove token · button = seal · ties cancel · ⏱ ${Math.max(0, 15 - S.t).toFixed(0)}`, 640, 662, 17, '#fff'); MGH.secretHint(g, 700); }
+    if (S.phase === 'pick') { MGH.label(g, `↑↓ treasure · ←→ add/remove token · button = seal · ties cancel · ⏱ ${Math.max(0, 35 - S.t).toFixed(0)}`, 640, 662, 17, '#fff'); MGH.secretHint(g, 700); }
   },
 });
 

@@ -14,7 +14,7 @@ const SPACE = {
   bank:     { name: 'Bank / Shop',     lore: 'Counting House', color: '#f2d36b', icon: '🏛️' , desc: 'Landing on or passing it lets you deposit everything you carry, buy 1 star (price rolled 15, 20 or 25) and buy one item per visit.' },
   blue:     { name: 'Blue',            lore: 'Boon',           color: '#3d7bff', icon: '+5' , desc: '+5 coins on hand.' },
   red:      { name: 'Red',             lore: 'Bane',           color: '#e0443a', icon: '−3' , desc: '−3 coins on hand (never below 0).' },
-  summon:   { name: 'Summon the Ankar',lore: "Ankar's Altar",  color: '#6b3fa0', icon: '👁️' , desc: 'Sets the Ankar loose here. The Altar then crumbles into a Boon or Bane space. The Ankar follows the nearest Wayfarer up to 3 spaces each round and takes 5 coins from anyone it meets.' },
+  summon:   { name: 'Summon the Ankar',lore: "Ankar's Altar",  color: '#6b3fa0', icon: '👁️' , desc: 'Sets the Ankar loose here. The Altar then turns into a Boon (blue) space. The Ankar follows the nearest Wayfarer up to 3 spaces each round and takes 5 coins from anyone it meets.' },
   shutdown: { name: 'Shutdown',        lore: 'Eclipse',        color: '#2b2b3a', icon: '🌑' , desc: 'Closes 2 random Waygates and 2 Counting Houses for 2 rounds.' },
   doubler:  { name: 'Money Doubler',   lore: 'Gilded Spring',  color: '#e8b923', icon: '×2' , desc: 'Doubles your coins on hand (max +10) and gives +1 carried star if you carry any.' },
   lucky:    { name: 'Lucky',           lore: 'Fortune Wheel',  color: '#2fbf8f', icon: '🎡' , desc: 'Spin the wheel: win 1, 3, 5 or 10 coins.' },
@@ -28,7 +28,8 @@ const SPECIAL_TYPES = ['summon', 'shutdown', 'doubler', 'lucky', 'item'];
 // 20-space half, mirrored to the second half (specials 20 apart, max 2 same colour in a row)
 const HALF = ['gate', 'blue', 'lucky', 'red', 'blue', 'bank', 'summon', 'red', 'blue', 'item',
               'gate', 'red', 'doubler', 'blue', 'red', 'bank', 'shutdown', 'blue', 'red', 'chameleon'];
-const BOARD = HALF.concat(HALF);
+// just one Ankar's Altar on the whole Crossing: its twin on the far side is a plain Boon space
+const BOARD = HALF.concat(HALF.map(x => x === 'summon' ? 'blue' : x));
 
 const RING_SIZE = 16;
 const RING_GATE = 16;
@@ -127,12 +128,19 @@ const ITEMS = [
 const SIMPLE_ITEMS = [
   { id: 'sdouble', name: 'Double Dice', lore: 'Double Dice', price: 5, cat: 'simple', simple: true, use: 'play', icon: '🎲', desc: 'Your roll this turn counts double!' },
   { id: 'smagic', name: 'Magic Die', lore: 'Magic Die', price: 6, cat: 'simple', simple: true, use: 'play', icon: '🎯', desc: 'Choose your roll this turn (1 to 6).' },
-  { id: 'sdog', name: 'Guard Dog', lore: 'Guard Dog', price: 5, cat: 'simple', simple: true, use: 'passive', icon: '🐕', desc: 'Keep it in your bag: the next player who sneaks into your Hold gets chased off and pays you 5 coins.' },
+  { id: 'sdog', name: 'Guard Dog', lore: 'Guard Dog', price: 5, cat: 'simple', simple: true, use: 'passive', guard: true, icon: '🐕', desc: 'Guards your Hold for 2 rounds: the next player who sneaks in gets chased off and pays you 5 coins.' },
   { id: 'smagnet', name: 'Coin Magnet', lore: 'Coin Magnet', price: 5, cat: 'simple', simple: true, use: 'play', icon: '🧲', desc: 'Pull 5 coins from the richest other player.' },
   { id: 'ssnail', name: 'Snail', lore: 'Snail', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🐌', desc: 'Pick a player: their next roll is cut in half.' },
   { id: 'swind', name: 'Shop Wind', lore: 'Shop Wind', price: 4, cat: 'simple', simple: true, use: 'play', icon: '💨', desc: 'Whoosh! Fly straight to the next Counting House and shop there.' },
-  { id: 'speel', name: 'Banana Peel', lore: 'Banana Peel', price: 4, cat: 'simple', simple: true, use: 'passive', icon: '🍌', desc: 'Keep it in your bag: the next player who sneaks into your Hold slips and slides back 5 spaces with nothing.' },
-  { id: 'slock', name: 'Star Lock', lore: 'Star Lock', price: 6, cat: 'simple', simple: true, use: 'passive', icon: '🔒', desc: 'Keep it in your bag: the next raider who would steal one of your stars gets nothing at all.' },
+  { id: 'speel', name: 'Banana Peel', lore: 'Banana Peel', price: 4, cat: 'simple', simple: true, use: 'passive', guard: true, icon: '🍌', desc: 'Guards your Hold for 2 rounds: the next player who sneaks in slips and slides back 5 spaces with nothing.' },
+  { id: 'slock', name: 'Star Lock', lore: 'Star Lock', price: 6, cat: 'simple', simple: true, use: 'passive', guard: true, icon: '🔒', desc: 'Guards your Hold for 2 rounds: the next raider who would steal one of your stars gets nothing at all.' },
+  { id: 'sbell', name: 'Alarm Bell', lore: 'Alarm Bell', price: 5, cat: 'simple', simple: true, use: 'passive', guard: true, icon: '🔔', desc: 'Guards your Hold for 2 rounds: the next sneak is caught red-handed — no wheel spin — and pays you 5 coins.' },
+  { id: 'sshield', name: 'Bubble Shield', lore: 'Bubble Shield', price: 5, cat: 'simple', simple: true, use: 'passive', guard: true, icon: '🫧', desc: 'For 2 rounds: nobody can punch your coins away and red spaces cannot hurt you.' },
+  { id: 'sice', name: 'Ice Block', lore: 'Ice Block', price: 5, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🧊', desc: 'Freeze a player: they skip their next move.' },
+  { id: 'smirror', name: 'Mirror Swap', lore: 'Mirror Swap', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🪞', desc: 'Swap places with any player on the Crossing.' },
+  { id: 'swarp', name: 'Warp Stone', lore: 'Warp Stone', price: 3, cat: 'simple', simple: true, use: 'play', icon: '🌀', desc: 'Whoosh to a random space and land there.' },
+  { id: 'sreverse', name: 'Reverse Dice', lore: 'Reverse Dice', price: 3, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🔄', desc: "Pick a player: their next roll walks them backwards." },
+  { id: 'sthief', name: 'Pickpocket', lore: 'Pickpocket', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🦹', desc: 'Sneak 3 coins out of a player\'s pocket.' },
   { id: 'sbox', name: 'Lucky Star Box', lore: 'Lucky Star Box', price: 6, cat: 'simple', simple: true, use: 'play', icon: '🎁', desc: 'Open it: 1 in 3 chance of a free star, otherwise 3 coins.' },
 ];
 ITEMS.push(...SIMPLE_ITEMS);

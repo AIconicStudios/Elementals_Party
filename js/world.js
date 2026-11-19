@@ -120,6 +120,28 @@ const World = {
     }
     g.restore();
   },
+  // soft shadows of clouds drifting over the land
+  cloudShadows(g, now) {
+    for (let k = 0; k < 5; k++) {
+      const x = ((now * (14 + k * 3) + k * 520) % 2600) - 500, y = 100 + k * 190 + Math.sin(now * 0.1 + k) * 40, r = 220 + (k % 3) * 70;
+      const gr = g.createRadialGradient(x, y, r * 0.2, x, y, r); gr.addColorStop(0, 'rgba(10,40,20,0.16)'); gr.addColorStop(1, 'rgba(10,40,20,0)');
+      g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.3, r, 0, 0, 7); g.fill();
+    }
+  },
+  // warm sunlight from the top right and a soft vignette (screen space)
+  light(g, now) {
+    const sun = g.createRadialGradient(1500, -80, 50, 1500, -80, 1100); sun.addColorStop(0, 'rgba(255,240,190,0.35)'); sun.addColorStop(0.5, 'rgba(255,230,170,0.08)'); sun.addColorStop(1, 'rgba(255,230,170,0)');
+    g.fillStyle = sun; g.fillRect(0, 0, 1600, 900);
+    for (let k = 0; k < 3; k++) { g.save(); g.globalAlpha = 0.05 + 0.02 * Math.sin(now * 0.5 + k); g.fillStyle = '#fff8d0'; g.translate(1500, -80); g.rotate(0.55 + k * 0.18 + Math.sin(now * 0.1) * 0.03); g.fillRect(-30, 0, 60 + k * 30, 1400); g.restore(); }
+    const v = g.createRadialGradient(800, 450, 420, 800, 450, 980); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,20,10,0.32)');
+    g.fillStyle = v; g.fillRect(0, 0, 1600, 900);
+  },
+  butterfly(g, x, y, now, k) {
+    const f = Math.abs(Math.sin(now * 14 + k)), col = ['#ff8ad0', '#ffd34d', '#8ad8ff', '#b48aff', '#ff9a5a', '#7cf06a', '#ffffff'][k % 7];
+    g.fillStyle = col; g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1;
+    g.beginPath(); g.ellipse(x - 6 * f, y, 7 * f + 1, 5, -0.4, 0, 7); g.ellipse(x + 6 * f, y, 7 * f + 1, 5, 0.4, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#333'; g.fillRect(x - 1, y - 4, 2, 8);
+  },
   // the arch over each Waygate space
   gate(g, x, y, el, now, closed) {
     const col = ELEMENTS[el].color;

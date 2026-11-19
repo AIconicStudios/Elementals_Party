@@ -87,6 +87,7 @@ const Render = {
   landFx(pos) {
     if (!this.game) return;
     const p = this.trackPos(pos), type = this.game.board[pos];
+    Sfx.land(type);
     const col = type === 'gate' ? ELEMENTS[pos / 10].color : SPACE[type].color;
     this.burstAt(p, [col, '#ffffff'], 22, { speed: 230, life: 0.7, kind: 'spark', size: 3 });
     this.addP({ x: p.x, y: p.y, kind: 'ring', color: col, size: 20, grow: 60, life: 0.5 });
@@ -133,13 +134,14 @@ const Render = {
       const re = this.reactions[pl.id]; if (!re) continue;
       re.t += 1 / 60; if (re.t < 0) continue;
       if (re.t > re.dur) { delete this.reactions[pl.id]; continue; }
+      if (!re.voiced) { re.voiced = true; if (re.text) Sfx.babble(pl.id, re.text, re.mood); else Sfx.moodVoice(pl.id, re.mood); }
       if (this.zoom) continue;
       const c0 = this.homeCenter(pl.id), c = { x: c0.x, y: c0.y - 20 };
       g.save(); this.up(g, c0.x, c0.y);
       const e = Math.min(1, re.t / 0.35), pop = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2);
       const out = re.t > re.dur - 0.3 ? (re.dur - re.t) / 0.3 : 1;
       const r = 25 + 26 * pop * out;
-      if (!re.fx) { re.fx = true; this.moodBurst(c, re.mood, pl.color); Sfx.moodVoice(pl.id, re.mood); }
+      if (!re.fx) { re.fx = true; this.moodBurst(c, re.mood, pl.color); }
       if (Math.random() < 0.12 && (re.mood === 'laugh' || re.mood === 'evil')) this.addP({ x: c.x + R.range(-50, 50), y: c.y - 40, vy: -60, vx: R.range(-30, 30), life: 0.9, kind: 'text', text: re.mood === 'evil' ? R.pick(['MWA', 'HA', 'HAH']) : R.pick(['HA', 'HA!', 'hehe']), color: re.mood === 'evil' ? '#d08cff' : '#ffe680', size: 15 });
       if (Math.random() < 0.15 && re.mood === 'cry') this.addP({ x: c.x + R.range(-30, 30), y: c.y, vy: R.range(40, 90), vx: R.range(-60, 60), grav: 300, life: 0.8, kind: 'dot', color: '#8fd0ff', size: 4 });
       // glow disc behind the mascot
@@ -265,8 +267,11 @@ const Render = {
       items.push({ x: d.x, y: d.y + 1, f: () => this.drawAnkar(g, d.x, d.y, now) });
     }
     for (const [pl, k] of toks) { const d = this.disp[k + pl.id]; this.drawTokenShadow(g, pl, k, d, now); items.push({ x: d.x, y: d.y, f: () => this.drawToken(g, pl, k, now) }); }
+    // butterflies flutter among everything else
+    for (let k = 0; k < 7; k++) { const bx = 800 + Math.sin(now * 0.31 + k * 1.9) * 640, by = 450 + Math.cos(now * 0.23 + k * 1.3) * 360; items.push({ x: bx, y: by, f: () => World.butterfly(g, bx, by - 50 - Math.sin(now * 2 + k) * 14, now, k) }); }
     items.sort((a, b) => a.y - b.y);
     for (const it of items) { g.save(); this.up(g, it.x, it.y); it.f(); g.restore(); }
+    World.cloudShadows(g, now);
 
     this.stepParts(g);
     Stage.drawWorld(g);
@@ -289,6 +294,7 @@ const Render = {
     }
     g.globalAlpha = 1;
     g.restore();
+    World.light(g, now);
     // the die floats above whoever is rolling
     if (this.die) {
       const who = G.players[this.die.who], d = who && this.disp['T' + who.id];
@@ -361,7 +367,7 @@ const Render = {
     }
     const hw = 800 / ts, hh = 450 / (ts * T);
     tx = clamp(tx, World.OX + hw, World.OX + World.GW - hw); ty = clamp(ty, World.OY + hh, World.OY + World.GH - hh);
-    c.x = lerp(c.x, tx, 0.09); c.y = lerp(c.y, ty, 0.09); c.s = lerp(c.s, ts, 0.12);
+    const cl = this.focus ? 0.12 : 0.09; c.x = lerp(c.x, tx, cl); c.y = lerp(c.y, ty, cl); c.s = lerp(c.s, ts, 0.12);
     const fm = !!this.focus; if (fm !== this._fm) { this._fm = fm; document.getElementById('app').classList.toggle('focusmode', fm); }
     g.save(); g.translate(800, 450); g.scale(c.s, c.s * T); g.translate(-c.x, -c.y);
     return true;
@@ -493,7 +499,7 @@ const Render = {
     if (!this.reactionOf(pl.id)) Char.draw(g, c.x, c.y - 34, 28, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
     g.textAlign = 'center';
     this.outlined(g, pl.el.hold, c.x, c.y + 22, 'bold 17px Georgia', '#fff', 5);
-    if (G.simple) { const guards = ['sdog', 'speel', 'slock'].filter(x => pl.items.includes(x)); guards.forEach((x, k) => { g.font = '24px "Segoe UI Emoji"'; g.textBaseline = 'middle'; g.fillText(ITEM[x].icon, c.x - 40 + k * 40, c.y - 96 + Math.sin(now * 3 + k) * 3); g.textBaseline = 'alphabetic'; }); }
+    if (G.simple) { const guards = ['sdog', 'speel', 'slock', 'sbell', 'sshield'].filter(x => pl.items.includes(x)); guards.forEach((x, k) => { g.font = '24px "Segoe UI Emoji"'; g.textBaseline = 'middle'; g.fillText(ITEM[x].icon, c.x - 40 + k * 40, c.y - 96 + Math.sin(now * 3 + k) * 3); g.textBaseline = 'alphabetic'; }); }
     if (pl.hollow) this.outlined(g, 'Famished Earth', c.x, c.y + 42, '12px Georgia', '#9fe07a', 4);
   },
   tokenMood(pl, kind) {
@@ -532,6 +538,7 @@ const Render = {
 
   ambient(G, now) {
     if (Settings.test) return;
+    if (Math.random() < 0.0035) Sfx.bird(); if (Math.random() < 0.0008) Sfx.breeze();
     for (let el = 0; el < 4; el++) {
       if (Math.random() > 0.25) continue;
       const c = this.homeCenter(el), a = Math.random() * Math.PI * 2, rr = R.range(20, 150);
