@@ -50,10 +50,12 @@ const Char = {
     if (mood === 'cry') g.translate(Math.sin(t * 20) * r * 0.015, 0);
     if (mood === 'stoic') { const nk = (t + seed) % 2.6; if (nk < 0.5) g.translate(0, Math.sin(nk / 0.5 * Math.PI) * r * 0.07); }
     const shrink = 1 - Math.min(0.5, idle.lift / (r * 1.6));
+    if (!o.noShadow) {
     g.save(); g.translate(0, r * 1.3 + bob); g.scale(1, 0.2);
     const shg = g.createRadialGradient(0, 0, 0, 0, 0, r * 0.95 * shrink);
     shg.addColorStop(0, 'rgba(20,10,30,0.38)'); shg.addColorStop(0.55, 'rgba(20,10,30,0.2)'); shg.addColorStop(1, 'rgba(20,10,30,0)');
     g.fillStyle = shg; g.beginPath(); g.arc(0, 0, r * 0.95 * shrink, 0, 7); g.fill(); g.restore();
+    }
     if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, true);
     g.translate(0, -idle.lift);
     g.scale(-face * idle.flip, 1); // everything below is drawn facing left
