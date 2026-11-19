@@ -733,7 +733,15 @@ const Char = {
       const p2 = ph + (s > 0 ? Math.PI : 0);
       const swing = walk > 0.1 ? Math.sin(p2) * r * 0.25 : 0, lift = walk > 0.1 ? Math.max(0, Math.cos(p2)) * r * 0.1 : 0;
       g.save(); g.translate(s * r * 0.36 + swing, r * 1.2 - lift); if (out) g.rotate(0.3 * s);
-      const hi = r > 10, back = s < 0, lw = Math.max(0.8, r * 0.034), ink = this.shade(C.shoe, -0.62);
+      this.shoe(g, r, C, s < 0);
+      g.restore();
+    }
+  },
+  // one shoe at the origin: sole bottom at y≈0.05r, toe toward -x, ankle at about (0.03r, -0.2r)
+  shoe(g, r, C, back) {
+    {
+      const s = back ? -1 : 1;
+      const hi = r > 10, lw = Math.max(0.8, r * 0.034), ink = this.shade(C.shoe, -0.62);
       let sf = C.shoe;
       if (hi) { const sg = g.createLinearGradient(0, -r * (C.boot ? 0.4 : 0.3), 0, 0); sg.addColorStop(0, this.shade(C.shoe, back ? 0.12 : 0.4)); sg.addColorStop(0.55, back ? this.shade(C.shoe, -0.12) : C.shoe); sg.addColorStop(1, this.shade(C.shoe, -0.38)); sf = sg; }
       // upper: a round puffy toe joined to the heel (stroke the union, then fill)
@@ -758,7 +766,6 @@ const Char = {
         g.beginPath(); g.moveTo(-r * 0.06, -r * 0.23); g.lineTo(r * 0.05, -r * 0.19); g.moveTo(-r * 0.1, -r * 0.18); g.lineTo(r * 0.01, -r * 0.14); g.stroke();
         if (hi) { g.strokeStyle = C.sole; g.lineWidth = Math.max(0.8, r * 0.03); g.beginPath(); g.moveTo(r * 0.02, -r * 0.08); g.quadraticCurveTo(r * 0.1, -r * 0.14, r * 0.16, -r * 0.08); g.stroke(); }
       } else if (hi) { g.fillStyle = C.lace; g.beginPath(); g.arc(r * 0.08, -r * 0.22, r * 0.03, 0, 7); g.fill(); }
-      g.restore();
     }
   },
 
