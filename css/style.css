@@ -111,3 +111,23 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 #action { background: rgba(18,22,48,0.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 #ctrl .logo { color: #fff; text-shadow: 0 2px 0 #2a3a6a, 0 0 14px rgba(40,80,160,0.8); }
 #ctrl button { background: rgba(28,34,72,0.82); border-color: rgba(255,255,255,0.25); box-shadow: 0 3px 8px rgba(0,30,60,0.25); }
+/* ---- 2.5D board layout: corner player cards, a slim top bar, prompts at the bottom ---- */
+.pc { width: 318px; height: auto; min-height: 84px; padding: 7px 12px 8px; border-radius: 16px; border-width: 3px; background: rgba(255,255,255,0.88); color: #1e2440; box-shadow: 0 6px 16px rgba(0,40,0,0.3); backdrop-filter: none; }
+#pc0 { left: 8px; top: 8px; } #pc1 { left: auto; right: 8px; top: 8px; } #pc2 { left: auto; right: 8px; top: auto; bottom: 8px; } #pc3 { left: 8px; top: auto; bottom: 8px; }
+.pc.cur { box-shadow: 0 0 0 4px var(--c), 0 6px 18px rgba(0,40,0,0.35); }
+.pch { color: var(--c); font-size: 18px; text-shadow: 0 1px 0 rgba(0,0,0,0.15); }
+.pch b { color: #1e2440; } .pch .tag { color: #667; border-color: #bbb; }
+.pch .rank { margin-left: auto; font-weight: bold; font-size: 22px; color: #1e2440; font-style: italic; }
+.pcs { gap: 14px; font-size: 15px; color: #334; } .pcs b { color: #1e2440; font-size: 20px; }
+.pct { color: #c25a00; } .dim { color: #99a; }
+#ctrl { left: 50%; top: 8px; transform: translateX(-50%); width: auto; height: auto; display: flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 30px; background: rgba(255,255,255,0.82); box-shadow: 0 4px 12px rgba(0,40,0,0.25); white-space: nowrap; }
+#ctrl br { display: none; }
+#ctrl .logo { font-size: 14px; margin: 0 8px 0 4px; color: #3a4a8a; text-shadow: none; letter-spacing: 2px; }
+#ctrl button { background: #3a4a8a; border: none; padding: 5px 9px; font-size: 13px; }
+#ctrl #roundPill { font-weight: bold; color: #1e2440; margin: 0 6px; font-size: 15px; }
+#action { left: 50%; top: auto; bottom: 10px; transform: translateX(-50%); width: 560px; max-height: 330px; background: rgba(255,255,255,0.93); color: #1e2440; border-width: 3px; }
+#action #actTitle { color: #1e2440; } #action #actText { color: #445; }
+#viewBtn, #app:not(.zoommode) #viewBtn, #app.zoommode #viewBtn { top: 62px; bottom: auto; right: auto; left: 50%; transform: translateX(-50%); }
+#app.zoommode .pc, #app.zoommode #ctrl { display: block; }
+#app.zoommode #ctrl { display: flex; }
+#app .pc.cur { background: rgba(255,255,255,0.97); color: #1e2440; }

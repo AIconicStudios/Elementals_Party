@@ -79,7 +79,7 @@ const Stage = {
     if (w > 0.5) { g.fillStyle = '#ffe98f'; g.beginPath(); g.ellipse(x - r * 0.2 * w, y - r * 0.25, r * 0.3 * w, r * 0.22, 0, 0, 7); g.fill(); }
   },
   scr(pt) { return Render.toScreen(pt.x, pt.y); },
-  tokPt(p) { const d = Render.disp['T' + p.id] || Render.tokenTarget(p, 'T'); return { x: d.x, y: d.y }; },
+  tokPt(p) { const d = Render.disp['T' + p.id] || Render.tokenTarget(p, 'T'); return { x: d.x, y: d.y - 27 / Render.T }; }, // middle of the standing character
 
   // ---------------------------------------------------------- 1. turn intro
   turn(p) {

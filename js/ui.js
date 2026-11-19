@@ -43,6 +43,8 @@ const UI = {
 
   refresh() {
     const G = this.game; if (!G || Settings.test) return;
+    const ranks = G.standings().map(x => x.p);
+    const rp = document.getElementById('roundPill'); if (rp) rp.textContent = G.round ? `Round ${G.round} / ${G.rounds}` : 'Setup';
     G.players.forEach(p => {
       const t = p.trav;
       const st = [];
@@ -58,9 +60,9 @@ const UI = {
       const el = $('#pc' + p.id);
       el.className = 'pc' + (G.current === p ? ' cur' : '');
       el.style.setProperty('--c', p.color);
-      el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="ord">#${G.order.indexOf(p.id) + 1}</span></div>
-        <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b> stars</span><span title="Coins">🪙 <b>${p.cash}</b> coins</span><span title="Moot wins">🏆 ${p.mgWins}</span>` : `<span title="Banked stars (Starvault)">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 ${G.bank(p)}</span><span title="Coins on hand">💰 ${p.cash}</span>
-        <span title="Hot loot (unbanked)">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>${t.sHand ? `<span title="Carried stars">✨${t.sHand}</span>` : ''}<span title="Moot wins">🏆 ${p.mgWins}</span>`}</div>
+      const rank = ranks.indexOf(p) + 1, ord = ['1st', '2nd', '3rd', '4th'][rank - 1];
+      el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="rank">${ord}</span></div>
+        <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b></span><span title="Coins">🪙 <b>${p.cash}</b></span>` : `<span title="Banked stars">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 <b>${G.bank(p)}</b></span><span title="Coins on hand">💰 <b>${p.cash}</b></span>${G.hotCoins(p) + G.hotStars(p) ? `<span title="Hot loot">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>` : ''}`}<span title="Moot wins">🏆 ${p.mgWins}</span></div>
         <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
     });
   },
@@ -246,7 +248,7 @@ const UI = {
       <p><b>Board (mouse):</b> click the options in the middle panel, click highlighted tiles to place things, or press 1–9.</p>
       <p><b>Board (keyboard):</b> arrow keys move the highlight, Enter selects, Space stops the die, M opens the map, H opens help, V switches between the whole board and the close-up view, Esc goes back.</p>
       <p><b>Board (gamepad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help, LB or LT to switch between the whole board and the close-up view. Only the player whose turn or decision it is can answer with their own gamepad.</p>
-      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br><b>Gamepads:</b> each connected gamepad belongs to exactly one human player, in seat order (1st gamepad → 1st human seat, 2nd → 2nd human, …). A = action / select, B = back and secret-pick peek, X = help, Y = map, Start = pause in minigames. Every minigame starts with a short practice round that doesn't count (up to 15 seconds) — press X or Y on the gamepad when you're ready to play for real. On the board, only the player whose decision it is can answer with their gamepad. Player 1 can also use the mouse in cursor games.</p>
+      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br><b>Gamepads:</b> each connected gamepad belongs to exactly one human player, in seat order (1st gamepad → 1st human seat, 2nd → 2nd human, …). A = action / select, B = back and secret-pick peek, X = help, Y = map, Start = pause in minigames. Every minigame starts with a practice round that doesn't count and has no timer — everyone presses X or Y on their gamepad when they're ready, and the real game begins. On the board, only the player whose decision it is can answer with their gamepad. Player 1 can also use the mouse in cursor games.</p>
       <p><b>Secret picks:</b> in bluffing games nobody’s cursor is shown. Hold your alt button (B) to peek at your own choice.</p>
       </div>`;
     }

@@ -91,7 +91,6 @@ const MG = {
     let m = this.makeCtx(game, players);
     let S = {};
     let pm = null, pS = null; const skip = players.map(p => !p.human), skipPrev = players.map(() => false);
-    const PRACTICE = 15;
     this.fx = []; this.shakeAmt = 0;
     game.init(m, S);
     const g = this.g;
@@ -138,8 +137,10 @@ const MG = {
           for (let i = 0; i < 4; i++) if (pm.bot(i) && game.bot) game.bot(pm, pS, i, dt);
           if (!pm.done) { pm.t += dt; game.update(pm, pS, dt); if (game.dur && pm.t >= game.dur && !pm.done) pm.finish(game.score(pm, pS)); }
           this.drawGame(g, game, pm, pS, dt);
-          this.drawPractice(g, m, PRACTICE - phaseT, skip, pm.done);
-          if (phaseT >= PRACTICE || skip.every(v => v) || (pm.done && phaseT > 2)) {
+          // no timer: practise as long as you like; a finished practice game simply starts again
+          if (pm.done) { pm = this.makeCtx(game, players); pS = {}; game.init(pm, pS); MGH.pop('Again!', 640, 300, '#ffe680', 40); }
+          this.drawPractice(g, m, 0, skip, false);
+          if (skip.every(v => v)) {
             // fresh start for the real thing
             m = this.makeCtx(game, players); S = {}; game.init(m, S);
             phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
@@ -182,10 +183,10 @@ const MG = {
     g.save();
     g.fillStyle = 'rgba(10,6,30,0.78)'; MGH.rr(g, 380, 592, 520, 120, 16); g.fill();
     g.strokeStyle = `rgba(255,230,128,${0.55 + pulse * 0.45})`; g.lineWidth = 3; g.stroke();
-    MGH.text(g, over ? 'PRACTICE OVER — GET READY!' : `PRACTICE ROUND · ${Math.max(0, Math.ceil(left))}s`, 640, 652, 24, '#ffe680', 'center', 'bold');
+    MGH.text(g, 'PRACTICE ROUND — no timer', 640, 652, 24, '#ffe680', 'center', 'bold');
     MGH.text(g, "Just for fun — this doesn't count", 640, 676, 15, '#d8d0f0');
     const hum = m.players.filter(p => p.human);
-    MGH.text(g, 'Done practising? Gamepad X / Y  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#aaa');
+    MGH.text(g, 'Ready for the real thing? Press Gamepad X / Y  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
     hum.forEach((p, k) => { const x = 640 + (k - (hum.length - 1) / 2) * 120; g.fillStyle = p.color; g.globalAlpha = skip[p.i] ? 1 : 0.35; MGH.rr(g, x - 54, 600, 108, 24, 12); g.fill(); g.globalAlpha = 1; MGH.text(g, skip[p.i] ? `P${p.i + 1} ✔ ready` : `P${p.i + 1} practising`, x, 617, 13, '#fff', 'center', 'bold'); });
     g.restore();
   },
