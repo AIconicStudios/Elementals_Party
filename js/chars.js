@@ -14,13 +14,17 @@ const CLAN = [
 const GENERIC = { wrap: '#9aa0ad', wrap2: '#cfd3dc', hem: '#cfd3dc', pattern: 'none', glove: '#cfd3dc', cuff: '#9aa0ad', shoe: '#8a8f99', sole: '#5a5f69', lace: '#cfd3dc' };
 const SKIN = { light: '#ffe0b0', mid: '#fbb064', dark: '#ef8f45', line: '#a8582a', blush: 'rgba(255,105,105,0.5)' };
 
+// Pebble's emotional range: stoic, grim, angry, feisty - never bubbly
+const PEBBLE_MOOD = { cheer: 'stoic', laugh: 'stoic', starry: 'stoic', love: 'stoic', proud: 'stoic', evil: 'smug', cry: 'grim', sad: 'grim', scared: 'grim', nervous: 'grim', shock: 'angry' };
 const Char = {
   T() { return performance.now() / 1000; },
 
   draw(g, x, y, r, el, color, o = {}) {
     const t = o.t !== undefined ? o.t : this.T();
     const seed = o.seed || 0;
-    const mood = o.mood || 'happy';
+    let mood = o.mood || 'happy';
+    // Pebble (Earth) never goes bubbly: wins are a stoic nod, losses turn into a scowl or feisty anger
+    if (el === 3 && PEBBLE_MOOD[mood]) mood = PEBBLE_MOOD[mood];
     const walk = o.walk || 0;
     const out = mood === 'out';
     const C = CLAN[el] || GENERIC;
@@ -44,6 +48,7 @@ const Char = {
     if (mood === 'shock') g.translate(Math.sin(t * 60) * r * 0.02, -r * 0.08);
     if (mood === 'starry') g.translate(0, -Math.abs(Math.sin(t * 6)) * r * 0.12);
     if (mood === 'cry') g.translate(Math.sin(t * 20) * r * 0.015, 0);
+    if (mood === 'stoic') { const nk = (t + seed) % 2.6; if (nk < 0.5) g.translate(0, Math.sin(nk / 0.5 * Math.PI) * r * 0.07); }
     g.fillStyle = 'rgba(0,0,0,0.22)';
     const shrink = 1 - Math.min(0.5, idle.lift / (r * 1.6));
     g.beginPath(); g.ellipse(0, r * 1.3 + bob, r * 0.85 * shrink, r * 0.15 * shrink, 0, 0, 7); g.fill();
@@ -384,6 +389,23 @@ const Char = {
         g.strokeStyle = ink; g.lineWidth = lw * 1.2; g.beginPath(); g.arc(mx + r * 0.04, my - r * 0.06, r * 0.13, Math.PI * 0.15, Math.PI * 0.95); g.stroke();
         return true;
       }
+      case 'stoic': { // Pebble's victory: same calm half-lidded eye, firm flat brow, a tight knowing smirk
+        blush(0.45);
+        const bl = ((t + seed * 1.7) % 3.6) < 0.12;
+        if (bl) { g.strokeStyle = ink; g.lineWidth = Math.max(1.2, r * 0.06); g.beginPath(); g.moveTo(ex - ew, ey + eh * 0.2); g.lineTo(ex + ew, ey + eh * 0.2); g.stroke(); }
+        else eye(1, 0.6, 0.47, -0.34, 0.32);
+        brow(-1.3, -1.12, 1.15, -1.18, 1.7);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.1; g.beginPath(); g.moveTo(mx - r * 0.13, my - r * 0.06); g.quadraticCurveTo(mx - r * 0.03, my + r * 0.03, mx + r * 0.1, my + r * 0.015); g.stroke();
+        g.lineWidth = lw * 0.7; g.beginPath(); g.moveTo(mx - r * 0.16, my - r * 0.1); g.quadraticCurveTo(mx - r * 0.15, my - r * 0.04, mx - r * 0.12, my - r * 0.04); g.stroke();
+        return true;
+      }
+      case 'grim': { // Pebble when things go wrong: narrowed glare, brow pushed down, flat frown - no tears
+        blush(0.3);
+        eye(1, 0.55, 0.4, -0.36, 0.3);
+        brow(-1.35, -0.85, 1.15, -1.35, 1.8);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.1; g.beginPath(); g.moveTo(mx - r * 0.11, my + r * 0.04); g.quadraticCurveTo(mx, my - r * 0.02, mx + r * 0.11, my + r * 0.045); g.stroke();
+        return true;
+      }
       case 'proud': {
         blush(1);
         brow(-1.1, -1.5, 1.1, -1.6, 1);
@@ -403,6 +425,7 @@ const Char = {
     if (mood === 'nervous' || mood === 'sick') for (let k = 0; k < 2; k++) { const ph = (t * 0.9 + k * 0.5) % 1; g.fillStyle = `rgba(150,210,255,${1 - ph})`; g.beginPath(); g.ellipse(r * (0.2 + k * 0.45), -r * 0.6 + ph * r * 0.7, r * 0.06, r * 0.1, 0, 0, 7); g.fill(); }
     if (mood === 'starry') for (let k = 0; k < 5; k++) { const a = t * 2 + k * 1.26; const x = Math.cos(a) * r * 1.45, y = Math.sin(a) * r * 1.2 - r * 0.2; g.fillStyle = '#ffe680'; g.save(); g.translate(x, y); g.rotate(a * 2); const q = r * 0.09 * (1 + Math.sin(t * 8 + k) * 0.4); g.fillRect(-q * 2, -q * 0.4, q * 4, q * 0.8); g.fillRect(-q * 0.4, -q * 2, q * 0.8, q * 4); g.restore(); }
     if (mood === 'shock') { g.fillStyle = '#ff4d4d'; g.font = `bold ${Math.round(r * 0.5)}px Georgia`; g.textAlign = 'center'; g.save(); g.scale(-1, 1); g.fillText('!', r * 0.25, -r * 1.25 - Math.abs(Math.sin(t * 10)) * r * 0.15); g.fillText('!', -r * 0.2, -r * 1.35 - Math.abs(Math.sin(t * 10 + 1)) * r * 0.15); g.restore(); }
+    if (mood === 'stoic' || mood === 'grim') { const ph = ((t + seed) % 2.6) / 2.6; if (ph > 0.15 && ph < 0.55) { const q = (ph - 0.15) / 0.4; for (let k = 0; k < 2; k++) { g.fillStyle = `rgba(235,225,205,${0.75 * (1 - q)})`; g.beginPath(); g.arc(-r * (1.05 + q * 0.55), r * (0.08 + k * 0.1) + q * r * 0.05 * (k ? 1 : -1), r * (0.07 + q * 0.09), 0, 7); g.fill(); } } }
     if (mood === 'evil') { g.strokeStyle = 'rgba(150,60,200,0.35)'; g.lineWidth = r * 0.06; for (let k = 0; k < 2; k++) { const rr = r * (1.15 + ((t * 0.8 + k * 0.5) % 1) * 0.5); g.globalAlpha *= 1; g.beginPath(); g.arc(0, 0, rr, 0, 7); g.stroke(); } }
   },
 
@@ -507,6 +530,8 @@ const Char = {
       case 'laugh': return front ? [-r * 0.15, r * 0.7 + Math.abs(Math.sin(t * 11)) * r * 0.1, -0.2] : [r * 0.95, r * 0.6, 0.4];          // holding the belly
       case 'shock': return front ? [-r * 1.18, -r * 0.65 + shake, -2.5] : [r * 0.95, -r * 0.8 + shake, 2.5];                          // hands thrown up
       case 'angry': return front ? [-r * 1.22, r * 0.45 + shake, -1.4] : [r * 1.0, r * 0.4 - shake, 1.2];                            // shaking fists
+      case 'stoic': return front ? [-r * 1.12, -r * 0.42, -1.9] : [r * 0.95, r * 0.65, 0.3];                                         // one firm fist, other hand on hip
+      case 'grim': return front ? [-r * 0.15, r * 0.85, -0.3] : [r * 0.92, r * 0.55, 0.4];                                            // arms folded
       case 'smug': case 'proud': return front ? [-r * 0.62, r * 0.85, -0.2] : [r * 0.95, r * 0.65, 0.3];                             // hands on hips
       case 'starry': return front ? [-r * 0.8, -r * 1.2 + Math.sin(t * 9) * r * 0.1, -2.5] : [r * 0.75, -r * 1.2 + Math.sin(t * 9 + 1) * r * 0.1, 2.5];
       case 'sick': return front ? [-r * 0.1, r * 0.55, -0.3] : [r * 0.9, r * 0.6, 0.4];

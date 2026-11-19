@@ -3,16 +3,16 @@
 const Input = {
   keys: new Set(),
   maps: [
-    { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], a: ['KeyQ', 'Space'], b: ['KeyE'] },
-    { up: ['KeyT'], down: ['KeyG'], left: ['KeyF'], right: ['KeyH'], a: ['KeyR'], b: ['KeyY'] },
-    { up: ['KeyI'], down: ['KeyK'], left: ['KeyJ'], right: ['KeyL'], a: ['KeyU'], b: ['KeyO'] },
-    { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], a: ['Enter', 'Numpad0'], b: ['ShiftRight', 'NumpadDecimal'] },
+    { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], a: ['KeyQ', 'Space'], b: ['KeyE'], skip: ['KeyX'] },
+    { up: ['KeyT'], down: ['KeyG'], left: ['KeyF'], right: ['KeyH'], a: ['KeyR'], b: ['KeyY'], skip: ['KeyV'] },
+    { up: ['KeyI'], down: ['KeyK'], left: ['KeyJ'], right: ['KeyL'], a: ['KeyU'], b: ['KeyO'], skip: ['KeyM'] },
+    { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], a: ['Enter', 'Numpad0'], b: ['ShiftRight', 'NumpadDecimal'], skip: ['Backspace'] },
   ],
   keyNames: [
-    'W A S D  ·  action Q / Space  ·  alt E',
-    'T F G H  ·  action R  ·  alt Y',
-    'I J K L  ·  action U  ·  alt O',
-    'Arrows  ·  action Enter  ·  alt Right Shift',
+    'W A S D  ·  action Q / Space  ·  alt E  ·  skip practice X',
+    'T F G H  ·  action R  ·  alt Y  ·  skip practice V',
+    'I J K L  ·  action U  ·  alt O  ·  skip practice M',
+    'Arrows  ·  action Enter  ·  alt Right Shift  ·  skip practice Backspace',
   ],
   mouse: { x: 0, y: 0, down: false, moved: false, canvas: null },
   init() {
@@ -46,7 +46,7 @@ const Input = {
   state(i) {
     const m = this.maps[i];
     const k = arr => arr.some(c => this.keys.has(c));
-    const s = { up: k(m.up), down: k(m.down), left: k(m.left), right: k(m.right), a: k(m.a), b: k(m.b), ax: 0, ay: 0 };
+    const s = { up: k(m.up), down: k(m.down), left: k(m.left), right: k(m.right), a: k(m.a), b: k(m.b), skip: k(m.skip || []), ax: 0, ay: 0 };
     const p = this.pad(i);
     if (p) {
       const ax = p.axes[0] || 0, ay = p.axes[1] || 0, b = n => p.buttons[n] && p.buttons[n].pressed;
@@ -56,6 +56,7 @@ const Input = {
       if (ay > 0.4 || b(13)) s.down = true;
       if (b(0)) s.a = true;   // A = primary action
       if (b(1)) s.b = true;   // B = alt / peek
+      if (b(2) || b(3)) s.skip = true; // X / Y = skip practice
       if (Math.abs(ax) > 0.2) s.ax = ax;
       if (Math.abs(ay) > 0.2) s.ay = ay;
     }

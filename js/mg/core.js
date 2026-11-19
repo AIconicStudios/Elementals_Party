@@ -88,8 +88,10 @@ const MG = {
     const quiet = game.type === 'Rhythm' || game.quietMusic;
     Music.play('mini'); Music.setDuck(1, 0.3);
     layer.classList.remove('hidden');
-    const m = this.makeCtx(game, players);
-    const S = {};
+    let m = this.makeCtx(game, players);
+    let S = {};
+    let pm = null, pS = null; const skip = players.map(p => !p.human), skipPrev = players.map(() => false);
+    const PRACTICE = 15;
     this.fx = []; this.shakeAmt = 0;
     game.init(m, S);
     const g = this.g;
@@ -117,12 +119,30 @@ const MG = {
         }
         if (layer.classList.contains('hidden')) return;
         m.dt = dt; phaseT += dt;
-        this.readInputs(m);
+        this.readInputs(phase === 'practice' ? pm : m);
         if (phase === 'card') {
           m.players.forEach((p, i) => { if (p.human && !ready[i] && m.pressed(i, 'a')) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } });
           this.drawCard(g, game, m, phaseT, ready, demo, dt);
           const humans = m.players.some(p => p.human);
-          if ((humans && ready.every(r => r)) || (!humans && phaseT > 4)) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
+          if (humans && ready.every(r => r)) {
+            // a short practice round so everyone gets the hang of it before it counts
+            phase = 'practice'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
+            pm = this.makeCtx(game, players); pS = {}; game.init(pm, pS);
+            if (quiet) Music.setDuck(0, 1.2);
+            Sfx.tone(520, 0.15, 'triangle', 0.07);
+          } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
+        } else if (phase === 'practice') {
+          m.players.forEach((p, i) => { const k = p.human && Input.state(i).skip; if (k && !skipPrev[i] && !skip[i]) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } skipPrev[i] = k; });
+          for (let i = 0; i < 4; i++) if (pm.bot(i) && game.bot) game.bot(pm, pS, i, dt);
+          if (!pm.done) { pm.t += dt; game.update(pm, pS, dt); if (game.dur && pm.t >= game.dur && !pm.done) pm.finish(game.score(pm, pS)); }
+          this.drawGame(g, game, pm, pS, dt);
+          this.drawPractice(g, m, PRACTICE - phaseT, skip, pm.done);
+          if (phaseT >= PRACTICE || skip.every(v => v) || (pm.done && phaseT > 2)) {
+            // fresh start for the real thing
+            m = this.makeCtx(game, players); S = {}; game.init(m, S);
+            phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
+            Sfx.tone(880, 0.12, 'triangle', 0.07);
+          }
         } else if (phase === 'count') {
           this.drawGame(g, game, m, S, dt);
           const n = 3 - Math.floor(phaseT / 0.7);
@@ -152,6 +172,20 @@ const MG = {
       };
       requestAnimationFrame(frame);
     });
+  },
+
+  // banner shown over the practice round
+  drawPractice(g, m, left, skip, over) {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+    g.save();
+    g.fillStyle = 'rgba(10,6,30,0.78)'; MGH.rr(g, 380, 592, 520, 120, 16); g.fill();
+    g.strokeStyle = `rgba(255,230,128,${0.55 + pulse * 0.45})`; g.lineWidth = 3; g.stroke();
+    MGH.text(g, over ? 'PRACTICE OVER — GET READY!' : `PRACTICE ROUND · ${Math.max(0, Math.ceil(left))}s`, 640, 652, 24, '#ffe680', 'center', 'bold');
+    MGH.text(g, "Just for fun — this doesn't count", 640, 676, 15, '#d8d0f0');
+    const hum = m.players.filter(p => p.human);
+    MGH.text(g, 'Done practising? Gamepad X / Y  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#aaa');
+    hum.forEach((p, k) => { const x = 640 + (k - (hum.length - 1) / 2) * 120; g.fillStyle = p.color; g.globalAlpha = skip[p.i] ? 1 : 0.35; MGH.rr(g, x - 54, 600, 108, 24, 12); g.fill(); g.globalAlpha = 1; MGH.text(g, skip[p.i] ? `P${p.i + 1} ✔ ready` : `P${p.i + 1} practising`, x, 617, 13, '#fff', 'center', 'bold'); });
+    g.restore();
   },
 
   // pause menu input from any keyboard player, any gamepad, or Esc

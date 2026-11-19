@@ -110,10 +110,19 @@ const Render = {
   // big pop-up: the player's mascot grows in the middle of their own Hold with a speech bubble
   react(pid, mood, text, delay = 0, dur = 2.8) {
     if (Settings.test) return;
+    if (pid === 3 && PEBBLE_MOOD[mood]) { // Pebble keeps it stoic and to the point
+      const was = mood; mood = PEBBLE_MOOD[mood];
+      if (mood === 'stoic' && text) text = R.pick(['Hmph. As expected.', 'Next.', 'Told you.', 'Moving on.', 'Of course.', 'Solid.']);
+      else if (mood === 'grim' && text) text = R.pick(['...Noted.', 'Hmph.', "This isn't over.", 'Fine.']);
+      else if (was === 'shock' && text) text = R.pick(['Oh, you did NOT.', 'Really?!', 'You want trouble?']);
+    }
     this.reactions[pid] = { mood, text, t: -delay, dur, fx: false };
   },
   // small emoji bubble over a token on the board
-  emote(pl, emoji, dur = 1.6) { if (!Settings.test) this.emotes[pl.id] = { emoji, t: 0, dur }; },
+  emote(pl, emoji, dur = 1.6) {
+    if (pl.id === 3) { if (['😊', '🤑', '😄', '😂', '🥳', '😍', '🤩', '😁', '😆', '🙌'].includes(emoji)) emoji = '🗿'; else if (['😖', '😢', '😭', '😱', '😨', '😰'].includes(emoji)) emoji = '😤'; }
+    if (!Settings.test) this.emotes[pl.id] = { emoji, t: 0, dur };
+  },
   reactionOf(pid) { const r = this.reactions[pid]; return r && r.t >= 0 && r.t < r.dur ? r : null; },
   drawReactions(g, now) {
     const G = this.game;
@@ -160,7 +169,7 @@ const Render = {
       g.restore();
     }
   },
-  moodColor(m) { return { evil: 'rgba(160,60,220,0.9)', laugh: 'rgba(255,220,90,0.9)', cry: 'rgba(90,170,255,0.9)', shock: 'rgba(255,255,255,0.9)', angry: 'rgba(255,60,40,0.9)', smug: 'rgba(200,160,255,0.8)', starry: 'rgba(255,230,120,0.95)', sick: 'rgba(120,220,80,0.8)', nervous: 'rgba(150,210,255,0.7)', sad: 'rgba(120,140,200,0.7)', proud: 'rgba(255,200,80,0.9)' }[m] || 'rgba(255,255,255,0.6)'; },
+  moodColor(m) { return { evil: 'rgba(160,60,220,0.9)', laugh: 'rgba(255,220,90,0.9)', cry: 'rgba(90,170,255,0.9)', shock: 'rgba(255,255,255,0.9)', angry: 'rgba(255,60,40,0.9)', smug: 'rgba(200,160,255,0.8)', starry: 'rgba(255,230,120,0.95)', sick: 'rgba(120,220,80,0.8)', nervous: 'rgba(150,210,255,0.7)', sad: 'rgba(120,140,200,0.7)', proud: 'rgba(255,200,80,0.9)', stoic: 'rgba(190,160,110,0.85)', grim: 'rgba(120,100,80,0.8)' }[m] || 'rgba(255,255,255,0.6)'; },
   moodBurst(c, mood, col) {
     const at = { x: c.x, y: c.y - 20 };
     if (mood === 'shock') { this.addP({ x: at.x, y: at.y, kind: 'ring', color: '#fff', size: 20, grow: 90, life: 0.5 }); this.burstAt(at, ['#fff', '#ffe680'], 16, { speed: 280, kind: 'spark', size: 3 }); }
@@ -168,6 +177,7 @@ const Render = {
     else if (mood === 'starry') { this.burstAt(at, ['#ffe680', '#fff'], 30, { speed: 260, kind: 'spark', size: 3 }); }
     else if (mood === 'angry') { this.burstAt(at, ['#ff4d4d', '#ffb347'], 18, { speed: 240, kind: 'spark', size: 3 }); }
     else if (mood === 'cry') { this.burstAt(at, ['#8fd0ff', '#4f8dff'], 16, { speed: 200, grav: 400 }); }
+    else if (mood === 'stoic') { this.addP({ x: at.x, y: at.y + 40, kind: 'ring', color: '#b89a6a', size: 16, grow: 70, life: 0.6 }); this.burstAt({ x: at.x, y: at.y + 40 }, ['#8a7a66', '#b89a6a'], 12, { speed: 160, grav: 500 }); }
     else if (mood === 'laugh' || mood === 'proud') { this.burstAt(at, ['#ffe680', col], 18, { speed: 220 }); }
   },
 
