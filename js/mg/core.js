@@ -394,15 +394,15 @@ const MGH = {
   drawBody(g, b, p, extra, mood) {
     const sp = Math.hypot(b.vx || 0, b.vy || 0);
     if (!mood) mood = b.mood || (!b.alive ? 'out' : ((b.stun > 0 || b.frozen > 0) ? 'dizzy' : sp > 160 ? 'determined' : 'happy'));
-    Char.draw(g, b.x, b.y, b.r * 1.2, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? 1 : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
+    Char.draw(g, b.x, b.y, b.r * 1.3, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? 1 : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
     if (extra) { g.save(); g.font = `${Math.round(b.r * 0.9)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(extra, b.x, b.y - b.r * 1.75); g.restore(); }
   },
   // draw player i's character
-  // minigame characters are drawn 25% bigger, growing upward so their feet stay on the ground
-  av(g, m, i, x, y, r, mood, o = {}) { const p = m.players[i], rs = r * 1.25; Char.draw(g, x, y - (rs - r) * (o.noFeet ? 0.4 : 1.2), rs, p.el.id, p.color, Object.assign({ mood: MGH.persona(mood, p.el.id), seed: i * 1.7 }, o)); },
+  // minigame characters are drawn 60% bigger, growing upward so their feet stay on the ground
+  av(g, m, i, x, y, r, mood, o = {}) { const p = m.players[i], rs = r * 1.6; Char.draw(g, x, y - (rs - r) * (o.noFeet ? 0.4 : 1.2), rs, p.el.id, p.color, Object.assign({ mood: MGH.persona(mood, p.el.id), seed: i * 1.7 }, o)); },
   // each clan has its own personality: Air laughs it off, Water is emotional, Fire is fiery, Earth is steady
   persona(mood, el) {
-    const P = { cheer: ['laugh', 'starry', 'evil', 'proud'], hurt: ['shock', 'cry', 'angry', 'sad'], scared: ['shock', 'nervous', 'scared', 'nervous'] }[mood];
+    const P = { cheer: ['laugh', 'starry', 'evil', 'proud'], hurt: ['shock', 'cry', 'angry', 'sad'], scared: ['shock', 'nervous', 'scared', 'nervous'], determined: ['determined', 'effort', 'effort', 'determined'] }[mood];
     return P && el >= 0 ? P[el] : mood;
   },
   // seat-to-bot "near" helpers

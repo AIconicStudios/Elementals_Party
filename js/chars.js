@@ -29,7 +29,12 @@ const Char = {
     g.save();
     g.globalAlpha *= o.alpha !== undefined ? o.alpha : 1;
     const bob = out ? 0 : (walk > 0.1 ? Math.abs(Math.sin(t * 14 + seed)) * r * 0.14 : Math.sin(t * 3 + seed) * r * 0.05);
-    const squash = out ? 1 : 1 + Math.sin(t * 3 + seed) * 0.025 + (mood === 'cheer' ? Math.sin(t * 12) * 0.06 : 0);
+    let squash = out ? 1 : 1 + Math.sin(t * 3 + seed) * 0.025 + (mood === 'cheer' ? Math.sin(t * 12) * 0.06 : 0);
+    // ---- clan idle life: each clan stands still differently and strikes a signature pose every few seconds
+    const idle = this.idle(r, el, mood, walk, out, t, seed, o);
+    squash += idle.sq;
+    this._pose = idle.pose; this._pp = idle.pp;
+    const faceMood = idle.face || mood;
     g.translate(x, y - bob);
     if (out) g.rotate(0.4 * face);
     if (mood === 'hurt') g.translate(Math.sin(t * 50) * r * 0.06, 0);
@@ -39,20 +44,26 @@ const Char = {
     if (mood === 'starry') g.translate(0, -Math.abs(Math.sin(t * 6)) * r * 0.12);
     if (mood === 'cry') g.translate(Math.sin(t * 20) * r * 0.015, 0);
     g.fillStyle = 'rgba(0,0,0,0.22)';
-    g.beginPath(); g.ellipse(0, r * 1.3 + bob, r * 0.85, r * 0.15, 0, 0, 7); g.fill();
-    g.scale(-face, 1); // everything below is drawn facing left
+    const shrink = 1 - Math.min(0.5, idle.lift / (r * 1.6));
+    g.beginPath(); g.ellipse(0, r * 1.3 + bob, r * 0.85 * shrink, r * 0.15 * shrink, 0, 0, 7); g.fill();
+    if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, true);
+    g.translate(0, -idle.lift);
+    g.scale(-face * idle.flip, 1); // everything below is drawn facing left
     if (!o.noFeet) this.shoes(g, r, C, t, seed, walk, out);
-    if (!o.noArms) this.glove(g, r, C, mood, t, seed, walk, false);
+    if (!o.noArms) this.glove(g, r, C, faceMood, t, seed, walk, false);
     g.save(); g.scale(1 / Math.sqrt(squash), squash);
     this.body(g, r, skin);
     if (mood === 'angry' || mood === 'sick' || mood === 'evil') { g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip(); const tg = g.createLinearGradient(0, -r, 0, r); const c = mood === 'angry' ? '255,40,30' : mood === 'sick' ? '90,200,60' : '120,40,160'; tg.addColorStop(0, `rgba(${c},${mood === 'evil' ? 0.25 : 0.45})`); tg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = tg; g.fillRect(-r, -r, r * 2, r * 2); g.restore(); }
     if (o.hat !== 'helmet') this.wrap(g, r, C, el, t, seed);
-    this.face(g, r, mood, o.look ? clamp(o.look.y, -1, 1) : 0, t, seed, skin);
+    this.face(g, r, faceMood, o.look ? clamp(o.look.y, -1, 1) : 0, t, seed, skin);
     if (o.hat === 'helmet') this.helmet(g, r, color);
     g.restore();
-    if (!o.noArms) this.glove(g, r, C, mood, t, seed, walk, true);
+    if (!o.noArms) this.glove(g, r, C, faceMood, t, seed, walk, true);
     if (!o.simple) this.flair(g, r, el, t, seed);
-    this.moodFx(g, r, mood, t, seed);
+    this.moodFx(g, r, faceMood, t, seed);
+    if (!o.simple) this.flourish(g, r, el, faceMood, t, seed);
+    if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, false);
+    this._pose = null;
     g.restore();
     if (o.prop) { g.save(); g.font = `${Math.round(r * 0.9)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.prop, x + face * r * 1.2, y - bob + r * 0.1); g.restore(); }
   },
@@ -134,6 +145,76 @@ const Char = {
       for (let k = 0; k < 3; k++) { g.rotate(Math.PI * 2 / 3); g.beginPath(); g.ellipse(r * 0.17, 0, r * 0.17, r * 0.06, 0, 0, 7); g.fill(); g.stroke(); }
       g.fillStyle = '#b9c4d4'; g.beginPath(); g.arc(0, 0, r * 0.05, 0, 7); g.fill();
     }
+    g.restore();
+  },
+
+  // Idle behaviour per clan. Returns body lift, squash, paper-flip (for Air's twirl), pose and face override.
+  //   Air (Zephi): floats on the breeze, twirls around.
+  //   Water (Drip): jiggles like jelly, does a splash-hop.
+  //   Fire (Pyra): bounces on its toes like a boxer, fist-pumps.
+  //   Earth (Pebble): slow sturdy breathing, stomps the ground then flexes.
+  idle(r, el, mood, walk, out, t, seed, o) {
+    const res = { lift: 0, sq: 0, flip: 1, pose: null, pp: -1, face: null };
+    const calm = !out && walk < 0.1 && !o.noIdle && !o.noFeet && el >= 0 && (mood === 'happy' || mood === 'neutral' || mood === 'determined' || mood === 'sleepy');
+    if (!calm) return res;
+    const per = 6.5 + el * 0.4, k = ((t + seed * 1.37) % per) / per;
+    const pp = k > 0.8 ? (k - 0.8) / 0.2 : -1;
+    const posing = pp >= 0 && mood !== 'determined';
+    if (el === 0) {
+      res.lift = r * (0.12 + 0.08 * Math.sin(t * 2.2 + seed));
+      if (posing) { res.flip = Math.cos(pp * Math.PI * 2); res.lift += Math.sin(pp * Math.PI) * r * 0.3; res.pose = 'spin'; res.face = 'cheer'; }
+    } else if (el === 1) {
+      res.sq = Math.sin(t * 5 + seed) * 0.05;
+      if (posing) {
+        const h = Math.sin(Math.min(1, pp / 0.75) * Math.PI);
+        res.lift = pp < 0.75 ? h * r * 0.6 : 0;
+        res.sq = pp < 0.08 ? -0.14 : pp > 0.75 ? 0.2 * (1 - (pp - 0.75) / 0.25) : 0.08;
+        res.pose = 'splash'; res.face = pp > 0.75 ? 'laugh' : 'cheer';
+      }
+    } else if (el === 2) {
+      res.lift = Math.abs(Math.sin(t * 8 + seed)) * r * 0.07;
+      if (posing) { res.lift += Math.sin(pp * Math.PI) * r * 0.18; res.pose = 'pump'; res.face = 'cheer'; }
+    } else if (el === 3) {
+      res.sq = Math.sin(t * 1.6 + seed) * 0.035;
+      if (posing) {
+        if (pp < 0.35) { res.lift = Math.sin(pp / 0.35 * Math.PI / 2) * r * 0.35; res.pose = 'stomp'; res.face = 'determined'; }
+        else if (pp < 0.42) { res.lift = r * 0.35 * (1 - (pp - 0.35) / 0.07); res.pose = 'stomp'; res.face = 'determined'; }
+        else { res.sq = pp < 0.55 ? 0.14 * (1 - (pp - 0.42) / 0.13) : 0; res.pose = 'flex'; res.face = 'proud'; }
+      }
+    }
+    res.pp = pp;
+    return res;
+  },
+  // effects that go with the signature poses (back = drawn behind the body)
+  poseFx(g, r, el, pose, pp, t, back) {
+    g.save();
+    if (pose === 'spin' && !back) {
+      g.strokeStyle = 'rgba(220,240,255,0.85)'; g.lineWidth = Math.max(1.5, r * 0.07); g.lineCap = 'round';
+      for (let k = 0; k < 3; k++) { const a = pp * 14 + k * 2.1, rr = r * (1.25 + k * 0.18); g.beginPath(); g.ellipse(0, r * 0.2 - k * r * 0.35, rr, rr * 0.3, 0, a, a + 2.2); g.stroke(); }
+    }
+    if (pose === 'splash' && !back && pp > 0.72) {
+      const q = (pp - 0.72) / 0.28;
+      for (let k = 0; k < 8; k++) { const a = Math.PI + (k / 7) * Math.PI, d = r * (0.6 + q * 1.1); g.fillStyle = `rgba(120,190,255,${1 - q})`; g.beginPath(); g.ellipse(Math.cos(a) * d, r * 1.15 + Math.sin(a) * d * 0.6 - q * r * 0.2, r * 0.07, r * 0.11, 0, 0, 7); g.fill(); }
+      g.strokeStyle = `rgba(160,215,255,${1 - q})`; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(0, r * 1.3, r * (0.6 + q), r * (0.12 + q * 0.15), 0, 0, 7); g.stroke();
+    }
+    if (pose === 'pump' && back) {
+      for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 + (k - 3) * 0.35, h = r * (0.5 + 0.35 * Math.sin(t * 12 + k)) * Math.sin(pp * Math.PI); g.fillStyle = k % 2 ? 'rgba(255,200,60,0.85)' : 'rgba(255,110,40,0.8)'; g.beginPath(); g.moveTo(Math.cos(a - 0.15) * r, Math.sin(a - 0.15) * r); g.quadraticCurveTo(Math.cos(a) * (r + h * 1.8), Math.sin(a) * (r + h * 1.8), Math.cos(a + 0.15) * r, Math.sin(a + 0.15) * r); g.fill(); }
+    }
+    if ((pose === 'flex' || pose === 'stomp') && back && pp > 0.4 && pp < 0.75) {
+      const q = (pp - 0.4) / 0.35;
+      for (let s = -1; s <= 1; s += 2) for (let k = 0; k < 3; k++) { g.fillStyle = `rgba(190,160,110,${0.7 * (1 - q)})`; g.beginPath(); g.arc(s * r * (0.5 + q * 0.9 + k * 0.2), r * 1.25 - q * r * 0.3 - k * r * 0.12, r * (0.14 + q * 0.12), 0, 7); g.fill(); }
+      g.fillStyle = `rgba(120,90,60,${1 - q})`; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc((k - 1.5) * r * 0.5, r * 1.2 - Math.sin(q * Math.PI) * r * (0.4 + k % 2 * 0.3), r * 0.06, 0, 7); g.fill(); }
+    }
+    g.restore();
+  },
+  // celebration flourish for strong happy emotions, unique per clan
+  flourish(g, r, el, mood, t, seed) {
+    if (!['cheer', 'laugh', 'starry', 'proud', 'love'].includes(mood) || el < 0) return;
+    g.save();
+    if (el === 0) { g.strokeStyle = 'rgba(225,240,255,0.75)'; g.lineWidth = Math.max(1.5, r * 0.06); g.lineCap = 'round'; for (let k = 0; k < 3; k++) { const a = t * 5 + k * 2.1; g.beginPath(); g.ellipse(0, -r * 0.1, r * 1.45, r * 0.5, -0.2, a, a + 1.6); g.stroke(); } }
+    if (el === 1) for (let k = 0; k < 6; k++) { const ph = (t * 1.2 + k / 6) % 1, side = k % 2 ? 1 : -1; const x = side * ph * r * 1.2, y = -r * 1.1 - Math.sin(ph * Math.PI) * r * 0.9 + ph * r * 0.5; g.fillStyle = `rgba(110,185,255,${1 - ph * 0.7})`; g.beginPath(); g.ellipse(x, y, r * 0.06, r * 0.09, 0, 0, 7); g.fill(); }
+    if (el === 2) for (let k = 0; k < 5; k++) { const ph = (t * 1.6 + k / 5) % 1; const x = (k - 2) * r * 0.45, y = r * 0.9 - ph * r * 2.4; g.fillStyle = `rgba(255,${130 + k * 25},40,${(1 - ph) * 0.9})`; g.beginPath(); g.moveTo(x - r * 0.08, y); g.quadraticCurveTo(x, y - r * 0.3, x + r * 0.08, y); g.quadraticCurveTo(x, y + r * 0.08, x - r * 0.08, y); g.fill(); }
+    if (el === 3) for (let k = 0; k < 4; k++) { const a = t * 2.5 + k * Math.PI / 2; const x = Math.cos(a) * r * 1.45, y = Math.sin(a) * r * 0.45 - r * 0.1; if (k % 2) { g.fillStyle = '#8a7a66'; g.beginPath(); g.arc(x, y, r * 0.1, 0, 7); g.fill(); } else { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#7ccf4a'; g.beginPath(); g.ellipse(0, 0, r * 0.13, r * 0.06, 0, 0, 7); g.fill(); g.restore(); } }
     g.restore();
   },
 
@@ -242,6 +323,22 @@ const Char = {
         g.strokeStyle = ink; g.lineWidth = lw * 1.1; g.beginPath(); g.arc(mx + r * 0.05, my + r * 0.12, r * 0.12, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
         return true;
       }
+      case 'effort': {
+        blush(1.4);
+        brow(-1.3, -0.6, 1.2, -1.25, 1.6);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.5; g.beginPath(); g.moveTo(ex - ew * 1.0, ey - eh * 0.45); g.lineTo(ex + ew * 0.5, ey); g.lineTo(ex - ew * 1.0, ey + eh * 0.45); g.stroke();
+        g.fillStyle = '#fff'; g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); rrPath(g, mx - r * 0.12, my - r * 0.06, r * 0.34, r * 0.14, r * 0.05); g.fill(); g.stroke();
+        g.beginPath(); g.moveTo(mx - r * 0.12, my + r * 0.01); g.lineTo(mx + r * 0.22, my + r * 0.01); g.stroke();
+        return true;
+      }
+      case 'love': {
+        blush(1.6);
+        g.save(); g.translate(ex, ey); const hs = ew * (1.25 + Math.sin(t * 9) * 0.12);
+        g.fillStyle = '#ff4d7a'; g.strokeStyle = '#a8123a'; g.lineWidth = lw * 0.7; g.beginPath(); g.moveTo(0, hs * 0.9); g.bezierCurveTo(-hs * 1.4, -hs * 0.1, -hs * 0.6, -hs * 1.1, 0, -hs * 0.35); g.bezierCurveTo(hs * 0.6, -hs * 1.1, hs * 1.4, -hs * 0.1, 0, hs * 0.9); g.fill(); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(-hs * 0.35, -hs * 0.3, hs * 0.2, 0, 7); g.fill(); g.restore();
+        g.strokeStyle = ink; g.lineWidth = lw * 1.2; g.beginPath(); g.arc(mx + r * 0.04, my - r * 0.06, r * 0.13, Math.PI * 0.15, Math.PI * 0.95); g.stroke();
+        return true;
+      }
       case 'proud': {
         blush(1);
         brow(-1.1, -1.5, 1.1, -1.6, 1);
@@ -255,6 +352,8 @@ const Char = {
 
   // extra effects around the character for strong emotions
   moodFx(g, r, mood, t, seed) {
+    if (mood === 'effort') for (let k = 0; k < 3; k++) { const ph = (t * 2 + k / 3) % 1; g.fillStyle = `rgba(150,210,255,${1 - ph})`; g.beginPath(); g.ellipse(r * (0.3 + k * 0.3) + ph * r * 0.4, -r * 0.7 + ph * r * 0.3, r * 0.05, r * 0.09, 0.5, 0, 7); g.fill(); }
+    if (mood === 'love') for (let k = 0; k < 3; k++) { const ph = (t * 0.8 + k / 3) % 1; const x = (k - 1) * r * 0.6 + Math.sin(ph * 8 + k) * r * 0.15, y = -r * 1.1 - ph * r * 1.1, hs = r * 0.13 * (1 - ph * 0.4); g.fillStyle = `rgba(255,80,130,${1 - ph})`; g.beginPath(); g.moveTo(x, y + hs); g.bezierCurveTo(x - hs * 1.4, y, x - hs * 0.6, y - hs, x, y - hs * 0.35); g.bezierCurveTo(x + hs * 0.6, y - hs, x + hs * 1.4, y, x, y + hs); g.fill(); }
     if (mood === 'angry') for (let k = 0; k < 3; k++) { const ph = (t * 1.3 + k / 3) % 1; g.fillStyle = `rgba(255,255,255,${0.8 * (1 - ph)})`; g.beginPath(); g.arc((k - 1) * r * 0.45 + Math.sin(ph * 6) * r * 0.08, -r * 1.15 - ph * r * 0.8, r * (0.1 + ph * 0.18), 0, 7); g.fill(); }
     if (mood === 'nervous' || mood === 'sick') for (let k = 0; k < 2; k++) { const ph = (t * 0.9 + k * 0.5) % 1; g.fillStyle = `rgba(150,210,255,${1 - ph})`; g.beginPath(); g.ellipse(r * (0.2 + k * 0.45), -r * 0.6 + ph * r * 0.7, r * 0.06, r * 0.1, 0, 0, 7); g.fill(); }
     if (mood === 'starry') for (let k = 0; k < 5; k++) { const a = t * 2 + k * 1.26; const x = Math.cos(a) * r * 1.45, y = Math.sin(a) * r * 1.2 - r * 0.2; g.fillStyle = '#ffe680'; g.save(); g.translate(x, y); g.rotate(a * 2); const q = r * 0.09 * (1 + Math.sin(t * 8 + k) * 0.4); g.fillRect(-q * 2, -q * 0.4, q * 4, q * 0.8); g.fillRect(-q * 0.4, -q * 2, q * 0.8, q * 4); g.restore(); }
@@ -350,6 +449,14 @@ const Char = {
 
   glovePose(r, mood, t, front) {
     const q = Math.sin(t * 18), shake = Math.sin(t * 40) * r * 0.05;
+    const pose = this._pose, pp = this._pp;
+    if (pose === 'spin') return front ? [-r * 1.3, -r * 0.15, -1.8] : [r * 1.25, -r * 0.15, 1.8];
+    if (pose === 'splash') return front ? [-r * 0.85, -r * 1.2, -2.5] : [r * 0.8, -r * 1.2, 2.5];
+    if (pose === 'pump') { const up = Math.abs(Math.sin(pp * Math.PI * 3)); return front ? [-r * 0.65, -r * (0.9 + up * 0.45), -2.6] : [r * 0.95, r * 0.6, 0.3]; }
+    if (pose === 'stomp') return front ? [-r * 0.7, r * 0.75, -0.3] : [r * 0.8, r * 0.75, 0.3];
+    if (pose === 'flex') return front ? [-r * 1.18, -r * 0.6 + shake * 0.4, -2.0] : [r * 1.12, -r * 0.6 - shake * 0.4, 2.0];
+    if (mood === 'effort') return front ? [-r * 1.0, r * 0.5 + q * r * 0.06, -1.3] : [r * 0.98, r * 0.5 - q * r * 0.06, 1.2];
+    if (mood === 'love') return front ? [-r * 0.55, r * 0.62, -0.9] : [r * 0.4, r * 0.66, 0.9];
     switch (mood) {
       case 'evil': return front ? [-r * 0.45 + q * r * 0.12, r * 0.58 + Math.cos(t * 18) * r * 0.06, -0.6] : [r * 0.9, r * 0.5, 0.5];      // rubbing hands
       case 'laugh': return front ? [-r * 0.15, r * 0.7 + Math.abs(Math.sin(t * 11)) * r * 0.1, -0.2] : [r * 0.95, r * 0.6, 0.4];          // holding the belly

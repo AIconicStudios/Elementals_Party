@@ -66,7 +66,7 @@ MG.def({
   how: 'The Ankar hunts the nearest player. A touched player is frozen for 3 seconds.',
   wins: 'Fewest freezes (tie: most time free).',
   init(m, S) {
-    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(160 + (i % 2) * 960, 160 + Math.floor(i / 2) * 420, 20), { frozen: 0, imm: 0, fr: 0, free: 0 }));
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(160 + (i % 2) * 960, 160 + Math.floor(i / 2) * 420, 25), { frozen: 0, imm: 0, fr: 0, free: 0 }));
     S.a = Object.assign(MGH.body(640, 380, 30), {});
   },
   update(m, S, dt) {
@@ -111,7 +111,7 @@ MG.def({
   how: 'One player holds a burning coal. Touch someone and press to pass it on. After a hidden fuse of 10 to 20 seconds the holder is out. Three rounds.',
   wins: 'Last one in.',
   init(m, S) {
-    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(260 + i * 250, 380, 22), { outT: 0 }));
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(260 + i * 250, 380, 28), { outT: 0 }));
     S.place = 0; this.newRound(m, S);
   },
   newRound(m, S) {
@@ -169,7 +169,7 @@ MG.def({
   id: 'hill', name: 'Hill of Stars', type: 'Arena', controls: 'Move + push', dur: 45,
   how: 'A glowing zone drifts around the arena. Standing in it alone scores. If two stand in it, scoring pauses. Push to shove rivals out.',
   wins: 'Most seconds held.',
-  init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(160 + i * 320, 650, 22), { cd: 0, held: 0, push: 0 })); S.z = { x: 640, y: 380, r: 95 }; S.ph = R.range(0, 6); },
+  init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(160 + i * 320, 650, 28), { cd: 0, held: 0, push: 0 })); S.z = { x: 640, y: 380, r: 95 }; S.ph = R.range(0, 6); },
   update(m, S, dt) {
     S.z.x = 640 + Math.sin(m.t * 0.37 + S.ph) * 430; S.z.y = 380 + Math.sin(m.t * 0.53 + S.ph * 2) * 220;
     S.b.forEach((b, i) => {
@@ -211,7 +211,7 @@ MG.def({
   how: 'Three hearts each. Fire a ball in the direction you face. It bounces once. A hit costs a heart.',
   wins: 'Last one alive.',
   init(m, S) {
-    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(160 + (i % 2) * 960, 180 + Math.floor(i / 2) * 400, 20), { hp: 3, cd: 0, inv: 0, outT: 0 }));
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(160 + (i % 2) * 960, 180 + Math.floor(i / 2) * 400, 25), { hp: 3, cd: 0, inv: 0, outT: 0 }));
     S.balls = [];
   },
   update(m, S, dt) {
@@ -529,8 +529,8 @@ MG.def({
     MGH.text(g, S.phase === 'show' ? `Watch… (${S.seq.length})` : S.phase === 'input' ? 'Repeat it!' : 'Well done', 640, 600, 30, '#fff', 'center', 'bold');
     for (let i = 0; i < 4; i++) {
       const x = 160 + i * 320, p = m.players[i];
-      MGH.av(g, m, i, x - 100, 670, 22, !S.alive[i] ? 'out' : S.done[i] ? 'cheer' : (S.phase === 'show' ? 'neutral' : 'determined'), { look: { x: 0.5, y: -1 } });
-      MGH.text(g, `${p.name}: ${S.alive[i] ? (S.done[i] ? '✔' : '…') : '✖ out'}`, x + 10, 680, 22, p.color, 'center', 'bold');
+      MGH.av(g, m, i, x - 116, 664, 20, !S.alive[i] ? 'out' : S.done[i] ? 'cheer' : (S.phase === 'show' ? 'neutral' : 'determined'), { look: { x: 0.5, y: -1 } });
+      MGH.text(g, `${p.name}: ${S.alive[i] ? (S.done[i] ? '✔' : '…') : '✖ out'}`, x + 28, 680, 19, p.color, 'center', 'bold');
     }
   },
 });

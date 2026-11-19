@@ -464,7 +464,7 @@ MG.def({
     S.cols = 10; S.rows = 6; S.tw = 128; S.th = 680 / 6;
     S.state = new Array(60).fill(0); // 0 safe, 1 warn, 2 fire
     S.next = 1.5; S.phase = 'idle';
-    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(300 + i * 230, 380, 18), { outT: 0 }));
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(300 + i * 230, 380, 24), { outT: 0 }));
   },
   tileAt(S, x, y) { const c = clamp(Math.floor(x / S.tw), 0, 9), r = clamp(Math.floor((y - 40) / S.th), 0, 5); return r * 10 + c; },
   pattern(S, t) {
@@ -532,7 +532,7 @@ MG.def({
   wins: 'Last one in the ring.',
   init(m, S) {
     S.cx = 640; S.cy = 385; S.rad = 310;
-    S.b = [0, 1, 2, 3].map(i => { const a = i * Math.PI / 2 + Math.PI / 4; return Object.assign(MGH.body(640 + Math.cos(a) * 180, 385 + Math.sin(a) * 180, 26), { cd: 0, outT: 0, dash: 0 }); });
+    S.b = [0, 1, 2, 3].map(i => { const a = i * Math.PI / 2 + Math.PI / 4; return Object.assign(MGH.body(640 + Math.cos(a) * 180, 385 + Math.sin(a) * 180, 32), { cd: 0, outT: 0, dash: 0 }); });
   },
   update(m, S, dt) {
     S.rad = Math.max(110, 310 - m.t * 5);

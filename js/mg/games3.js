@@ -22,8 +22,8 @@ const PickR = {
     for (let i = 0; i < 4; i++) {
       const p = m.players[i];
       const mood = S.phase === 'reveal' && S.mood ? S.mood[i] : (S.P[i].locked ? 'happy' : 'determined');
-      MGH.av(g, m, i, 160 + i * 320 - 110, y - 12, 20, mood, { look: { x: 0.6, y: -0.3 } });
-      MGH.text(g, `${p.name}: ${S.phase === 'reveal' ? '' : (S.P[i].locked ? '🔒 locked' : 'choosing…')}`, 160 + i * 320 + 10, y, 20, p.color, 'center', 'bold');
+      MGH.av(g, m, i, 160 + i * 320 - 116, y - 14, 20, mood, { look: { x: 0.6, y: -0.3 } });
+      MGH.text(g, `${p.name}: ${S.phase === 'reveal' ? '' : (S.P[i].locked ? '🔒 locked' : 'choosing…')}`, 160 + i * 320 + 28, y, 18, p.color, 'center', 'bold');
     }
     if (S.phase === 'pick') { MGH.text(g, `⏱ ${Math.max(0, S.pickT - S.t).toFixed(1)}`, 640, 80, 24, '#fff', 'center', 'bold'); MGH.secretHint(g); }
   },

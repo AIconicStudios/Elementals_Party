@@ -155,8 +155,8 @@ MG.def({
     if (S.phase === 'pick') PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, false);
     else PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, true);
     for (let i = 0; i < 4; i++) {
-      MGH.av(g, m, i, 160 + i * 320 - 100, 668, 22, !S.alive[i] ? 'out' : S.phase === 'reveal' ? 'cheer' : (S.P[i].locked ? 'happy' : 'scared'));
-      MGH.text(g, `${m.players[i].name}: ${S.alive[i] ? (S.P[i].locked ? '🔒' : '…') : '✖ out'}`, 160 + i * 320 + 10, 680, 20, m.players[i].color, 'center', 'bold');
+      MGH.av(g, m, i, 160 + i * 320 - 116, 662, 20, !S.alive[i] ? 'out' : S.phase === 'reveal' ? 'cheer' : (S.P[i].locked ? 'happy' : 'scared'));
+      MGH.text(g, `${m.players[i].name}: ${S.alive[i] ? (S.P[i].locked ? '🔒' : '…') : '✖ out'}`, 160 + i * 320 + 28, 680, 18, m.players[i].color, 'center', 'bold');
     }
   },
 });
@@ -449,7 +449,7 @@ MG.def({
   wins: 'Most coins banked at the door.',
   init(m, S) {
     S.coins = []; for (let k = 0; k < 34; k++) S.coins.push({ x: R.range(80, 1200), y: R.range(170, 560) });
-    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(400 + i * 160, 660, 18), { carry: 0, bank: 0, stun: 0 }));
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(400 + i * 160, 660, 23), { carry: 0, bank: 0, stun: 0 }));
     S.ang = Math.PI / 2; S.w = 0.7; S.dir = 1; S.wx = 640; S.wy = 70;
   },
   inBeam(S, x, y) {
