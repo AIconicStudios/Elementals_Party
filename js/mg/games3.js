@@ -25,15 +25,17 @@ const PickR = {
       MGH.av(g, m, i, 160 + i * 320 - 116, y - 14, 20, mood, { look: { x: 0.6, y: -0.3 } });
       MGH.text(g, `${p.name}: ${S.phase === 'reveal' ? '' : (S.P[i].locked ? '🔒 locked' : 'choosing…')}`, 160 + i * 320 + 28, y, 18, p.color, 'center', 'bold');
     }
-    if (S.phase === 'pick') { MGH.text(g, `⏱ ${Math.max(0, S.pickT - S.t).toFixed(1)}`, 640, 80, 24, '#fff', 'center', 'bold'); MGH.secretHint(g); }
+    if (S.phase === 'pick') { MGH.phase(g, false, (S.t || 0)); MGH.label(g, `⏱ ${Math.max(0, S.pickT - S.t).toFixed(1)}`, 1180, 92, 22, '#fff'); MGH.secretHint(g); }
   },
   // draws a row/grid of option boxes with each human's cursor (hidden picks)
   drawOptions(m, S, g, labels, x0, y0, w, h, cols, reveal) {
     labels.forEach((lab, k) => {
       const x = x0 + (k % cols) * (w + 12), y = y0 + Math.floor(k / cols) * (h + 12);
-      g.fillStyle = 'rgba(255,255,255,0.08)'; MGH.rr(g, x, y, w, h, 12); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 2; g.stroke();
-      MGH.text(g, lab, x + w / 2, y + h / 2 + 10, Math.min(32, h * 0.45), '#fff', 'center', 'bold');
+      g.fillStyle = 'rgba(0,0,0,0.3)'; MGH.rr(g, x + 4, y + 6, w, h, 14); g.fill();
+      g.fillStyle = MGH.grad(g, y, y + h, ['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.06)']); MGH.rr(g, x, y, w, h, 14); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.15)'; MGH.rr(g, x + 6, y + 4, w - 12, h * 0.25, 10); g.fill();
+      MGH.text(g, lab, x + w / 2, y + h / 2 + 10, Math.min(36, h * 0.45), '#fff', 'center', 'bold');
       for (let i = 0; i < 4; i++) {
         const P = S.P[i];
         const showDot = reveal ? P.idx === k && P.locked : (MGH.peek(m, i) && P.idx === k);
@@ -56,7 +58,7 @@ MG.def({
   },
   update(m, S, dt) {
     S.t += dt;
-    if (S.phase === 'show' && S.t > 1.3) { S.phase = 'shuffle'; S.t = 0; }
+    if (S.phase === 'show' && S.t > 1.9) { S.phase = 'shuffle'; S.t = 0; }
     else if (S.phase === 'shuffle') {
       S.anim = S.t / S.sw;
       if (S.t >= S.sw) { const [a, b] = S.swaps[S.k]; const ia = S.slot.indexOf(a), ib = S.slot.indexOf(b); [S.slot[ia], S.slot[ib]] = [S.slot[ib], S.slot[ia]]; S.k++; S.t = 0; Sfx.tone(300, 0.04, 'square', 0.03); if (S.k >= S.swaps.length) { PickR.start(S, 3, 5, 1); } }
@@ -74,24 +76,29 @@ MG.def({
   hud(m, S, i) { return S.pts[i]; },
   slotX(k) { return 360 + k * 280; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a1d0f', '#0d0905');
-    MGH.text(g, `Round ${S.round} / 5`, 640, 120, 24, '#ccb');
+    MGH.scene(g, 'cave', m.t);
+    g.fillStyle = MGH.grad(g, 440, 720, ['#5a3a20', '#2a1a0c']); g.fillRect(0, 470, 1280, 250);
+    MGH.label(g, `Round ${S.round} / 5`, 110, 92, 20, '#eee');
+    if (S.phase === 'show' || S.phase === 'shuffle') MGH.phase(g, true, m.t, S.phase === 'show' ? 'The coin goes into this chest…' : 'Follow the chest with the coin!');
     const pos = [0, 1, 2].map(c => this.slotX(S.slot.indexOf(c)));
+    let hop = [0, 0, 0];
     if (S.phase === 'shuffle' && S.k < S.swaps.length) {
       const [a, b] = S.swaps[S.k], t = clamp(S.anim, 0, 1);
       const xa = this.slotX(S.slot.indexOf(a)), xb = this.slotX(S.slot.indexOf(b));
-      pos[a] = lerp(xa, xb, t); pos[b] = lerp(xb, xa, t);
+      pos[a] = lerp(xa, xb, t); pos[b] = lerp(xb, xa, t); hop[a] = -Math.sin(t * Math.PI) * 50; hop[b] = Math.sin(t * Math.PI) * 20;
     }
     for (let c = 0; c < 3; c++) {
-      const lift = (S.phase === 'show' || S.phase === 'reveal') && c === S.coin ? -70 : 0;
-      if (lift) MGH.text(g, '🪙', pos[c], 440, 50, '#fff');
-      g.fillStyle = '#8a5a2b'; MGH.rr(g, pos[c] - 80, 330 + lift, 160, 120, 14); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 4; g.stroke();
+      const open = (S.phase === 'show' || S.phase === 'reveal') && c === S.coin, x = pos[c], y = 360 + hop[c];
+      MGH.shadow(g, x, 470, 90, 0.4);
+      if (open) { MGH.glow(g, x, y - 10, 120, 'rgba(255,220,90,0.6)'); MGH.coin(g, x, y - 70 - Math.sin(m.t * 4) * 6, 26, m.t * 2); }
+      g.fillStyle = MGH.grad(g, y, y + 100, ['#b07038', '#6a3e18']); MGH.rr(g, x - 85, y, 170, 100, 12); g.fill();
+      g.fillStyle = '#ffd34d'; g.fillRect(x - 85, y + 40, 170, 10); g.fillRect(x - 10, y + 30, 20, 30);
+      g.save(); g.translate(x - 85, y); g.rotate(open ? -0.55 : 0); g.fillStyle = MGH.grad(g, -50, 0, ['#c98a4a', '#7a4a22']); MGH.rr(g, 0, -40, 170, 44, 16); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(0, -8, 170, 8); g.restore();
     }
     if (S.phase === 'pick' || S.phase === 'reveal') {
       for (let k = 0; k < 3; k++) for (let i = 0; i < 4; i++) {
-        const P = S.P[i];
-        const show = S.phase === 'reveal' ? P.locked && P.idx === k : (MGH.peek(m, i) && P.idx === k);
-        if (show) { g.fillStyle = m.players[i].color; g.beginPath(); g.arc(this.slotX(k) - 45 + i * 30, 500, 11, 0, 7); g.fill(); }
+        const P = S.P[i], show = S.phase === 'reveal' ? P.locked && P.idx === k : (MGH.peek(m, i) && P.idx === k);
+        if (show) MGH.av(g, m, i, this.slotX(k) - 54 + i * 36, 530, 13, S.phase === 'reveal' ? (k === S.slot.indexOf(S.coin) ? 'cheer' : 'hurt') : 'determined', { noFeet: true });
       }
       PickR.drawStatus(m, S, g);
     }
@@ -138,21 +145,25 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#1f1a10', '#0a0805');
-    MGH.text(g, `Round ${S.round} / 6 — find the fake`, 640, 100, 26, '#ffe680', 'center', 'bold');
+    MGH.scene(g, 'temple', m.t);
+    g.fillStyle = 'rgba(40,20,10,0.6)'; MGH.rr(g, 150, 130, 980, 560, 30); g.fill(); g.strokeStyle = 'rgba(255,210,120,0.4)'; g.lineWidth = 3; g.stroke();
+    MGH.label(g, `Round ${S.round} / 6 — find the fake!`, 640, 100, 26, '#ffe680');
     for (let k = 0; k < 45; k++) {
       const p = this.cell(S, k), f = k === S.fake;
-      let r = 34, col = '#e8b923';
+      let r = 34, col = '#ffd34d';
       if (f && S.kind === 0) r = 34 * (1 - S.delta * 0.6);
-      if (f && S.kind === 1) col = '#e8c43a';
-      g.fillStyle = col; g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
-      g.strokeStyle = '#8a6d1a'; g.lineWidth = 3; g.stroke();
+      if (f && S.kind === 1) col = '#f0cf5a';
+      const gr = g.createRadialGradient(p.x - r * 0.35, p.y - r * 0.35, 3, p.x, p.y, r); gr.addColorStop(0, Char.shade(col, 0.45)); gr.addColorStop(1, Char.shade(col, -0.25));
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(p.x + 3, p.y + 5, r, r * 0.95, 0, 0, 7); g.fill();
+      g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, r, 0, 7); g.fill();
+      g.strokeStyle = '#8a6d1a'; g.lineWidth = 3; g.stroke(); g.strokeStyle = 'rgba(138,109,26,0.5)'; g.lineWidth = 1.5; g.beginPath(); g.arc(p.x, p.y, r * 0.78, 0, 7); g.stroke();
       g.fillStyle = '#b8901a'; g.font = 'bold 26px Georgia'; g.textAlign = 'center';
       g.save(); g.translate(p.x, p.y + 9); if (f && S.kind === 2) g.rotate(0.35); g.fillText('★', 0, 0); g.restore();
-      if (S.pause > 0 && f) { g.strokeStyle = '#fff'; g.lineWidth = 5; g.beginPath(); g.arc(p.x, p.y, 42, 0, 7); g.stroke(); }
+      if ((m.t * 0.7 + k * 0.13) % 3 < 0.1) MGH.glow(g, p.x - 10, p.y - 10, 20, 'rgba(255,255,255,0.8)');
+      if (S.pause > 0 && f) { g.strokeStyle = '#fff'; g.lineWidth = 6; g.beginPath(); g.arc(p.x, p.y, 44 + Math.sin(m.t * 10) * 3, 0, 7); g.stroke(); }
     }
     MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.pause > 0 && S.found === i ? 'cheer' : S.lock[i] > 0 ? 'hurt' : 'determined'));
-    if (S.found >= 0 && S.pause > 0) MGH.text(g, `${m.players[S.found].name} found it!`, 640, 690, 30, m.players[S.found].color, 'center', 'bold');
+    if (S.found >= 0 && S.pause > 0) MGH.label(g, `${m.players[S.found].name} found it!`, 640, 700, 28, m.players[S.found].color);
   },
 });
 MGH.cursors = (m, g, moods) => {
@@ -181,12 +192,14 @@ MG.def({
   },
   update(m, S, dt) {
     S.t += dt;
-    if (S.phase === 'show') { if (S.t > 3) { S.phase = 'trace'; S.t = 0; } return; }
+    if (S.phase === 'show') { if (S.t > 3.6) { S.phase = 'go'; S.t = 0; Sfx.tone(880, 0.1, 'square', 0.05); Sfx.tone(1320, 0.2, 'square', 0.05, 0, 0.1); } return; }
+    if (S.phase === 'go') { if (S.t > 0.7) { S.phase = 'trace'; S.t = 0; } return; }
     if (S.phase === 'trace') {
       for (let i = 0; i < 4; i++) {
         if (S.out[i] || S.prog[i] >= S.pat.length || !m.pressed(i, 'a')) continue;
         const c = m.cur[i];
-        const k = S.stars.findIndex(s => dist(s.x, s.y, c.x, c.y) < 30);
+        // forgiving: the nearest star within a generous radius counts
+        let k = -1, bd = 58; S.stars.forEach((s, j) => { const d = dist(s.x, s.y, c.x, c.y); if (d < bd) { bd = d; k = j; } });
         if (k < 0) continue;
         if (k === S.pat[S.prog[i]]) { S.prog[i]++; S.pts[i]++; MGH.burst(S.stars[k].x, S.stars[k].y, [m.players[i].color, '#fff'], 10, { speed: 160, kind: 'spark', size: 2 }); if (!m.bot(i)) Sfx.tone(700 + S.prog[i] * 80, 0.08, 'triangle', 0.05); if (S.prog[i] >= S.pat.length) S.time[i] += S.t; }
         else if (!S.pat.slice(0, S.prog[i]).includes(k)) { S.out[i] = true; S.time[i] += S.t; if (!m.bot(i)) Sfx.bad(); }
@@ -206,19 +219,22 @@ MG.def({
   fmt(s) { return `${Math.round(s / 100)} stars`; },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#050a1e', '#000');
-    MGH.text(g, S.phase === 'show' ? `Memorise! (${(3 - S.t).toFixed(1)})` : S.phase === 'trace' ? `Trace it — pattern ${S.round}/3` : 'Pattern', 640, 90, 28, '#fff', 'center', 'bold');
-    if (S.phase !== 'trace') {
-      g.strokeStyle = 'rgba(160,200,255,0.7)'; g.lineWidth = 3; g.beginPath();
-      S.pat.forEach((k, j) => { const s = S.stars[k]; if (j) g.lineTo(s.x, s.y); else g.moveTo(s.x, s.y); }); g.stroke();
-      S.pat.forEach((k, j) => MGH.text(g, String(j + 1), S.stars[k].x + 16, S.stars[k].y - 14, 16, '#9fd8ff', 'left', 'bold'));
+    MGH.scene(g, 'space', m.t);
+    if (S.phase === 'show') MGH.phase(g, true, m.t, `Memorise the pattern — ${(3.6 - S.t).toFixed(1)}s`);
+    else if (S.phase === 'go') MGH.label(g, 'GO! Click the stars in order', 640, 100, 34, '#ffe680', 'rgba(120,70,0,0.85)');
+    else if (S.phase === 'trace') MGH.phase(g, false, m.t, `Pattern ${S.round}/3 — click the stars in order`);
+    if (S.phase === 'show' || S.phase === 'reveal') {
+      const n = S.phase === 'show' ? Math.min(S.pat.length, Math.floor(S.t / 0.35) + 1) : S.pat.length;
+      g.strokeStyle = 'rgba(160,210,255,0.85)'; g.lineWidth = 4; g.shadowColor = '#8fd0ff'; g.shadowBlur = 12; g.beginPath();
+      S.pat.slice(0, n).forEach((k, j) => { const s = S.stars[k]; if (j) g.lineTo(s.x, s.y); else g.moveTo(s.x, s.y); }); g.stroke(); g.shadowBlur = 0;
+      S.pat.slice(0, n).forEach((k, j) => MGH.label(g, String(j + 1), S.stars[k].x + 22, S.stars[k].y - 18, 16, '#9fd8ff'));
     }
-    S.stars.forEach(s => { g.fillStyle = '#fff'; g.beginPath(); g.arc(s.x, s.y, 9, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.15)'; g.beginPath(); g.arc(s.x, s.y, 24, 0, 7); g.fill(); });
-    if (S.phase === 'trace') for (let i = 0; i < 4; i++) {
-      g.strokeStyle = m.players[i].color; g.lineWidth = 2; g.globalAlpha = 0.6; g.beginPath();
+    S.stars.forEach((s, k) => { MGH.glow(g, s.x, s.y, 40, 'rgba(200,230,255,0.35)'); g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1.5; g.beginPath(); g.arc(s.x, s.y, 46, 0, 7); g.stroke(); MGH.star(g, s.x, s.y, 11 + Math.sin(m.t * 3 + k) * 1.5, '#ffffff', m.t * 0.5 + k, false); });
+    if (S.phase === 'trace' || S.phase === 'go') for (let i = 0; i < 4; i++) {
+      g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.globalAlpha = 0.75; g.beginPath();
       for (let j = 0; j < S.prog[i]; j++) { const s = S.stars[S.pat[j]]; if (j) g.lineTo(s.x + i * 2, s.y + i * 2); else g.moveTo(s.x + i * 2, s.y + i * 2); }
       g.stroke(); g.globalAlpha = 1;
-      MGH.text(g, `${m.players[i].name}: ${S.prog[i]}/${S.pat.length}${S.out[i] ? ' ✖' : ''}`, 160 + i * 320, 690, 20, m.players[i].color, 'center', 'bold');
+      MGH.text(g, `${m.players[i].name}: ${S.prog[i]}/${S.pat.length}${S.out[i] ? ' ✖' : ''}`, 160 + i * 320, 700, 20, m.players[i].color, 'center', 'bold');
     }
     MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.out[i] ? 'hurt' : S.prog[i] >= S.pat.length ? 'cheer' : S.phase === 'show' ? 'neutral' : 'determined'));
   },
@@ -251,15 +267,16 @@ MG.def({
   fmt(s) { return `${Math.round(s / 100)} correct`; },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#1d1426', '#08050c');
-    MGH.text(g, `Round ${S.round} / 5`, 640, 110, 24, '#ccb');
-    if (S.phase === 'show') S.rel.forEach((r, k) => MGH.text(g, r, 200 + (k % 4) * 290, 270 + Math.floor(k / 4) * 170, 80, '#fff'));
-    else if (S.phase === 'blink') { g.fillStyle = '#fff'; g.fillRect(0, 40, 1280, 680); }
+    MGH.scene(g, 'temple', m.t);
+    MGH.label(g, `Round ${S.round} / 5`, 110, 92, 20, '#eee');
+    const pedestal = (x, y, r) => { MGH.glow(g, x, y, 80, 'rgba(255,220,140,0.3)'); g.fillStyle = MGH.grad(g, y + 40, y + 70, ['#c9b48a', '#7a6a4a']); MGH.rr(g, x - 60, y + 40, 120, 26, 6); g.fill(); MGH.emoji(g, r, x, y + Math.sin(m.t * 2 + x) * 4, 74); };
+    if (S.phase === 'show') { MGH.phase(g, true, m.t, 'Remember all eight relics!'); S.rel.forEach((r, k) => pedestal(200 + (k % 4) * 290, 260 + Math.floor(k / 4) * 200, r)); }
+    else if (S.phase === 'blink') { g.fillStyle = `rgba(255,255,255,${1 - S.t / 0.5})`; g.fillRect(0, 40, 1280, 680); }
     else {
-      S.after.forEach((r, k) => MGH.text(g, r, 260 + k * 125, 200, 54, '#fff'));
-      MGH.text(g, 'Which relic vanished?', 640, 270, 26, '#ffe680', 'center', 'bold');
-      PickR.drawOptions(m, S, g, S.rel, 260, 310, 175, 140, 4, S.phase === 'reveal');
-      if (S.phase === 'reveal') { const x = 260 + (S.miss % 4) * 187, y = 310 + Math.floor(S.miss / 4) * 152; g.strokeStyle = '#7f7'; g.lineWidth = 5; MGH.rr(g, x, y, 175, 140, 12); g.stroke(); }
+      S.after.forEach((r, k) => MGH.emoji(g, r, 260 + k * 125, 190, 52));
+      MGH.label(g, 'Which relic vanished?', 640, 262, 24, '#ffe680');
+      PickR.drawOptions(m, S, g, S.rel, 260, 300, 175, 140, 4, S.phase === 'reveal');
+      if (S.phase === 'reveal') { const x = 260 + (S.miss % 4) * 187, y = 300 + Math.floor(S.miss / 4) * 152; g.strokeStyle = '#7f7'; g.lineWidth = 6; MGH.rr(g, x, y, 175, 140, 14); g.stroke(); MGH.glow(g, x + 87, y + 70, 120, 'rgba(120,255,140,0.35)'); }
       PickR.drawStatus(m, S, g);
     }
   },
@@ -286,10 +303,10 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#14202a', '#060a0d');
-    MGH.text(g, `Round ${S.round} / 3`, 640, 120, 26, '#ccd');
+    MGH.scene(g, 'night', m.t);
+    MGH.label(g, `Round ${S.round} / 3 — lowest number nobody else picked wins`, 640, 140, 22, '#dde');
     PickR.drawOptions(m, S, g, ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], 240, 200, 150, 120, 5, S.phase === 'reveal');
-    if (S.phase === 'reveal') MGH.text(g, S.win >= 0 ? `${m.players[S.win].name} wins with ${S.P[S.win].idx + 1}!` : 'No unique number!', 640, 560, 34, S.win >= 0 ? m.players[S.win].color : '#fff', 'center', 'bold');
+    if (S.phase === 'reveal') MGH.label(g, S.win >= 0 ? `${m.players[S.win].name} wins with ${S.P[S.win].idx + 1}!` : 'No unique number!', 640, 560, 32, S.win >= 0 ? m.players[S.win].color : '#fff');
     PickR.drawStatus(m, S, g);
   },
 });
@@ -315,10 +332,11 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#20142a', '#09060c');
-    MGH.text(g, `Round ${S.round} / 5`, 640, 120, 26, '#ccd');
+    MGH.scene(g, 'dojo', m.t);
+    MGH.label(g, `Round ${S.round} / 5 — be the only one through your door`, 640, 140, 22, '#eee');
+    for (const [k, x] of [[0, 290], [1, 642]]) { g.fillStyle = MGH.grad(g, 220, 480, ['#7a4a22', '#3a200c']); MGH.rr(g, x + 40, 220, 260, 260, 130); g.fill(); g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(x + (k ? 90 : 250), 360, 9, 0, 7); g.fill(); }
     PickR.drawOptions(m, S, g, ['🚪 Left', 'Right 🚪'], 290, 220, 340, 260, 2, S.phase === 'reveal');
-    if (S.phase === 'reveal') MGH.text(g, S.win >= 0 ? `${m.players[S.win].name} is the odd one out!` : 'No lone player — nobody scores.', 640, 580, 32, S.win >= 0 ? m.players[S.win].color : '#fff', 'center', 'bold');
+    if (S.phase === 'reveal') MGH.label(g, S.win >= 0 ? `${m.players[S.win].name} is the odd one out!` : 'No lone player — nobody scores.', 640, 580, 30, S.win >= 0 ? m.players[S.win].color : '#fff');
     PickR.drawStatus(m, S, g);
   },
 });
@@ -353,21 +371,23 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#11202a', '#05090c');
-    MGH.text(g, `Round ${S.round} / 3 — closest to ⅔ of the average`, 640, 110, 26, '#ccd');
+    MGH.scene(g, 'space', m.t);
+    MGH.label(g, `Round ${S.round} / 3 — get closest to ⅔ of everyone's average`, 640, 110, 22, '#dde');
     for (let i = 0; i < 4; i++) {
-      const y = 200 + i * 105, p = m.players[i];
-      g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(240, y - 8, 800, 16);
-      const show = S.phase === 'reveal' || MGH.peek(m, i);
-      if (show && !(S.phase === 'pick' && S.lock[i] && !m.bot(i) && false)) { g.fillStyle = p.color; g.beginPath(); g.arc(240 + S.v[i] * 8, y, 16, 0, 7); g.fill(); }
+      const y = 200 + i * 105, p = m.players[i], show = S.phase === 'reveal' || MGH.peek(m, i);
+      g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, 236, y - 12, 808, 24, 12); g.fill();
+      g.fillStyle = MGH.grad(g, y - 10, y + 10, ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.08)']); MGH.rr(g, 240, y - 9, 800, 18, 9); g.fill();
+      for (let k = 0; k <= 100; k += 10) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(240 + k * 8 - 1, y + 10, 2, 8); }
+      if (show) { MGH.glow(g, 240 + S.v[i] * 8, y, 30, p.color); MGH.av(g, m, i, 240 + S.v[i] * 8, y - 6, 13, 'determined', { noFeet: true }); }
       MGH.av(g, m, i, 80, y - 4, 22, S.phase === 'reveal' ? (S.winners.includes(i) ? 'cheer' : 'neutral') : (S.lock[i] ? 'happy' : 'determined'));
       MGH.text(g, p.name, 220, y + 7, 20, p.color, 'right', 'bold');
-      MGH.text(g, S.phase === 'reveal' || MGH.peek(m, i) ? String(S.v[i]) : (S.lock[i] ? '🔒' : '…'), 1100, y + 8, 22, '#fff', 'center', 'bold');
+      MGH.label(g, show ? String(S.v[i]) : (S.lock[i] ? '🔒' : '…'), 1100, y + 8, 22, '#fff');
     }
     if (S.phase === 'reveal') {
-      g.strokeStyle = '#ffe680'; g.lineWidth = 3; g.beginPath(); g.moveTo(240 + S.target * 8, 170); g.lineTo(240 + S.target * 8, 560); g.stroke();
-      MGH.text(g, `⅔ of average = ${S.target.toFixed(1)} — ${S.winners.map(i => m.players[i].name).join(' & ')} win${S.winners.length > 1 ? '' : 's'}`, 640, 620, 26, '#ffe680', 'center', 'bold');
-    } else { MGH.text(g, `⏱ ${Math.max(0, 10 - S.t).toFixed(1)}`, 640, 640, 24, '#fff', 'center', 'bold'); MGH.secretHint(g, 690); }
+      const x = 240 + S.target * 8; MGH.glow(g, x, 360, 60, 'rgba(255,230,120,0.4)');
+      g.strokeStyle = '#ffe680'; g.lineWidth = 4; g.setLineDash([10, 6]); g.beginPath(); g.moveTo(x, 170); g.lineTo(x, 560); g.stroke(); g.setLineDash([]);
+      MGH.label(g, `⅔ of average = ${S.target.toFixed(1)} — ${S.winners.map(i => m.players[i].name).join(' & ')} win${S.winners.length > 1 ? '' : 's'}`, 640, 620, 24, '#ffe680');
+    } else { MGH.phase(g, false, m.t); MGH.label(g, `⏱ ${Math.max(0, 10 - S.t).toFixed(1)}`, 1180, 92, 22, '#fff'); MGH.secretHint(g, 690); }
   },
 });
 
@@ -423,25 +443,29 @@ MG.def({
   fmt(s) { return s >= 100 ? 'Survived' : `out in round ${s}`; },
   hud(m, S, i) { return S.alive[i] ? `ammo ${S.ammo[i]}` : 'out'; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a1d12', '#0d0905');
-    MGH.text(g, `Round ${S.round}`, 640, 90, 26, '#ccb');
+    MGH.scene(g, 'desert', m.t);
+    g.fillStyle = 'rgba(80,40,10,0.35)'; g.fillRect(0, 300, 1280, 420);
+    MGH.emoji(g, '🌵', 60, 600, 70); MGH.emoji(g, '🌵', 1220, 560, 60);
+    const tw = (m.t * 60) % 1500 - 100; MGH.emoji(g, '🌾', tw, 650, 30, m.t * 6);
+    MGH.label(g, `Round ${S.round}`, 640, 90, 24, '#fff');
     for (let i = 0; i < 4; i++) {
       const x = 160 + i * 320, p = m.players[i];
-      MGH.av(g, m, i, x, 190, 40, !S.alive[i] ? 'out' : (S.phase === 'reveal' ? 'scared' : S.ammo[i] > 0 ? 'determined' : 'neutral'), { prop: S.alive[i] && S.ammo[i] > 0 ? '🔫' : null });
-      MGH.text(g, p.name, x, 250, 22, p.color, 'center', 'bold');
-      if (S.phase === 'reveal' && S.chosen[i]) MGH.text(g, S.chosen[i], x, 128, 22, '#ffe680', 'center', 'bold');
-      MGH.text(g, `ammo: ${'●'.repeat(S.ammo[i]) || '—'}`, x, 280, 18, '#ddd');
+      MGH.shadow(g, x, 290, 44, 0.35);
+      MGH.av(g, m, i, x, 248, 30, !S.alive[i] ? 'out' : (S.phase === 'reveal' ? 'scared' : S.ammo[i] > 0 ? 'smug' : 'determined'), { prop: S.alive[i] && S.ammo[i] > 0 ? '🔫' : null });
+      MGH.text(g, p.name, x, 314, 20, p.color, 'center', 'bold');
+      if (S.phase === 'reveal' && S.chosen[i]) MGH.label(g, S.chosen[i], x, 170, 22, '#ffe680');
+      for (let k = 0; k < 3; k++) { g.fillStyle = k < S.ammo[i] ? '#ffd34d' : 'rgba(255,255,255,0.15)'; MGH.rr(g, x - 30 + k * 22, 322, 14, 20, 5); g.fill(); }
       if (S.alive[i] && S.phase === 'pick' && !m.bot(i)) {
         const o = this.opts(S, i);
         o.forEach((op, k) => {
-          const y = 320 + k * 46, sel = S.P[i].idx === k && MGH.peek(m, i);
-          g.fillStyle = sel ? p.color : 'rgba(255,255,255,0.1)'; MGH.rr(g, x - 120, y, 240, 38, 8); g.fill();
-          MGH.text(g, op.l, x, y + 26, 18, sel ? '#000' : '#fff', 'center', 'bold');
+          const y = 352 + k * 46, sel = S.P[i].idx === k && MGH.peek(m, i);
+          g.fillStyle = sel ? p.color : 'rgba(0,0,0,0.45)'; MGH.rr(g, x - 125, y, 250, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.stroke();
+          MGH.text(g, op.l, x, y + 27, 18, sel ? '#000' : '#fff', 'center', 'bold');
         });
-        if (S.P[i].locked) MGH.text(g, '🔒', x + 135, 345, 24, '#fff');
+        if (S.P[i].locked) MGH.emoji(g, '🔒', x + 140, 372, 24);
       }
     }
-    if (S.phase === 'reveal') S.log.forEach((l, k) => MGH.text(g, l, 640, 360 + k * 32, 22, '#ffe680'));
+    if (S.phase === 'reveal') S.log.forEach((l, k) => MGH.label(g, l, 640, 400 + k * 40, 22, '#ffe680'));
     else PickR.drawStatus(m, { P: S.P, phase: 'pick', pickT: 8, t: S.t }, g);
   },
 });
@@ -449,7 +473,7 @@ MG.def({
 // 29 ---------------------------------------------------------------- Sealed Bids
 MG.def({
   id: 'bids', name: 'Sealed Bids', type: 'Bluff', controls: 'Pick (sliders)',
-  how: 'Three relics are worth 1, 2 and 3 points. Secretly split 6 bid tokens among them. The highest bid takes each relic. Tied bids cancel. Three auctions.',
+  how: 'Three treasures are worth 1, 2 and 3 points. You have 6 tokens: secretly split them between the treasures (up/down picks a treasure, left/right adds or removes a token, the button seals your bids). The single highest bid wins each treasure. Equal bids cancel each other out! Three auctions.',
   wins: 'Most points.',
   init(m, S) { S.pts = [0, 0, 0, 0]; S.round = 1; this.start(S); },
   start(S) {
@@ -486,23 +510,32 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#1f1530', '#09060f');
-    MGH.text(g, `Auction ${S.round} / 3`, 640, 90, 26, '#ccd');
-    const rel = [['🏺', 1], ['👑', 2], ['💎', 3]];
-    rel.forEach(([e, v], k) => { MGH.text(g, e, 120, 210 + k * 130, 60, '#fff'); MGH.text(g, `${v} pt`, 120, 250 + k * 130, 18, '#ffe680'); });
+    MGH.scene(g, 'temple', m.t);
+    MGH.label(g, `Auction ${S.round} / 3`, 640, 92, 24, '#fff');
+    const rel = [['🏺', 1, '#c98a4a'], ['👑', 2, '#ffd34d'], ['💎', 3, '#5fd8ff']];
+    // the three treasures on display
+    rel.forEach(([e, v, c], k) => {
+      const y = 215 + k * 130;
+      MGH.glow(g, 110, y, 70, c, 0.4); MGH.emoji(g, e, 110, y - 6, 60 + Math.sin(m.t * 2 + k) * 3);
+      MGH.label(g, `${v} pt`, 110, y + 50, 16, '#ffe680');
+      if (S.phase === 'reveal') { const w = S.res[k]; MGH.label(g, w >= 0 ? `→ ${m.players[w].name}` : '→ tie, nobody', 110, y + 78, 14, w >= 0 ? m.players[w].color : '#aaa'); }
+    });
     for (let i = 0; i < 4; i++) {
-      const x = 330 + i * 250, p = m.players[i], show = S.phase === 'reveal' || MGH.peek(m, i);
-      MGH.av(g, m, i, x - 95, 138, 16, S.phase === 'reveal' ? (S.res.includes(i) ? 'cheer' : 'hurt') : (S.lock[i] ? 'happy' : 'determined'), { noFeet: true });
+      const x = 330 + i * 250, p = m.players[i], show = S.phase === 'reveal' || MGH.peek(m, i), mine = !m.bot(i) && S.phase === 'pick';
+      MGH.av(g, m, i, x - 92, 140, 16, S.phase === 'reveal' ? (S.res.includes(i) ? 'cheer' : 'hurt') : (S.lock[i] ? 'happy' : 'determined'), { noFeet: true });
       MGH.text(g, `${p.name} ${S.lock[i] ? '🔒' : ''}`, x + 10, 150, 20, p.color, 'center', 'bold');
       for (let k = 0; k < 3; k++) {
-        const y = 175 + k * 130;
-        g.fillStyle = MGH.peek(m, i) && S.sel[i] === k && S.phase === 'pick' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)'; MGH.rr(g, x - 100, y, 200, 80, 10); g.fill();
-        if (S.phase === 'reveal' && S.res[k] === i) { g.strokeStyle = '#7f7'; g.lineWidth = 4; g.stroke(); }
-        MGH.text(g, show ? String(S.b[i][k]) : '?', x, y + 52, 34, '#fff', 'center', 'bold');
+        const y = 175 + k * 130, sel = mine && S.sel[i] === k && MGH.peek(m, i), won = S.phase === 'reveal' && S.res[k] === i;
+        g.fillStyle = won ? 'rgba(120,255,140,0.25)' : sel ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.4)'; MGH.rr(g, x - 100, y, 200, 86, 12); g.fill();
+        g.strokeStyle = won ? '#7f7' : sel ? p.color : 'rgba(255,255,255,0.25)'; g.lineWidth = won || sel ? 4 : 1.5; g.stroke();
+        if (show) { const n = S.b[i][k]; for (let t = 0; t < n; t++) MGH.coin(g, x - 70 + (t % 6) * 28, y + 44, 11, 0); if (!n) MGH.text(g, '0', x, y + 54, 28, '#888', 'center', 'bold'); }
+        else MGH.text(g, '?', x, y + 56, 36, '#fff', 'center', 'bold');
+        if (won) MGH.emoji(g, '👑', x + 88, y + 6, 26);
+        if (sel) { MGH.text(g, '◀', x - 90, y + 52, 18, '#fff'); MGH.text(g, '▶', x + 90, y + 52, 18, '#fff'); }
       }
-      if (!m.bot(i) && S.phase === 'pick') MGH.text(g, `${6 - sum(S.b[i])} tokens left`, x, 590, 16, '#ddd');
+      if (mine) { const left = 6 - sum(S.b[i]); for (let t = 0; t < 6; t++) { g.globalAlpha = t < left ? 1 : 0.2; MGH.coin(g, x - 70 + t * 28, 590, 10, 0); } g.globalAlpha = 1; MGH.text(g, `${left} token${left === 1 ? '' : 's'} left`, x, 622, 15, '#ddd'); }
     }
-    if (S.phase === 'pick') { MGH.text(g, `↑↓ choose relic · ←→ bid · action to seal · ⏱ ${Math.max(0, 15 - S.t).toFixed(0)}`, 640, 660, 18, '#aaa'); MGH.secretHint(g, 690); }
+    if (S.phase === 'pick') { MGH.label(g, `↑↓ treasure · ←→ add/remove token · button = seal · ties cancel · ⏱ ${Math.max(0, 15 - S.t).toFixed(0)}`, 640, 662, 17, '#fff'); MGH.secretHint(g, 700); }
   },
 });
 
@@ -526,10 +559,10 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#102a1f', '#050d09');
-    MGH.text(g, `Round ${S.round} / 3`, 640, 120, 26, '#cdc');
+    MGH.scene(g, 'forest', m.t);
+    MGH.label(g, `Round ${S.round} / 3 — grab a prize nobody else grabs`, 640, 140, 22, '#fff');
     PickR.drawOptions(m, S, g, ['🪙 1', '💰 2', '💎 3', '⭐ 4'], 170, 230, 220, 200, 4, S.phase === 'reveal');
-    if (S.phase === 'reveal') S.gain.forEach((v, i) => MGH.text(g, `${m.players[i].name}: +${v}`, 160 + i * 320, 560, 26, m.players[i].color, 'center', 'bold'));
+    if (S.phase === 'reveal') S.gain.forEach((v, i) => MGH.label(g, `${m.players[i].name}: +${v}`, 160 + i * 320, 560, 24, m.players[i].color));
     PickR.drawStatus(m, S, g);
   },
 });

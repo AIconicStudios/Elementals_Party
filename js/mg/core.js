@@ -432,8 +432,9 @@ const MGH = {
     const L = m.pressed(i, 'left'), Rt = m.pressed(i, 'right'), U = m.pressed(i, 'up'), D = m.pressed(i, 'down');
     if (L) P.idx = (P.idx - 1 + n) % n;
     if (Rt) P.idx = (P.idx + 1) % n;
-    if (U && cols < n) P.idx = (P.idx - cols + n) % n;
-    if (D && cols < n) P.idx = (P.idx + cols) % n;
+    if (U) P.idx = cols < n ? (P.idx - cols + n) % n : (P.idx - 1 + n) % n;   // in a single row, up/down also step through
+    if (D) P.idx = cols < n ? (P.idx + cols) % n : (P.idx + 1) % n;
+    if ((L || Rt || U || D) && !m.bot(i) && MGH.peek(m, i)) Sfx.tone(620, 0.03, 'triangle', 0.03);
     if (m.pressed(i, 'a')) { P.locked = true; Sfx.click(); return true; }
     return false;
   },
