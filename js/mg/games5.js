@@ -217,9 +217,7 @@ MG.def({
         const x = ox + 45 + l * 90, press = m.held(i, this.keys[l]);
         g.fillStyle = `rgba(255,255,255,${0.04 + (press ? 0.12 : 0)})`; g.fillRect(x - 32, 40, 64, 520);
         // drum pad
-        g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(x, 528, 36, 14, 0, 0, 7); g.fill();
-        g.fillStyle = press ? cols[l] : Char.shade(cols[l], -0.5); g.beginPath(); g.ellipse(x, 512 + (press ? 4 : 0), 34, 14, 0, 0, 7); g.fill();
-        g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); MGH.text(g, lab[l], x, 518 + (press ? 4 : 0), 16, '#fff', 'center', 'bold');
+        MGH.drum(g, x, 506, 34, cols[l], press ? 1 : 0); MGH.text(g, lab[l], x, 514 + (press ? 2 : 0), 16, '#5a3a20', 'center', 'bold');
         if (press) MGH.glow(g, x, 512, 60, cols[l], 0.6);
       }
       g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.beginPath(); g.moveTo(ox + 5, 512); g.lineTo(ox + 265, 512); g.stroke();
@@ -633,7 +631,7 @@ MG.def({
       for (let k = 0; k < 9; k++) { g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(ox + 30 + k * 29, 50, 2, 640); }
       g.fillStyle = '#3a2a1c'; g.fillRect(ox + 18, 50, 12, 640); g.fillRect(ox + 290, 50, 12, 640);
       for (let k = 0; k < 7; k++) { g.fillStyle = 'rgba(90,60,30,0.6)'; g.beginPath(); g.moveTo(ox + 160 + (k - 3) * 22, 480); g.lineTo(ox + 152 + (k - 3) * 22, 495); g.lineTo(ox + 168 + (k - 3) * 22, 495); g.fill(); }
-      for (const pin of p.pins) { if (pin.gone) continue; g.save(); g.translate(ox + pin.x, pin.y); if (pin.down) g.rotate(1.2); g.fillStyle = '#e8e4da'; g.beginPath(); g.ellipse(0, 0, 9, pin.down ? 6 : 13, 0, 0, 7); g.fill(); g.fillStyle = '#c33'; g.fillRect(-8, -3, 16, 3); g.restore(); }
+      for (const pin of p.pins) { if (pin.gone) continue; MGH.pin(g, ox + pin.x, pin.y, 1.05, pin.down); }
       if (p.ball) { MGH.shadow(g, ox + p.ball.x, p.ball.y + 16, 16, 0.35); MGH.rock(g, ox + p.ball.x, p.ball.y, 19, i, '#7a7a88', -p.ball.y / 12); }
       if (p.st === 'aim') { g.strokeStyle = '#fff'; g.lineWidth = 3; g.setLineDash([8, 6]); g.beginPath(); g.moveTo(ox + p.x, 640); g.lineTo(ox + p.x + Math.sin(p.ang) * 300, 640 - Math.cos(p.ang) * 300); g.stroke(); g.setLineDash([]); }
       if (p.st === 'pos' || p.st === 'aim') MGH.rock(g, ox + p.x, 640, 19, i, '#7a7a88');
@@ -761,8 +759,11 @@ MG.def({
   fmt(s) { return -s < 125 ? 'Pulled it home!' : `${Math.round(-s)} px away`; },
   hud(m, S, i) { return S.tag[i]; },
   draw(m, S, g) {
-    MGH.scene(g, 'meadow', m.t);
-    g.fillStyle = 'rgba(120,80,40,0.35)'; g.beginPath(); g.arc(640, 385, 330, 0, 7); g.fill();
+    MGH.scene(g, 'meadow', m.t); MGH.crowd(g, m.t, 64, 30, ['#6a8ac8', '#8a6ab8', '#c87a6a', '#6ab88a']);
+    g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(646, 395, 335, 335, 0, 0, 7); g.fill();
+    { const gr = g.createRadialGradient(600, 340, 40, 640, 385, 330); gr.addColorStop(0, '#d9b47a'); gr.addColorStop(1, '#a8804a'); g.fillStyle = gr; g.beginPath(); g.arc(640, 385, 330, 0, 7); g.fill(); }
+    for (let k = 0; k < 60; k++) { const a = MGH.hash(k) * 7, d = Math.sqrt(MGH.hash(k + 9)) * 310; g.fillStyle = 'rgba(120,80,40,0.35)'; g.beginPath(); g.arc(640 + Math.cos(a) * d, 385 + Math.sin(a) * d, 2 + MGH.hash(k + 3) * 3, 0, 7); g.fill(); }
+    g.strokeStyle = '#c9a36b'; g.lineWidth = 10; g.beginPath(); g.arc(640, 385, 330, 0, 7); g.stroke(); g.strokeStyle = '#8a6a3a'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath(); g.arc(640, 385, 330, 0, 7); g.stroke(); g.setLineDash([]);
     g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 4; g.setLineDash([12, 10]); g.beginPath(); g.arc(640, 385, 120, 0, 7); g.stroke(); g.setLineDash([]);
     MGH.glow(g, 640, 385, 80 + Math.max(0, S.pulse || 0) * 300, 'rgba(255,230,128,0.35)');
     for (let i = 0; i < 4; i++) {

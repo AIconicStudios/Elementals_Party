@@ -449,8 +449,13 @@ const MGH = {
     m.players.forEach((p, i) => {
       g.fillStyle = p.color; g.globalAlpha = 0.07;
       if (vertical) g.fillRect(i * 320, 40, 320, 680); else g.fillRect(0, 40 + i * 170, 1280, 170);
-      g.globalAlpha = 0.35; g.fillRect(vertical ? i * 320 : 0, vertical ? 40 : 40 + i * 170, vertical ? 2 : 1280, vertical ? 680 : 2);
       g.globalAlpha = 1;
+      // lane name badge
+      if (vertical) { g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, i * 320 + 110, 704, 100, 14, 7); g.fill(); g.fillStyle = p.color; MGH.rr(g, i * 320 + 112, 706, 96, 10, 5); g.fill(); }
+      if (i === 0) return;
+      // carved divider with a soft shadow and a highlight
+      if (vertical) { const x = i * 320; g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(x - 3, 40, 8, 680); g.fillStyle = MGH.grad(g, 40, 720, ['#c9b48a', '#8a7a5a', '#5a4a34']); g.fillRect(x - 3, 40, 6, 680); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x - 3, 40, 2, 680); for (let y = 80; y < 720; y += 90) { g.fillStyle = '#7a6a4a'; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.arc(x - 1.5, y - 1.5, 2, 0, 7); g.fill(); } }
+      else { const y = 40 + i * 170; g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(0, y - 2, 1280, 7); g.fillStyle = '#8a7a5a'; g.fillRect(0, y - 3, 1280, 5); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(0, y - 3, 1280, 1.5); }
     });
   },
   // pick-input: P = {idx, locked}; n options; cols for grid layout

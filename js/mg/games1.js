@@ -369,7 +369,8 @@ MG.def({
       // belfry arch
       g.fillStyle = '#2a2448'; MGH.rr(g, cx - 120, 70, 240, 600, 30); g.fill(); g.fillStyle = '#14112a'; MGH.rr(g, cx - 96, 96, 192, 560, 22); g.fill();
       g.fillStyle = 'rgba(255,230,140,0.2)'; g.fillRect(cx - 3, 120, 6, 470);
-      MGH.emoji(g, '🔔', cx, 612, 50, Math.sin(m.t * 3 + i) * 0.1);
+      g.fillStyle = MGH.grad(g, 560, 680, ['#6a6a88', '#3a3a50']); MGH.rr(g, cx - 70, 640, 140, 20, 6); g.fill();
+      MGH.bell(g, cx, 600, 1.15, '#ffd34d', Math.sin(m.t * 3 + i) * 0.12 + (S.last[i] !== null && S.last[i] < 0.08 ? Math.sin(m.t * 25) * 0.15 : 0));
       const a = this.x(S, i) * 0.9, bx = cx + Math.sin(a) * 300, by = 100 + Math.cos(a) * 300;
       g.strokeStyle = '#c9b48a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, 100); g.lineTo(bx, by); g.stroke();
       MGH.glow(g, bx, by, 50, 'rgba(255,240,180,0.35)');
@@ -425,9 +426,10 @@ MG.def({
       g.fillStyle = 'rgba(255,140,40,0.55)'; MGH.rr(g, x0 + (S.zone[i] - w * 1.3) * W, y - 22, w * 2.6 * W, 44, 8); g.fill();
       g.fillStyle = MGH.grad(g, y - 22, y + 22, ['#fff6b0', '#ffd34d', '#ff8a3d']); MGH.rr(g, x0 + (S.zone[i] - w / 2) * W, y - 22, w * W, 44, 8); g.fill();
       MGH.glow(g, x0 + S.zone[i] * W, y, 60, 'rgba(255,220,120,0.4)');
+      if (Math.random() < 0.15) MGH.burst(x0 + S.zone[i] * W + R.range(-30, 30), y, ['#ffd34d', '#ff8a3d'], 1, { speed: 90, up: 80, life: 0.5, size: 2 });
       const hx = x0 + S.pos[i] * W;
       g.fillStyle = '#fff'; g.fillRect(hx - 3, y - 30, 6, 60);
-      MGH.emoji(g, '🔨', hx, y - 40, 34, -0.5 + Math.sin(m.t * 10) * 0.1);
+      MGH.hammer(g, hx + 14, y - 34, 0.85, -0.6 + Math.sin(m.t * 10) * 0.12);
       if (S.msg[i] === 'GOLD!' && Math.random() < 0.5) MGH.burst(hx, y, ['#ffe680', '#ff8a3d'], 3, { speed: 200, kind: 'spark', size: 2 });
       MGH.av(g, m, i, 1140, y - 4, 26, S.msg[i] === 'GOLD!' ? 'cheer' : S.msg[i] === 'miss' ? 'hurt' : 'determined', { look: { x: -1, y: 0 } });
       if (S.msg[i]) MGH.label(g, S.msg[i], 1225, y + 8, 18, S.msg[i] === 'GOLD!' ? '#ffe680' : '#fff');
@@ -670,7 +672,7 @@ MG.def({
   fmt(s) { return s >= 999 ? 'Last standing' : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.b[i].alive ? (S.b[i].cd > 0 ? 'recharging' : 'dash ready') : 'out'; },
   draw(m, S, g) {
-    MGH.scene(g, 'sky', m.t);
+    MGH.scene(g, 'sky', m.t); MGH.crowd(g, m.t, 600, 30, ['#6a8ac8', '#8a6ab8', '#c87a6a', '#6ab88a']);
     // floating stone arena
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(S.cx, S.cy + 40, S.rad * 1.02, S.rad * 0.92, 0, 0, 7); g.fill();
     g.fillStyle = '#6a5a4a'; g.beginPath(); g.ellipse(S.cx, S.cy + 22, S.rad, S.rad * 0.98, 0, 0, 7); g.fill();

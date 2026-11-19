@@ -123,12 +123,12 @@ MG.def({
           const life = (m.t - p.t) / p.up, rise = hit ? Math.max(0, 1 - (m.t - p.t) * 4) : Math.min(1, life * 6, (1 - life) * 6 + 0.2);
           g.save(); g.beginPath(); g.rect(x - 50, y - 120, 100, 120); g.clip();
           const yy = y + 30 - rise * 70;
-          if (p.kind === 'eye') { g.fillStyle = '#3a1a5c'; g.beginPath(); g.ellipse(x, yy, 30, 22, 0, 0, 7); g.fill(); g.fillStyle = '#ff2f5a'; g.beginPath(); g.arc(x, yy, 9, 0, 7); g.fill(); }
-          else Char.draw(g, x, yy, 24, -1, p.kind === 'gold' ? '#ffd34d' : '#bfe9ff', { mood: hit ? 'dizzy' : 'happy', noFeet: true, seed: k });
+          if (p.kind === 'eye') { MGH.glow(g, x, yy, 40, 'rgba(255,40,90,0.5)'); g.fillStyle = '#3a1a5c'; g.beginPath(); g.ellipse(x, yy, 30, 22, 0, 0, 7); g.fill(); g.fillStyle = '#f3e0ff'; g.beginPath(); g.ellipse(x, yy, 15, 12, 0, 0, 7); g.fill(); g.fillStyle = '#ff2f5a'; g.beginPath(); g.arc(x, yy, 7, 0, 7); g.fill(); }
+          else { MGH.glow(g, x, yy, 44, p.kind === 'gold' ? 'rgba(255,220,90,0.6)' : 'rgba(150,220,255,0.5)'); Char.draw(g, x, yy, 24, -1, p.kind === 'gold' ? '#ffd34d' : '#bfe9ff', { mood: hit ? 'dizzy' : 'happy', noFeet: true, seed: k }); }
           g.restore();
         });
         g.fillStyle = '#4a3020'; g.beginPath(); g.ellipse(x, y + 4, 44, 12, 0, 0, Math.PI); g.fill();
-        if (S.bonk[i][h] > 0) MGH.text(g, '🔨', x + 10, y - 50, 40, '#fff');
+        if (S.bonk[i][h] > 0) { MGH.hammer(g, x + 20, y - 46, 1, -1.2 + (1 - S.bonk[i][h] / 0.25) * 1.2); MGH.spark(g, x, y - 10, 18); }
         MGH.text(g, ['◀', '●', '▶'][h], x, y + 50, 20, m.players[i].color, 'center', 'bold');
       }
       MGH.av(g, m, i, i * 320 + 160, 660, 22, 'determined', { look: { x: 0, y: -1 } });
@@ -184,7 +184,7 @@ MG.def({
   fmt(s) { return s.toFixed(1) + ' m'; },
   hud(m, S, i) { return `${S.best[i].toFixed(1)}m (throw ${S.att}/2)`; },
   draw(m, S, g) {
-    MGH.scene(g, 'meadow', m.t); MGH.lanes(g, m);
+    MGH.scene(g, 'meadow', m.t); MGH.crowd(g, m.t, 64, 34, ['#6a8ac8', '#8a6ab8', '#c87a6a', '#6ab88a']); MGH.lanes(g, m);
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160, cy = 640;
       g.save(); g.beginPath(); g.rect(i * 320, 40, 320, 680); g.clip();
@@ -256,8 +256,9 @@ MG.def({
     for (const r of S.rocks) { g.save(); g.translate(r.x, r.y); g.rotate(r.rot); g.fillStyle = '#6b6378'; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, rr = r.r * (0.8 + 0.2 * Math.sin(k * 3)); k ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill(); g.fillStyle = '#4a4458'; g.beginPath(); g.arc(r.r * 0.3, -r.r * 0.2, r.r * 0.2, 0, 7); g.fill(); g.restore(); }
     S.s.forEach((s, i) => {
       g.save(); g.translate(s.x, s.y); g.rotate(s.a);
-      g.fillStyle = m.players[i].color; g.beginPath(); g.moveTo(26, 0); g.lineTo(-16, -16); g.lineTo(-8, 0); g.lineTo(-16, 16); g.closePath(); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
-      if (m.held(i, 'a') && s.stun <= 0) { g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(-10, -6); g.lineTo(-26 - Math.random() * 10, 0); g.lineTo(-10, 6); g.fill(); }
+      if (m.held(i, 'a') && s.stun <= 0) { MGH.fireball(g, -22, 0, 9, m.t, -1, 0, ['#fff', '#ffd34d', '#ff5a1f']); }
+      const col = m.players[i].color; g.fillStyle = MGH.grad(g, -18, 18, [Char.shade(col, 0.4), Char.shade(col, -0.3)]); g.beginPath(); g.moveTo(30, 0); g.quadraticCurveTo(10, -14, -14, -20); g.lineTo(-8, 0); g.lineTo(-14, 20); g.quadraticCurveTo(10, 14, 30, 0); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = 'rgba(160,220,255,0.85)'; g.beginPath(); g.ellipse(8, 0, 9, 6, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.ellipse(10, -2, 3, 2, 0, 0, 7); g.fill();
       g.restore();
       MGH.av(g, m, i, s.x, s.y - 4, 10, s.stun > 0 ? 'dizzy' : 'determined', { noFeet: true, noArms: true, simple: true, look: { x: Math.cos(s.a), y: Math.sin(s.a) } });
     });
@@ -463,7 +464,7 @@ MG.def({
     S.p.forEach((p, i) => {
       const ox = i * 320;
       [[90, '#3b6fd8'], [64, '#ffffff'], [40, '#d83b3b'], [14, '#ffffff']].forEach(([r, c]) => { g.fillStyle = c; g.beginPath(); g.arc(ox + S.cx, S.cy, r, 0, 7); g.fill(); });
-      const stone = (x, y, a = 1) => { g.globalAlpha = a; g.fillStyle = '#777'; g.beginPath(); g.arc(ox + x, y, 15, 0, 7); g.fill(); g.fillStyle = m.players[i].color; g.beginPath(); g.arc(ox + x, y, 9, 0, 7); g.fill(); g.globalAlpha = 1; };
+      const stone = (x, y, a = 1) => { g.globalAlpha = a; g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(ox + x + 3, y + 5, 16, 14, 0, 0, 7); g.fill(); const gr = g.createRadialGradient(ox + x - 5, y - 6, 2, ox + x, y, 16); gr.addColorStop(0, '#c8c8d0'); gr.addColorStop(1, '#5a5a66'); g.fillStyle = gr; g.beginPath(); g.arc(ox + x, y, 16, 0, 7); g.fill(); g.fillStyle = m.players[i].color; MGH.rr(g, ox + x - 9, y - 4, 18, 8, 4); g.fill(); g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.ellipse(ox + x - 5, y - 8, 5, 3, -0.4, 0, 7); g.fill(); g.globalAlpha = 1; };
       p.stones.forEach(s => stone(s.x, s.y, 0.8));
       if (p.stone) stone(p.stone.x, p.stone.y);
       if (p.st === 'power') { const pw = (1 - Math.cos(p.ph)) / 2; g.fillStyle = '#234'; g.fillRect(ox + 290, 360, 14, 260); g.fillStyle = m.players[i].color; g.fillRect(ox + 290, 620 - pw * 260, 14, pw * 260); stone(160, 640); }
@@ -662,12 +663,14 @@ MG.def({
   fmt(s) { return `${s} saves`; },
   hud(m, S, i) { return `🧤${S.p[i].saves} (shot ${Math.min(S.k + 1, 10)}/10)`; },
   draw(m, S, g) {
-    MGH.scene(g, 'meadow', m.t); MGH.lanes(g, m);
+    MGH.scene(g, 'meadow', m.t); MGH.crowd(g, m.t, 60, 34, ['#6a8ac8', '#8a6ab8', '#c87a6a', '#6ab88a']); MGH.lanes(g, m);
     for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(70,150,60,0.6)'; g.fillRect(i * 320 + 4, 120, 312, 600); for (let y = 120; y < 720; y += 60) { g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(i * 320 + 4, y, 312, 30); } }
     const sh = S.shots[Math.min(S.k, 9)];
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160;
-      g.strokeStyle = '#fff'; g.lineWidth = 5; g.beginPath(); g.moveTo(cx - 130, 650); g.lineTo(cx - 130, 540); g.lineTo(cx + 130, 540); g.lineTo(cx + 130, 650); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(cx - 130, 540); g.lineTo(cx + 130, 540); g.lineTo(cx + 110, 520); g.lineTo(cx - 110, 520); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1; for (let x = -130; x <= 130; x += 13) { g.beginPath(); g.moveTo(cx + x, 540); g.lineTo(cx + x * 0.85, 520); g.stroke(); } for (let y = 540; y <= 650; y += 13) { g.beginPath(); g.moveTo(cx - 130, y); g.lineTo(cx + 130, y); g.stroke(); }
+      g.strokeStyle = '#fff'; g.lineWidth = 7; g.beginPath(); g.moveTo(cx - 130, 650); g.lineTo(cx - 130, 540); g.lineTo(cx + 130, 540); g.lineTo(cx + 130, 650); g.stroke();
       g.strokeStyle = 'rgba(255,255,255,0.15)'; g.lineWidth = 1; for (let x = -120; x <= 120; x += 20) { g.beginPath(); g.moveTo(cx + x, 540); g.lineTo(cx + x, 650); g.stroke(); }
       // striker
       const run = S.ph === 'wind' ? S.t / 1.4 : 1;

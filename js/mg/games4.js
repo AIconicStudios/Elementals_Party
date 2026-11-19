@@ -562,7 +562,7 @@ MG.def({
     const gr = g.createRadialGradient(S.wx, S.wy, 10, S.wx, S.wy, 720); gr.addColorStop(0, 'rgba(255,240,170,0.5)'); gr.addColorStop(1, 'rgba(255,240,170,0.05)');
     g.fillStyle = gr; g.beginPath(); g.moveTo(S.wx, S.wy); g.arc(S.wx, S.wy, 720, S.ang - 0.2, S.ang + 0.2); g.closePath(); g.fill();
     Char.draw(g, S.wx + 40, S.wy - 6, 22, -1, '#6a6a8a', { mood: 'determined', seed: 7, noFeet: true, look: { x: Math.cos(S.ang), y: 0.5 } });
-    MGH.glow(g, S.wx, S.wy, 50, 'rgba(255,220,120,0.7)'); MGH.emoji(g, '🏮', S.wx, S.wy + 6, 36);
+    MGH.lantern(g, S.wx, S.wy, 1.1, m.t);
     S.b.forEach((b, i) => { MGH.shadow(g, b.x, b.y + b.r * 1.25, b.r, 0.35); MGH.drawBody(g, b, m.players[i], b.stun > 0 ? '💫' : (b.carry ? '🪙' + b.carry : ''), b.stun > 0 ? 'dizzy' : this.inBeam(S, b.x, b.y) ? 'scared' : b.carry ? 'cheer' : null); });
     MGH.label(g, `🪙 ${S.coins.length} left on the floor`, 1120, 100, 18, '#ffe680');
   },
