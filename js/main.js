@@ -24,8 +24,9 @@ window.addEventListener('load', () => {
   q('muteBtn').onclick = () => { Settings.sound = !Settings.sound; q('muteBtn').textContent = Settings.sound ? '🔊 Sound' : '🔇 Muted'; };
   const speeds = [1, 0.5, 0.15];
   q('speedBtn').onclick = () => { const k = (speeds.indexOf(Settings.speed) + 1) % speeds.length; Settings.speed = speeds[k]; q('speedBtn').textContent = ['⏩ Speed', '⏩⏩ Fast', '⏩⏩⏩ Faster'][k]; };
-  q('quitBtn').onclick = () => {
-    if (!currentGame || confirm('Quit this game and return to the menu?')) {
+  window.quitToMenu = () => {
+    {
+      UI.togglePause(false);
       if (currentGame) { currentGame.aborted = true; if (UI.pending) UI.pending(null); }
       currentGame = null; UI.game = null; UI.toggleMap(false); Render.mapMode = false; document.getElementById('app').classList.remove('mapmode');
       [0, 1, 2, 3].forEach(i => { document.getElementById('pc' + i).innerHTML = ''; }); Render.die = null;
@@ -33,6 +34,11 @@ window.addEventListener('load', () => {
       UI.showMenu();
     }
   };
+  q('quitBtn').onclick = () => { if (!currentGame || confirm('Quit this game and return to the menu?')) window.quitToMenu(); };
+  q('bpResume').onclick = () => UI.togglePause(false);
+  q('bpHelp').onclick = () => { UI.togglePause(false); UI.toggleHelp(true); };
+  q('bpMenu').onclick = () => window.quitToMenu();
+  q('mgRestart').onclick = () => MG.onRestartClick && MG.onRestartClick();
   q('mapBtn').onclick = () => UI.toggleMap();
   q('logBtn').onclick = () => { document.getElementById('app').classList.toggle('showlog'); Sfx.click(); };
   q('viewBtn').onclick = () => Render.toggleZoom();

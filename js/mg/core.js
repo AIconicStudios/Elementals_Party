@@ -104,6 +104,8 @@ const MG = {
       const finishWith = res => { Music.setDuck(1, 0.3); Music.play('board'); this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
       document.getElementById('mgPauseBtn').classList.remove('hidden');
       this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
+      // restart: fresh round straight into the countdown
+      this.onRestartClick = () => { m = this.makeCtx(game, players); S = {}; game.init(m, S); phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0; this.paused = false; this.pauseUI(false); if (quiet) Music.setDuck(0, 0.5); };
       this.onQuitClick = () => { this.paused = false; finishWith({ winners: [], winner: null, scores: null, quit: true }); };
       this.paused = false;
       const frame = nowT => {
@@ -112,8 +114,8 @@ const MG = {
         const pin = this.pauseInput();
         if (pin.toggle && phase !== 'result') { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); }
         if (this.paused) {
-          if (pin.up || pin.down) { this.pauseSel = 1 - this.pauseSel; this.pauseUI(true); }
-          if (pin.a) { if (this.pauseSel === 0) { this.paused = false; this.pauseUI(false); } else { this.onQuitClick(); return; } }
+          if (pin.up || pin.down) { this.pauseSel = ((this.pauseSel || 0) + (pin.up ? 2 : 1)) % 3; this.pauseUI(true); }
+          if (pin.a) { if (this.pauseSel === 0) { this.paused = false; this.pauseUI(false); } else if (this.pauseSel === 1) { this.onRestartClick(); } else { this.onQuitClick(); return; } }
           if (!layer.classList.contains('hidden')) requestAnimationFrame(frame);
           return;
         }
@@ -355,7 +357,7 @@ const MG = {
     const W = winners.map(i => m.players[i]);
     W.forEach((w, k) => Char.draw(g, 640 + (k - (W.length - 1) / 2) * 140, 120 + Math.sin(t * 6 + k) * 6, 50, w.el.id, w.color, { mood: 'cheer', seed: k }));
     MGH.text(g, '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!'), 640, 232, W.length > 2 ? 40 : 52, W[0].color, 'center', 'bold');
-    MGH.text(g, W.length > 1 ? 'Each winner banks +2 coins and they lead the next round' : '+2 banked coins and leads the next round', 640, 270, 21, '#ddd');
+    MGH.text(g, '🥇 +3   🥈 +2   🥉 +1 coins', 640, 270, 24, '#ffe680', 'center', 'bold');
     ranking.forEach((r, k) => {
       const p = m.players[r.i], win = winners.includes(r.i);
       const s = game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100);

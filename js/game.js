@@ -959,7 +959,7 @@ class Game {
 
   async useUltimate(p, id) {
     p.ultUsed = true; p.ultHeld = false;
-    await Stage.item(p, ITEM[id].icon, ITEM[id].lore);
+    await Stage.item(p, ITEM[id].icon, ITEM[id].lore, null, id);
     Sfx.boom();
     this.react(p, 'evil', { typhoon: 'TYPHOON!!', washout: 'GREAT EBB!', inferno: 'SACRIFICE PYRE!', hollow: 'FAMISHED EARTH!' }[id]);
     if (id === 'typhoon') {
@@ -1028,7 +1028,7 @@ class Game {
     this.consume(p, id);
     this.log(`${this.name(p)} uses ${it.icon} <b>${itemLabel(id)}</b>${target && target !== p ? ` on ${this.name(target)}` : ''}.`);
     Sfx.click();
-    await Stage.item(p, it.icon, itemLabel(id), target && target !== p && !target.gone ? target : null);
+    await Stage.item(p, it.icon, itemLabel(id), target && target !== p && !target.gone ? target : null, id);
     switch (id) {
       case 'armor': t.armor = 'normal'; t.armorLeft = 1; break;
       case 'heavy': t.armor = 'heavy'; t.armorLeft = 2; break;
@@ -1206,8 +1206,14 @@ class Game {
     const res = await MG.run(id, this.players.map(p => ({ id: p.id, name: p.name, color: p.color, human: p.human, el: p.el })), this.order.slice());
     if (res.quit || !res.winners.length) { this.log(`The Moot <b>${MG.byId[id].name}</b> was abandoned — no winner, no reward.`); UI.refresh(); return; }
     const winners = this.order.filter(x => res.winners.includes(x));
-    winners.forEach(x => { const w = this.P(x); w.mgWins++; this.bankAdd(w, 2); });
-    this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and each win' : 'wins'} the Moot <b>${MG.byId[id].name}</b>: +2 banked${winners.length > 1 ? ' each' : ''} and ${winners.length > 1 ? 'lead' : 'leads'} the next round.`, 'good');
+    // prizes: 1st 3 coins, 2nd 2, 3rd 1 (ties share the better place)
+    const sc = res.scores, prize = { 1: 3, 2: 2, 3: 1 };
+    const place = q => winners.includes(q.id) ? 1 : (sc && typeof sc[q.id] === 'number' ? 1 + this.players.filter(o => sc[o.id] > sc[q.id] + 1e-9).length : 4);
+    const places = this.players.map(q => ({ p: q, place: place(q) }));
+    places.forEach(r => { r.coins = prize[r.place] || 0; if (r.coins) this.bankAdd(r.p, r.coins); });
+    winners.forEach(x => this.P(x).mgWins++);
+    await Stage.podium(places);
+    this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and win' : 'wins'} the Moot <b>${MG.byId[id].name}</b> (+3)${places.filter(r => r.place > 1 && r.coins).map(r => `, ${this.name(r.p)} +${r.coins}`).join('')}.`, 'good');
     this.players.forEach((q, k) => this.react(q, winners.includes(q.id) ? R.pick(['proud', 'laugh']) : R.pick(['sad', 'angry', 'cry']), winners.includes(q.id) ? R.pick(['Victory!', 'Too easy!', 'Champion!']) : undefined, k * 0.15));
     this.order = winners.concat(this.order.filter(x => !winners.includes(x)));
     UI.refresh();

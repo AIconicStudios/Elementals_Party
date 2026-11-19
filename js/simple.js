@@ -87,7 +87,7 @@ class SimpleGame extends Game {
     this.consume(p, id);
     this.log(`${this.name(p)} uses ${it.icon} <b>${it.name}</b>${target ? ` on ${this.name(target)}` : ''}.`);
     Sfx.click();
-    await Stage.item(p, it.icon, it.name, target);
+    await Stage.item(p, it.icon, it.name, target, id);
     switch (id) {
       case 'sdouble': t.mods.double = true; this.emote(p, '🎲'); break;
       case 'smagic': t.mods.custom = true; this.emote(p, '🎯'); break;
@@ -146,24 +146,40 @@ class SimpleGame extends Game {
     this.react(p, 'smug', R.pick(['Sneak sneak…', 'Shhh…', 'Knock knock!'])); this.react(owner, 'nervous', 'Is someone there?!', 0.3);
     await sleep(700);
     if (this.consume(owner, 'sdog')) {
+      await Stage.item(owner, '🐕', 'Guard Dog', p, 'sdog');
       const n = Math.min(5, p.cash); p.cash -= n; owner.cash += n;
       this.log(`🐕 ${this.name(owner)}'s Guard Dog chases ${this.name(p)} away! ${this.name(p)} pays ${n} coins.`, 'bad');
       Render.burstAt(Render.homeCenter(owner.id), ['#c98a4a', '#fff'], 30, { speed: 280 }); Sfx.bad();
       this.react(owner, 'evil', 'Sic \'em, boy!'); this.react(p, 'shock', 'A DOG?! RUN!', 0.25); this.crowd([p, owner], 'laugh', 0.6);
       return;
     }
-    const star = owner.vault > 0;
-    const segs = [{ icon: '🚨', text: '−3', color: '#ff4d6d' }, { icon: '💰', text: '+5', color: '#6fdc8c' }, { icon: '💰', text: '+5', color: '#5fb8ff' },
-      { icon: '🚨', text: '−3', color: '#ff4d6d' }, { icon: '💰', text: '+5', color: '#6fdc8c' }, star ? { icon: '⭐', color: '#ffd34d' } : { icon: '💰', text: '+10', color: '#ffd34d' }];
+    if (this.consume(owner, 'speel')) {
+      await Stage.item(owner, '🍌', 'Banana Peel', p, 'speel');
+      const t = p.trav; for (let k = 0; k < 5; k++) { t.pos = (t.pos + 39) % 40; UI.refresh(); await sleep(120); }
+      this.log(`🍌 ${this.name(p)} slips on ${this.name(owner)}'s Banana Peel and slides back 5 spaces!`, 'bad'); Sfx.whoosh(false);
+      this.react(p, 'dizzy', 'WHOOOA—'); this.react(owner, 'laugh', 'Watch your step!', 0.3); this.crowd([p, owner], 'laugh', 0.6);
+      return;
+    }
+    const star = owner.vault > 0, lock = owner.items.includes('slock');
+    const segs = [{ icon: '🚨', text: '−5', color: '#ff4d6d' }, { icon: '💰', text: '+3', color: '#6fdc8c' }, { icon: '💰', text: '+4', color: '#5fb8ff' },
+      { icon: '🚨', text: '−5', color: '#ff4d6d' }, { icon: '💰', text: '+5', color: '#ff9a3d' }, star ? { icon: lock ? '🔒' : '⭐', color: '#ffd34d' } : { icon: '💰', text: '+10', color: '#ffd34d' }];
     const d = [1, 3, 4, 2, 5, 6][await Stage.wheel(p, segs, `🦹 ${owner.el.hold}`)];
     if (d <= 2) {
-      const n = Math.min(3, p.cash); p.cash -= n; owner.cash += n;
+      const n = Math.min(5, p.cash);
+      await Stage.coinsTo(() => Stage.scr(Stage.tokPt(p)), Render.homeCenter(owner.id), Math.max(1, n));
+      p.cash -= n; owner.cash += n;
       this.log(`🚨 Caught! ${this.name(p)} pays ${n} coins to ${this.name(owner)}.`, 'bad'); Sfx.bad();
       this.react(owner, 'laugh', 'Caught you!'); this.react(p, 'cry', 'Busted!!', 0.25); this.crowd([p, owner], ['laugh', 'shock'], 0.6);
     } else if (d <= 5) {
-      const n = Math.min(5, owner.cash); owner.cash -= n; p.cash += n;
+      const n = Math.min(d, owner.cash);
+      await Stage.coinsTo(Render.homeCenter(owner.id), () => Stage.scr(Stage.tokPt(p)), Math.max(1, n));
+      owner.cash -= n; p.cash += n;
       this.log(`💰 ${this.name(p)} grabs ${n} coins from ${this.name(owner)}!`, 'warn'); Render.coinBurst(p, Math.max(1, n)); Sfx.coin();
       this.react(p, 'evil', R.pick(['Hehehe, coins!', 'Easy pickings!'])); this.react(owner, 'angry', 'THIEF!', 0.25);
+    } else if (owner.vault > 0 && this.consume(owner, 'slock')) {
+      await Stage.item(owner, '🔒', 'Star Lock', p, 'slock');
+      this.log(`🔒 ${this.name(owner)}'s Star Lock snaps shut — ${this.name(p)} leaves empty-handed!`, 'bad');
+      this.react(owner, 'smug', 'Locked tight!'); this.react(p, 'angry', 'No fair!', 0.3);
     } else if (owner.vault > 0) {
       owner.vault--; p.vault++;
       this.log(`⭐ ${this.name(p)} steals a STAR from ${this.name(owner)}!`, 'warn'); Sfx.star();

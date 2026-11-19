@@ -19,7 +19,7 @@ const Stage = {
   step(list, g) {
     const n = this.now();
     for (const s of list) {
-      const dt = Math.min(0.1, n - s.last) * this.rate(); s.last = n; s.dt = dt; s.t += dt;
+      const dt = Settings.paused ? 0 : Math.min(0.1, n - s.last) * this.rate(); s.last = n; s.dt = dt; s.t += dt;
       try { s.draw(g, s.t, s); } catch (e) { console.error(e); s.end = true; }
       if (s.end || (s.len !== undefined && s.t >= s.len)) { s.dead = true; if (s.done) s.done(s.result); }
     }
@@ -98,12 +98,13 @@ const Stage = {
   },
 
   // ---------------------------------------------------------- 2. item played: a big card, then it flies to its target
-  item(p, icon, name, target) {
+  item(p, icon, name, target, id) {
     const fly = !!target, len = fly ? 2.25 : 1.7;
-    let hit = false;
+    let hit = false, sfx = false;
     return this.play({ len, draw: (g, t) => {
       const a = this.fade(t, len, 0.2, 0.3), cx = 800, cy = 400;
       g.save(); g.globalAlpha = a; this.dim(g, 0.55); g.globalAlpha = 1;
+      if (!sfx && t > 0.1) { sfx = true; if (id) Sfx.item(id); else Sfx.star(); }
       const pop = this.E.back(t / 0.45);
       let ix = cx, iy = cy, isz = 118 * pop;
       if (fly && t > 1.25) {
@@ -211,9 +212,10 @@ const Stage = {
       if (t > 0.6 && t < 1.25) { const k = (t - 0.6) / 0.65; vx = dir * 18 * Math.sin(k * Math.PI * 0.5); vy = -Math.sin(k * Math.PI) * 14; rot = dir * Math.sin(k * Math.PI) * 0.6; vm = 'dizzy'; }
       else if (t >= 1.25) { vx = dir * 18 * (1 - this.E.out((t - 1.25) / 0.8)); vm = t > 1.6 ? 'angry' : 'dizzy'; }
       A[q.id] = { dx: vx, dy: vy, mood: vm, rot };
-      if (t > 0.6 && !powFx) { powFx = true; Sfx.boom(); Render.burstAt({ x: at.x, y: at.y - 8 }, ['#fff', '#ffe680', '#ff6a3d'], 26, { speed: 260, kind: 'spark', size: 3 }); }
+      if (t > 0.45 && !A._g) { A._g = true; Sfx.voice(p.id, 'grunt'); }
+      if (t > 0.6 && !powFx) { powFx = true; Sfx.punch(); setTimeout(() => Sfx.voice(q.id, 'ouch'), 60); Render.burstAt({ x: at.x, y: at.y - 8 }, ['#fff', '#ffe680', '#ff6a3d'], 26, { speed: 260, kind: 'spark', size: 3 }); }
       if (t > 1.0 && !coinFx && stole) { coinFx = true; Sfx.coin(); }
-      if (t >= len - 0.02) { delete A[p.id]; delete A[q.id]; }
+      if (t >= len - 0.02) { delete A[p.id]; delete A[q.id]; delete A._g; }
     }, world: true }, true);
     this.lookOff();
   },
@@ -316,6 +318,34 @@ const Stage = {
     return this.play({ len: 0.9 + n * 0.05, draw: (g, t) => {
       const A = typeof from === 'function' ? from() : from, B = typeof to === 'function' ? to() : to;
       for (let i = 0; i < n; i++) { const k = clamp((t - i * 0.05) / 0.75, 0, 1); if (k <= 0 || k >= 1) continue; this.coin(g, lerp(A.x, B.x, this.E.inout(k)), lerp(A.y, B.y, this.E.inout(k)) - Math.sin(k * Math.PI) * 60, 9, t * 12 + i); }
+    } });
+  },
+
+  // ---------------------------------------------------------- minigame podium: 1st +3, 2nd +2, 3rd +1
+  podium(places) {
+    const len = 3.4, H = { 1: 170, 2: 120, 3: 80, 4: 0 }, X = { 1: 800, 2: 610, 3: 990, 4: 1180 };
+    const order = places.slice().sort((a, b) => a.place - b.place);
+    const used = {};
+    order.forEach(r => { const k = used[r.place] || 0; used[r.place] = k + 1; r.x = (r.place === 4 ? 1220 : X[r.place]) + k * 70 - (places.filter(q => q.place === r.place).length - 1) * 35; });
+    let ding = 0;
+    return this.play({ len, draw: (g, t) => {
+      const a = this.fade(t, len, 0.3, 0.35); g.save(); g.globalAlpha = a; this.dim(g, 0.6);
+      this.word(g, 'Moot results', 800, 190, 44, '#fff6d0');
+      [2, 1, 3].forEach(pl => {
+        const h = H[pl] * this.E.back((t - 0.1 * pl) / 0.5), x = X[pl], y = 700;
+        if (h <= 1) return;
+        const gr = g.createLinearGradient(0, y - h, 0, y); gr.addColorStop(0, ['#ffe680', '#dfe6f0', '#e0a070'][pl - 1]); gr.addColorStop(1, ['#b8862a', '#8a95a8', '#8a5a32'][pl - 1]);
+        g.fillStyle = gr; this.rrect(g, x - 85, y - h, 170, h, 10); g.fill();
+        g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x - 85, y - 12, 170, 12);
+        this.word(g, String(pl), x, y - h + 56, 46, '#fff');
+      });
+      order.forEach((r, k) => {
+        const h = H[r.place] || 0, y = 700 - h - 50 + (r.place === 4 ? 0 : -Math.abs(Math.sin(t * 6 + k)) * (r.place === 1 ? 14 : 6));
+        const mood = r.place === 1 ? 'cheer' : r.place === 4 ? 'sad' : 'happy';
+        Char.draw(g, r.x, y, r.place === 1 ? 52 : 42, r.p.id, r.p.color, { mood, seed: r.p.id, look: { x: 0, y: -0.2 } });
+        if (r.coins && t > 1.0 + k * 0.2) { const kk = this.E.back((t - 1.0 - k * 0.2) / 0.4); g.save(); g.translate(r.x, y - 110); g.scale(kk, kk); this.coin(g, -26, 0, 15, t * 4); this.word(g, '+' + r.coins, 18, 12, 34, '#ffe680'); g.restore(); if (ding <= k) { ding = k + 1; Sfx.coin(); } }
+      });
+      g.restore();
     } });
   },
 

@@ -6,6 +6,7 @@ const Nav = {
   sel: null, active: false, prev: {}, rep: {},
   // the seat that owns the current board decision, or null when anyone may act (menus, help, map)
   ownerOnly() {
+    if (UI.pauseOpen()) return 'any';
     if (UI.helpOpen() || Render.mapMode) return null;
     const ov = document.getElementById('overlay');
     if (ov.innerHTML.trim() && !ov.classList.contains('hidden')) return null;
@@ -30,6 +31,7 @@ const Nav = {
   // true when no minigame is on screen
   boardContext() { return document.getElementById('mgLayer').classList.contains('hidden'); },
   container() {
+    if (UI.pauseOpen()) return document.getElementById('boardPause');
     if (UI.helpOpen()) return document.getElementById('helpOv');
     const ov = document.getElementById('overlay');
     if (ov.innerHTML.trim() && !ov.classList.contains('hidden')) return ov;
@@ -51,11 +53,15 @@ const Nav = {
       const now = {};
       if (b(12) || ay < -0.5) now.up = true; if (b(13) || ay > 0.5) now.down = true;
       if (b(14) || ax < -0.5) now.left = true; if (b(15) || ax > 0.5) now.right = true;
-      if (b(0)) now.a = true; if (b(1)) now.b = true; if (b(2)) now.x = true; if (b(3)) now.y = true; if (b(4) || b(6)) now.v = true;
+      if (b(0)) now.a = true; if (b(1)) now.b = true; if (b(2)) now.x = true; if (b(3)) now.y = true; if (b(4) || b(6)) now.v = true; if (b(9)) now.start = true;
       const prev = this.prev[idx] || {};
-      const mine = owner === null || Input.seatForPad(idx) === owner;
-      for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'v']) {
-        if (!mine && k !== 'x' && k !== 'y' && k !== 'v') continue;
+      // menus, help and map belong to gamepad 1 (and the keyboard); a board decision belongs to its player's own pad;
+      // the pause menu answers to any pad, and any pad's Start can pause
+      const mine = owner === 'any' || (owner === null ? idx === 0 : Input.seatForPad(idx) === owner);
+      const lead = idx === 0 || owner === 'any' || (owner !== null && Input.seatForPad(idx) === owner);
+      for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'v', 'start']) {
+        if (k === 'start') { if (now.start && !prev.start) this.handle('start'); continue; }
+        if (['x', 'y', 'v'].includes(k) ? !lead : !mine) continue;
         if (now[k] && !prev[k]) { this.handle(k); this.rep[idx] = 0.4; }
         else if (now[k] && ['up', 'down', 'left', 'right'].includes(k)) { this.rep[idx] = (this.rep[idx] || 0) - 1 / 60; if (this.rep[idx] <= 0) { this.handle(k); this.rep[idx] = 0.12; } }
       }
@@ -66,6 +72,8 @@ const Nav = {
     if (this.active) this.paint();
   },
   handle(k) {
+    if (k === 'start') { if (UI.game && !UI.helpOpen() && !Render.mapMode) UI.togglePause(); return; }
+    if (UI.pauseOpen()) { if (k === 'b') return UI.togglePause(false); if (!['up', 'down', 'left', 'right', 'a'].includes(k)) return; }
     if (k === 'v') { if (UI.game) Render.toggleZoom(); return; }
     if (k === 'y') { if (UI.game) UI.toggleMap(); return; }
     if (k === 'x') { UI.toggleHelp(); return; }

@@ -131,6 +131,8 @@ const SIMPLE_ITEMS = [
   { id: 'smagnet', name: 'Coin Magnet', lore: 'Coin Magnet', price: 5, cat: 'simple', simple: true, use: 'play', icon: '🧲', desc: 'Pull 5 coins from the richest other player.' },
   { id: 'ssnail', name: 'Snail', lore: 'Snail', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🐌', desc: 'Pick a player: their next roll is cut in half.' },
   { id: 'swind', name: 'Shop Wind', lore: 'Shop Wind', price: 4, cat: 'simple', simple: true, use: 'play', icon: '💨', desc: 'Whoosh! Fly straight to the next Counting House and shop there.' },
+  { id: 'speel', name: 'Banana Peel', lore: 'Banana Peel', price: 4, cat: 'simple', simple: true, use: 'passive', icon: '🍌', desc: 'Keep it in your bag: the next player who sneaks into your Hold slips and slides back 5 spaces with nothing.' },
+  { id: 'slock', name: 'Star Lock', lore: 'Star Lock', price: 6, cat: 'simple', simple: true, use: 'passive', icon: '🔒', desc: 'Keep it in your bag: the next raider who would steal one of your stars gets nothing at all.' },
   { id: 'sbox', name: 'Lucky Star Box', lore: 'Lucky Star Box', price: 6, cat: 'simple', simple: true, use: 'play', icon: '🎁', desc: 'Open it: 1 in 3 chance of a free star, otherwise 3 coins.' },
 ];
 ITEMS.push(...SIMPLE_ITEMS);

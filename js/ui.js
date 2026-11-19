@@ -14,7 +14,8 @@ const UI = {
       if (e.code === 'KeyM' && this.game && document.activeElement.tagName !== 'INPUT') { this.toggleMap(); return; }
       if (e.code === 'KeyH' && document.activeElement.tagName !== 'INPUT') { this.toggleHelp(); return; }
       if (e.code === 'KeyV' && this.game && document.activeElement.tagName !== 'INPUT') { Render.toggleZoom(); return; }
-      if (e.code === 'Escape') { if (this.helpOpen()) this.toggleHelp(false); else if (Render.mapMode) this.toggleMap(false); return; }
+      if (e.code === 'Escape') { if (this.helpOpen()) this.toggleHelp(false); else if (Render.mapMode) this.toggleMap(false); else if (this.game) this.togglePause(); return; }
+      if (this.pauseOpen()) return;
       if (!this.pending || this.helpOpen()) return;
       const n = parseInt(e.key, 10);
       if (n >= 1 && n <= 9) {
@@ -166,6 +167,16 @@ const UI = {
     $('#app').classList.toggle('mapmode', Render.mapMode);
     Sfx.click();
   },
+  // board pause menu (any gamepad's Start, or Esc): resume, help, or quit to the main menu
+  pauseOpen() { return !$('#boardPause').classList.contains('hidden'); },
+  togglePause(on) {
+    const open = on === undefined ? !this.pauseOpen() : on;
+    if (open && !this.game) return;
+    $('#boardPause').classList.toggle('hidden', !open);
+    Settings.paused = open;
+    if (open) { Nav.active = true; Nav.sel = $('#bpResume'); Nav.paint(); }
+    Sfx.click();
+  },
   helpOpen() { return !$('#helpOv').classList.contains('hidden'); },
   toggleHelp(on, tab) {
     const open = on === undefined ? !this.helpOpen() : on;
@@ -192,7 +203,7 @@ const UI = {
         + row(sw2('swirl'), 'Whirlwind', '', 'Swap places with a random player!', SPACE.swirl.color)
         + row(sw2('party'), 'Party', '', 'Everyone gets 3 coins — you get 6!', SPACE.party.color)
         + row(swatch('#8fe0ff', '🏠'), 'Your Gate', '', 'Passing your own Gate gives +3 coins.', '#8fe0ff')
-        + row(swatch('#ff9a3d', '🦹'), 'Sneaking in', '', 'From round 3, passing a rival’s Gate lets you sneak into their Hold. Roll: 1–2 you get caught and pay 3 · 3–5 you grab 5 coins · 6 you grab a STAR!', '#ff9a3d')
+        + row(swatch('#ff9a3d', '🦹'), 'Sneaking in', '', 'From round 3, passing a rival’s Gate lets you sneak into their Hold. Spin the raid wheel: caught = you pay 5 · or grab 3, 4 or 5 coins · or grab a STAR! Guard Dog, Banana Peel and Star Lock protect a Hold.', '#ff9a3d')
         + `<div class="hsec">Starter items</div>`
         + SIMPLE_ITEMS.map(it => row(swatch('#2a2150', it.icon, '#fff'), it.name, `${it.price} coins · ${it.use === 'play' ? 'use on your turn' : 'works by itself'}`, it.desc, '#6b5bd6')).join('')
         + `<div class="hsec">After every round</div>` + row(swatch('#5a3fd0', '🎮', '#fff'), 'The Moot', '', 'Everyone plays a quick minigame. Winners get coins and go first next round.', '#5a3fd0');
@@ -227,7 +238,7 @@ const UI = {
       <p><b>Counting Houses:</b> passing or landing lets you deposit what you carry, buy one star and one item per visit.</p>
       <p><b>Raiding (from round 4):</b> when you pass or land on a rival’s Waygate you may raid. The rest of your roll is discarded; next turn you start walking their Hold from tile 16. Hoards give up to 5 coins, the Starvault a star. Leave by passing tile 16 again.</p>
       <p><b>The Ankar:</b> summoned on an Ankar’s Altar (which then becomes a Boon or Bane). It follows the nearest Wayfarer and takes 5 coins on contact.</p>
-      <p><b>The Moot:</b> after each round but the last, a minigame. Everyone who ties for first banks +2 and plays first next round. The player with the fewest stars picks between two games.</p>
+      <p><b>The Moot:</b> after each round but the last, a minigame. 1st place wins 3 coins, 2nd 2 coins, 3rd 1 coin (ties share the better place); the winners play first next round. The player with the fewest stars picks between two games.</p>
       </div>`;
     } else {
       one = true;
