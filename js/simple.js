@@ -5,7 +5,8 @@
 
 const SIMPLE_HALF = ['gate', 'blue', 'lucky', 'blue', 'red', 'bank', 'blue', 'item', 'red', 'blue',
                      'gate', 'blue', 'swirl', 'red', 'blue', 'bank', 'party', 'blue', 'red', 'item'];
-const SIMPLE_BOARD = SIMPLE_HALF.concat(SIMPLE_HALF);
+// one Ankar's Altar on the first half; it turns blue once the Ankar is set loose
+const SIMPLE_BOARD = SIMPLE_HALF.map((x, i) => i === 6 ? 'summon' : x).concat(SIMPLE_HALF);
 const SIMPLE_STAR_PRICE = 15;
 
 class SimpleGame extends Game {
@@ -257,6 +258,7 @@ class SimpleGame extends Game {
         break;
       }
       case 'item': await this.giveItem(p, await this.itemWheel(p, '🎁 Gift')); this.emote(p, '🎁'); break;
+      case 'summon': await this.resolveSpace(p, 'summon'); break;
       case 'swirl': {
         const others = this.players.filter(o => o !== p && !o.gone);
         const q = others[await Stage.wheel(p, others.map(o => ({ icon: o.el.glyph, text: o.name.slice(0, 8), color: o.color })), '🌪️ Whirlwind')];
@@ -278,6 +280,7 @@ class SimpleGame extends Game {
         break;
       }
     }
+    this.ankarContact(p); // the Ankar takes 5 coins from anyone who lands on it
     UI.refresh();
   }
 

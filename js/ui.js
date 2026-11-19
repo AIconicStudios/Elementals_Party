@@ -205,6 +205,7 @@ const UI = {
         + row(sw2('lucky'), 'Lucky Wheel', '', 'Win 1, 3, 5 or 10 coins.', SPACE.lucky.color)
         + row(sw2('item'), 'Gift', '', 'Get a free item.', SPACE.item.color)
         + row(sw2('swirl'), 'Whirlwind', '', 'Swap places with a random player!', SPACE.swirl.color)
+        + row(sw2('summon'), "Ankar's Altar", '', 'Sets the Ankar loose! The altar turns blue, and each round the Ankar creeps toward the nearest player — whoever it meets loses 5 coins.', SPACE.summon.color)
         + row(sw2('party'), 'Party', '', 'Everyone gets 3 coins — you get 6!', SPACE.party.color)
         + row(swatch('#8fe0ff', '🏠'), 'Your Gate', '', 'Passing your own Gate gives +3 coins.', '#8fe0ff')
         + row(swatch('#ff9a3d', '🦹'), 'Sneaking in', '', 'From round 3, passing a rival’s Gate lets you sneak into their Hold. Spin the raid wheel: caught = you pay 5 · or grab 3, 4 or 5 coins · or grab a STAR! Guard Dog, Banana Peel and Star Lock protect a Hold.', '#ff9a3d')
