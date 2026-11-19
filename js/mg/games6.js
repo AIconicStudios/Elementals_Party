@@ -4,7 +4,7 @@
 // 51 ---------------------------------------------------------------- Three-Way Parry
 MG.def({
   id: 'parry', name: 'Three-Way Parry', type: 'Reaction', controls: 'Left/Right + button',
-  how: 'Arrows fly at you from the left, the right and from above. Press LEFT, RIGHT or the button to raise your shield on that side just as the arrow arrives. Raising it at the wrong time leaves you open for a moment. Three hearts.',
+  how: 'Arrows fly at you from the left, the right and from above. Press LEFT, RIGHT, or UP / the button for arrows from above, to raise your shield on that side just as the arrow arrives. Raising it at the wrong time leaves you open for a moment. Three hearts.',
   wins: 'Last one standing (else most hearts).',
   init(m, S) {
     S.arrows = []; let t = 1.4;
@@ -16,7 +16,7 @@ MG.def({
     S.p.forEach((p, i) => {
       if (p.hp <= 0) return;
       p.sh -= dt; p.cd -= dt; p.flash -= dt;
-      for (const k of ['left', 'right', 'a']) if (m.pressed(i, k) && p.cd <= 0) { p.shield = k; p.sh = 0.22; p.cd = 0.32; }
+      for (const k of ['left', 'right', 'a', 'up']) if (m.pressed(i, k) && p.cd <= 0) { p.shield = k === 'up' ? 'a' : k; p.sh = 0.22; p.cd = 0.32; }
       S.arrows.forEach((a, k) => {
         if (p.res.has(k) || m.t < a.t) return;
         p.res.set(k, 1);

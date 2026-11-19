@@ -285,8 +285,8 @@ MG.def({
 
 // 45 ---------------------------------------------------------------- Elemental Pong
 MG.def({
-  id: 'pong', name: 'Elemental Pong', type: 'Arena', controls: 'Left/Right + button',
-  how: 'Each player guards one side of the court. LEFT/RIGHT slides your paddle (on the side walls, LEFT is up). Press the button to smash — a ball hit mid-smash flies much faster. Let a ball past and you lose a heart; at zero your side becomes a wall.',
+  id: 'pong', name: 'Elemental Pong', type: 'Arena', controls: 'Move + button',
+  how: 'Each player guards one side of the court. Top and bottom players slide their paddle with LEFT/RIGHT; players on the side walls slide theirs with UP/DOWN. Press the button to smash — a ball hit mid-smash flies much faster. Let a ball past and you lose a heart; at zero your side becomes a wall.',
   wins: 'Last one with hearts (or most hearts).',
   dur: 60,
   init(m, S) {
@@ -308,8 +308,10 @@ MG.def({
     S.next2 -= dt; if (S.next2 <= 0 && S.balls.length < 2) { this.serve(S); S.next2 = 999; }
     for (let i = 0; i < 4; i++) {
       const P = S.pad[i]; P.smash -= dt; P.cd -= dt;
-      const ax = m.axis(i).x;
-      P.pos = clamp(P.pos + ax * 1.15 * dt, 0.1, 0.9);
+      // bottom/top paddles slide with LEFT/RIGHT; the side-wall paddles slide with UP/DOWN (LEFT/RIGHT still works there too)
+      const ax = m.axis(i), side = i === 1 || i === 3;
+      const mv = side ? (Math.abs(ax.y) > 0.2 ? ax.y : ax.x) : ax.x;
+      P.pos = clamp(P.pos + mv * 1.15 * dt, 0.1, 0.9);
       if (m.pressed(i, 'a') && P.cd <= 0) { P.smash = 0.18; P.cd = 0.6; }
     }
     const L = S.x0, Rr = S.x0 + S.sz, T = S.y0, B = S.y0 + S.sz;
