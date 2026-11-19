@@ -83,3 +83,10 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 #mgPause button { width: 340px; font-family: inherit; font-size: 24px; padding: 14px; border-radius: 12px; border: 2px solid #6b5bd6; background: #2a2150; color: #fff; cursor: pointer; }
 #mgPause button:hover { background: #3c2f72; }
 #mgPause p { color: #b9b3d6; text-align: center; font-size: 15px; }
+
+#viewBtn { position: absolute; right: 10px; top: 8px; z-index: 12; font-family: inherit; font-size: 16px; padding: 7px 12px; border-radius: 10px; border: 1px solid #8f7bff; background: rgba(36,28,66,0.92); color: #fff; cursor: pointer; }
+#viewBtn small { color: #b9a6ff; font-size: 11px; }
+#app:not(.zoommode) #viewBtn { top: auto; bottom: 10px; right: 10px; }
+#app.zoommode .pc, #app.zoommode #log, #app.zoommode #ctrl { display: none; }
+#app.zoommode #viewBtn { top: 12px; right: 10px; }
+#app.zoommode #action { left: auto; right: 14px; top: auto; bottom: 14px; width: 440px; max-height: 430px; background: rgba(16,12,34,0.93); }

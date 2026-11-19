@@ -6,6 +6,8 @@ function startGame(cfg) {
   if (currentGame) currentGame.aborted = true;
   Input.setHumans(cfg.seats);
   const g = cfg.simple ? new SimpleGame(cfg) : new Game(cfg);
+  document.getElementById('viewBtn').classList.remove('hidden');
+  Music.play('board');
   document.querySelector('#ctrl .legend').innerHTML = cfg.simple
     ? '<span>🔵 +3</span><span>🔴 −3</span><span>🏛️ Buy a star (15)</span><span>🎡 Lucky Wheel</span><span>🎁 Gift</span><span>🌪️ Swap places</span><span>🎉 Party</span><span>🏠 Home +3</span>'
     : '<span>+5 Boon</span><span>−3 Bane</span><span>🏛️ Counting House</span><span>👁️ Ankar\'s Altar</span><span>🌑 Eclipse</span><span>×2 Gilded Spring</span><span>🎡 Fortune Wheel</span><span>🎁 Pedlar</span><span>❓ Mirage</span>';
@@ -30,14 +32,21 @@ window.addEventListener('load', () => {
       if (currentGame) { currentGame.aborted = true; if (UI.pending) UI.pending(null); }
       currentGame = null; UI.game = null; UI.toggleMap(false); Render.mapMode = false; document.getElementById('app').classList.remove('mapmode');
       [0, 1, 2, 3].forEach(i => { document.getElementById('pc' + i).innerHTML = ''; }); Render.die = null;
+      document.getElementById('viewBtn').classList.add('hidden'); Render.toggleZoom(false);
       UI.showMenu();
     }
   };
   q('mapBtn').onclick = () => UI.toggleMap();
+  q('viewBtn').onclick = () => Render.toggleZoom();
   q('mgPauseBtn').onclick = () => MG.onPauseClick && MG.onPauseClick();
   q('mgResume').onclick = () => { MG.paused = false; MG.pauseUI(false); };
   q('mgQuit').onclick = () => MG.onQuitClick && MG.onQuitClick();
   q('helpBtn').onclick = () => UI.toggleHelp();
   Nav.init();
+  q('musicBtn').onclick = () => { Settings.music = !Settings.music; q('musicBtn').textContent = Settings.music ? '🎵 Music' : '🔇 Music'; Music.refresh(); };
+  // browsers only start audio after a click or key press
+  const unlock = () => { Sfx.init(); if (Sfx.ctx && Sfx.ctx.state === 'suspended') Sfx.ctx.resume(); Music.refresh(); };
+  window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
+  Music.play('board');
   UI.showMenu();
 });

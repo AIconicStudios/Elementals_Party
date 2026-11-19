@@ -50,11 +50,11 @@ const Nav = {
       const now = {};
       if (b(12) || ay < -0.5) now.up = true; if (b(13) || ay > 0.5) now.down = true;
       if (b(14) || ax < -0.5) now.left = true; if (b(15) || ax > 0.5) now.right = true;
-      if (b(0)) now.a = true; if (b(1)) now.b = true; if (b(2)) now.x = true; if (b(3)) now.y = true;
+      if (b(0)) now.a = true; if (b(1)) now.b = true; if (b(2)) now.x = true; if (b(3)) now.y = true; if (b(4) || b(6)) now.v = true;
       const prev = this.prev[idx] || {};
       const mine = owner === null || Input.seatForPad(idx) === owner;
-      for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y']) {
-        if (!mine && k !== 'x' && k !== 'y') continue;
+      for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'v']) {
+        if (!mine && k !== 'x' && k !== 'y' && k !== 'v') continue;
         if (now[k] && !prev[k]) { this.handle(k); this.rep[idx] = 0.4; }
         else if (now[k] && ['up', 'down', 'left', 'right'].includes(k)) { this.rep[idx] = (this.rep[idx] || 0) - 1 / 60; if (this.rep[idx] <= 0) { this.handle(k); this.rep[idx] = 0.12; } }
       }
@@ -65,6 +65,7 @@ const Nav = {
     if (this.active) this.paint();
   },
   handle(k) {
+    if (k === 'v') { if (UI.game) Render.toggleZoom(); return; }
     if (k === 'y') { if (UI.game) UI.toggleMap(); return; }
     if (k === 'x') { UI.toggleHelp(); return; }
     if (k === 'b') {

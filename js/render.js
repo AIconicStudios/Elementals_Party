@@ -16,9 +16,9 @@ const Render = {
   init(canvas) {
     this.canvas = canvas; this.g = canvas.getContext('2d');
     for (let i = 0; i < 180; i++) this.stars.push({ x: Math.random() * 1600, y: Math.random() * 900, r: Math.random() * 1.4 + 0.2, t: Math.random() * 6 });
-    canvas.addEventListener('mousemove', e => { const p = this.mpos(e); this.hover = this.hitTile(p.x, p.y); });
+    canvas.addEventListener('mousemove', e => { const m = this.mpos(e), p = this.toWorld(m.x, m.y); this.hover = this.hitTile(p.x, p.y); });
     canvas.addEventListener('click', e => {
-      const p = this.mpos(e);
+      const m0 = this.mpos(e), p = this.toWorld(m0.x, m0.y);
       if (this.mapMode) { UI.toggleMap(false); return; }
       if (this.die && this.die.state === 'rolling' && this.die.onStop) { this.die.onStop(); return; }
       const h = this.hitTile(p.x, p.y);
@@ -121,6 +121,7 @@ const Render = {
       const re = this.reactions[pl.id]; if (!re) continue;
       re.t += 1 / 60; if (re.t < 0) continue;
       if (re.t > re.dur) { delete this.reactions[pl.id]; continue; }
+      if (this.zoom) continue;
       const c = this.homeCenter(pl.id);
       const e = Math.min(1, re.t / 0.35), pop = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2);
       const out = re.t > re.dur - 0.3 ? (re.dur - re.t) / 0.3 : 1;
@@ -209,8 +210,10 @@ const Render = {
     if (!G) { this.stepParts(g); this.drawTitle(g, now); return; }
     if (this.mapMode) { this.drawMap(g, now); return; }
     this.ambient(G, now);
+    const camOn = this.beginCam(g, G);
 
     // inner field
+    if (!this.zoom) {
     g.fillStyle = 'rgba(255,255,255,0.035)'; this.rr(g, 392, 182, 816, 536, 26); g.fill();
     g.strokeStyle = 'rgba(180,160,255,0.12)'; g.lineWidth = 2; g.stroke();
 
@@ -228,6 +231,7 @@ const Render = {
       g.font = 'bold 17px Georgia'; g.fillStyle = c.color; g.fillText(`${c.name}'s turn`, 552, 405);
     }
     this.drawDie(g, now);
+    }
 
     // connectors
     for (let el = 0; el < 4; el++) {
@@ -321,12 +325,74 @@ const Render = {
       g.fillStyle = f.color || '#fff'; g.fillText(f.text, f.x, f.y - f.t * 34);
     }
     g.globalAlpha = 1;
+    if (camOn) { g.restore(); if (this.zoom) this.drawZoomHud(g, now); }
   },
 
-  drawDie(g, now) {
+  // ---------------------------------------------------------- close-up camera (V / gamepad LB or LT)
+  zoom: false, cam: null,
+  beginCam(g, G) {
+    const c = this.cam || (this.cam = { x: 800, y: 450, s: 1 });
+    let tx = 800, ty = 450, ts = 1;
+    if (this.zoom) {
+      ts = 2.3;
+      if (this.highlight) { const h = this.homeCenter(this.highlight.owner.id); tx = h.x; ty = h.y; }
+      else { const p = G.current, d = p && !p.gone && this.disp['T' + p.id]; if (d) { tx = d.x; ty = d.y - 20; } }
+      const hw = 800 / ts, hh = 450 / ts;
+      tx = clamp(tx, hw - 60, 1600 - hw + 60); ty = clamp(ty, hh - 80, 900 - hh + 60);
+    }
+    c.x = lerp(c.x, tx, 0.09); c.y = lerp(c.y, ty, 0.09); c.s = lerp(c.s, ts, 0.12);
+    if (!this.zoom && Math.abs(c.s - 1) < 0.01) { c.s = 1; c.x = 800; c.y = 450; return false; }
+    g.save(); g.translate(800, this.zoom ? 470 : 450); g.scale(c.s, c.s); g.translate(-c.x, -c.y);
+    return true;
+  },
+  toWorld(x, y) { const c = this.cam; if (!c || c.s === 1) return { x, y }; return { x: (x - 800) / c.s + c.x, y: (y - (this.zoom ? 470 : 450)) / c.s + c.y }; },
+  toggleZoom(on) { this.zoom = on === undefined ? !this.zoom : on; document.getElementById('app').classList.toggle('zoommode', this.zoom); const b = document.getElementById('viewBtn'); if (b) b.innerHTML = this.zoom ? '🗺️ Whole board <small>V · LB</small>' : '🔍 Close-up <small>V · LB</small>'; Sfx.click(); },
+  drawZoomHud(g, now) {
+    const G = this.game;
+    g.fillStyle = 'rgba(8,6,20,0.82)'; g.fillRect(0, 0, 1600, 62);
+    G.players.forEach((p, i) => {
+      const x = 16 + i * 330, cur = G.current === p, re = this.reactionOf(p.id);
+      if (cur) { g.fillStyle = 'rgba(255,255,255,0.08)'; this.rr(g, x - 6, 6, 316, 50, 12); g.fill(); g.strokeStyle = p.color; g.lineWidth = 2; g.stroke(); }
+      Char.draw(g, x + 24, 30, 17, p.id, p.color, { mood: re ? re.mood : cur ? 'happy' : 'neutral', noFeet: true, simple: true, seed: p.id, look: { x: 0.5, y: 0 } });
+      g.textAlign = 'left'; g.font = 'bold 18px Georgia'; g.fillStyle = p.color; g.fillText(p.name, x + 54, 27);
+      g.font = '16px Georgia, "Segoe UI Emoji"'; g.fillStyle = '#ffe680';
+      g.fillText(G.simple ? `⭐ ${p.vault}   🪙 ${p.cash}` : `⭐ ${p.vault}   🏦 ${G.bank(p)}   💰 ${p.cash}`, x + 54, 49);
+    });
+    g.textAlign = 'right'; g.font = 'bold 18px Georgia'; g.fillStyle = '#efe6ff';
+    g.fillText(G.round ? `Round ${G.round}/${G.rounds}` : 'Setup', 1400, 38);
+    // die in the corner
+    this.drawDie(g, now, 620, 770, 0.75);
+    if (G.current && !this.die) { g.textAlign = 'center'; g.font = 'bold 22px Georgia'; g.fillStyle = G.current.color; g.fillText(`${G.current.name}'s turn`, 620, 860); }
+    // reaction portraits slide in from the left edge
+    let k = 0;
+    for (const pl of G.players) {
+      const re = this.reactionOf(pl.id); if (!re) continue;
+      const e = Math.min(1, re.t / 0.35), pop = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2);
+      const out = re.t > re.dur - 0.3 ? (re.dur - re.t) / 0.3 : 1;
+      const x = -120 + 230 * pop * (0.5 + 0.5 * out), y = 150 + k * 165; k++;
+      g.save(); g.globalAlpha = out;
+      const gl = g.createRadialGradient(x, y, 10, x, y, 85); gl.addColorStop(0, this.moodColor(re.mood)); gl.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gl; g.beginPath(); g.arc(x, y, 85, 0, 7); g.fill();
+      g.fillStyle = 'rgba(12,8,28,0.85)'; g.beginPath(); g.arc(x, y, 62, 0, 7); g.fill(); g.strokeStyle = pl.color; g.lineWidth = 4; g.stroke();
+      g.save(); g.beginPath(); g.arc(x, y, 62, 0, 7); g.clip();
+      Char.draw(g, x, y + 4, 40, pl.id, pl.color, { mood: re.mood, seed: pl.id * 5, look: { x: 0.6, y: 0 } });
+      g.restore();
+      if (re.text) {
+        g.font = 'bold 18px Georgia, "Segoe UI Emoji"'; const tw = Math.min(300, g.measureText(re.text).width + 24);
+        const bx = x + 74, by = y - 40;
+        g.fillStyle = 'rgba(255,255,255,0.96)'; g.strokeStyle = pl.color; g.lineWidth = 3; this.rr(g, bx, by, tw, 34, 12); g.fill(); g.stroke();
+        g.beginPath(); g.moveTo(bx + 1, by + 12); g.lineTo(bx - 12, by + 22); g.lineTo(bx + 1, by + 24); g.fill();
+        g.fillStyle = '#2a1410'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(re.text, bx + tw / 2, by + 18, tw - 14); g.textBaseline = 'alphabetic';
+        g.font = 'bold 14px Georgia'; g.fillStyle = pl.color; g.textAlign = 'left'; g.fillText(pl.name, bx + 4, by + 52);
+      }
+      g.restore();
+    }
+  },
+
+  drawDie(g, now, cx = 552, cy = 530, dsc = 1) {
     const d = this.die; if (!d) return;
     const G = this.game, who = G.players[d.who];
-    const cx = 552, cy = 530;
+    g.save(); g.translate(cx, cy); g.scale(dsc, dsc); g.translate(-cx, -cy);
     if (d.state === 'rolling') { d.t += 1 / 60; if (Math.floor(d.t * 14) !== Math.floor((d.t - 1 / 60) * 14)) { const o = d.faces.filter(x => x !== d.face); d.face = R.pick(o.length ? o : d.faces); } d.rot += 0.35; }
     else if (d.state === 'stopping') d.rot += d.spin;
     else d.rot = lerp(d.rot, Math.round(d.rot / (Math.PI / 2)) * (Math.PI / 2), 0.25);
@@ -358,6 +424,7 @@ const Render = {
       g.fillText(d.total !== null && d.total !== d.face ? `${d.face} → ${d.total}` : `${d.face}`, cx, cy + 105);
       if (d.note) { g.font = '15px Georgia'; g.fillStyle = '#c9bdf0'; g.fillText(d.note, cx, cy + 128); }
     }
+    g.restore();
   },
 
   tileLabel(o, k) {

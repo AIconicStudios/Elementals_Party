@@ -3,6 +3,7 @@
 const Settings = {
   speed: 1,          // animation delay multiplier (0 = instant)
   sound: true,
+  music: true,
   test: false,       // headless test mode (minigames simulated instantly)
 };
 

@@ -12,6 +12,7 @@ const UI = {
       if ((e.code === 'Space' || e.code === 'Enter') && Render.die && Render.die.onStop) { e.preventDefault(); Render.die.onStop(); return; }
       if (e.code === 'KeyM' && this.game && document.activeElement.tagName !== 'INPUT') { this.toggleMap(); return; }
       if (e.code === 'KeyH' && document.activeElement.tagName !== 'INPUT') { this.toggleHelp(); return; }
+      if (e.code === 'KeyV' && this.game && document.activeElement.tagName !== 'INPUT') { Render.toggleZoom(); return; }
       if (e.code === 'Escape') { if (this.helpOpen()) this.toggleHelp(false); else if (Render.mapMode) this.toggleMap(false); return; }
       if (!this.pending || this.helpOpen()) return;
       const n = parseInt(e.key, 10);
@@ -219,8 +220,8 @@ const UI = {
       one = true;
       body = `<div class="rtext">
       <p><b>Board (mouse):</b> click the options in the middle panel, click highlighted tiles to place things, or press 1–9.</p>
-      <p><b>Board (keyboard):</b> arrow keys move the highlight, Enter selects, Space stops the die, M opens the map, H opens help, Esc goes back.</p>
-      <p><b>Board (gamepad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help. Only the player whose turn or decision it is can answer with their own gamepad.</p>
+      <p><b>Board (keyboard):</b> arrow keys move the highlight, Enter selects, Space stops the die, M opens the map, H opens help, V switches between the whole board and the close-up view, Esc goes back.</p>
+      <p><b>Board (gamepad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help, LB or LT to switch between the whole board and the close-up view. Only the player whose turn or decision it is can answer with their own gamepad.</p>
       <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br><b>Gamepads:</b> each connected gamepad belongs to exactly one human player, in seat order (1st gamepad → 1st human seat, 2nd → 2nd human, …). A = action / select, B = back and secret-pick peek, X = help, Y = map, Start = pause in minigames. On the board, only the player whose decision it is can answer with their gamepad. Player 1 can also use the mouse in cursor games.</p>
       <p><b>Secret picks:</b> in bluffing games nobody’s cursor is shown. Hold your alt button (B) to peek at your own choice.</p>
       </div>`;
@@ -248,7 +249,8 @@ const UI = {
       <div class="row"><label>Board <select id="boardSel"><option value="simple">🌱 Starter Crossing — for beginners</option><option value="full">⚔️ The Crossing — full game</option></select></label>
       <label>Game length <select id="rounds"><option value="20">20 rounds</option><option value="15">15 rounds</option><option value="12">12 rounds</option><option value="10">10 rounds (quick)</option></select></label>
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
-      <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label></div>
+      <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label>
+      <label><input type="checkbox" id="mus" ${Settings.music ? 'checked' : ''}> Music</label></div>
       <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (60 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
@@ -261,12 +263,13 @@ const UI = {
     $('#boardSel').onchange = () => { $('#rounds').value = $('#boardSel').value === 'simple' ? '12' : '20'; };
     $('#startBtn').onclick = () => {
       const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); localStorageSet('ff_board', $('#boardSel').value);
-      Settings.speed = +$('#speed').value; Settings.sound = $('#snd').checked;
+      Settings.speed = +$('#speed').value; Settings.sound = $('#snd').checked; Settings.music = $('#mus').checked;
       Sfx.init();
       $('#overlay').classList.add('hidden');
       startGame({ seats: s, rounds: +$('#rounds').value, simple: $('#boardSel').value === 'simple' });
     };
-    $('#practiceBtn').onclick = () => { const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); Settings.sound = $('#snd').checked; Sfx.init(); this.showPractice(s); };
+    $('#practiceBtn').onclick = () => { const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); Settings.sound = $('#snd').checked; Settings.music = $('#mus').checked; Sfx.init(); Music.refresh(); this.showPractice(s); };
+    $('#mus').onchange = () => { Settings.music = $('#mus').checked; Music.refresh(); };
     $('#rulesBtn').onclick = () => this.toggleHelp(true, 'rules');
   },
 

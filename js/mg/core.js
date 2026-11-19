@@ -85,6 +85,8 @@ const MG = {
     const game = this.byId[id];
     if (Settings.test) return this.simulate(game, players, order);
     const layer = document.getElementById('mgLayer');
+    const quiet = game.type === 'Rhythm' || game.quietMusic;
+    Music.play('mini'); Music.setDuck(1, 0.3);
     layer.classList.remove('hidden');
     const m = this.makeCtx(game, players);
     const S = {};
@@ -97,7 +99,7 @@ const MG = {
     const demo = this.makeDemo(game, players);
     Input.mouse.moved = false;
     return new Promise(resolve => {
-      const finishWith = res => { this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
+      const finishWith = res => { Music.setDuck(1, 0.3); Music.play('board'); this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
       document.getElementById('mgPauseBtn').classList.remove('hidden');
       this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
       this.onQuitClick = () => { this.paused = false; finishWith({ winners: [], winner: null, scores: null, quit: true }); };
@@ -120,7 +122,7 @@ const MG = {
           m.players.forEach((p, i) => { if (p.human && !ready[i] && m.pressed(i, 'a')) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } });
           this.drawCard(g, game, m, phaseT, ready, demo, dt);
           const humans = m.players.some(p => p.human);
-          if ((humans && ready.every(r => r)) || (!humans && phaseT > 4)) { phase = 'count'; phaseT = 0; this.fx = []; }
+          if ((humans && ready.every(r => r)) || (!humans && phaseT > 4)) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
         } else if (phase === 'count') {
           this.drawGame(g, game, m, S, dt);
           const n = 3 - Math.floor(phaseT / 0.7);
@@ -392,11 +394,17 @@ const MGH = {
   drawBody(g, b, p, extra, mood) {
     const sp = Math.hypot(b.vx || 0, b.vy || 0);
     if (!mood) mood = b.mood || (!b.alive ? 'out' : ((b.stun > 0 || b.frozen > 0) ? 'dizzy' : sp > 160 ? 'determined' : 'happy'));
-    Char.draw(g, b.x, b.y, b.r, p.el.id, p.color, { mood, look: b.face, walk: sp > 40 ? 1 : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
+    Char.draw(g, b.x, b.y, b.r * 1.2, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? 1 : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
     if (extra) { g.save(); g.font = `${Math.round(b.r * 0.9)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(extra, b.x, b.y - b.r * 1.75); g.restore(); }
   },
   // draw player i's character
-  av(g, m, i, x, y, r, mood, o = {}) { const p = m.players[i]; Char.draw(g, x, y, r, p.el.id, p.color, Object.assign({ mood, seed: i * 1.7 }, o)); },
+  // minigame characters are drawn 25% bigger, growing upward so their feet stay on the ground
+  av(g, m, i, x, y, r, mood, o = {}) { const p = m.players[i], rs = r * 1.25; Char.draw(g, x, y - (rs - r) * (o.noFeet ? 0.4 : 1.2), rs, p.el.id, p.color, Object.assign({ mood: MGH.persona(mood, p.el.id), seed: i * 1.7 }, o)); },
+  // each clan has its own personality: Air laughs it off, Water is emotional, Fire is fiery, Earth is steady
+  persona(mood, el) {
+    const P = { cheer: ['laugh', 'starry', 'evil', 'proud'], hurt: ['shock', 'cry', 'angry', 'sad'], scared: ['shock', 'nervous', 'scared', 'nervous'] }[mood];
+    return P && el >= 0 ? P[el] : mood;
+  },
   // seat-to-bot "near" helpers
   nearest(b, others) { let best = null, bd = 1e9; for (const o of others) { if (o === b || !o.alive) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < bd) { bd = d; best = o; } } return best; },
   aim(m, i, x, y, b, deadzone = 6) {

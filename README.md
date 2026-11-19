@@ -46,6 +46,11 @@ In the desktop app, F11 toggles fullscreen.
 
 Seats set to *Bot* are played by the AI. Pause any minigame with Esc, gamepad Start or the ⏸ button; from there you can resume or quit (quitting a Moot gives no reward). Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — hold your alt button to peek at your own choice. The menu's **Moot practice** mode lets you play any of the 60 minigames directly.
 
+## Music and views
+
+- **Music:** original background tunes are generated live: a bouncy theme for the board and menu, and a faster one for minigames. Rhythm minigames (Moot Drums, Metronome Monk, Fourfold Tug) fade the music out so you can hear the beat. Toggle it with 🎵 Music on the board or the Music box on the menu.
+- **Close-up view:** press **V**, gamepad **LB** or **LT**, or the 🔍 button to switch between the whole board and a zoomed camera that follows the current player. In close-up, players who react pop in as portraits along the left edge, and a bar across the top shows everyone's stars and coins.
+
 ## Two boards
 
 Pick the board on the main menu:

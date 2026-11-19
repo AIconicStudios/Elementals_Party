@@ -158,7 +158,7 @@ MG.def({
 MGH.cursors = (m, g, moods) => {
   m.players.forEach((p, i) => {
     const c = m.cur[i];
-    Char.draw(g, c.x + 26, c.y + 26, 12, p.el.id, p.color, { mood: (moods && moods[i]) || 'determined', seed: i * 1.7, look: { x: -0.7, y: -0.7 }, noFeet: true });
+    Char.draw(g, c.x + 28, c.y + 30, 16, p.el.id, p.color, { mood: MGH.persona((moods && moods[i]) || 'determined', p.el.id), seed: i * 1.7, look: { x: -0.7, y: -0.7 }, noFeet: true });
     g.strokeStyle = '#000'; g.lineWidth = 4; g.beginPath(); g.arc(c.x, c.y, 12, 0, 7); g.stroke();
     g.strokeStyle = p.color; g.lineWidth = 3; g.beginPath(); g.arc(c.x, c.y, 12, 0, 7); g.moveTo(c.x - 18, c.y); g.lineTo(c.x + 18, c.y); g.moveTo(c.x, c.y - 18); g.lineTo(c.x, c.y + 18); g.stroke();
     MGH.text(g, String(i + 1), c.x + 16, c.y - 14, 14, p.color, 'left', 'bold');
