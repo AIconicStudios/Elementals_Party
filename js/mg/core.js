@@ -86,7 +86,7 @@ const MG = {
     if (Settings.test) return this.simulate(game, players, order);
     const layer = document.getElementById('mgLayer');
     const quiet = game.type === 'Rhythm' || game.quietMusic;
-    Music.play('mini'); Music.setDuck(1, 0.3);
+    Music.play(Music.nextMini()); Music.setDuck(1, 0.3);
     layer.classList.remove('hidden');
     let m = this.makeCtx(game, players);
     let S = {};
@@ -100,7 +100,7 @@ const MG = {
     const demo = this.makeDemo(game, players);
     Input.mouse.moved = false;
     return new Promise(resolve => {
-      const finishWith = res => { Music.setDuck(1, 0.3); Music.play('board'); this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
+      const finishWith = res => { Music.setDuck(1, 0.3); Music.resume(); this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
       document.getElementById('mgPauseBtn').classList.remove('hidden');
       this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
       // restart: fresh round straight into the countdown

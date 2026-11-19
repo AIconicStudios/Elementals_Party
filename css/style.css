@@ -146,3 +146,10 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
   background: radial-gradient(circle at 50% 50%, #ffe680 0 6%, transparent 6.5%), repeating-conic-gradient(from 0deg at 50% 50%, #ff6a8a 0 15deg, #5fb8ff 15deg 30deg, #ffd34d 30deg 45deg, #6fdc8c 45deg 60deg); display: flex; align-items: center; justify-content: center; }
 #wipe.on { clip-path: circle(150% at 50% 50%); }
 #wipe .wt { font-family: Georgia, serif; font-weight: bold; font-size: 72px; color: #fff; -webkit-text-stroke: 3px #1a0f3a; text-shadow: 0 8px 0 #1a0f3a, 0 0 30px rgba(0,0,0,0.5); transform: rotate(-4deg); }
+
+/* live clan portraits on the menu */
+.seat { grid-template-columns: 84px 1fr 120px 82px 140px; }
+.seat .mport { width: 84px; height: 84px; margin: -10px 0; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.45)); border-radius: 50%; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--c) 35%, transparent), transparent 70%); }
+.seat .hold { color: #bbb; font-weight: normal; }
+.seat:hover .mport { transform: scale(1.08); transition: transform .2s; }
+.seat .mname { font-size: 20px; letter-spacing: 0.5px; }

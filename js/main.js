@@ -27,6 +27,7 @@ window.addEventListener('load', () => {
   window.quitToMenu = () => {
     {
       UI.togglePause(false);
+      Music.back = 'title'; Music.play('title');
       if (currentGame) { currentGame.aborted = true; if (UI.pending) UI.pending(null); }
       currentGame = null; UI.game = null; UI.toggleMap(false); Render.mapMode = false; document.getElementById('app').classList.remove('mapmode');
       [0, 1, 2, 3].forEach(i => { document.getElementById('pc' + i).innerHTML = ''; }); Render.die = null;
@@ -51,6 +52,6 @@ window.addEventListener('load', () => {
   // browsers only start audio after a click or key press
   const unlock = () => { Sfx.init(); if (Sfx.ctx && Sfx.ctx.state === 'suspended') Sfx.ctx.resume(); Music.refresh(); };
   window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
-  Music.play('board');
+  Music.play('title');
   UI.showMenu();
 });

@@ -271,6 +271,23 @@ const UI = {
   },
 
   // ---------------------------------------------------------- screens
+  // live, idling clan portraits on the menu seat cards
+  menuPortraits() {
+    const tick = () => {
+      const cv = [0, 1, 2, 3].map(i => document.getElementById('mport' + i));
+      if (!cv[0] || $('#overlay').classList.contains('hidden')) { this.menuRaf = null; return; }
+      const t = performance.now() / 1000;
+      cv.forEach((c, i) => {
+        const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.setTransform(1.4, 0, 0, 1.4, 0, 0);
+        const hov = c.closest('.seat') && c.closest('.seat').matches(':hover');
+        Char._wave = hov;
+        Char.draw(g, 62, 58, 34, i, ELEMENTS[i].color, { mood: hov ? 'determined' : 'happy', t: t + i * 1.7, seed: i * 2.3, look: { x: -0.4, y: 0 } });
+        Char._wave = false;
+      });
+      this.menuRaf = requestAnimationFrame(tick);
+    };
+    if (!this.menuRaf) this.menuRaf = requestAnimationFrame(tick);
+  },
   showMenu() {
     Render.game = null;
     $('#overlay').classList.remove('hidden');
@@ -279,7 +296,7 @@ const UI = {
     $('#overlay').innerHTML = `<div class="panel menu">
       <h1>THE FOURFOLD</h1><p class="sub">Four Holds race to hold the most stars after the final bell — raiding each other along the way.</p>
       <div class="seats">${ELEMENTS.map((el, i) => `<div class="seat" style="--c:${el.color}">
-        <div class="sg">${el.glyph}</div><div><b>${el.hold}</b><br><small>${el.name} · ${el.people}</small></div>
+        <canvas class="mport" id="mport${i}" width="168" height="168"></canvas><div><b class="mname">${el.mascot}</b><br><small>${el.hold} · ${el.name}</small></div>
         <input id="sn${i}" value="${esc(seats[i].name)}" maxlength="14">
         <select id="sh${i}"><option value="1" ${seats[i].human ? 'selected' : ''}>Human</option><option value="0" ${!seats[i].human ? 'selected' : ''}>Bot</option></select>
         <select id="sp${i}" title="Which gamepad plays this character">${[['auto', '🎮 Auto'], ['0', '🎮 Gamepad 1'], ['1', '🎮 Gamepad 2'], ['2', '🎮 Gamepad 3'], ['3', '🎮 Gamepad 4'], ['-1', '⌨️ Keyboard only']].map(([v, l]) => `<option value="${v}" ${String(seats[i].pad ?? 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -296,6 +313,7 @@ const UI = {
     const padLabels = () => { const S = readSeats(); Input.setHumans(S); ELEMENTS.forEach((el, i) => { const n = Input.padNumberForSeat(i); $('#sp' + i).disabled = !S[i].human; $('#kh' + i).textContent = !S[i].human ? 'bot' : n ? `🎮 gamepad ${n}` : 'keyboard only'; }); };
     ELEMENTS.forEach((el, i) => { $('#sh' + i).addEventListener('change', padLabels); $('#sp' + i).addEventListener('change', () => { const v = $('#sp' + i).value; if (v !== 'auto' && v !== '-1') ELEMENTS.forEach((e2, j) => { if (j !== i && $('#sp' + j).value === v) $('#sp' + j).value = 'auto'; }); padLabels(); }); });
     padLabels();
+    this.menuPortraits();
     const board0 = localStorageGet('ff_board') || 'full';
     $('#boardSel').value = board0; $('#rounds').value = board0 === 'simple' ? '12' : '20';
     $('#boardSel').onchange = () => { $('#rounds').value = $('#boardSel').value === 'simple' ? '12' : '20'; };
