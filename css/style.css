@@ -90,3 +90,12 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 #app.zoommode .pc, #app.zoommode #log, #app.zoommode #ctrl { display: none; }
 #app.zoommode #viewBtn { top: 12px; right: 10px; }
 #app.zoommode #action { left: auto; right: 14px; top: auto; bottom: 14px; width: 440px; max-height: 430px; background: rgba(16,12,34,0.93); }
+/* the event log is optional now: the board tells the story with animations */
+#log { display: none; z-index: 5; }
+#app.showlog #log { display: block; }
+#app.zoommode.showlog #log, #app.mapmode.showlog #log { display: none; }
+/* while the camera leans in on an event, the side panels step aside */
+.pc, #ctrl, #action, #viewBtn { transition: opacity 0.35s; }
+#app.focusmode .pc, #app.focusmode #ctrl, #app.focusmode #viewBtn, #app.focusmode #log { opacity: 0; pointer-events: none; }
+#app.focusmode #action { opacity: 0.25; }
+#app.showmode .pc, #app.showmode #action, #app.showmode #ctrl { opacity: 0.12; }

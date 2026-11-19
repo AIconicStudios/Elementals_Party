@@ -42,7 +42,7 @@ class SimpleGame extends Game {
     this.current = p; this.turnCount++; this.phase = 'turn';
     UI.refresh(); UI.turnStart(p);
     this.log(`<hr>— ${this.name(p)}'s turn —`);
-    await sleep(250);
+    await Stage.turn(p);
     for (let guard = 0; guard < 8; guard++) {
       const options = [{ label: '🎲 Roll the dice!', value: 'roll', key: 'roll' }];
       for (const id of [...new Set(p.items)]) {
@@ -50,7 +50,7 @@ class SimpleGame extends Game {
         if (it.use === 'play') options.push({ label: `${it.icon} Use ${it.name}`, value: id, desc: it.desc, item: true });
         else options.push({ label: `${it.icon} ${it.name} (works by itself)`, value: null, disabled: true, desc: it.desc });
       }
-      const v = await this.choose(p, { title: `${p.name}'s turn`, text: 'Use an item if you like, then roll!', options }, () => this.botPick(p));
+      const v = await this.choose(p, { title: `${p.name}'s turn`, text: '', options }, () => this.botPick(p));
       if (v === 'roll' || !v) break;
       await this.useSimpleItem(p, v);
       UI.refresh();
@@ -87,25 +87,28 @@ class SimpleGame extends Game {
     this.consume(p, id);
     this.log(`${this.name(p)} uses ${it.icon} <b>${it.name}</b>${target ? ` on ${this.name(target)}` : ''}.`);
     Sfx.click();
+    await Stage.item(p, it.icon, it.name, target);
     switch (id) {
       case 'sdouble': t.mods.double = true; this.emote(p, '🎲'); break;
       case 'smagic': t.mods.custom = true; this.emote(p, '🎯'); break;
       case 'ssnail': target.trav.mods.snail = true; this.react(p, 'smug', 'Slow down there!'); this.react(target, 'angry', 'A snail?!', 0.3); break;
       case 'smagnet': {
         const rich = this.players.filter(q => q !== p).sort((a, b) => b.cash - a.cash)[0];
-        const n = Math.min(5, rich.cash); rich.cash -= n; p.cash += n;
+        const n = Math.min(5, rich.cash);
+        await Stage.coinsTo(() => Stage.scr(Stage.tokPt(rich)), () => Stage.scr(Stage.tokPt(p)), Math.max(1, n));
+        rich.cash -= n; p.cash += n;
         this.log(`🧲 ${this.name(p)} pulls ${n} coins from ${this.name(rich)}!`);
         Render.coinBurst(p, Math.max(1, n));
         this.react(p, 'evil', 'Come to me, coins!'); this.react(rich, 'shock', 'Hey! My coins!', 0.3);
         break;
       }
       case 'sbox':
-        if (R.int(1, 3) === 1) { p.vault++; this.log(`🎁 ${this.name(p)} opens the box… a STAR!`, 'good'); Sfx.star(); this.react(p, 'starry', 'A FREE STAR!!'); this.crowd([p], ['shock', 'angry'], 0.4); }
+        if (await Stage.wheel(p, [{ icon: '⭐', color: '#ffd34d' }, { icon: '🪙', text: '+3', color: '#6fdc8c' }, { icon: '🪙', text: '+3', color: '#5fb8ff' }, { icon: '⭐', color: '#ffd34d' }, { icon: '🪙', text: '+3', color: '#6fdc8c' }, { icon: '🪙', text: '+3', color: '#5fb8ff' }], '🎁 Lucky Star Box') % 3 === 0) { p.vault++; this.log(`🎁 ${this.name(p)} opens the box… a STAR!`, 'good'); Sfx.star(); this.react(p, 'starry', 'A FREE STAR!!'); this.crowd([p], ['shock', 'angry'], 0.4); }
         else { p.cash += 3; this.log(`🎁 ${this.name(p)} opens the box… 3 coins.`); this.emote(p, '🙂'); }
         break;
       case 'swind': {
         let k = t.pos; do { k = (k + 1) % 40; } while (this.board[k] !== 'bank');
-        t.pos = k; UI.refresh(); await sleep(400);
+        t.pos = k; UI.refresh(); await Stage.look(Render.trackPos(k), 900);
         this.log(`💨 ${this.name(p)} flies to a Counting House.`);
         await this.shopSimple(p);
         break;
@@ -120,7 +123,7 @@ class SimpleGame extends Game {
     for (let s = 1; s <= steps; s++) {
       t.pos = (t.pos + dir + 40) % 40;
       Sfx.step(); Render.stepPuff(t.pos); UI.refresh();
-      await sleep(180);
+      await sleep(320);
       const last = s === steps, sp = this.board[t.pos];
       if (sp === 'bank') await this.shopSimple(p);
       if (sp === 'gate') {
@@ -128,7 +131,7 @@ class SimpleGame extends Game {
         if (owner === p) { p.cash += 3; this.fx(p, '🏠 +3', '#ffe680'); this.emote(p, '🏠'); this.log(`${this.name(p)} passes home: +3 coins.`); }
         else if (this.round >= this.raidRound) {
           const rest = steps - s;
-          const yes = await this.choose(p, { title: `${owner.el.hold}`, text: `Sneak into ${owner.name}'s Hold? Roll a die: 1–2 you get caught (pay 3) · 3–5 grab 5 coins · 6 grab a STAR!${rest ? ` (You stop walking here.)` : ''}`, options: [
+          const yes = await this.choose(p, { title: `${owner.el.hold}`, text: '', options: [
             { label: `🦹 Sneak in!`, value: true }, { label: rest ? `Keep walking (${rest} more)` : 'No thanks', value: false }] },
             () => (owner.vault > 0 || owner.cash >= 5) && Math.random() < 0.75);
           if (yes) { await this.raidSimple(p, owner); UI.refresh(); return; }
@@ -149,10 +152,10 @@ class SimpleGame extends Game {
       this.react(owner, 'evil', 'Sic \'em, boy!'); this.react(p, 'shock', 'A DOG?! RUN!', 0.25); this.crowd([p, owner], 'laugh', 0.6);
       return;
     }
-    if (p.human) UI.note(`${p.name}: roll to see what you grab!`);
-    const d = await this.throwDie(p, [1, 2, 3, 4, 5, 6]);
-    this.dice = { v: d, who: p.id, note: '' };
-    await sleep(300);
+    const star = owner.vault > 0;
+    const segs = [{ icon: '🚨', text: '−3', color: '#ff4d6d' }, { icon: '💰', text: '+5', color: '#6fdc8c' }, { icon: '💰', text: '+5', color: '#5fb8ff' },
+      { icon: '🚨', text: '−3', color: '#ff4d6d' }, { icon: '💰', text: '+5', color: '#6fdc8c' }, star ? { icon: '⭐', color: '#ffd34d' } : { icon: '💰', text: '+10', color: '#ffd34d' }];
+    const d = [1, 3, 4, 2, 5, 6][await Stage.wheel(p, segs, `🦹 ${owner.el.hold}`)];
     if (d <= 2) {
       const n = Math.min(3, p.cash); p.cash -= n; owner.cash += n;
       this.log(`🚨 Caught! ${this.name(p)} pays ${n} coins to ${this.name(owner)}.`, 'bad'); Sfx.bad();
@@ -176,20 +179,29 @@ class SimpleGame extends Game {
   async landSimple(p) {
     const t = p.trav, sp = this.board[t.pos];
     Render.landFx(t.pos);
+    // landing on someone: POW! and grab one of their coins
+    for (const q of this.players) {
+      if (q === p || q.gone || q.trav.pos !== t.pos) continue;
+      const got = q.cash > 0;
+      await Stage.punch(p, q, got);
+      if (got) { q.cash--; p.cash++; this.log(`👊 ${this.name(p)} bops ${this.name(q)} and grabs 1 coin!`); }
+      this.react(p, 'evil', R.pick(['POW! Mine now!', 'Thanks for the coin!', 'Out of my way!'])); this.react(q, R.pick(['angry', 'cry']), R.pick(['OW!', 'Hey! That hurt!', 'My coin!']), 0.3);
+      UI.refresh();
+    }
     switch (sp) {
-      case 'blue': p.cash += 3; this.fx(p, '+3', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on blue: +3 coins.`); break;
-      case 'red': { const l = Math.min(3, p.cash); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on red: −${l} coins.`); break; }
+      case 'blue': await Stage.space(p, t.pos, 'blue', 3); p.cash += 3; this.fx(p, '+3', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on blue: +3 coins.`); break;
+      case 'red': { const l = Math.min(3, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on red: −${l} coins.`); break; }
       case 'lucky': {
-        const v = R.pick([1, 3, 5, 10]);
-        for (let k = 0; k < 6; k++) { this.fx(p, R.pick(['1', '3', '5', '10']), '#5fe3b0'); await sleep(70); }
-        p.cash += v; this.fx(p, `🎡 +${v}`, '#5fe3b0'); Sfx.coin();
+        const v = await this.coinWheel(p, '🎡 Lucky Wheel');
+        p.cash += v; this.fx(p, `+${v}`, '#5fe3b0'); Sfx.coin(); Render.coinBurst(p, Math.min(8, v));
         this.log(`${this.name(p)} spins the Lucky Wheel: +${v} coins.`);
         if (v === 10) this.react(p, 'starry', 'JACKPOT!'); else this.emote(p, v >= 5 ? '😄' : '🙂');
         break;
       }
-      case 'item': await this.giveItem(p, this.randomHandItem()); this.emote(p, '🎁'); break;
+      case 'item': await this.giveItem(p, await this.itemWheel(p, '🎁 Gift')); this.emote(p, '🎁'); break;
       case 'swirl': {
-        const q = R.pick(this.players.filter(o => o !== p && !o.gone));
+        const others = this.players.filter(o => o !== p && !o.gone);
+        const q = others[await Stage.wheel(p, others.map(o => ({ icon: o.el.glyph, text: o.name.slice(0, 8), color: o.color })), '🌪️ Whirlwind')];
         const a = t.pos; t.pos = q.trav.pos; q.trav.pos = a;
         this.log(`🌪️ Whirlwind! ${this.name(p)} swaps places with ${this.name(q)}.`, 'warn');
         Render.burstAt(Render.trackPos(a), ['#5fc8e8', '#fff'], 24, { speed: 260 }); Sfx.boom();
@@ -197,13 +209,14 @@ class SimpleGame extends Game {
         break;
       }
       case 'party':
+        await Stage.space(p, t.pos, 'party', 6);
         this.players.forEach(q => { q.cash += q === p ? 6 : 3; Render.coinBurst(q, 3); });
         this.log(`🎉 Party! Everyone gets 3 coins — ${this.name(p)} gets 6!`, 'good'); Sfx.win();
         this.players.forEach((q, k) => this.react(q, q === p ? 'starry' : 'laugh', q === p ? 'PARTY TIME!' : R.pick(['Woohoo!', 'Yay!', 'Party!']), k * 0.15));
         break;
       case 'gate': {
         const owner = this.players.find(o => o.gate === t.pos);
-        if (owner === p) { p.cash += 3; this.fx(p, '🏠 +3', '#ffe680'); this.emote(p, '🏠'); this.log(`${this.name(p)} lands at home: +3 coins.`); }
+        if (owner === p) { await Stage.space(p, t.pos, 'home', 3); p.cash += 3; this.fx(p, '🏠 +3', '#ffe680'); this.emote(p, '🏠'); this.log(`${this.name(p)} lands at home: +3 coins.`); }
         break;
       }
     }
@@ -212,22 +225,32 @@ class SimpleGame extends Game {
 
   // ---- shop: one star (20) and one item per visit
   async shopSimple(p) {
+    const offers = R.shuffle(SIMPLE_ITEMS).slice(0, 2);
+    const wares = [{ icon: '⭐', name: 'Star', price: SIMPLE_STAR_PRICE, star: true, state: p.cash >= SIMPLE_STAR_PRICE ? 'ok' : 'no' }]
+      .concat(offers.map(it => ({ icon: it.icon, name: it.name, price: it.price, state: p.cash >= it.price ? 'ok' : 'no' })));
+    Stage.openShop(p, wares);
+    try { await this.shopSimpleInner(p, offers, wares); } finally { Stage.closeShop(); }
+  }
+  async shopSimpleInner(p, offers, wares) {
+    await Stage.wait(500);
     if (p.cash >= SIMPLE_STAR_PRICE) {
-      const yes = await this.choose(p, { title: '🏛️ Counting House', text: `You have ${p.cash} coins. Buy a star for ${SIMPLE_STAR_PRICE}?`, options: [
+      const yes = await this.choose(p, { title: '🏛️ Counting House', text: '', options: [
         { label: `⭐ Yes! Buy a star (${SIMPLE_STAR_PRICE})`, value: true }, { label: 'Not now', value: false }] }, () => true);
       if (yes) {
+        await Stage.buy(0);
         p.cash -= SIMPLE_STAR_PRICE; p.vault++;
         this.log(`⭐ ${this.name(p)} buys a star!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680');
         this.react(p, 'starry'); this.react(R.pick(this.players.filter(q => q !== p)), R.pick(['sad', 'angry']), R.pick(['Show-off…', 'Hmph!']), 0.4);
         UI.refresh();
       }
     }
-    const offers = R.shuffle(SIMPLE_ITEMS).slice(0, 2);
-    if (p.items.length >= HAND_LIMIT || !offers.some(it => p.cash >= it.price)) return;
+    wares.forEach(w => { if (w.state !== 'sold' && w.state !== 'gone') w.state = p.cash >= w.price ? 'ok' : 'no'; });
+    if (p.items.length >= HAND_LIMIT || !offers.some(it => p.cash >= it.price)) { await Stage.wait(400); return; }
     const opts = offers.map(it => ({ label: `${it.icon} ${it.name} — ${it.price} coins`, value: it.id, disabled: p.cash < it.price, desc: it.desc }));
     opts.push({ label: 'No thanks', value: null });
-    const v = await this.choose(p, { title: '🏛️ Counting House', text: `You have ${p.cash} coins. Buy one item?`, options: opts },
+    const v = await this.choose(p, { title: '🏛️ Counting House', text: '', options: opts },
       () => { const ok = offers.filter(it => p.cash - it.price >= SIMPLE_STAR_PRICE * 0.6); return ok.length && Math.random() < 0.6 ? R.pick(ok).id : null; });
-    if (v) { p.cash -= ITEM[v].price; await this.giveItem(p, v); }
+    if (v) { await Stage.buy(1 + offers.findIndex(it => it.id === v)); p.cash -= ITEM[v].price; await this.giveItem(p, v, false); }
+    else await Stage.wait(300);
   }
 }

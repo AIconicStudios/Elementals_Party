@@ -9,6 +9,7 @@ const Nav = {
     if (UI.helpOpen() || Render.mapMode) return null;
     const ov = document.getElementById('overlay');
     if (ov.innerHTML.trim() && !ov.classList.contains('hidden')) return null;
+    if (Render.stopper) return Render.stopper.who;
     if (Render.die && Render.die.onStop) return Render.die.who;
     return UI.askPlayer !== undefined && UI.askPlayer !== null ? UI.askPlayer : null;
   },
@@ -75,6 +76,7 @@ const Nav = {
       if (back) back.click();
       return;
     }
+    if (k === 'a' && Render.stopper) { Render.stopper.onStop(); return; }
     if (k === 'a' && Render.die && Render.die.onStop) { Render.die.onStop(); return; }
     if (Render.mapMode) { if (k === 'a') UI.toggleMap(false); return; }
     const list = this.items(); if (!list.length) return;

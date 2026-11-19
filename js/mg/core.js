@@ -265,31 +265,71 @@ const MG = {
   // ---------------------------------------------------------- drawing
   drawCard(g, game, m, t, ready, demo, dt) {
     MGH.bg(g, '#1c1236', '#06040d');
-    MGH.text(g, `THE MOOT · #${game.n} · ${game.type}`, 640, 50, 20, '#b6a9e0');
-    MGH.text(g, game.name, 640, 108, 56, '#fff', 'center', 'bold');
-    MGH.text(g, `Controls: ${game.controls}`, 640, 142, 20, '#ffd34d');
-    MGH.wrap(g, game.how, 640, 176, 1080, 24, '#e8e0ff', 19);
-    // demo
+    // title row
+    MGH.text(g, game.name, 640, 64, 48, '#fff', 'center', 'bold');
+    const tw = 150; g.fillStyle = 'rgba(123,92,255,0.35)'; MGH.rr(g, 40, 30, tw, 34, 17); g.fill();
+    MGH.text(g, `#${game.n} · ${game.type}`, 40 + tw / 2, 53, 16, '#d8ccff', 'center', 'bold');
+    // big live demo
     this.stepDemo(demo, dt);
-    const dx = 360, dy = 228, dw = 560, dh = 315;
-    g.save(); g.shadowColor = '#7b5cff'; g.shadowBlur = 24; g.fillStyle = '#000'; MGH.rr(g, dx - 6, dy - 6, dw + 12, dh + 12, 14); g.fill(); g.restore();
-    g.save(); MGH.rr(g, dx, dy, dw, dh, 10); g.clip(); g.drawImage(this.demoCanvas, dx, dy, dw, dh); g.restore();
-    g.fillStyle = 'rgba(0,0,0,0.6)'; MGH.rr(g, dx + 10, dy + 10, 110, 26, 8); g.fill();
-    g.fillStyle = '#ff4d6d'; g.beginPath(); g.arc(dx + 26, dy + 23, 6 * (0.7 + 0.3 * Math.sin(t * 6)), 0, 7); g.fill();
-    MGH.text(g, 'DEMO', dx + 72, dy + 29, 16, '#fff', 'center', 'bold');
-    MGH.text(g, `🏆 Wins: ${game.wins}`, 640, 570, 21, '#8fe0ff');
+    const dx = 250, dy = 96, dw = 780, dh = 439;
+    g.save(); g.shadowColor = '#7b5cff'; g.shadowBlur = 30; g.fillStyle = '#000'; MGH.rr(g, dx - 6, dy - 6, dw + 12, dh + 12, 16); g.fill(); g.restore();
+    g.save(); MGH.rr(g, dx, dy, dw, dh, 12); g.clip(); g.drawImage(this.demoCanvas, dx, dy, dw, dh); g.restore();
+    g.fillStyle = 'rgba(0,0,0,0.6)'; MGH.rr(g, dx + 12, dy + 12, 96, 26, 8); g.fill();
+    g.fillStyle = '#ff4d6d'; g.beginPath(); g.arc(dx + 28, dy + 25, 6 * (0.7 + 0.3 * Math.sin(t * 6)), 0, 7); g.fill();
+    MGH.text(g, 'LIVE', dx + 68, dy + 31, 16, '#fff', 'center', 'bold');
+    // controls as pictures (left) and the goal (right)
+    this.drawControls(g, game, 140, 300, t);
+    g.save(); g.translate(1150, 250); const tb = 1 + 0.06 * Math.sin(t * 3); g.scale(tb, tb);
+    g.font = '64px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillText('🏆', 0, 0); g.textBaseline = 'alphabetic'; g.restore();
+    MGH.wrap(g, game.wins, 1150, 318, 200, 22, '#8fe0ff', 18);
+    // how-to lives behind B
+    const peek = m.players.some((p, i) => p.human && m.held(i, 'b'));
+    if (peek) {
+      g.fillStyle = 'rgba(8,4,24,0.9)'; MGH.rr(g, dx, dy, dw, dh, 12); g.fill();
+      MGH.text(g, 'How to play', 640, dy + 60, 30, '#ffe680', 'center', 'bold');
+      MGH.wrap(g, game.how, 640, dy + 110, dw - 80, 30, '#fff', 22);
+    } else { g.globalAlpha = 0.75; MGH.text(g, 'hold  Ⓑ  for how to play', 640, 560, 15, '#b6a9e0'); g.globalAlpha = 1; }
     m.players.forEach((p, i) => {
-      const x = 160 + i * 320, y0 = 590, w = 296, h = 118;
+      const x = 160 + i * 320, y0 = 585, w = 296, h = 118;
       g.fillStyle = p.color; MGH.rr(g, x - w / 2, y0, w, h, 14); g.globalAlpha = ready[i] && p.human ? 0.32 : 0.14; g.fill(); g.globalAlpha = 1;
       g.strokeStyle = p.color; g.lineWidth = ready[i] && p.human ? 4 : 2; g.stroke();
       Char.draw(g, x - 104, y0 + 50, 28, p.el.id, p.color, { mood: ready[i] && p.human ? 'cheer' : (p.human ? 'happy' : 'neutral'), seed: i * 1.7, look: { x: 0.5, y: 0 } });
-      MGH.text(g, p.name, x + 20, y0 + 30, 21, p.color, 'center', 'bold');
+      MGH.text(g, p.name, x + 20, y0 + 32, 21, p.color, 'center', 'bold');
       if (p.human) {
-        MGH.text(g, ready[i] ? '✔ READY' : 'Press action when ready', x + 20, y0 + 56, ready[i] ? 20 : 15, ready[i] ? '#7f7' : '#fff', 'center', 'bold');
-        MGH.wrap(g, MGH.keyHint(game, i), x + 20, y0 + 80, 220, 16, '#ccc', 13);
-      } else MGH.text(g, 'Bot — ready', x + 20, y0 + 58, 16, '#aaa');
+        if (ready[i]) MGH.text(g, '✔ READY', x + 20, y0 + 66, 24, '#7f7', 'center', 'bold');
+        else { const k = 0.85 + 0.15 * Math.sin(t * 6 + i); this.btnA(g, x - 10, y0 + 60, 15 * k); MGH.text(g, 'ready?', x + 40, y0 + 66, 18, '#fff', 'center', 'bold'); }
+        MGH.text(g, MGH.keyHint(game, i), x + 20, y0 + 100, 12, '#aaa', 'center');
+      } else MGH.text(g, '🤖 ready', x + 20, y0 + 70, 18, '#aaa', 'center', 'bold');
     });
     if (!m.players.some(p => p.human)) MGH.text(g, 'Bots only — starting…', 640, 715, 14, '#aaa');
+  },
+  // round "A" button picture
+  btnA(g, x, y, r) {
+    g.fillStyle = '#2bb24c'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.strokeStyle = '#d6ffd9'; g.lineWidth = 2; g.stroke();
+    g.font = `bold ${Math.round(r * 1.2)}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText('A', x, y + 1); g.textBaseline = 'alphabetic';
+  },
+  key(g, x, y, s, label, on) {
+    g.fillStyle = on ? '#ffe680' : '#3a3160'; MGH.rr(g, x - s / 2, y - s / 2 + 4, s, s, 8); g.fill();
+    g.fillStyle = on ? '#fff6c8' : '#5a4f8a'; MGH.rr(g, x - s / 2, y - s / 2, s, s, 8); g.fill();
+    g.font = `bold ${Math.round(s * 0.5)}px Arial`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = on ? '#3a2a00' : '#fff'; g.fillText(label, x, y); g.textBaseline = 'alphabetic';
+  },
+  drawControls(g, game, x, y, t) {
+    const c = game.controls || '', ph = Math.floor(t * 1.5) % 4;
+    const rows = [];
+    if (/Cursor/i.test(c)) rows.push('cursor');
+    if (/Left\/Right/i.test(c)) rows.push('lr');
+    else if (/Move|direction|Pick|slider/i.test(c)) rows.push('pad');
+    if (/button|mash|jump|dash|fire|push|pass|grab|\+ button/i.test(c) || /1 button/.test(c)) rows.push('a');
+    if (/Pick/i.test(c) && !rows.includes('a')) rows.push('a');
+    const gap = 120, y0 = y - (rows.length - 1) * gap / 2;
+    rows.forEach((r, k) => {
+      const yy = y0 + k * gap;
+      g.fillStyle = 'rgba(255,255,255,0.06)'; MGH.rr(g, x - 95, yy - 48, 190, 100, 18); g.fill();
+      if (r === 'lr') { this.key(g, x - 34, yy - 4, 50, '◀', ph === 0); this.key(g, x + 34, yy - 4, 50, '▶', ph === 2); }
+      if (r === 'pad') { const s = 34; this.key(g, x, yy - 38, s, '▲', ph === 0); this.key(g, x - s, yy - 4, s, '◀', ph === 3); this.key(g, x + s, yy - 4, s, '▶', ph === 1); this.key(g, x, yy + 30, s, '▼', ph === 2); }
+      if (r === 'a') { const press = (t * 2) % 1 < 0.2; g.save(); g.translate(x, yy - 2 + (press ? 3 : 0)); this.btnA(g, 0, 0, press ? 26 : 28); g.restore(); if (/mash/i.test(c)) MGH.text(g, '×5!', x + 58, yy + 8, 20, '#ffe680', 'center', 'bold'); }
+      if (r === 'cursor') { g.save(); g.translate(x + Math.sin(t * 2) * 30, yy - 8 + Math.cos(t * 1.6) * 14); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -18); g.lineTo(0, 14); g.lineTo(8, 6); g.lineTo(14, 18); g.lineTo(19, 15); g.lineTo(13, 4); g.lineTo(23, 3); g.closePath(); g.fill(); g.stroke(); g.restore(); }
+    });
   },
   hud(m, S, game, g) {
     g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 0, 1280, 40);

@@ -8,9 +8,6 @@ function startGame(cfg) {
   const g = cfg.simple ? new SimpleGame(cfg) : new Game(cfg);
   document.getElementById('viewBtn').classList.remove('hidden');
   Music.play('board');
-  document.querySelector('#ctrl .legend').innerHTML = cfg.simple
-    ? '<span>🔵 +3</span><span>🔴 −3</span><span>🏛️ Buy a star (15)</span><span>🎡 Lucky Wheel</span><span>🎁 Gift</span><span>🌪️ Swap places</span><span>🎉 Party</span><span>🏠 Home +3</span>'
-    : '<span>+5 Boon</span><span>−3 Bane</span><span>🏛️ Counting House</span><span>👁️ Ankar\'s Altar</span><span>🌑 Eclipse</span><span>×2 Gilded Spring</span><span>🎡 Fortune Wheel</span><span>🎁 Pedlar</span><span>❓ Mirage</span>';
   currentGame = g;
   UI.game = g; Render.game = g; Render.disp = {}; Render.floats = [];
   document.getElementById('log').innerHTML = '';
@@ -37,6 +34,7 @@ window.addEventListener('load', () => {
     }
   };
   q('mapBtn').onclick = () => UI.toggleMap();
+  q('logBtn').onclick = () => { document.getElementById('app').classList.toggle('showlog'); Sfx.click(); };
   q('viewBtn').onclick = () => Render.toggleZoom();
   q('mgPauseBtn').onclick = () => MG.onPauseClick && MG.onPauseClick();
   q('mgResume').onclick = () => { MG.paused = false; MG.pauseUI(false); };

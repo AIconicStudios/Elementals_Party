@@ -9,6 +9,7 @@ const UI = {
   init() {
     window.addEventListener('keydown', e => {
       if (!$('#mgLayer').classList.contains('hidden')) return;
+      if ((e.code === 'Space' || e.code === 'Enter') && Render.stopper) { e.preventDefault(); Render.stopper.onStop(); return; }
       if ((e.code === 'Space' || e.code === 'Enter') && Render.die && Render.die.onStop) { e.preventDefault(); Render.die.onStop(); return; }
       if (e.code === 'KeyM' && this.game && document.activeElement.tagName !== 'INPUT') { this.toggleMap(); return; }
       if (e.code === 'KeyH' && document.activeElement.tagName !== 'INPUT') { this.toggleHelp(); return; }
@@ -56,10 +57,9 @@ const UI = {
       const el = $('#pc' + p.id);
       el.className = 'pc' + (G.current === p ? ' cur' : '');
       el.style.setProperty('--c', p.color);
-      el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="ord">turn order #${G.order.indexOf(p.id) + 1}</span></div>
+      el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="ord">#${G.order.indexOf(p.id) + 1}</span></div>
         <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b> stars</span><span title="Coins">🪙 <b>${p.cash}</b> coins</span><span title="Moot wins">🏆 ${p.mgWins}</span>` : `<span title="Banked stars (Starvault)">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 ${G.bank(p)}</span><span title="Coins on hand">💰 ${p.cash}</span>
         <span title="Hot loot (unbanked)">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>${t.sHand ? `<span title="Carried stars">✨${t.sHand}</span>` : ''}<span title="Moot wins">🏆 ${p.mgWins}</span>`}</div>
-        <div class="pcl">${esc(loc)}</div>
         <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
     });
   },
@@ -71,14 +71,27 @@ const UI = {
     return new Promise(resolve => {
       const box = $('#action'); box.style.setProperty('--c', p.color);
       $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)} — roll!`;
-      $('#actText').textContent = 'The die is tumbling. Stop it when you feel lucky.';
+      $('#actText').textContent = '';
       const opts = $('#actOpts'); opts.innerHTML = '';
-      const b = document.createElement('button'); b.className = 'rollBtn'; b.innerHTML = '🎲 STOP THE DIE!<small>click here, click the die, or press SPACE</small>';
+      const b = document.createElement('button'); b.className = 'rollBtn'; b.innerHTML = '🎲 STOP THE DIE!';
       opts.appendChild(b);
-      const done = () => { this.askPlayer = null; if (!Render.die) return resolve(); Render.die.onStop = null; Render.die.waiting = false; this.pending = null; opts.innerHTML = ''; $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = 'The die is landing…'; resolve(); };
+      const done = () => { this.askPlayer = null; if (!Render.die) return resolve(); Render.die.onStop = null; Render.die.waiting = false; this.pending = null; opts.innerHTML = ''; $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = ''; resolve(); };
       b.onclick = done;
       Render.die.onStop = done; Render.die.waiting = true;
       this.pending = done;
+    });
+  },
+
+  // generic "stop it!" prompt (fortune wheels): click, Space/Enter or the player's gamepad A
+  waitStop(p, label) {
+    this.askPlayer = p.id;
+    return new Promise(resolve => {
+      $('#action').style.setProperty('--c', p.color);
+      $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = '';
+      const opts = $('#actOpts'); opts.innerHTML = '';
+      const b = document.createElement('button'); b.className = 'rollBtn'; b.innerHTML = esc(label); opts.appendChild(b);
+      const done = () => { this.askPlayer = null; Render.stopper = null; this.pending = null; opts.innerHTML = ''; Sfx.click(); resolve(); };
+      b.onclick = done; Render.stopper = { who: p.id, onStop: done }; this.pending = done;
     });
   },
 
@@ -86,7 +99,7 @@ const UI = {
     if (Settings.test) return;
     $('#action').style.setProperty('--c', p.color);
     $('#actTitle').textContent = `${p.el.glyph} ${p.name}'s turn${p.human ? '' : ' (bot)'}`;
-    $('#actText').textContent = p.human ? '' : 'Thinking…';
+    $('#actText').textContent = '';
     $('#actOpts').innerHTML = '';
   },
 
@@ -96,7 +109,7 @@ const UI = {
       const box = $('#action');
       box.style.setProperty('--c', p.color);
       $('#actTitle').innerHTML = `${p.el.glyph} ${esc(spec.title)}`;
-      $('#actText').innerHTML = `<span style="color:${p.color}">${esc(p.name)}</span> — ${esc(spec.text || '')}`;
+      $('#actText').innerHTML = spec.text ? esc(spec.text) : '';
       const opts = $('#actOpts'); opts.innerHTML = '';
       let n = 0;
       const tiles = [];
@@ -108,7 +121,7 @@ const UI = {
       spec.options.forEach(o => {
         const b = document.createElement('button');
         if (!o.disabled) n++;
-        b.innerHTML = `${o.disabled ? '' : `<span class="k">${n <= 9 ? n : ''}</span>`}${esc(o.label)}${o.desc ? `<small>${esc(o.desc)}</small>` : ''}`;
+        b.innerHTML = `${o.disabled ? '' : `<span class="k">${n <= 9 ? n : ''}</span>`}${esc(o.label)}`; if (o.desc) b.title = o.desc;
         b.disabled = !!o.disabled;
         if (o.item) b.classList.add('itemBtn');
         b.onclick = () => done(o.value);
@@ -128,7 +141,7 @@ const UI = {
       const done = v => { this.askPlayer = null; this.pending = null; Render.highlight = null; $('#actOpts').innerHTML = ''; Sfx.click(); resolve(v); };
       Render.highlight = { owner, tiles, onPick: done };
       $('#actTitle').innerHTML = `${p.el.glyph} ${esc(title)}`;
-      $('#actText').innerHTML = 'Click a highlighted tile on your Hold, or pick below.';
+      $('#actText').innerHTML = '';
       const opts = $('#actOpts'); opts.innerHTML = '';
       const row = document.createElement('div'); row.className = 'tileRow';
       tiles.forEach(k => { const b = document.createElement('button'); b.textContent = k; b.onclick = () => done(k); row.appendChild(b); });

@@ -20,11 +20,12 @@ const Render = {
     canvas.addEventListener('click', e => {
       const m0 = this.mpos(e), p = this.toWorld(m0.x, m0.y);
       if (this.mapMode) { UI.toggleMap(false); return; }
+      if (this.stopper) { this.stopper.onStop(); return; }
       if (this.die && this.die.state === 'rolling' && this.die.onStop) { this.die.onStop(); return; }
       const h = this.hitTile(p.x, p.y);
       if (h && this.highlight && h.owner === this.highlight.owner && this.highlight.tiles.includes(h.tile)) this.highlight.onPick(h.tile);
     });
-    const loop = () => { try { this.draw(); } catch (e) { console.error(e); } requestAnimationFrame(loop); };
+    const loop = () => { try { this.draw(); } catch (e) { console.error(e); try { this.g.setTransform(1, 0, 0, 1, 0, 0); Stage.drawWorld(this.g); Stage.drawScreen(this.g); } catch (e2) { /* keep shows ticking */ } } requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   },
   mpos(e) { const r = this.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * this.W, y: (e.clientY - r.top) / r.height * this.H }; },
@@ -223,7 +224,7 @@ const Render = {
     const camOn = this.beginCam(g, G);
 
     // inner field
-    if (!this.zoom) {
+    if (!this.zoom && !(this.cam && this.cam.s > 1.15)) {
     g.fillStyle = 'rgba(255,255,255,0.035)'; this.rr(g, 392, 182, 816, 536, 26); g.fill();
     g.strokeStyle = 'rgba(180,160,255,0.12)'; g.lineWidth = 2; g.stroke();
 
@@ -254,25 +255,7 @@ const Render = {
       const p0 = this.trackPos(i), sp = SPACE[G.board[i]], type = G.board[i];
       const p = { x: p0.x, y: p0.y + Math.sin(now * 2.2 - i * 0.45) * 2.5 };
       if (type === 'gate') this.drawPortal(g, p, ELEMENTS[i / 10].color, now, G.closedGates[i]);
-      let col = sp.color; if (type === 'gate') col = ELEMENTS[i / 10].color;
-      const w = type === 'gate' ? 66 : 56, h = type === 'gate' ? 62 : 52;
-      g.fillStyle = 'rgba(0,0,0,0.4)'; this.rr(g, p.x - w / 2 + 3, p.y - h / 2 + 4, w, h, 10); g.fill();
-      const gr = g.createLinearGradient(0, p.y - h / 2, 0, p.y + h / 2);
-      gr.addColorStop(0, Char.shade(col, 0.25)); gr.addColorStop(1, Char.shade(col, -0.2));
-      g.fillStyle = gr; this.rr(g, p.x - w / 2, p.y - h / 2, w, h, 10); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.stroke();
-      // glossy shine sweeping around the track
-      const sh = (now * 0.5 - i / 40) % 1; if (sh > 0 && sh < 0.06) { g.fillStyle = `rgba(255,255,255,${0.35 * (1 - Math.abs(sh - 0.03) / 0.03)})`; this.rr(g, p.x - w / 2, p.y - h / 2, w, h, 10); g.fill(); }
-      if (this.flash[i] > 0) { g.fillStyle = `rgba(255,255,255,${this.flash[i] * 0.6})`; this.rr(g, p.x - w / 2 - 3, p.y - h / 2 - 3, w + 6, h + 6, 12); g.fill(); this.flash[i] -= 0.04; }
-      if (type === 'bank' && !G.closedBanks[i] && Math.random() < 0.04) this.addP({ x: p.x + R.range(-24, 24), y: p.y + R.range(-20, 20), vy: -30, life: 0.8, size: 2.5, kind: 'twinkle', color: '#fff3b0' });
-      const closed = (type === 'gate' && G.closedGates[i]) || (type === 'bank' && G.closedBanks[i]);
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      const txt = /[0-9×+−]/.test(sp.icon) && sp.icon.length <= 2;
-      g.fillStyle = ['blue', 'red', 'doubler'].includes(type) ? '#fff' : '#111';
-      g.font = txt ? 'bold 21px Georgia' : (type === 'gate' ? '30px' : '25px') + ' "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-      g.fillText(type === 'gate' ? ELEMENTS[i / 10].glyph : (G.simple && type === 'blue' ? '+3' : sp.icon), p.x, p.y + 2);
-      if (closed) { g.fillStyle = 'rgba(0,0,0,0.65)'; this.rr(g, p.x - w / 2, p.y - h / 2, w, h, 10); g.fill(); g.font = '22px sans-serif'; g.fillStyle = '#fff'; g.fillText('🌑', p.x, p.y); }
-      g.textBaseline = 'alphabetic';
+      this.drawTile(g, G, i, p, type, sp, now);
     }
     for (const pl of G.players) this.drawHome(g, pl, now);
 
@@ -299,7 +282,7 @@ const Render = {
       if (Math.abs(d.tx - tg.x) > 0.5 || Math.abs(d.ty - tg.y) > 0.5) { d.fx = d.x; d.fy = d.y + d.hop; d.tx = tg.x; d.ty = tg.y; d.k = 0; }
       d.px = d.x;
       const far = Math.hypot(d.tx - d.fx, d.ty - d.fy) > 160;
-      d.k = Math.min(1, d.k + (far ? 0.06 : 0.13));
+      d.k = Math.min(1, d.k + (far ? 0.045 : 0.085));
       const e = d.k < 0.5 ? 2 * d.k * d.k : 1 - Math.pow(-2 * d.k + 2, 2) / 2;
       d.x = lerp(d.fx, d.tx, e); const by = lerp(d.fy, d.ty, e);
       d.hop = -Math.sin(d.k * Math.PI) * (far ? 50 : 16);
@@ -309,6 +292,7 @@ const Render = {
     for (const [pl, k] of toks) this.drawToken(g, pl, k, now);
 
     this.stepParts(g);
+    Stage.drawWorld(g);
     this.drawTrapAnims(g, now);
     this.drawReactions(g, now);
     if (this.highlight) {
@@ -336,14 +320,69 @@ const Render = {
     }
     g.globalAlpha = 1;
     if (camOn) { g.restore(); if (this.zoom) this.drawZoomHud(g, now); }
+    Stage.drawScreen(g);
   },
 
+  // one Crossing space: a raised block with a living icon on top
+  drawTile(g, G, i, p, type, sp, now) {
+    let col = sp.color; if (type === 'gate') col = ELEMENTS[i / 10].color;
+    const w = type === 'gate' ? 66 : 56, h = type === 'gate' ? 60 : 50, dep = 9, x = p.x - w / 2, y = p.y - h / 2 - 3;
+    const closed = (type === 'gate' && G.closedGates[i]) || (type === 'bank' && G.closedBanks[i]);
+    // drop shadow + block side
+    g.fillStyle = 'rgba(0,0,0,0.38)'; this.rr(g, x + 4, y + 8, w, h + dep, 11); g.fill();
+    g.fillStyle = Char.shade(col, -0.45); this.rr(g, x, y + dep, w, h, 10); g.fill();
+    g.fillStyle = Char.shade(col, -0.3); g.fillRect(x + 3, y + h - 2, w - 6, dep);
+    // top face
+    const gr = g.createLinearGradient(0, y, 0, y + h);
+    gr.addColorStop(0, Char.shade(col, 0.35)); gr.addColorStop(0.55, col); gr.addColorStop(1, Char.shade(col, -0.12));
+    g.fillStyle = gr; this.rr(g, x, y, w, h, 10); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.18)'; this.rr(g, x + 4, y + 3, w - 8, h * 0.32, 8); g.fill();
+    const sh = (now * 0.5 - i / 40) % 1; if (sh > 0 && sh < 0.06) { g.fillStyle = `rgba(255,255,255,${0.35 * (1 - Math.abs(sh - 0.03) / 0.03)})`; this.rr(g, x, y, w, h, 10); g.fill(); }
+    if (this.flash[i] > 0) { g.fillStyle = `rgba(255,255,255,${this.flash[i] * 0.6})`; this.rr(g, x - 3, y - 3, w + 6, h + 6, 12); g.fill(); this.flash[i] -= 0.04; }
+    if (type === 'bank' && !closed && Math.random() < 0.04) this.addP({ x: p.x + R.range(-24, 24), y: p.y + R.range(-20, 20), vy: -30, life: 0.8, size: 2.5, kind: 'twinkle', color: '#fff3b0' });
+    // living icon
+    const cx = p.x, cy = p.y - 3, ph = now + i * 0.7;
+    g.save(); g.translate(cx, cy);
+    const emo = (ic, sz) => { g.font = `${sz}px "Segoe UI Emoji","Apple Color Emoji",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(ic, 0, 1); };
+    const coinTxt = (t, c) => { const fl = Math.cos(ph * 1.3), sx = Math.max(0.12, Math.abs(fl)); g.save(); g.scale(sx, 1); g.fillStyle = c; g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 17, 0, 7); g.fill(); g.stroke(); if (sx > 0.35) { g.font = 'bold 17px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(t, 0, 1); } g.restore(); };
+    if (type === 'gate') { const k = 1 + 0.08 * Math.sin(now * 3 + i); g.scale(k, k); emo(ELEMENTS[i / 10].glyph, 30); }
+    else if (type === 'blue') { g.translate(0, Math.sin(ph * 2) * 2.5); coinTxt(G.simple ? '+3' : '+5', '#2f6fd8'); }
+    else if (type === 'red') { g.rotate(Math.sin(ph * 6) * 0.06 * (Math.sin(ph * 0.7) > 0.6 ? 1 : 0)); coinTxt('−3', '#b8323a'); }
+    else if (type === 'lucky') { g.rotate(now * 1.2 + i); emo(sp.icon, 26); }
+    else if (type === 'item') { const hop = Math.max(0, Math.sin(ph * 2.4)); g.translate(0, -hop * 6); g.rotate(Math.sin(ph * 9) * 0.12 * hop); emo(sp.icon, 26); }
+    else if (type === 'summon') { const bl = ((ph * 0.6) % 3) < 0.15 ? 0.15 : 1; g.scale(1, bl); emo(sp.icon, 26); }
+    else if (type === 'shutdown') { g.rotate(now * 0.4); emo(sp.icon, 24); }
+    else if (type === 'doubler') { const k = 1 + 0.1 * Math.sin(ph * 4); g.scale(k, k); g.font = 'bold 22px Georgia'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.shadowColor = '#ffe680'; g.shadowBlur = 10 + 8 * Math.sin(ph * 4); g.fillText('×2', 0, 1); g.shadowBlur = 0; }
+    else if (type === 'chameleon') { g.rotate(Math.sin(ph * 3) * 0.25); g.filter = `hue-rotate(${(now * 90) % 360}deg)`; emo(sp.icon, 26); g.filter = 'none'; }
+    else if (type === 'swirl') { g.rotate(Math.sin(ph * 2) * 0.4); g.scale(1 + 0.08 * Math.sin(ph * 8), 1); emo(sp.icon, 26); }
+    else if (type === 'party') { const k = 1 + 0.12 * Math.abs(Math.sin(ph * 3)); g.scale(k, k); emo(sp.icon, 26); if (Math.random() < 0.03) this.addP({ x: cx + R.range(-20, 20), y: cy - 10, vy: -40, vx: R.range(-30, 30), grav: 80, life: 0.9, size: 2.5, color: R.pick(['#ff6a8a', '#5fb8ff', '#ffd34d', '#6fdc8c']) }); }
+    else if (type === 'bank') { g.translate(0, -Math.abs(Math.sin(ph * 1.6)) * 2); emo(sp.icon, 26); }
+    else emo(sp.icon, 25);
+    g.restore(); g.textBaseline = 'alphabetic';
+    // closed: shutters slam down, then the space sits in darkness
+    if (closed || this.shut[i]) {
+      const st = this.shut[i], k = st ? clamp((now - st) / 0.5, 0, 1) : 1;
+      if (!closed && st && now - st > 1.2) delete this.shut[i];
+      else {
+        g.save(); this.rr(g, x, y, w, h, 10); g.clip();
+        const hh = h * this.easeBounce(k);
+        g.fillStyle = 'rgba(8,6,18,0.82)'; g.fillRect(x, y, w, hh);
+        g.strokeStyle = 'rgba(120,110,150,0.6)'; g.lineWidth = 2; for (let yy = y + 7; yy < y + hh; yy += 8) { g.beginPath(); g.moveTo(x, yy); g.lineTo(x + w, yy); g.stroke(); }
+        g.restore();
+        if (k >= 1) { g.font = '20px "Segoe UI Emoji"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌑', p.x, p.y - 3 + Math.sin(now * 2 + i) * 2); g.textBaseline = 'alphabetic'; }
+      }
+    }
+  },
+  easeBounce(k) { if (k < 0.7) return (k / 0.7) * (k / 0.7); const q = (k - 0.7) / 0.3; return 1 - Math.sin(q * Math.PI) * 0.12; },
+
   // ---------------------------------------------------------- close-up camera (V / gamepad LB or LT)
-  zoom: false, cam: null,
+  zoom: false, cam: null, focus: null, anim: {}, shut: {},
   beginCam(g, G) {
     const c = this.cam || (this.cam = { x: 800, y: 450, s: 1 });
     let tx = 800, ty = 450, ts = 1;
-    if (this.zoom) {
+    if (this.focus) { ts = this.focus.s; tx = this.focus.x; ty = this.focus.y; const hw = 800 / ts, hh = 450 / ts; tx = clamp(tx, hw - 60, 1600 - hw + 60); ty = clamp(ty, hh - 80, 900 - hh + 60); }
+    else if (this.zoom) {
       ts = 2.3;
       if (this.highlight) { const h = this.homeCenter(this.highlight.owner.id); tx = h.x; ty = h.y; }
       else { const p = G.current, d = p && !p.gone && this.disp['T' + p.id]; if (d) { tx = d.x; ty = d.y - 20; } }
@@ -351,10 +390,12 @@ const Render = {
       tx = clamp(tx, hw - 60, 1600 - hw + 60); ty = clamp(ty, hh - 80, 900 - hh + 60);
     }
     c.x = lerp(c.x, tx, 0.09); c.y = lerp(c.y, ty, 0.09); c.s = lerp(c.s, ts, 0.12);
-    if (!this.zoom && Math.abs(c.s - 1) < 0.01) { c.s = 1; c.x = 800; c.y = 450; return false; }
+    const fm = !!this.focus; if (fm !== this._fm) { this._fm = fm; document.getElementById('app').classList.toggle('focusmode', fm); }
+    if (!this.zoom && !this.focus && Math.abs(c.s - 1) < 0.01) { c.s = 1; c.x = 800; c.y = 450; return false; }
     g.save(); g.translate(800, this.zoom ? 470 : 450); g.scale(c.s, c.s); g.translate(-c.x, -c.y);
     return true;
   },
+  toScreen(x, y) { const c = this.cam; if (!c || c.s === 1) return { x, y }; return { x: (x - c.x) * c.s + 800, y: (y - c.y) * c.s + (this.zoom ? 470 : 450) }; },
   toWorld(x, y) { const c = this.cam; if (!c || c.s === 1) return { x, y }; return { x: (x - 800) / c.s + c.x, y: (y - (this.zoom ? 470 : 450)) / c.s + c.y }; },
   toggleZoom(on) { this.zoom = on === undefined ? !this.zoom : on; document.getElementById('app').classList.toggle('zoommode', this.zoom); const b = document.getElementById('viewBtn'); if (b) b.innerHTML = this.zoom ? '🗺️ Whole board <small>V · LB</small>' : '🔍 Close-up <small>V · LB</small>'; Sfx.click(); },
   drawZoomHud(g, now) {
@@ -497,7 +538,7 @@ const Render = {
     const d = this.disp[kind + pl.id];
     const moving = d.k < 1;
     const look = { x: clamp((d.x - d.px) * 0.3, -1, 1), y: 0.2 };
-    const r = kind === 'T' ? 16 : 13;
+    const r = (kind === 'T' ? 16 : 13) * (this.zoom ? 1.2 : 1);
     g.fillStyle = pl.color; g.globalAlpha = 0.55; g.beginPath(); g.ellipse(d.x, d.y + r * 1.3 - d.hop, r * 1.05, r * 0.32, 0, 0, 7); g.fill();
     g.globalAlpha = 1; g.strokeStyle = pl.color; g.lineWidth = 2; g.stroke();
     if (kind === 'T' && this.game.current === pl) {
@@ -507,10 +548,14 @@ const Render = {
     const t = pl.trav;
     let prop = null;
     if (kind === 'T') { if (t.prison) prop = '⛓️'; else if (t.armor) prop = '🛡️'; else if (this.game.hotCoins(pl) + this.game.hotStars(pl) > 0) prop = '💰'; }
+    const an = kind === 'T' ? this.anim[pl.id] : null;
+    g.save();
+    if (an) { g.translate(d.x + (an.dx || 0), d.y + (an.dy || 0)); if (an.rot) g.rotate(an.rot); g.translate(-d.x, -d.y); if (an.dx) look.x = clamp(-Math.sign(an.dx), -1, 1); }
     Char.draw(g, d.x, d.y, r, pl.id, pl.color, {
-      mood: this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
+      mood: an && an.mood ? an.mood : this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
       hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop,
     });
+    g.restore();
   },
 
   ambient(G, now) {

@@ -195,8 +195,9 @@ class Game {
     return R.weighted(pool, it => RARITY_WEIGHT[it.r]).id;
   }
 
-  async giveItem(p, id) {
+  async giveItem(p, id, fx = true) {
     if (p.items.length < HAND_LIMIT) {
+      if (fx) await Stage.gain(p, ITEM[id].icon);
       p.items.push(id);
       this.log(`${this.name(p)} gets ${ITEM[id].icon} ${itemLabel(id)}.`);
       UI.refresh();
@@ -211,17 +212,31 @@ class Game {
     return v >= 0;
   }
 
+  // a roulette of items: what you get is shown before it lands in your bag
+  async itemWheel(p, title = '🎁') {
+    const ids = []; for (let k = 0; k < 40 && ids.length < 8; k++) { const id = this.randomHandItem(); if (!ids.includes(id)) ids.push(id); }
+    while (ids.length < 6) ids.push(this.randomHandItem());
+    const pal = ['#c58bff', '#5fb8ff', '#ff9a3d', '#6fdc8c', '#ff6a8a', '#ffd34d', '#5fe3d0', '#9d8bff'];
+    const k = await Stage.wheel(p, ids.map((id, i) => ({ icon: ITEM[id].icon, color: pal[i % pal.length] })), title);
+    return ids[k];
+  }
+  async coinWheel(p, title = '🎡') {
+    const vals = [1, 3, 5, 10, 1, 3, 5, 10], cols = { 1: '#6fa8dc', 3: '#6fdc8c', 5: '#ff9a3d', 10: '#ff4d8d' };
+    const k = await Stage.wheel(p, vals.map(v => ({ icon: v === 10 ? '💰' : '🪙', text: '+' + v, color: cols[v] })), title);
+    return vals[k];
+  }
+
   async choose(p, spec, botFn) {
     if (this.aborted) throw new Error('aborted');
     if (p.human) return UI.ask(p, spec);
-    await sleep(220);
+    await sleep(550);
     if (botFn) { const v = botFn(); if (v !== undefined) return v; }
     const o = spec.options.find(x => !x.disabled);
     return o ? o.value : null;
   }
   async pickTile(p, owner, tiles, title, botFn) {
     if (p.human) return UI.pickTile(p, owner, tiles, title);
-    await sleep(200);
+    await sleep(450);
     const v = botFn ? botFn() : undefined;
     return v !== undefined && tiles.includes(v) ? v : R.pick(tiles);
   }
@@ -298,7 +313,7 @@ class Game {
     UI.refresh();
     UI.turnStart(p);
     this.log(`<hr>— ${this.name(p)}'s turn —`);
-    await sleep(250);
+    await Stage.turn(p);
     if (t.thief && this.round > t.thief.round) { t.thief = null; }
 
     // poison tick
@@ -502,7 +517,7 @@ class Game {
     for (let s = 1; s <= steps; s++) {
       t.pos = (t.pos + dir + 40) % 40;
       Sfx.step(); UI.refresh();
-      await sleep(170);
+      await sleep(320);
       const last = s === steps;
       const sp = this.board[t.pos];
       Render.stepPuff(t.pos);
@@ -567,7 +582,11 @@ class Game {
         const r = this.moveHot(q); q.trav.bounty = false;
         this.log(`${this.name(p)} claims the bounty on ${this.name(q)}: ${r.c} coins and ${r.s}⭐ return to their owners.`, 'good'); this.react(p, 'proud', 'Justice!'); this.react(q, 'cry', undefined, 0.3);
       }
-      if (q.cash > 0) { q.cash--; p.cash++; this.log(`${this.name(p)} lands on ${this.name(q)} and steals 1 coin.`); this.emote(p, '😏'); this.emote(q, '😠'); }
+      const got = q.cash > 0;
+      await Stage.punch(p, q, got);
+      if (got) { q.cash--; p.cash++; this.log(`${this.name(p)} lands on ${this.name(q)} and steals 1 coin.`); }
+      this.react(p, 'evil', R.pick(['POW! Mine now!', 'Thanks for the coin!', 'Out of my way!'])); this.react(q, R.pick(['angry', 'cry']), R.pick(['OW!', 'Hey! That hurt!', 'My coin!']), 0.3);
+      UI.refresh();
     }
     if (sp === 'gate') {
       const owner = this.players.find(o => o.gate === t.pos);
@@ -591,14 +610,15 @@ class Game {
   async resolveSpace(p, sp) {
     const t = p.trav;
     switch (sp) {
-      case 'blue': p.cash += 5; this.fx(p, '+5', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on a Boon: +5 coins.`); break;
+      case 'blue': await Stage.space(p, t.pos, 'blue', 5); p.cash += 5; this.fx(p, '+5', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on a Boon: +5 coins.`); break;
       case 'red':
         if (t.chain > 0) { this.log(`${this.name(p)}'s Chain Wallet shrugs off the Bane.`); break; }
-        { const l = Math.min(3, p.cash); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on a Bane: −${l} coins.`); }
+        { const l = Math.min(3, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on a Bane: −${l} coins.`); }
         break;
       case 'summon': {
         this.ankar = t.pos;
         Render.ankarSpawn(t.pos);
+        await Stage.space(p, t.pos, 'summon');
         if (this.board[t.pos] === 'summon') {
           const nt = R.pick(['blue', 'red']);
           this.board[t.pos] = nt;
@@ -611,29 +631,30 @@ class Game {
       case 'shutdown': {
         const gates = R.shuffle([0, 10, 20, 30]).slice(0, 2), banks = R.shuffle([5, 15, 25, 35]).slice(0, 2);
         gates.forEach(g => { this.closedGates[g] = 2; }); banks.forEach(b => { this.closedBanks[b] = 2; });
+        await Stage.eclipse([...gates, ...banks]);
         this.log(`🌑 An Eclipse! Waygates ${gates.map(g => ELEMENTS[g / 10].name).join(' & ')} and two Counting Houses close for 2 rounds.`, 'warn'); this.react(p, 'shock', 'The sky went dark!'); this.crowd([p], 'nervous');
         Sfx.boom();
         break;
       }
       case 'doubler': {
-        const add = Math.min(p.cash, 10); p.cash += add;
+        const add = Math.min(p.cash, 10);
+        await Stage.space(p, t.pos, 'doubler', add); p.cash += add;
         let s = 0; if (this.carriedStars(p) > 0) { t.sHand += 1; s = 1; }
         this.fx(p, `×2 +${add}${s ? ' +1⭐' : ''}`, '#ffd34d'); Sfx.coin();
         this.log(`${this.name(p)} drinks from the Gilded Spring: +${add} coins${s ? ' and +1 carried star' : ''}.`); if (add >= 8 || s) this.react(p, 'starry', 'Double the gold!'); else this.emote(p, '🤑');
         break;
       }
       case 'lucky': {
-        const v = R.pick([1, 3, 5, 10]);
-        for (let k = 0; k < 6; k++) { this.fx(p, R.pick(['1', '3', '5', '10']), '#5fe3b0'); await sleep(70); }
-        p.cash += v; this.fx(p, `🎡 +${v}`, '#5fe3b0'); Sfx.coin();
+        const v = await this.coinWheel(p, '🎡 Fortune Wheel');
+        p.cash += v; this.fx(p, `+${v}`, '#5fe3b0'); Sfx.coin(); Render.coinBurst(p, Math.min(8, v));
         this.log(`${this.name(p)} spins the Fortune Wheel: +${v} coins.`); if (v === 10) this.react(p, 'starry', 'JACKPOT!'); else this.emote(p, v >= 5 ? '😄' : '🙂');
         break;
       }
-      case 'item': await this.giveItem(p, this.randomHandItem()); break;
+      case 'item': await this.giveItem(p, await this.itemWheel(p, '🎁 Pedlar')); break;
       case 'chameleon': {
-        const r = R.d6(); const ty = SPECIAL_TYPES[(r - 1) % 5];
-        this.log(`The Mirage shimmers (rolled ${r}) and becomes a ${SPACE[ty].lore}!`);
-        await sleep(300);
+        const pal = ['#c58bff', '#5fb8ff', '#ff9a3d', '#6fdc8c', '#ff6a8a'];
+        const ty = SPECIAL_TYPES[await Stage.wheel(p, SPECIAL_TYPES.map((x, i) => ({ icon: SPACE[x].icon, color: pal[i % 5] })), '❓ Mirage')];
+        this.log(`The Mirage shimmers and becomes a ${SPACE[ty].lore}!`);
         await this.resolveSpace(p, ty);
         break;
       }
@@ -938,6 +959,7 @@ class Game {
 
   async useUltimate(p, id) {
     p.ultUsed = true; p.ultHeld = false;
+    await Stage.item(p, ITEM[id].icon, ITEM[id].lore);
     Sfx.boom();
     this.react(p, 'evil', { typhoon: 'TYPHOON!!', washout: 'GREAT EBB!', inferno: 'SACRIFICE PYRE!', hollow: 'FAMISHED EARTH!' }[id]);
     if (id === 'typhoon') {
@@ -1006,6 +1028,7 @@ class Game {
     this.consume(p, id);
     this.log(`${this.name(p)} uses ${it.icon} <b>${itemLabel(id)}</b>${target && target !== p ? ` on ${this.name(target)}` : ''}.`);
     Sfx.click();
+    await Stage.item(p, it.icon, itemLabel(id), target && target !== p && !target.gone ? target : null);
     switch (id) {
       case 'armor': t.armor = 'normal'; t.armorLeft = 1; break;
       case 'heavy': t.armor = 'heavy'; t.armorLeft = 2; break;
@@ -1034,7 +1057,7 @@ class Game {
       case 'supercursed': this.players.forEach(q => { if (q !== p) q.trav.mods.cursed = true; }); break;
       case 'snail': target.trav.mods.snail = true; break;
       case 'ice': target.trav.frozen = 2; break;
-      case 'warp': t.pos = R.int(0, 39); UI.refresh(); await sleep(300); this.log(`${this.name(p)} warps to space ${t.pos}.`); break;
+      case 'warp': t.pos = R.int(0, 39); UI.refresh(); await Stage.look(Render.trackPos(t.pos), 900); this.log(`${this.name(p)} warps to space ${t.pos}.`); break;
       case 'shophop': {
         const open = [5, 15, 25, 35].filter(b => !this.closedBanks[b]);
         t.pos = R.pick(open.length ? open : [5, 15, 25, 35]); UI.refresh(); await sleep(300);
@@ -1044,12 +1067,13 @@ class Game {
       case 'mirror': { const a = t.pos; t.pos = target.trav.pos; target.trav.pos = a; break; }
       case 'deposit': await this.deposit(p, 'a distance (Courier Raven)'); break;
       case 'gold': {
-        const d = R.int(1, 10);
-        if (d === 10) { t.sHand++; this.log(`Oracle Card (d10 = 10): a star!`, 'good'); Sfx.star(); }
-        else { const n = d <= 3 ? 5 : d <= 6 ? 8 : 12; p.cash += n; this.log(`Oracle Card (d10 = ${d}): +${n} coins.`); Sfx.coin(); }
+        const segs = [5, 8, 12, 5, 8, 12, 5, 8, 12, 'star'];
+        const r = segs[await Stage.wheel(p, segs.map(v => v === 'star' ? { icon: '⭐', color: '#ffd34d' } : { icon: '🪙', text: '+' + v, color: { 5: '#6fa8dc', 8: '#6fdc8c', 12: '#ff9a3d' }[v] }), '🃏 Oracle Card')];
+        if (r === 'star') { t.sHand++; this.log(`Oracle Card: a star!`, 'good'); Sfx.star(); this.react(p, 'starry', 'A STAR!'); }
+        else { p.cash += r; this.log(`Oracle Card: +${r} coins.`); Sfx.coin(); Render.coinBurst(p, Math.min(8, r)); }
         break;
       }
-      case 'itembag': await this.giveItem(p, this.randomHandItem()); break;
+      case 'itembag': await this.giveItem(p, await this.itemWheel(p, '🎒')); break;
       case 'chain': t.chain = 3; break;
       case 'robin': {
         const rich = this.players.filter(q => q !== p).sort((a, b) => b.vault - a.vault || this.bank(b) - this.bank(a))[0];
@@ -1095,6 +1119,11 @@ class Game {
     const ult = ITEM[p.el.ult];
     let stars = 0, itemBought = false;
     const sold = new Set();
+    const wares = [{ icon: '⭐', name: 'Star', price, star: true, state: 'ok', keep: true }]
+      .concat(offers.map(id => ({ icon: ITEM[id].icon, name: itemLabel(id), price: ITEM[id].price, state: 'ok', id })));
+    if (!p.ultBought) wares.push({ icon: ult.icon, name: ult.lore, price: ult.price, state: 'ok', ult: true });
+    Stage.openShop(p, wares); if (Stage.shop) Stage.shop.money = () => p.cash + this.bank(p);
+    try {
     for (;;) {
       const sale = this.hasItem(p, 'starsale');
       const sp = sale ? Math.ceil(price / 2) : price;
@@ -1107,26 +1136,32 @@ class Game {
       });
       if (!p.ultBought) opts.push({ label: `${ult.icon} ${p.el.name} ultimate: ${ult.lore} — ${ult.price}`, value: 'ult', disabled: itemBought || !this.afford(p, ult.price), desc: ult.desc });
       opts.push({ label: 'Leave the Counting House', value: 'done' });
-      const v = await this.choose(p, { title: '🏛️ Counting House', text: `You have ${p.cash} cash + ${this.bank(p)} banked. Cash is spent first. One item per visit${itemBought ? ' (bought)' : ''}.`, options: opts, shop: true },
+      wares[0].price = sp;
+      wares.forEach((w, k) => { if (w.state === 'sold' || w.state === 'gone') return; const o = opts.find(x => x.value === (k === 0 ? 'star' : w.ult ? 'ult' : 'i' + (k - 1))); w.state = o && !o.disabled ? 'ok' : 'no'; if (half && w.id) w.price = Math.ceil(ITEM[w.id].price / 2); });
+      const v = await this.choose(p, { title: '🏛️ Counting House', text: '', options: opts, shop: true },
         () => AI.shop(this, p, opts, { sp, offers, half, sold }));
       if (!v || v === 'done') break;
       if (v === 'star') {
+        wares[0].keep = bulk; await Stage.buy(0);
         this.pay(p, sp); p.vault++; stars++;
         if (sale) this.consume(p, 'starsale');
         this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680'); this.react(p, 'starry'); { const riv = this.players.filter(q => q !== p); this.react(R.pick(riv), R.pick(['sad', 'angry', 'nervous']), R.pick(['Show-off…', 'Hmph!', 'Must… catch up…']), 0.4); }
       } else if (v === 'ult') {
+        await Stage.buy(wares.length - 1);
         this.pay(p, ult.price); p.ultBought = true; p.ultHeld = true; itemBought = true;
         this.log(`${this.name(p)} buys the ${p.el.name} ultimate: ${ult.icon} ${ult.lore}!`, 'good');
       } else {
         const i = +v.slice(1), id = offers[i];
         const pr = half ? Math.ceil(ITEM[id].price / 2) : ITEM[id].price;
         if (p.items.length >= HAND_LIMIT && !p.human) break;
+        await Stage.buy(i + 1);
         this.pay(p, pr); if (half) this.consume(p, 'coupon');
         sold.add(i); itemBought = true;
-        await this.giveItem(p, id);
+        await this.giveItem(p, id, false);
       }
       UI.refresh();
     }
+    } finally { Stage.closeShop(); }
     if (stars > 1) this.consume(p, 'bulk');
   }
 
