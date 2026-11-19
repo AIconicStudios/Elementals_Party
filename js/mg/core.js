@@ -323,13 +323,15 @@ const MG = {
     else if (/Move|direction|Pick|slider/i.test(c)) rows.push('pad');
     if (/button|mash|jump|dash|fire|push|pass|grab|\+ button/i.test(c) || /1 button/.test(c)) rows.push('a');
     if (/Pick/i.test(c) && !rows.includes('a')) rows.push('a');
-    const gap = 120, y0 = y - (rows.length - 1) * gap / 2;
+    if (/A & B/.test(c)) { const k = rows.indexOf('a'); if (k >= 0) rows.splice(k, 1); rows.push('a', 'b'); }
+    const gap = rows.length > 2 ? 112 : 120, y0 = y - (rows.length - 1) * gap / 2;
     rows.forEach((r, k) => {
       const yy = y0 + k * gap;
       g.fillStyle = 'rgba(255,255,255,0.06)'; MGH.rr(g, x - 95, yy - 48, 190, 100, 18); g.fill();
       if (r === 'lr') { this.key(g, x - 34, yy - 4, 50, '◀', ph === 0); this.key(g, x + 34, yy - 4, 50, '▶', ph === 2); }
       if (r === 'pad') { const s = 34; this.key(g, x, yy - 38, s, '▲', ph === 0); this.key(g, x - s, yy - 4, s, '◀', ph === 3); this.key(g, x + s, yy - 4, s, '▶', ph === 1); this.key(g, x, yy + 30, s, '▼', ph === 2); }
       if (r === 'a') { const press = (t * 2) % 1 < 0.2; g.save(); g.translate(x, yy - 2 + (press ? 3 : 0)); this.btnA(g, 0, 0, press ? 26 : 28); g.restore(); if (/mash/i.test(c)) MGH.text(g, '×5!', x + 58, yy + 8, 20, '#ffe680', 'center', 'bold'); }
+      if (r === 'b') { const press = (t * 2 + 0.5) % 1 < 0.2; g.save(); g.translate(x, yy - 2 + (press ? 3 : 0)); g.fillStyle = '#e0404a'; g.beginPath(); g.arc(0, 0, press ? 26 : 28, 0, 7); g.fill(); g.strokeStyle = '#ffd6d9'; g.lineWidth = 2; g.stroke(); g.font = 'bold 32px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText('B', 0, 1); g.textBaseline = 'alphabetic'; g.restore(); }
       if (r === 'cursor') { g.save(); g.translate(x + Math.sin(t * 2) * 30, yy - 8 + Math.cos(t * 1.6) * 14); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -18); g.lineTo(0, 14); g.lineTo(8, 6); g.lineTo(14, 18); g.lineTo(19, 15); g.lineTo(13, 4); g.lineTo(23, 3); g.closePath(); g.fill(); g.stroke(); g.restore(); }
     });
   },
@@ -411,7 +413,8 @@ const MGH = {
     const k = [['A/D', 'W/S', 'WASD', 'Q'], ['F/H', 'T/G', 'TFGH', 'R'], ['J/L', 'I/K', 'IJKL', 'U'], ['←/→', '↑/↓', 'Arrows', 'Enter']][i];
     const c = game.controls;
     let s;
-    if (/Cursor/.test(c)) s = `${k[2]} move cursor · ${k[3]} click${i === 0 ? ' (or mouse)' : ''}`;
+    if (/A & B/.test(c)) s = `${/Left\/Right/.test(c) ? k[0] + ' move · ' : ''}${k[3]} = A · ${['E', 'Y', 'O', 'R-Shift'][i]} = B`;
+    else if (/Cursor/.test(c)) s = `${k[2]} move cursor · ${k[3]} click${i === 0 ? ' (or mouse)' : ''}`;
     else if (/Move/.test(c)) s = `${k[2]} move · ${k[3]} action`;
     else if (/Left\/Right/.test(c)) s = `${k[0]} steer${/mash|\+/.test(c) ? ' · ' + k[3] + ' action' : ''}`;
     else if (/Pick/.test(c)) s = `${k[2]} choose · ${k[3]} confirm · ${['E', 'Y', 'O', 'R-Shift'][i]} peek`;

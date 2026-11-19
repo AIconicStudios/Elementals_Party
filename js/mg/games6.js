@@ -4,7 +4,7 @@
 // 51 ---------------------------------------------------------------- Three-Way Parry
 MG.def({
   id: 'parry', name: 'Three-Way Parry', type: 'Reaction', controls: 'Left/Right + button',
-  how: 'Arrows fly at you from the left, the right and from above. Press LEFT, RIGHT, or UP / the button for arrows from above, to raise your shield on that side just as the arrow arrives. Raising it at the wrong time leaves you open for a moment. Three hearts.',
+  how: 'Arrows fly at you from the left, the right and from above. Press LEFT, RIGHT, or UP / the button for arrows from above, to raise your shield on that side just as the arrow arrives. You can raise it a little early and still block. Three hearts.',
   wins: 'Last one standing (else most hearts).',
   init(m, S) {
     S.arrows = []; let t = 1.4;
@@ -16,11 +16,13 @@ MG.def({
     S.p.forEach((p, i) => {
       if (p.hp <= 0) return;
       p.sh -= dt; p.cd -= dt; p.flash -= dt;
-      for (const k of ['left', 'right', 'a', 'up']) if (m.pressed(i, k) && p.cd <= 0) { p.shield = k === 'up' ? 'a' : k; p.sh = 0.22; p.cd = 0.32; }
+      for (const k of ['left', 'right', 'a', 'up']) if (m.pressed(i, k) && p.cd <= 0) { p.shield = k === 'up' ? 'a' : k; p.sh = 0.42; p.cd = 0.28; p.pt = m.t; }
       S.arrows.forEach((a, k) => {
         if (p.res.has(k) || m.t < a.t) return;
+        const ok = p.shield === a.side && p.pt !== undefined && p.pt >= a.t - 0.45 && p.pt <= a.t + 0.08;
+        if (!ok && m.t < a.t + 0.08) return; // a short grace for slightly late presses
         p.res.set(k, 1);
-        if (p.sh > 0 && p.shield === a.side) { MGH.burst(i * 320 + 160 + (a.side === 'left' ? -40 : a.side === 'right' ? 40 : 0), a.side === 'a' ? 520 : 560, ['#ffe680', '#fff'], 10, { speed: 220, kind: 'spark', size: 2 }); Sfx.tone(900, 0.04, 'square', 0.03); }
+        if (ok) { MGH.burst(i * 320 + 160 + (a.side === 'left' ? -40 : a.side === 'right' ? 40 : 0), a.side === 'a' ? 520 : 560, ['#ffe680', '#fff'], 10, { speed: 220, kind: 'spark', size: 2 }); Sfx.tone(900, 0.04, 'square', 0.03); }
         else { p.hp--; p.flash = 0.4; p.res.set(k, 2); MGH.burst(i * 320 + 160, 560, ['#ff4d6d', '#fff'], 14, { speed: 220 }); MGH.shake(3); if (p.hp <= 0) p.outT = m.t; if (!m.bot(i)) Sfx.bad(); }
       });
     });
@@ -39,28 +41,31 @@ MG.def({
   fmt(s) { return s >= 100 ? `standing, ${Math.round(s - 100)} ♥` : `fell at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].hp > 0 ? '♥'.repeat(S.p[i].hp) : 'out'; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a2030', '#0e0a12'); MGH.lanes(g, m);
+    MGH.scene(g, 'dojo', m.t);
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160, cy = 560;
-      g.fillStyle = '#3a2f44'; g.fillRect(i * 320 + 20, 600, 280, 12);
+      MGH.shadow(g, cx, 604, 50, 0.4);
       S.arrows.forEach((a, k) => {
         if (p.res.has(k) || p.hp <= 0) return;
-        const k2 = (a.t - m.t) / S.fly; if (k2 > 1 || k2 < 0) return;
+        const k2 = (a.t - m.t) / S.fly; if (k2 > 1 || k2 < -0.1) return;
         let x = cx, y = cy, ang = 0;
         if (a.side === 'left') { x = cx - 30 - k2 * 130; ang = 0; }
         if (a.side === 'right') { x = cx + 30 + k2 * 130; ang = Math.PI; }
         if (a.side === 'a') { y = cy - 30 - k2 * 470; ang = Math.PI / 2; }
-        g.save(); g.translate(x, y); g.rotate(ang); g.strokeStyle = '#e8d5a8'; g.lineWidth = 3; g.beginPath(); g.moveTo(-26, 0); g.lineTo(6, 0); g.stroke();
-        g.fillStyle = '#ccc'; g.beginPath(); g.moveTo(10, 0); g.lineTo(0, -5); g.lineTo(0, 5); g.fill(); g.fillStyle = '#c33'; g.fillRect(-28, -4, 6, 8); g.restore();
+        if (k2 < 0.35) MGH.glow(g, x, y, 30, 'rgba(255,80,80,0.5)');
+        g.save(); g.translate(x, y); g.rotate(ang); g.strokeStyle = '#c9a36b'; g.lineWidth = 4; g.beginPath(); g.moveTo(-30, 0); g.lineTo(6, 0); g.stroke();
+        g.fillStyle = '#ddd'; g.beginPath(); g.moveTo(12, 0); g.lineTo(0, -6); g.lineTo(0, 6); g.fill(); g.fillStyle = '#e33'; g.beginPath(); g.moveTo(-30, 0); g.lineTo(-38, -7); g.lineTo(-34, 0); g.lineTo(-38, 7); g.fill(); g.restore();
       });
-      MGH.av(g, m, i, cx, cy, 28, p.hp <= 0 ? 'out' : p.flash > 0 ? 'hurt' : p.sh > 0 ? 'determined' : 'scared');
+      MGH.av(g, m, i, cx, cy, 28, p.hp <= 0 ? 'out' : p.flash > 0 ? 'hurt' : p.sh > 0 ? 'angry' : 'nervous');
       if (p.sh > 0 && p.hp > 0) {
-        const sx = p.shield === 'left' ? cx - 42 : p.shield === 'right' ? cx + 42 : cx, sy = p.shield === 'a' ? cy - 46 : cy;
-        g.fillStyle = 'rgba(160,200,255,0.85)'; g.strokeStyle = '#fff'; g.lineWidth = 3;
-        if (p.shield === 'a') MGH.rr(g, sx - 34, sy - 8, 68, 14, 6); else MGH.rr(g, sx - 7, sy - 34, 14, 68, 6);
+        const sx = p.shield === 'left' ? cx - 46 : p.shield === 'right' ? cx + 46 : cx, sy = p.shield === 'a' ? cy - 56 : cy;
+        MGH.glow(g, sx, sy, 50, 'rgba(160,210,255,0.6)');
+        g.fillStyle = 'rgba(170,215,255,0.9)'; g.strokeStyle = '#fff'; g.lineWidth = 3;
+        if (p.shield === 'a') MGH.rr(g, sx - 38, sy - 9, 76, 16, 7); else MGH.rr(g, sx - 8, sy - 38, 16, 76, 7);
         g.fill(); g.stroke();
       }
-      MGH.text(g, '♥'.repeat(Math.max(0, p.hp)), cx, 650, 22, '#ff6b6b', 'center', 'bold');
+      MGH.text(g, '❤️'.repeat(Math.max(0, p.hp)), cx, 660, 20, '#fff', 'center');
+      MGH.text(g, '◀  ▲  ▶', cx, 700, 16, m.players[i].color, 'center', 'bold');
     });
   },
 });
@@ -107,11 +112,11 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#3a5a2a', '#1a2a10'); MGH.lanes(g, m);
+    MGH.scene(g, 'meadow', m.t); MGH.lanes(g, m);
     for (let i = 0; i < 4; i++) {
       for (let h = 0; h < 3; h++) {
         const x = i * 320 + 60 + h * 100, y = 540;
-        g.fillStyle = '#2a1a0a'; g.beginPath(); g.ellipse(x, y, 42, 16, 0, 0, 7); g.fill();
+        g.fillStyle = '#6a4a2a'; g.beginPath(); g.ellipse(x, y + 4, 52, 22, 0, 0, 7); g.fill(); g.fillStyle = '#1a0e06'; g.beginPath(); g.ellipse(x, y, 42, 16, 0, 0, 7); g.fill();
         S.pops.forEach((p, k) => {
           if (p.hole !== h || m.t < p.t || m.t > p.t + p.up + 0.1) return;
           const hit = S.res[i].has(k);
@@ -179,7 +184,7 @@ MG.def({
   fmt(s) { return s.toFixed(1) + ' m'; },
   hud(m, S, i) { return `${S.best[i].toFixed(1)}m (throw ${S.att}/2)`; },
   draw(m, S, g) {
-    MGH.bg(g, '#3a6a3a', '#1a3a1a'); MGH.lanes(g, m);
+    MGH.scene(g, 'meadow', m.t); MGH.lanes(g, m);
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160, cy = 640;
       g.save(); g.beginPath(); g.rect(i * 320, 40, 320, 680); g.clip();
@@ -192,7 +197,7 @@ MG.def({
       if (p.st === 'spin') { hx = cx + Math.cos(p.a) * 55; hy = cy - Math.sin(p.a) * 30; g.strokeStyle = '#aaa'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy - 10); g.lineTo(hx, hy); g.stroke(); }
       else { hx = cx + clamp(p.hx * 0.3, -150, 150); hy = cy + p.hy * 0.95; }
       MGH.av(g, m, i, cx, cy - 10, 22, p.st === 'done' ? (p.foul ? 'hurt' : p.dist > 40 ? 'cheer' : 'happy') : p.w > 10 ? 'dizzy' : 'determined', { look: { x: Math.cos(p.a), y: 0 } });
-      g.fillStyle = '#555'; g.beginPath(); g.arc(hx, hy, 9, 0, 7); g.fill();
+      MGH.rock(g, hx, hy, 10, i, '#6a6a7a', m.t * 8);
       g.fillStyle = '#222'; g.fillRect(cx - 60, 700, 120, 8); g.fillStyle = m.players[i].color; g.fillRect(cx - 60, 700, 120 * Math.min(1, p.w / 15), 8);
       g.restore();
     });
@@ -246,8 +251,8 @@ MG.def({
   fmt(s) { return `${s} ⭐`; },
   hud(m, S, i) { return `⭐${S.s[i].n}`; },
   draw(m, S, g) {
-    MGH.bg(g, '#05031a', '#0a0628');
-    for (const st of S.stars) { g.save(); g.translate(st.x, st.y); g.rotate(m.t); MGH.text(g, '⭐', 0, 9, 26, '#fff'); g.restore(); }
+    MGH.scene(g, 'space', m.t);
+    for (const st of S.stars) MGH.star(g, st.x, st.y, 13, '#ffd34d', m.t);
     for (const r of S.rocks) { g.save(); g.translate(r.x, r.y); g.rotate(r.rot); g.fillStyle = '#6b6378'; g.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, rr = r.r * (0.8 + 0.2 * Math.sin(k * 3)); k ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill(); g.fillStyle = '#4a4458'; g.beginPath(); g.arc(r.r * 0.3, -r.r * 0.2, r.r * 0.2, 0, 7); g.fill(); g.restore(); }
     S.s.forEach((s, i) => {
       g.save(); g.translate(s.x, s.y); g.rotate(s.a);
@@ -262,31 +267,45 @@ MG.def({
 // 55 ---------------------------------------------------------------- Glacier Slalom
 MG.def({
   id: 'slalom', name: 'Glacier Slalom', type: 'Race', controls: 'Left/Right + button',
-  how: 'Ski down the glacier through the flag gates. LEFT/RIGHT steer; hold the button to tuck for more speed (but you steer worse). Missing a gate costs a 1.5 s penalty; hitting a pine tree makes you tumble.',
+  how: 'Ski down the glacier through the flag gates. LEFT/RIGHT steer; hold the button to tuck for speed. Hit an ice ramp to fly — tap the button in the air to spin a trick (each one takes 0.4 s off your time) but land before the spin ends or you wipe out! Missing a gate costs 1.5 s; pine trees make you tumble.',
   wins: 'Fastest time.',
   init(m, S) {
     S.len = 9000; S.gates = []; let x = 160;
     for (let d = 500; d < S.len - 200; d += R.range(330, 420)) { x = clamp(x + R.range(-110, 110), 70, 250); S.gates.push({ d, x }); }
     S.trees = []; for (let d = 700; d < S.len; d += R.range(140, 260)) { const x = R.range(30, 290); if (!S.gates.some(g => Math.abs(g.d - d) < 90 && Math.abs(g.x - x) < 80)) S.trees.push({ d, x }); }
-    S.p = [0, 1, 2, 3].map(() => ({ x: 160, d: 0, v: 250, pen: 0, fall: 0, fin: 0, done: new Set(), hitT: new Set(), msg: '', mt: 0 }));
+    S.ramps = []; for (let k = 0; k < S.gates.length - 1; k += 2) { const a = S.gates[k], b = S.gates[k + 1]; S.ramps.push({ d: (a.d + b.d) / 2, x: clamp((a.x + b.x) / 2 + R.range(-30, 30), 50, 270) }); }
+    S.p = [0, 1, 2, 3].map(() => ({ x: 160, d: 0, v: 250, pen: 0, fall: 0, fin: 0, done: new Set(), hitT: new Set(), msg: '', mt: 0, air: 0, spin: 0, tricks: 0, rampsUsed: new Set(), rot: 0 }));
   },
   update(m, S, dt) {
     S.p.forEach((p, i) => {
       if (p.fin) return;
       p.mt -= dt;
       if (p.fall > 0) { p.fall -= dt; p.v = 120; return; }
+      if (p.air > 0) {
+        p.air -= dt; p.spin -= dt; if (p.spin > 0) p.rot += dt * Math.PI * 2 / 0.4;
+        if (m.pressed(i, 'a') && p.spin <= 0 && p.tricks < 3) { p.spin = 0.4; p.tricks++; if (!m.bot(i)) Sfx.whoosh(true); }
+        p.x = clamp(p.x + m.axis(i).x * 120 * dt, 20, 300); p.d += p.v * dt;
+        if (p.air <= 0) {
+          if (p.spin > 0.05) { p.fall = 1.1; p.msg = 'WIPEOUT!'; p.mt = 1; p.tricks = 0; MGH.burst(i * 320 + p.x, 560, ['#fff', '#cfefff'], 26, { speed: 260 }); if (!m.bot(i)) Sfx.bad(); }
+          else if (p.tricks) { p.pen -= 0.4 * p.tricks; p.msg = `TRICK ×${p.tricks}  −${(0.4 * p.tricks).toFixed(1)}s`; p.mt = 1; MGH.burst(i * 320 + p.x, 560, ['#ffe680', '#fff'], 20, { speed: 220, kind: 'spark', size: 2 }); if (!m.bot(i)) Sfx.star(); }
+          p.tricks = 0; p.rot = 0; p.spin = 0;
+        }
+      } else {
       const tuck = m.held(i, 'a');
       p.x = clamp(p.x + m.axis(i).x * (tuck ? 150 : 270) * dt, 20, 300);
       p.v = lerp(p.v, tuck ? 520 : 380, dt * 0.8);
       p.d += p.v * dt;
+      S.ramps.forEach((r, k) => { if (!p.rampsUsed.has(k) && Math.abs(r.d - p.d) < 14 && Math.abs(r.x - p.x) < 34) { p.rampsUsed.add(k); p.air = 0.95; p.spin = 0; p.tricks = 0; Sfx.tone(400, 0.3, 'triangle', 0.04, 500); } });
+      }
       S.gates.forEach((gt, k) => { if (!p.done.has(k) && p.d >= gt.d) { p.done.add(k); if (Math.abs(p.x - gt.x) > 48) { p.pen += 1.5; p.msg = 'missed gate +1.5s'; p.mt = 0.8; } else { MGH.burst(i * 320 + p.x, 560, ['#fff', '#cfefff'], 6, { speed: 120 }); } } });
-      S.trees.forEach((t, k) => { if (!p.hitT.has(k) && Math.abs(t.d - p.d) < 16 && Math.abs(t.x - p.x) < 24) { p.hitT.add(k); p.fall = 1; MGH.burst(i * 320 + p.x, 560, ['#fff', '#2d6b3a'], 20, { speed: 240 }); if (!m.bot(i)) Sfx.bad(); } });
+      S.trees.forEach((t, k) => { if (p.air <= 0 && !p.hitT.has(k) && Math.abs(t.d - p.d) < 16 && Math.abs(t.x - p.x) < 24) { p.hitT.add(k); p.fall = 1; MGH.burst(i * 320 + p.x, 560, ['#fff', '#2d6b3a'], 20, { speed: 240 }); if (!m.bot(i)) Sfx.bad(); } });
       if (p.d >= S.len) { p.fin = m.t + p.pen; MGH.pop('FINISH', i * 320 + 160, 300, m.players[i].color, 32); }
     });
     if (S.p.every(p => p.fin) || m.t > 70) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
     const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false; if (p.fall > 0 || p.fin) return;
+    if (p.air > 0) { if (p.air > 0.6 && p.spin <= 0 && p.tricks < (i % 2 ? 2 : 1) && Math.random() < 0.3) v.a = !m.prev[i].a; return; }
     const gt = S.gates.find((g, k) => !p.done.has(k));
     let tx = gt ? gt.x : 160;
     for (const t of S.trees) if (t.d > p.d && t.d - p.d < 160 && Math.abs(t.x - tx) < 30) tx += t.x > 160 ? -50 : 50;
@@ -297,78 +316,101 @@ MG.def({
   },
   score(m, S) { return S.p.map(p => p.fin ? 1000 - p.fin : p.d / 100); },
   fmt(s) { return s > 100 ? `${(1000 - s).toFixed(2)} s` : 'did not finish'; },
-  hud(m, S, i) { const p = S.p[i]; return p.fin ? `✔ ${p.fin.toFixed(1)}s` : `${Math.round(p.d / S.len * 100)}% (+${p.pen}s)`; },
+  hud(m, S, i) { const p = S.p[i]; return p.fin ? `✔ ${p.fin.toFixed(1)}s` : `${Math.round(p.d / S.len * 100)}% (${p.pen >= 0 ? "+" : ""}${p.pen.toFixed(1)}s)`; },
   draw(m, S, g) {
-    MGH.bg(g, '#e8f4ff', '#c4def5'); MGH.lanes(g, m);
+    MGH.scene(g, 'ice', m.t); MGH.lanes(g, m);
     S.p.forEach((p, i) => {
       const ox = i * 320, yC = 560;
       g.save(); g.beginPath(); g.rect(ox, 40, 320, 680); g.clip();
-      S.gates.forEach((gt, k) => { const y = yC - (gt.d - p.d); if (y < 20 || y > 740) return; const ok = p.done.has(k); g.fillStyle = k % 2 ? '#e33' : '#36f'; g.globalAlpha = ok ? 0.4 : 1; g.fillRect(ox + gt.x - 50, y - 30, 4, 30); g.fillRect(ox + gt.x + 46, y - 30, 4, 30); g.fillRect(ox + gt.x - 50, y - 30, 16, 10); g.fillRect(ox + gt.x + 34, y - 30, 16, 10); g.globalAlpha = 1; });
-      S.trees.forEach(t => { const y = yC - (t.d - p.d); if (y < 20 || y > 760) return; g.fillStyle = '#2d6b3a'; g.beginPath(); g.moveTo(ox + t.x, y - 40); g.lineTo(ox + t.x - 18, y); g.lineTo(ox + t.x + 18, y); g.fill(); g.fillStyle = '#5a3d22'; g.fillRect(ox + t.x - 3, y, 6, 8); });
-      if (p.d > S.len - 600) { const y = yC - (S.len - p.d); g.fillStyle = '#222'; for (let x = 0; x < 320; x += 20) g.fillRect(ox + x, y, 10, 10); }
+      g.fillStyle = 'rgba(255,255,255,0.75)'; g.fillRect(ox, 40, 320, 680);
+      for (let k = 0; k < 12; k++) { const y = ((k * 70 + p.d) % 840) - 60; g.strokeStyle = 'rgba(150,190,230,0.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + 30 + (k * 47) % 260, y); g.quadraticCurveTo(ox + 60 + (k * 47) % 260, y + 20, ox + 30 + (k * 47) % 260, y + 40); g.stroke(); }
+      S.ramps.forEach((r, k) => { const y = yC - (r.d - p.d); if (y < 20 || y > 760) return; g.fillStyle = MGH.grad(g, y - 26, y + 6, ['#bfe8ff', '#5fa8e0']); g.beginPath(); g.moveTo(ox + r.x - 34, y + 6); g.lineTo(ox + r.x + 34, y + 6); g.lineTo(ox + r.x + 26, y - 26); g.lineTo(ox + r.x - 26, y - 26); g.closePath(); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); MGH.text(g, '▲', ox + r.x, y - 4, 16, '#fff', 'center', 'bold'); });
+      S.gates.forEach((gt, k) => { const y = yC - (gt.d - p.d); if (y < 20 || y > 740) return; const ok = p.done.has(k), c = k % 2 ? '#e33' : '#36f'; g.globalAlpha = ok ? 0.35 : 1; for (const s of [-1, 1]) { const fx = ox + gt.x + s * 48; g.fillStyle = '#333'; g.fillRect(fx - 2, y - 34, 4, 36); g.fillStyle = c; g.beginPath(); g.moveTo(fx + 2, y - 34); g.lineTo(fx + 2 + s * 18 + Math.sin(m.t * 6 + k) * 3, y - 27); g.lineTo(fx + 2, y - 20); g.fill(); } g.globalAlpha = 1; });
+      S.trees.forEach((t, k) => { const y = yC - (t.d - p.d); if (y < 20 || y > 760) return; MGH.shadow(g, ox + t.x + 6, y + 2, 16, 0.2); for (let l = 0; l < 3; l++) { g.fillStyle = ['#2d6b3a', '#3a8048', '#4a9a58'][l]; g.beginPath(); g.moveTo(ox + t.x, y - 48 + l * 12); g.lineTo(ox + t.x - 22 + l * 3, y - 10 + l * 2); g.lineTo(ox + t.x + 22 - l * 3, y - 10 + l * 2); g.fill(); } g.fillStyle = '#fff'; g.beginPath(); g.moveTo(ox + t.x, y - 48); g.lineTo(ox + t.x - 7, y - 38); g.lineTo(ox + t.x + 7, y - 38); g.fill(); g.fillStyle = '#5a3d22'; g.fillRect(ox + t.x - 3, y - 10, 6, 10); });
+      if (p.d > S.len - 600) { const y = yC - (S.len - p.d); for (let x = 0; x < 320; x += 20) { g.fillStyle = (x / 20) % 2 ? '#222' : '#fff'; g.fillRect(ox + x, y, 20, 10); } }
       g.restore();
-      const tuck = m.held(i, 'a');
-      MGH.av(g, m, i, ox + p.x, yC, tuck ? 16 : 19, p.fall > 0 ? 'dizzy' : p.fin ? 'cheer' : tuck ? 'determined' : 'happy', { noFeet: true, look: { x: m.axis(i).x, y: 1 } });
-      g.strokeStyle = '#333'; g.lineWidth = 3; g.beginPath(); g.moveTo(ox + p.x - 10, yC + 18); g.lineTo(ox + p.x - 10, yC + 40); g.moveTo(ox + p.x + 10, yC + 18); g.lineTo(ox + p.x + 10, yC + 40); g.stroke();
-      if (p.mt > 0) MGH.text(g, p.msg, ox + 160, 480, 16, '#c33', 'center', 'bold');
+      const tuck = m.held(i, 'a') && p.air <= 0, air = p.air > 0 ? Math.sin((0.95 - p.air) / 0.95 * Math.PI) : 0;
+      MGH.shadow(g, ox + p.x + air * 20, yC + 40, 18 - air * 6, 0.25);
+      g.save(); g.translate(ox + p.x, yC - air * 40); g.rotate(p.rot); g.scale(1 + air * 0.3, 1 + air * 0.3);
+      g.strokeStyle = '#333'; g.lineWidth = 3; g.beginPath(); g.moveTo(-10, 18); g.lineTo(-10, 42); g.moveTo(10, 18); g.lineTo(10, 42); g.stroke();
+      MGH.av(g, m, i, 0, 0, tuck ? 16 : 19, p.fall > 0 ? 'dizzy' : p.fin ? 'cheer' : p.spin > 0 ? 'cheer' : tuck ? 'determined' : 'happy', { noFeet: true, look: { x: m.axis(i).x, y: 1 } });
+      g.restore();
+      if (p.air <= 0 && Math.random() < 0.5) MGH.burst(ox + p.x, yC + 42, ['#fff', '#dff4ff'], 1, { speed: 60, life: 0.4, size: 2 });
+      if (p.mt > 0) MGH.label(g, p.msg, ox + 160, 470, 16, p.msg.startsWith('TRICK') ? '#ffb000' : '#c33', 'rgba(255,255,255,0.85)');
     });
   },
 });
 
-// 56 ---------------------------------------------------------------- Cliff Dive
+// 56 ---------------------------------------------------------------- Painterman (claim the floor)
 MG.def({
-  id: 'dive', name: 'Cliff Dive', type: 'Skill', controls: 'Left/Right + button',
-  how: 'Leap from the sea cliff. Gusts tilt you — use LEFT/RIGHT to stay straight. Tap the button to tuck and flip (+2 each), but you must be untucked and upright before the waterline or you belly-flop for nothing. Two dives.',
-  wins: 'Highest total score.',
-  init(m, S) { S.tot = [0, 0, 0, 0]; S.n = 1; this.reset(S); },
-  reset(S) { S.p = [0, 1, 2, 3].map(() => ({ y: 0, v: 0, tilt: 0, tw: 0, flip: 0, flips: 0, tuck: 0, st: 'fall', last: 0, botPlan: R.int(1, 3) })); S.wait = 0; S.gust = 0; S.gt = 0; },
-  water: 600,
+  id: 'paint', name: 'Painterman', type: 'Arena', controls: 'Move', dur: 40,
+  how: 'Every tile you walk over gets painted your colour — and rivals can paint right over it! Grab power-ups: 🍄 GIANT (paint a 3×3 area as you walk), 💥 SPLASH (instantly paints a big blob around you), ⚡ SPEED. Most tiles at the end wins.',
+  wins: 'Most tiles painted.',
+  init(m, S) {
+    S.cols = 16; S.rows = 8; S.ts = 80; S.y0 = 80; S.grid = new Int8Array(S.cols * S.rows).fill(-1); S.fresh = new Float32Array(S.cols * S.rows);
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body([120, 1160, 120, 1160][i], [140, 140, 660, 660][i], 24), { big: 0, fast: 0 }));
+    S.pu = []; S.puT = 3;
+  },
+  cell(S, x, y) { const c = Math.floor(x / S.ts), r = Math.floor((y - S.y0) / S.ts); return c >= 0 && c < S.cols && r >= 0 && r < S.rows ? [c, r] : null; },
+  paint(S, c, r, i, t) { if (c < 0 || r < 0 || c >= S.cols || r >= S.rows) return; const k = r * S.cols + c; if (S.grid[k] !== i) { S.grid[k] = i; S.fresh[k] = t; } },
   update(m, S, dt) {
-    S.gt -= dt; if (S.gt <= 0) { S.gust = R.range(-1, 1) * 2.2; S.gt = R.range(0.5, 1.1); }
-    S.p.forEach((p, i) => {
-      if (p.st !== 'fall') return;
-      p.v += 260 * dt; p.y += p.v * dt;
-      p.tw += (S.gust + m.axis(i).x * -3.2 + p.tilt * 1.2) * dt; p.tw *= 1 - 1.5 * dt; p.tilt += p.tw * dt;
-      if (m.pressed(i, 'a')) p.tuck = 0.45;
-      p.tuck -= dt;
-      if (p.tuck > 0) { p.flip += 10 * dt; if (p.flip >= Math.PI * 2) { p.flip -= Math.PI * 2; p.flips++; MGH.pop('FLIP!', i * 320 + 160, 40 + p.y * 0.95, m.players[i].color, 22); } }
-      else if (p.flip > 0.01) { p.flip = Math.min(Math.PI * 2, p.flip + 6 * dt); if (p.flip >= Math.PI * 2 - 0.01) { p.flip = 0; p.flips++; MGH.pop('FLIP!', i * 320 + 160, 40 + p.y * 0.95, m.players[i].color, 22); } }
-      if (p.y >= this.water) {
-        p.st = 'done';
-        const clean = p.tuck <= 0 && p.flip < 0.3 && Math.abs(p.tilt) < 0.35;
-        const sc = clean ? p.flips * 2 + Math.max(0, Math.round(5 - Math.abs(p.tilt) * 14)) : 0;
-        p.last = sc; S.tot[i] += sc;
-        MGH.burst(i * 320 + 160, 40 + this.water * 0.95, ['#9fd8ff', '#ffffff', '#4f8dff'], clean ? 20 : 40, { speed: clean ? 220 : 380, up: 200, grav: 800 });
-        MGH.pop(clean ? `+${sc}` : 'BELLY FLOP', i * 320 + 160, 520, clean ? '#ffe680' : '#ff6b6b', 26);
-        if (!clean) MGH.shake(4);
+    S.puT -= dt;
+    if (S.puT <= 0 && S.pu.length < 2) { S.puT = R.range(4, 6); S.pu.push({ k: R.pick(['big', 'splash', 'fast']), x: R.range(100, 1180), y: R.range(130, 680), t: 0 }); }
+    S.pu.forEach(u => { u.t += dt; });
+    S.b.forEach((b, i) => {
+      b.big -= dt; b.fast -= dt;
+      const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2600, b.fast > 0 ? 470 : 300, 8); MGH.integrate(b, dt, 0, S.y0, 1280, S.y0 + S.rows * S.ts);
+      const c = this.cell(S, b.x, b.y);
+      if (c) { const rad = b.big > 0 ? 1 : 0; for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) this.paint(S, c[0] + dc, c[1] + dr, i, m.t); }
+      for (const u of S.pu) if (!u.got && dist(u.x, u.y, b.x, b.y) < b.r + 24) {
+        u.got = true; Sfx.star(); MGH.burst(u.x, u.y, [m.players[i].color, '#fff'], 30, { speed: 300 });
+        if (u.k === 'big') { b.big = 6; MGH.pop('GIANT!', b.x, b.y - 50, m.players[i].color, 28); }
+        if (u.k === 'fast') { b.fast = 5; MGH.pop('SPEED!', b.x, b.y - 50, m.players[i].color, 28); }
+        if (u.k === 'splash' && c) { for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) if (dr * dr + dc * dc <= 10) this.paint(S, c[0] + dc, c[1] + dr, i, m.t); MGH.ring(b.x, b.y, m.players[i].color, 20, 260, 0.6); MGH.shake(8); Sfx.boom(); MGH.pop('SPLASH!', b.x, b.y - 50, m.players[i].color, 30); }
       }
     });
-    if (S.p.every(p => p.st === 'done')) { S.wait += dt; if (S.wait > 1.6) { if (S.n >= 2) m.finish(S.tot.slice()); else { S.n++; this.reset(S); } } }
+    S.pu = S.pu.filter(u => !u.got && u.t < 10);
+    MGH.collide(S.b, 0.7);
   },
   bot(m, S, i) {
-    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false; if (p.st !== 'fall') return;
-    const pred = p.tilt + p.tw * 0.3;
-    if (Math.abs(pred) > 0.05) v[pred > 0 ? 'right' : 'left'] = Math.random() < 0.85;
-    const remaining = this.water - p.y, tLeft = remaining / (p.v + 1);
-    if (p.flips < p.botPlan && tLeft > 0.9 + Math.random() * 0.2) v.a = !m.prev[i].a;
+    const b = S.b[i];
+    if (!S.bt) S.bt = [null, null, null, null];
+    const pu = S.pu.find(u => !u.got && dist(u.x, u.y, b.x, b.y) < 320);
+    if (pu) { MGH.aim(m, i, pu.x, pu.y, b, 8); return; }
+    let t = S.bt[i];
+    if (!t || S.grid[t[1] * S.cols + t[0]] === i || Math.random() < 0.01) {
+      let best = null, bs = -1e9;
+      for (let k = 0; k < 24; k++) { const c = R.int(0, S.cols - 1), r = R.int(0, S.rows - 1), o = S.grid[r * S.cols + c]; if (o === i) continue; const x = (c + 0.5) * S.ts, y = S.y0 + (r + 0.5) * S.ts; const sc = (o >= 0 ? 60 : 40) - dist(x, y, b.x, b.y) * 0.15; if (sc > bs) { bs = sc; best = [c, r]; } }
+      S.bt[i] = t = best;
+    }
+    if (t) MGH.aim(m, i, (t[0] + 0.5) * S.ts, S.y0 + (t[1] + 0.5) * S.ts, b, 10);
   },
-  score(m, S) { return S.tot.slice(); },
-  hud(m, S, i) { return `${S.tot[i]} (dive ${S.n}/2)`; },
+  score(m, S) { const n = [0, 0, 0, 0]; S.grid.forEach(o => { if (o >= 0) n[o]++; }); return n; },
+  fmt(s) { return `${s} tiles`; },
+  hud(m, S, i) { return this.score(m, S)[i] + ' tiles'; },
   draw(m, S, g) {
-    MGH.bg(g, '#ffb880', '#7ec8ff'); MGH.lanes(g, m);
-    g.fillStyle = '#2a6fb5'; g.fillRect(0, 40 + this.water * 0.95, 1280, 720);
-    S.p.forEach((p, i) => {
-      const cx = i * 320 + 160;
-      g.fillStyle = '#6b5233'; g.fillRect(i * 320 + 10, 40, 60, 140);
-      const y = 40 + Math.min(p.y, this.water) * 0.95 + 20;
-      if (p.st === 'fall' || p.y < this.water + 1) {
-        g.save(); g.translate(cx, y); g.rotate(p.tilt + p.flip); g.translate(-cx, -y);
-        MGH.av(g, m, i, cx, y, p.tuck > 0 ? 15 : 19, p.tuck > 0 ? 'determined' : Math.abs(p.tilt) > 0.4 ? 'scared' : 'happy', { noFeet: p.tuck > 0, look: { x: 0, y: 1 } });
+    MGH.scene(g, 'stage', m.t);
+    for (let r = 0; r < S.rows; r++) for (let c = 0; c < S.cols; c++) {
+      const k = r * S.cols + c, x = c * S.ts, y = S.y0 + r * S.ts, o = S.grid[k];
+      g.fillStyle = (r + c) % 2 ? '#d8d0c4' : '#cfc6b8'; g.fillRect(x + 1, y + 1, S.ts - 2, S.ts - 2);
+      if (o >= 0) {
+        const col = m.players[o].color, age = m.t - S.fresh[k], pop = age < 0.25 ? 1 + (0.25 - age) * 1.2 : 1;
+        g.save(); g.translate(x + S.ts / 2, y + S.ts / 2); g.scale(pop, pop);
+        g.fillStyle = col; g.beginPath(); for (let a = 0; a < 12; a++) { const an = a / 12 * Math.PI * 2, rr = S.ts * (0.44 + MGH.hash(k * 12 + a) * 0.1); g.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } g.closePath(); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.22)'; g.beginPath(); g.ellipse(-S.ts * 0.12, -S.ts * 0.14, S.ts * 0.16, S.ts * 0.08, -0.4, 0, 7); g.fill();
         g.restore();
       }
-      if (p.st === 'done') MGH.text(g, `dive: ${p.last}`, cx, 700, 18, '#fff', 'center', 'bold');
-      if (p.st === 'fall' && Math.abs(S.gust) > 1) MGH.text(g, S.gust > 0 ? '💨→' : '←💨', cx, 120, 22, '#fff');
+    }
+    for (const u of S.pu) { const k = Math.min(1, u.t * 3); MGH.glow(g, u.x, u.y, 50, 'rgba(255,255,255,0.6)'); g.globalAlpha = u.t > 8.5 && Math.sin(u.t * 20) > 0 ? 0.4 : 1; MGH.emoji(g, { big: '🍄', splash: '💥', fast: '⚡' }[u.k], u.x, u.y + Math.sin(u.t * 4) * 5, 40 * k); g.globalAlpha = 1; }
+    S.b.forEach((b, i) => {
+      const sc = b.big > 0 ? 1.6 : 1; MGH.shadow(g, b.x, b.y + b.r * 1.25 * sc, b.r * sc, 0.35);
+      if (b.fast > 0) for (let s = 1; s < 4; s++) { g.globalAlpha = 0.15; g.fillStyle = m.players[i].color; g.beginPath(); g.arc(b.x - b.vx * 0.03 * s, b.y - b.vy * 0.03 * s, b.r, 0, 7); g.fill(); g.globalAlpha = 1; }
+      g.save(); g.translate(b.x, b.y); g.scale(sc, sc); g.translate(-b.x, -b.y); MGH.drawBody(g, b, m.players[i], '🖌️', b.big > 0 ? 'evil' : 'cheer'); g.restore();
     });
+    // live tile race
+    const n = this.score(m, S), tot = S.cols * S.rows; let x = 340;
+    g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, 336, 48, 608, 22, 11); g.fill();
+    n.forEach((v, i) => { const w = 600 * v / tot; g.fillStyle = m.players[i].color; g.fillRect(x, 52, w, 14); x += w; });
   },
 });
 
@@ -416,7 +458,8 @@ MG.def({
   fmt(s) { return -s >= 900 ? 'no stone in play' : `${Math.round(-s)} cm from centre`; },
   hud(m, S, i) { const b = S.p[i].best; return `${S.p[i].n}/3 · ${b > 900 ? '-' : Math.round(b) + 'cm'}`; },
   draw(m, S, g) {
-    MGH.bg(g, '#dff1ff', '#b8daf2'); MGH.lanes(g, m);
+    MGH.scene(g, 'ice', m.t); MGH.lanes(g, m);
+    for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(220,240,255,0.75)'; g.fillRect(i * 320 + 30, 60, 260, 650); g.strokeStyle = 'rgba(120,170,220,0.6)'; g.lineWidth = 2; g.strokeRect(i * 320 + 30, 60, 260, 650); }
     S.p.forEach((p, i) => {
       const ox = i * 320;
       [[90, '#3b6fd8'], [64, '#ffffff'], [40, '#d83b3b'], [14, '#ffffff']].forEach(([r, c]) => { g.fillStyle = c; g.beginPath(); g.arc(ox + S.cx, S.cy, r, 0, 7); g.fill(); });
@@ -467,13 +510,12 @@ MG.def({
   score(m, S) { return S.p.map(p => p.pts); },
   hud(m, S, i) { return `${S.p[i].pts} (${S.p[i].balls.length}☄)`; },
   draw(m, S, g) {
-    MGH.bg(g, '#1a0e2a', '#3a1a0a'); MGH.lanes(g, m);
+    MGH.scene(g, 'lava', m.t); MGH.lanes(g, m);
     S.p.forEach((p, i) => {
       const ox = i * 320;
       g.fillStyle = '#3a2a1c'; g.fillRect(ox, 680, 320, 40);
       for (const b of p.balls) {
-        g.fillStyle = 'rgba(255,140,40,0.25)'; for (let k = 1; k <= 3; k++) { g.beginPath(); g.arc(ox + b.x - b.vx * 0.02 * k, b.y - b.vy * 0.02 * k, 14 - k * 2, 0, 7); g.fill(); }
-        g.fillStyle = '#ff8a3d'; g.beginPath(); g.arc(ox + b.x, b.y, 15, 0, 7); g.fill(); g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(ox + b.x - 4, b.y - 4, 6, 0, 7); g.fill();
+        MGH.fireball(g, ox + b.x, b.y, 15, m.t, b.vx, b.vy || 1);
         if (b.vy > 0) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(ox + b.x, 682, 16 - (680 - b.y) / 60, 4, 0, 0, 7); g.fill(); }
       }
       const danger = p.balls.some(b => b.vy > 0 && b.y > 560 && Math.abs(b.x - p.x) > 60);
@@ -484,12 +526,13 @@ MG.def({
 
 // 59 ---------------------------------------------------------------- Bridge Collapse
 MG.def({
-  id: 'bridge', name: 'Bridge Collapse', type: 'Survival', controls: 'Left/Right + button', dur: 50,
-  how: 'Everyone is on one old rope bridge over the abyss. Planks shake, then fall — faster and faster. Run LEFT/RIGHT and press the button to jump over gaps. You can bump rivals off balance. Fall and you are out.',
+  id: 'bridge', name: 'Bridge Collapse', type: 'Survival', controls: 'Left/Right + A & B', dur: 50,
+  how: 'Everyone is on one old rope bridge over the abyss. Planks shake, then fall — faster and faster. Run LEFT/RIGHT and press the button to jump over gaps. Press B to SHOVE a rival next to you toward the gaps. Fall and you are out.',
   wins: 'Last one on the bridge.',
   init(m, S) {
     S.n = 18; S.pw = 1280 / S.n; S.st = new Array(S.n).fill(0).map(() => ({ s: 'ok', t: 0 }));
-    S.p = [0, 1, 2, 3].map(i => ({ x: 280 + i * 240, y: 0, vy: 0, vx: 0, ground: true, alive: true, outT: 0 }));
+    S.p = [0, 1, 2, 3].map(i => ({ x: 280 + i * 240, y: 0, vy: 0, vx: 0, ground: true, alive: true, outT: 0, kx: 0, cd: 0, shove: 0, hurt: 0, face: i < 2 ? 1 : -1 }));
+    S.fx = [];
     S.next = 2.5;
   },
   plankAt(S, x) { return clamp(Math.floor(x / S.pw), 0, S.n - 1); },
@@ -503,8 +546,14 @@ MG.def({
     S.st.forEach((s, k) => { if (s.s === 'shake') { s.t -= dt; if (s.t <= 0) { s.s = 'gone'; s.t = 0; MGH.burst((k + 0.5) * S.pw, 480, ['#8a6a3a', '#5a3d22'], 14, { speed: 160, grav: 700 }); } } });
     S.p.forEach((p, i) => {
       if (!p.alive) return;
-      p.vx = lerp(p.vx, m.axis(i).x * 260, dt * 10);
+      const ax = m.axis(i).x; if (ax) p.face = Math.sign(ax);
+      p.vx = lerp(p.vx, ax * 260, dt * 10) + p.kx; p.kx *= Math.pow(0.03, dt); p.cd -= dt; p.shove -= dt; p.hurt -= dt;
       if (m.pressed(i, 'a') && p.ground) { p.vy = 520; p.ground = false; }
+      if (m.pressed(i, 'b') && p.cd <= 0) {
+        p.cd = 1.2; p.shove = 0.3;
+        S.p.forEach((q, j) => { if (j === i || !q.alive || Math.abs(q.y - p.y) > 40) return; const dx = q.x - p.x; if (Math.abs(dx) < 70 && Math.sign(dx) === p.face) { q.kx += p.face * 720; q.vy = Math.max(q.vy, 260); q.ground = false; q.hurt = 0.7; S.fx.push({ x: (p.x + q.x) / 2, y: 480 - 30 - p.y, t: 0 }); MGH.shake(9); Sfx.punch(); Sfx.voice(m.players[j].el.id, 'ouch'); MGH.burst((p.x + q.x) / 2, 450 - p.y, ['#fff', '#ffd34d', m.players[i].color], 18, { speed: 280, kind: 'spark', size: 3 }); } });
+        if (!m.bot(i)) Sfx.whoosh(true);
+      }
       p.vy -= 1500 * dt; p.y += p.vy * dt; p.x = clamp(p.x + p.vx * dt, 16, 1264);
       const k = this.plankAt(S, p.x), solid = S.st[k].s !== 'gone';
       if (p.y <= 0 && solid && p.y > -20) { p.y = 0; p.vy = 0; p.ground = true; }
@@ -516,10 +565,12 @@ MG.def({
       const A = S.p[a], B = S.p[b]; if (!A.alive || !B.alive) continue;
       if (Math.abs(A.x - B.x) < 34 && Math.abs(A.y - B.y) < 30) { const d = Math.sign(B.x - A.x) || 1; A.x -= d * 4; B.x += d * 4; const rel = A.vx - B.vx; A.vx -= rel * 0.6; B.vx += rel * 0.6; }
     }
+    S.fx.forEach(f => { f.t += dt; }); S.fx = S.fx.filter(f => f.t < 0.6);
     if (S.p.filter(p => p.alive).length <= 1) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
-    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false; if (!p.alive) return;
+    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = v.b = false; if (!p.alive) return;
+    if (p.cd <= 0 && Math.random() < 0.08 && S.p.some((q, j) => j !== i && q.alive && Math.abs(q.x - p.x) < 60 && Math.sign(q.x - p.x) === p.face)) v.b = true;
     const k = this.plankAt(S, p.x);
     const safe = j => j >= 0 && j < S.n && S.st[j].s === 'ok';
     if (!S.bg) S.bg = [null, null, null, null];
@@ -537,20 +588,28 @@ MG.def({
   fmt(s) { return s >= 1000 ? 'Still standing' : `fell at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].alive ? 'on the bridge' : 'fell'; },
   draw(m, S, g) {
-    MGH.bg(g, '#3a2a4a', '#05020a');
+    MGH.scene(g, 'night', m.t);
+    g.fillStyle = MGH.grad(g, 500, 720, ['rgba(20,10,40,0)', '#05020a']); g.fillRect(0, 500, 1280, 220);
+    for (let k = 0; k < 6; k++) MGH.glow(g, 200 + k * 180, 700, 80, 'rgba(120,60,200,0.25)');
     g.fillStyle = '#4a3a5a'; g.beginPath(); g.moveTo(0, 520); g.lineTo(80, 470); g.lineTo(140, 720); g.lineTo(0, 720); g.fill(); g.beginPath(); g.moveTo(1280, 520); g.lineTo(1200, 470); g.lineTo(1140, 720); g.lineTo(1280, 720); g.fill();
-    g.strokeStyle = '#a8865a'; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 430); g.quadraticCurveTo(640, 470, 1280, 430); g.stroke();
+    g.strokeStyle = '#c9a36b'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 430); g.quadraticCurveTo(640, 470, 1280, 430); g.stroke();
     S.st.forEach((s, k) => {
       if (s.s === 'gone') return;
       const sx = s.s === 'shake' ? Math.sin(m.t * 50 + k) * 3 : 0, x = k * S.pw + sx;
-      g.fillStyle = s.s === 'shake' ? '#7a4a2a' : '#9b7b55'; g.fillRect(x + 2, 480, S.pw - 4, 16);
-      g.strokeStyle = '#5a3d22'; g.lineWidth = 1; g.strokeRect(x + 2, 480, S.pw - 4, 16);
-      g.strokeStyle = '#a8865a'; g.beginPath(); g.moveTo(x + S.pw / 2, 488); g.lineTo(x + S.pw / 2, 445); g.stroke();
+      g.fillStyle = MGH.grad(g, 480, 498, s.s === 'shake' ? ['#a0603a', '#5a2e14'] : ['#c09a6a', '#7a5a34']); MGH.rr(g, x + 2, 480, S.pw - 4, 18, 4); g.fill();
+      g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x + 6, 489); g.lineTo(x + S.pw - 6, 489); g.stroke();
+      if (s.s === 'shake') { g.strokeStyle = '#2a1408'; g.lineWidth = 2; g.beginPath(); g.moveTo(x + S.pw * 0.4, 480); g.lineTo(x + S.pw * 0.5, 490); g.lineTo(x + S.pw * 0.45, 498); g.stroke(); }
+      g.strokeStyle = '#c9a36b'; g.lineWidth = 2; g.beginPath(); g.moveTo(x + S.pw / 2, 488); g.lineTo(x + S.pw / 2, 445); g.stroke();
     });
     S.p.forEach((p, i) => {
       if (!p.alive && p.y < -500) return;
-      MGH.av(g, m, i, p.x, 480 - 22 - p.y, 20, !p.alive ? 'scared' : S.st[this.plankAt(S, p.x)].s === 'shake' ? 'scared' : p.ground ? 'determined' : 'cheer', { walk: Math.abs(p.vx) > 30 ? 1 : 0, look: { x: Math.sign(p.vx), y: 0.3 } });
+      const mood = !p.alive ? 'scared' : p.shove > 0 ? 'evil' : p.hurt > 0 ? 'dizzy' : S.st[this.plankAt(S, p.x)].s === 'shake' ? 'scared' : p.ground ? 'determined' : 'cheer';
+      g.save(); g.translate(p.x, 480 - 22 - p.y); if (p.hurt > 0) g.rotate(Math.sin(m.t * 30) * 0.25); if (p.shove > 0) g.translate(p.face * 10 * (p.shove / 0.3), 0);
+      MGH.av(g, m, i, 0, 0, 20, mood, { walk: Math.abs(p.vx) > 30 ? 1 : 0, look: { x: p.face, y: 0.3 } });
+      g.restore();
+      if (p.shove > 0) { g.globalAlpha = p.shove / 0.3; for (let s = 0; s < 3; s++) { g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.beginPath(); g.arc(p.x + p.face * (36 + s * 10), 450 - p.y, 14 + s * 6, p.face > 0 ? -1 : 2.1, p.face > 0 ? 1 : 4.2); g.stroke(); } g.globalAlpha = 1; }
     });
+    for (const f of S.fx) { const k = f.t / 0.6, sc = (1 - k) * 1.3 + 0.4; g.save(); g.translate(f.x, f.y - k * 30); g.scale(sc, sc); g.rotate(-0.2); g.fillStyle = '#ffe14d'; g.strokeStyle = '#d2261b'; g.lineWidth = 3; g.beginPath(); for (let a = 0; a < 18; a++) { const an = a / 18 * Math.PI * 2, r = a % 2 ? 16 : 30; a ? g.lineTo(Math.cos(an) * r, Math.sin(an) * r) : g.moveTo(Math.cos(an) * r, Math.sin(an) * r); } g.closePath(); g.fill(); g.stroke(); g.font = 'bold 14px Georgia'; g.textAlign = 'center'; g.fillStyle = '#d2261b'; g.fillText('SHOVE!', 0, 5); g.restore(); }
   },
 });
 
@@ -603,7 +662,8 @@ MG.def({
   fmt(s) { return `${s} saves`; },
   hud(m, S, i) { return `🧤${S.p[i].saves} (shot ${Math.min(S.k + 1, 10)}/10)`; },
   draw(m, S, g) {
-    MGH.bg(g, '#1a3a2a', '#0a1a10'); MGH.lanes(g, m);
+    MGH.scene(g, 'meadow', m.t); MGH.lanes(g, m);
+    for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(70,150,60,0.6)'; g.fillRect(i * 320 + 4, 120, 312, 600); for (let y = 120; y < 720; y += 60) { g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(i * 320 + 4, y, 312, 30); } }
     const sh = S.shots[Math.min(S.k, 9)];
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160;
@@ -616,7 +676,7 @@ MG.def({
       let bx = cx, by = sy + 30;
       if (S.ph === 'shot') { const k = Math.min(1, S.t / sh.sp); bx = cx + sh.x * k; by = sy + 30 + (600 - sy - 30) * k; }
       if (S.ph === 'reset') { bx = cx + sh.x; by = p.res === 'SAVE!' ? 560 : 625; }
-      g.fillStyle = '#fff'; g.beginPath(); g.arc(bx, by, 10, 0, 7); g.fill(); g.strokeStyle = '#333'; g.lineWidth = 1.5; g.stroke();
+      MGH.glow(g, bx, by, 26, 'rgba(180,220,255,0.6)'); g.fillStyle = '#fff'; g.beginPath(); g.arc(bx, by, 11, 0, 7); g.fill(); g.strokeStyle = '#333'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#333'; g.beginPath(); g.arc(bx, by, 4, 0, 7); g.fill();
       const tilt = p.dive > 0 ? Math.sign(p.dv) * 1.1 : 0;
       g.save(); g.translate(cx + p.x, 610); g.rotate(tilt); g.translate(-(cx + p.x), -610);
       MGH.av(g, m, i, cx + p.x, 610, 22, p.res === 'SAVE!' ? 'cheer' : p.res === 'goal' ? 'hurt' : S.ph === 'shot' ? 'scared' : 'determined', { look: { x: (bx - cx - p.x) / 200, y: -1 }, walk: Math.abs(m.axis(i).x) });

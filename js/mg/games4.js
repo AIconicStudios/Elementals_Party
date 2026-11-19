@@ -36,17 +36,22 @@ MG.def({
   fmt(s) { return s >= 100 ? 'Banked 15!' : `${s} banked`; },
   hud(m, S, i) { return `${S.bank[i]} (+${S.pot[i]})`; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a0e1e', '#0c040a');
+    MGH.scene(g, 'stage', m.t);
     for (let i = 0; i < 4; i++) {
-      const x = 160 + i * 320, p = m.players[i];
-      g.save(); g.translate(x, 300); g.rotate(m.held(i, 'a') && S.cool[i] <= 0 ? m.t * 12 : 0);
-      for (let k = 0; k < 8; k++) { g.fillStyle = k === 0 ? '#222' : (k % 2 ? p.color : '#fff'); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 100, k * Math.PI / 4, (k + 1) * Math.PI / 4); g.fill(); }
+      const x = 160 + i * 320, p = m.players[i], spin = m.held(i, 'a') && S.cool[i] <= 0;
+      MGH.glow(g, x, 300, 150, spin ? 'rgba(255,230,120,0.35)' : 'rgba(255,255,255,0.08)');
+      g.fillStyle = '#3a2468'; g.beginPath(); g.arc(x, 300, 112, 0, 7); g.fill();
+      for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; g.fillStyle = (Math.floor(m.t * 8) + k) % 2 ? '#fff6b0' : '#a0742a'; g.beginPath(); g.arc(x + Math.cos(a) * 106, 300 + Math.sin(a) * 106, 4, 0, 7); g.fill(); }
+      g.save(); g.translate(x, 300); g.rotate(spin ? m.t * 12 : 0);
+      for (let k = 0; k < 8; k++) { g.fillStyle = k === 0 ? '#222' : (k % 2 ? p.color : '#fff'); g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 98, k * Math.PI / 4, (k + 1) * Math.PI / 4); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 2; g.stroke(); }
+      MGH.emoji(g, '💀', Math.cos(Math.PI / 8) * 64, Math.sin(Math.PI / 8) * 64, 22);
       g.restore();
-      const holding = m.held(i, 'a') && S.cool[i] <= 0;
-      MGH.av(g, m, i, x - 115, 470, 24, S.fin[i] ? 'cheer' : S.last[i] === '💀' && S.cool[i] > 0 ? 'hurt' : S.last[i] === 'banked' ? 'cheer' : holding ? (S.pot[i] >= 6 ? 'scared' : 'determined') : 'happy', { look: { x: 1, y: -0.5 } });
-      MGH.text(g, S.last[i], x, 460, 32, '#fff', 'center', 'bold');
-      MGH.text(g, `pot ${S.pot[i]}`, x, 510, 26, '#ffe680', 'center', 'bold');
-      g.fillStyle = '#333'; g.fillRect(x - 110, 560, 220, 20); g.fillStyle = p.color; g.fillRect(x - 110, 560, 220 * Math.min(1, S.bank[i] / 15), 20);
+      g.fillStyle = '#fff6d0'; g.beginPath(); g.arc(x, 300, 16, 0, 7); g.fill();
+      g.fillStyle = '#ff4d6d'; g.beginPath(); g.moveTo(x - 12, 180); g.lineTo(x + 12, 180); g.lineTo(x, 204); g.fill();
+      MGH.av(g, m, i, x - 112, 470, 24, S.fin[i] ? 'cheer' : S.last[i] === '💀' && S.cool[i] > 0 ? 'hurt' : S.last[i] === 'banked' ? 'cheer' : spin ? (S.pot[i] >= 6 ? 'scared' : 'determined') : 'happy', { look: { x: 1, y: -0.5 } });
+      if (S.last[i]) MGH.label(g, S.last[i], x + 30, 455, 24, '#fff');
+      MGH.coin(g, x + 10, 505, 12, m.t); MGH.text(g, `pot ${S.pot[i]}`, x + 60, 512, 22, '#ffe680', 'center', 'bold');
+      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 110, 560, 220, 20, 10); g.fill(); g.fillStyle = MGH.grad(g, 560, 580, [Char.shade(p.color, 0.3), p.color]); MGH.rr(g, x - 110, 560, 220 * Math.min(1, S.bank[i] / 15), 20, 10); g.fill();
       MGH.text(g, `${p.name}: ${S.bank[i]} / 15`, x, 620, 20, p.color, 'center', 'bold');
     }
   },
@@ -73,17 +78,18 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#0f2a18', '#051008');
-    MGH.text(g, `Hand ${S.round} / 3`, 640, 100, 26, '#cdc');
+    MGH.scene(g, 'forest', m.t);
+    g.fillStyle = MGH.grad(g, 140, 460, ['#1f6a3a', '#0f4024']); MGH.rr(g, 40, 140, 1200, 320, 60); g.fill(); g.strokeStyle = '#8a5a30'; g.lineWidth = 14; g.stroke();
+    MGH.label(g, `Hand ${S.round} / 3 — get close to 9, don't go over`, 640, 492, 22, '#fff');
+    const card = (x, y, v, show) => { g.fillStyle = 'rgba(0,0,0,0.3)'; MGH.rr(g, x + 4, y + 6, 80, 110, 10); g.fill(); g.fillStyle = show ? '#fffaf0' : '#7a2a3a'; MGH.rr(g, x, y, 80, 110, 10); g.fill(); g.strokeStyle = show ? '#c9a36b' : '#ffd34d'; g.lineWidth = 3; g.stroke(); if (show) { MGH.text(g, String(v), x + 40, y + 72, 46, '#222', 'center', 'bold'); MGH.text(g, '♦', x + 14, y + 22, 16, '#d22'); } else MGH.emoji(g, '⭐', x + 40, y + 55, 34); };
     for (let i = 0; i < 4; i++) {
       const x = 160 + i * 320, p = m.players[i], mine = MGH.peek(m, i) || S.phase === 'reveal';
-      g.fillStyle = '#f4f0e0'; MGH.rr(g, x - 90, 170, 80, 110, 10); g.fill();
-      MGH.text(g, mine ? String(S.c1[i]) : '?', x - 50, 245, 44, '#222', 'center', 'bold');
-      if (S.phase === 'reveal' && S.c2[i]) { g.fillStyle = '#f4f0e0'; MGH.rr(g, x + 10, 170, 80, 110, 10); g.fill(); MGH.text(g, String(S.c2[i]), x + 50, 245, 44, '#222', 'center', 'bold'); }
+      card(x - 90, 170, S.c1[i], mine);
+      if (S.phase === 'reveal' && S.c2[i]) card(x + 10, 170, S.c2[i], true);
       MGH.av(g, m, i, x + 128, 225, 24, S.phase === 'reveal' ? (S.win.includes(i) ? 'cheer' : S.tot[i] > 9 ? 'hurt' : 'neutral') : (S.P[i].locked ? 'happy' : 'determined'), { look: { x: -1, y: 0 } });
       MGH.text(g, p.name, x, 320, 22, p.color, 'center', 'bold');
-      if (S.phase === 'pick' && !m.bot(i)) ['Draw', 'Stand'].forEach((l, k) => { const sel = S.P[i].idx === k && MGH.peek(m, i); g.fillStyle = sel ? p.color : 'rgba(255,255,255,0.1)'; MGH.rr(g, x - 110 + k * 115, 360, 105, 50, 10); g.fill(); MGH.text(g, l, x - 57 + k * 115, 393, 20, sel ? '#000' : '#fff', 'center', 'bold'); });
-      if (S.phase === 'reveal') MGH.text(g, S.tot[i] > 9 ? `${S.tot[i]} BUST` : `${S.tot[i]}${S.win.includes(i) ? ' ★' : ''}`, x, 400, 34, S.tot[i] > 9 ? '#f66' : '#ffe680', 'center', 'bold');
+      if (S.phase === 'pick' && !m.bot(i)) ['🃏 Draw', '✋ Stand'].forEach((l, k) => { const sel = S.P[i].idx === k && MGH.peek(m, i); g.fillStyle = sel ? p.color : 'rgba(0,0,0,0.45)'; MGH.rr(g, x - 110 + k * 115, 360, 105, 50, 10); g.fill(); MGH.text(g, l, x - 57 + k * 115, 392, 18, sel ? '#000' : '#fff', 'center', 'bold'); });
+      if (S.phase === 'reveal') MGH.label(g, S.tot[i] > 9 ? `${S.tot[i]} BUST` : `${S.tot[i]}${S.win.includes(i) ? ' ★' : ''}`, x, 400, 30, S.tot[i] > 9 ? '#f66' : '#ffe680');
     }
     if (S.phase === 'pick') PickR.drawStatus(m, S, g);
   },
@@ -108,15 +114,22 @@ MG.def({
   fmt(s) { return s >= 100 ? 'Reached the top!' : `step ${s}`; },
   hud(m, S, i) { return `step ${S.step[i]}`; },
   draw(m, S, g) {
-    MGH.bg(g, '#20202e', '#09090f');
+    MGH.scene(g, 'sunset', m.t);
     for (let i = 0; i < 4; i++) {
       const x0 = 30 + i * 320, p = m.players[i];
-      for (let k = 0; k < 6; k++) { g.fillStyle = k < S.step[i] ? p.color : 'rgba(255,255,255,0.12)'; g.fillRect(x0 + k * 42, 620 - k * 70, 42, 70 + k * 70); MGH.text(g, String(k + 1), x0 + 21 + k * 42, 650, 18, '#000', 'center', 'bold'); }
+      for (let k = 0; k < 6; k++) { const done = k < S.step[i]; MGH.plat(g, x0 + k * 42, 620 - k * 70, 42, 70 + k * 70, done ? 'gold' : 'stone'); MGH.text(g, String(k + 1), x0 + 21 + k * 42, 650, 18, '#222', 'center', 'bold'); }
+      MGH.star(g, x0 + 5 * 42 + 21, 620 - 5 * 70 - 40, 14, '#ffd34d', m.t);
       const sx = x0 + Math.max(0, S.step[i] - 1) * 42 + 21, sy = S.step[i] ? 620 - (S.step[i] - 1) * 70 - 20 : 680;
-      MGH.av(g, m, i, sx, sy - 6, 15, S.fin[i] ? 'cheer' : (S.anim[i] <= 0 && S.roll[i] && S.roll[i] !== S.step[i] ? 'hurt' : 'determined'), { look: { x: 0.6, y: -0.6 } });
-      g.fillStyle = '#fff'; MGH.rr(g, x0 + 200, 120, 80, 80, 12); g.fill();
-      MGH.text(g, S.anim[i] > 0 ? String(R.d6()) : (S.roll[i] || '-'), x0 + 240, 178, 46, S.roll[i] === S.step[i] && S.anim[i] <= 0 && S.roll[i] ? '#0a0' : '#222', 'center', 'bold');
-      MGH.text(g, `${p.name} needs ${Math.min(6, S.step[i] + 1)}`, x0 + 140, 90, 20, p.color, 'center', 'bold');
+      MGH.av(g, m, i, sx, sy - 6, 15, S.fin[i] ? 'cheer' : (S.anim[i] <= 0 && S.roll[i] && S.roll[i] !== S.step[i] + 0 && S.roll[i] !== S.step[i] ? 'hurt' : 'determined'), { look: { x: 0.6, y: -0.6 } });
+      // die
+      const rolling = S.anim[i] > 0, v = rolling ? R.d6() : S.roll[i];
+      g.save(); g.translate(x0 + 240, 160); g.rotate(rolling ? Math.sin(m.t * 30) * 0.4 : 0);
+      g.fillStyle = 'rgba(0,0,0,0.3)'; MGH.rr(g, -36, -32, 80, 80, 14); g.fill();
+      g.fillStyle = MGH.grad(g, -40, 40, ['#ffffff', '#dcd4ea']); MGH.rr(g, -40, -40, 80, 80, 14); g.fill(); g.strokeStyle = p.color; g.lineWidth = 4; g.stroke();
+      const P = { 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] }[v] || [];
+      g.fillStyle = !rolling && S.roll[i] === S.step[i] && S.roll[i] ? '#0a0' : '#222'; P.forEach(([a, b]) => { g.beginPath(); g.arc(a * 20, b * 20, 7, 0, 7); g.fill(); });
+      g.restore();
+      MGH.label(g, `${p.name} needs ${Math.min(6, S.step[i] + 1)}`, x0 + 140, 90, 18, p.color);
     }
   },
 });
@@ -148,14 +161,14 @@ MG.def({
   fmt(s) { return s >= 100 ? 'Survived' : `out in round ${s}`; },
   hud(m, S, i) { return S.alive[i] ? 'in' : 'out'; },
   draw(m, S, g) {
-    MGH.bg(g, '#1a1a2e', '#07070f');
-    MGH.text(g, String(S.cur), 480, 330, 160, '#fff', 'center', 'bold');
-    if (S.phase === 'reveal') MGH.text(g, '→ ' + S.next, 800, 330, 120, '#ffe680', 'center', 'bold');
-    else MGH.text(g, '?', 800, 330, 120, '#555', 'center', 'bold');
-    if (S.phase === 'pick') PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, false);
-    else PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, true);
+    MGH.scene(g, 'stage', m.t);
+    const card = (x, y, txt, col, w = 200, h = 250) => { g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, x - w / 2 + 6, y - h / 2 + 8, w, h, 18); g.fill(); g.fillStyle = MGH.grad(g, y - h / 2, y + h / 2, ['#fffaf0', '#e8dcc0']); MGH.rr(g, x - w / 2, y - h / 2, w, h, 18); g.fill(); g.strokeStyle = '#c9a36b'; g.lineWidth = 4; g.stroke(); MGH.text(g, txt, x, y + 46, 130, col, 'center', 'bold'); };
+    card(480, 270, String(S.cur), '#222');
+    if (S.phase === 'reveal') card(800, 270, String(S.next), S.next > S.cur ? '#1a8a3a' : '#c22');
+    else { g.fillStyle = MGH.grad(g, 145, 395, ['#7a2a3a', '#4a1020']); MGH.rr(g, 700, 145, 200, 250, 18); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 4; g.stroke(); MGH.emoji(g, '❓', 800, 270, 90); }
+    PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, S.phase !== 'pick');
     for (let i = 0; i < 4; i++) {
-      MGH.av(g, m, i, 160 + i * 320 - 116, 662, 20, !S.alive[i] ? 'out' : S.phase === 'reveal' ? 'cheer' : (S.P[i].locked ? 'happy' : 'scared'));
+      MGH.av(g, m, i, 160 + i * 320 - 116, 662, 20, !S.alive[i] ? 'out' : S.phase === 'reveal' ? 'cheer' : (S.P[i].locked ? 'happy' : 'nervous'));
       MGH.text(g, `${m.players[i].name}: ${S.alive[i] ? (S.P[i].locked ? '🔒' : '…') : '✖ out'}`, 160 + i * 320 + 28, 680, 18, m.players[i].color, 'center', 'bold');
     }
   },
@@ -167,7 +180,7 @@ MG.def({
   how: 'A crane swings a block. Press to drop it. Overhanging parts break off, and a block that misses is lost.',
   wins: 'Tallest stable tower.',
   init(m, S) {
-    S.t = [0, 1, 2, 3].map(() => ({ stack: [{ x: 160, w: 150 }], crane: 0, fall: null, ph: R.range(0, 6), cd: 0, miss: 0 }));
+    S.t = [0, 1, 2, 3].map(() => ({ stack: [{ x: 160, w: 150 }], crane: 0, fall: null, ph: R.range(0, 6), cd: 0, miss: 0, debris: [] }));
   },
   update(m, S, dt) {
     S.t.forEach((T, i) => {
@@ -180,12 +193,18 @@ MG.def({
         T.fall.y += 900 * dt;
         if (T.fall.y >= 1) {
           const l = Math.max(T.fall.x - T.fall.w / 2, top.x - top.w / 2), r = Math.min(T.fall.x + T.fall.w / 2, top.x + top.w / 2);
+          const scroll = Math.max(0, (T.stack.length - 14) * 26), ly = 690 - T.stack.length * 26 + scroll;
+          const drop = (x0, x1, all) => { if (x1 - x0 > 1) T.debris.push({ x: (x0 + x1) / 2, w: x1 - x0, y: ly - 26, vx: all ? R.range(-40, 40) : ((x0 + x1) / 2 < top.x ? -90 : 90), vy: all ? 60 : -60, rot: 0, vr: all ? R.range(-3, 3) : ((x0 + x1) / 2 < top.x ? -4 : 4), t: 0 }); };
+          if (r - l >= 12) { drop(T.fall.x - T.fall.w / 2, l); drop(r, T.fall.x + T.fall.w / 2); }
+          else drop(T.fall.x - T.fall.w / 2, T.fall.x + T.fall.w / 2, true);
           if (r - l >= 12) { MGH.burst(i * 320 + (l + r) / 2, 690 - T.stack.length * 26 + Math.max(0, (T.stack.length - 14) * 26), ['#d9c7a8', '#fff'], 10, { speed: 160 }); T.stack.push({ x: (l + r) / 2, w: r - l }); if (!m.bot(i)) Sfx.tone(400 + T.stack.length * 30, 0.08, 'triangle', 0.05); }
           else { T.miss = 0.6; if (!m.bot(i)) Sfx.bad(); }
           T.fall = null; T.cd = 0.25;
         }
       }
       T.miss -= dt;
+      T.debris.forEach(d => { d.t += dt; d.vy += 1400 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt; });
+      T.debris = T.debris.filter(d => d.y < 800);
     });
   },
   bot(m, S, i) {
@@ -198,18 +217,26 @@ MG.def({
   fmt(s) { return `${Math.floor(s)} blocks`; },
   hud(m, S, i) { return S.t[i].stack.length - 1; },
   draw(m, S, g) {
-    MGH.bg(g, '#2b2238', '#0e0b14'); MGH.lanes(g, m);
+    MGH.scene(g, 'sky', m.t);
     S.t.forEach((T, i) => {
-      const ox = i * 320, bh = 26, n = T.stack.length;
+      const ox = i * 320, bh = 26, n = T.stack.length, col = m.players[i].color;
       const scroll = Math.max(0, (n - 14) * bh);
       g.save(); g.beginPath(); g.rect(ox, 40, 320, 680); g.clip();
-      T.stack.forEach((b, k) => { const y = 690 - k * bh + scroll; g.fillStyle = k === 0 ? '#666' : m.players[i].color; g.fillRect(ox + b.x - b.w / 2, y - bh, b.w, bh - 2); });
-      g.strokeStyle = '#aaa'; g.beginPath(); g.moveTo(ox + T.crane, 40); g.lineTo(ox + T.crane, 110); g.stroke();
+      MGH.plat(g, ox + 20, 690 + scroll, 280, 40, 'grass');
+      const blk = (x, y, w, c, a = 1) => { g.globalAlpha = a; g.fillStyle = MGH.grad(g, y - bh, y, [Char.shade(c, 0.35), Char.shade(c, -0.2)]); MGH.rr(g, x - w / 2, y - bh, w, bh - 2, 5); g.fill(); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x - w / 2 + 3, y - bh + 2, Math.max(0, w - 6), 4); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.5; MGH.rr(g, x - w / 2, y - bh, w, bh - 2, 5); g.stroke(); g.globalAlpha = 1; };
+      T.stack.forEach((b, k) => blk(ox + b.x, 690 - k * bh + scroll, b.w, k === 0 ? '#8a7a66' : col));
+      // crane
+      g.strokeStyle = '#4a4a5a'; g.lineWidth = 6; g.beginPath(); g.moveTo(ox + 10, 70); g.lineTo(ox + 310, 70); g.stroke();
+      g.strokeStyle = '#aaa'; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + T.crane, 70); g.lineTo(ox + T.crane, 110); g.stroke();
+      g.fillStyle = '#ffd34d'; g.fillRect(ox + T.crane - 10, 64, 20, 12);
       const top = T.stack[n - 1];
-      if (!T.fall) { g.fillStyle = m.players[i].color; g.globalAlpha = 0.85; g.fillRect(ox + T.crane - top.w / 2, 110, top.w, bh - 2); g.globalAlpha = 1; }
-      else { const y = lerp(110, 690 - n * bh + scroll, Math.min(1, T.fall.y)); g.fillStyle = m.players[i].color; g.fillRect(ox + T.fall.x - T.fall.w / 2, y, T.fall.w, bh - 2); }
-      if (T.miss > 0) MGH.text(g, 'missed!', ox + 160, 200, 26, '#f66', 'center', 'bold');
+      if (!T.fall) { blk(ox + T.crane, 110 + bh, top.w, col, 0.9); g.strokeStyle = 'rgba(255,255,255,0.25)'; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(ox + T.crane, 136); g.lineTo(ox + T.crane, 690 - n * bh + scroll); g.stroke(); g.setLineDash([]); }
+      else { const y = lerp(110, 690 - n * bh + scroll, Math.min(1, T.fall.y)); blk(ox + T.fall.x, y + bh, T.fall.w, col); }
+      // pieces breaking off and tumbling away
+      for (const d of T.debris) { g.save(); g.translate(ox + d.x, d.y); g.rotate(d.rot); blk(0, bh / 2, d.w, col, 0.9); g.restore(); }
+      if (T.miss > 0) MGH.label(g, 'missed!', ox + 160, 200, 24, '#ff8a8a');
       g.restore();
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(ox + 318, 40, 4, 680);
       MGH.av(g, m, i, ox + 38, 686, 18, T.miss > 0 ? 'hurt' : T.cd > 0 ? 'cheer' : 'determined', { look: { x: 0.6, y: -1 } });
     });
   },
@@ -248,19 +275,26 @@ MG.def({
   fmt(s) { return s >= 999 ? 'Still standing' : `fell at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].alive ? 'balanced' : 'fell'; },
   draw(m, S, g) {
-    MGH.bg(g, '#7fb6e8', '#2f5f8f'); MGH.lanes(g, m);
+    MGH.scene(g, 'sky', m.t);
     const gf = this.gust(S, m.t);
-    if (Math.abs(gf) > 0.1) for (let k = 0; k < 10; k++) { const y = 80 + k * 60, x = ((m.t * 600 * Math.sign(gf) + k * 300) % 1400 + 1400) % 1400 - 60; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 50 * Math.sign(gf), y); g.stroke(); }
+    // canyon far below
+    g.fillStyle = MGH.grad(g, 600, 720, ['#6a5a8a', '#2a1a3a']); g.fillRect(0, 600, 1280, 120);
+    if (Math.abs(gf) > 0.1) for (let k = 0; k < 14; k++) { const y = 80 + k * 42, x = ((m.t * 700 * Math.sign(gf) + k * 300) % 1400 + 1400) % 1400 - 60; g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.sign(gf) * 90, y); g.stroke(); MGH.emoji(g, '🍃', x, y, 14, m.t * 5 + k); }
+    if (Math.abs(gf) > 0.1) MGH.label(g, gf > 0 ? 'gust →' : '← gust', 640, 100, 22, '#fff');
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160;
-      g.fillStyle = '#5a3d22'; g.fillRect(cx - 150, 560, 300, 14);
-      if (!p.alive) { MGH.text(g, '💫 fell', cx, 640, 28, '#fff', 'center', 'bold'); return; }
+      for (const s of [-1, 1]) { g.fillStyle = '#6a5a4a'; g.beginPath(); g.moveTo(cx + s * 150, 574); g.lineTo(cx + s * 135, 720); g.lineTo(cx + s * 165, 720); g.fill(); }
+      g.fillStyle = MGH.grad(g, 556, 574, ['#c98a4a', '#7a4a22']); MGH.rr(g, cx - 150, 556, 300, 18, 6); g.fill();
+      if (!p.alive) { MGH.label(g, '💫 fell', cx, 640, 24, '#fff'); return; }
       g.save(); g.translate(cx, 560); g.rotate(p.a);
       g.strokeStyle = m.players[i].color; g.lineWidth = 8; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -120); g.moveTo(-70, -95); g.lineTo(70, -95); g.stroke();
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -120); g.stroke();
+      g.strokeStyle = '#c9a36b'; g.lineWidth = 6; g.beginPath(); g.moveTo(-80, -95); g.lineTo(80, -95); g.stroke(); g.lineCap = 'butt';
+      g.fillStyle = '#ffd34d'; for (const s of [-1, 1]) { g.beginPath(); g.arc(s * 80, -95, 9, 0, 7); g.fill(); }
       g.restore();
       const hx = cx + Math.sin(p.a) * 150, hy = 560 - Math.cos(p.a) * 150;
-      MGH.av(g, m, i, hx, hy, 24, Math.abs(p.a) > 0.5 ? 'scared' : Math.abs(p.a) > 0.25 ? 'determined' : 'happy', { noFeet: true, look: { x: -Math.sign(p.a), y: 0.3 } });
+      MGH.av(g, m, i, hx, hy, 24, Math.abs(p.a) > 0.5 ? 'scared' : Math.abs(p.a) > 0.25 ? 'nervous' : 'happy', { noFeet: true, look: { x: -Math.sign(p.a), y: 0.3 } });
+      if (Math.abs(p.a) > 0.5) MGH.emoji(g, '💦', hx + 30, hy - 40, 20);
     });
   },
 });
@@ -313,17 +347,21 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return `${S.pts[i]} (${S.shots[i]} left)`; },
   draw(m, S, g) {
-    MGH.bg(g, '#3c5c2a', '#1c2d12');
+    MGH.scene(g, 'meadow', m.t);
     S.tg.forEach(T => {
       const x = this.tpos(T, m.t);
-      [46, 28, 12].forEach((r, k) => { g.fillStyle = ['#fff', '#e33', '#fff'][k]; g.beginPath(); g.arc(x, T.y, r, 0, 7); g.fill(); });
-      g.fillStyle = '#e33'; g.beginPath(); g.arc(x, T.y, 6, 0, 7); g.fill();
+      g.fillStyle = '#7a4a22'; g.fillRect(x - 4, T.y + 40, 8, 60);
+      MGH.shadow(g, x, T.y + 100, 30, 0.25);
+      [50, 38, 26, 14].forEach((r, k) => { g.fillStyle = ['#fff', '#e33', '#fff', '#e33'][k]; g.beginPath(); g.arc(x, T.y, r, 0, 7); g.fill(); });
+      g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 2; g.beginPath(); g.arc(x, T.y, 50, 0, 7); g.stroke();
+      MGH.glow(g, x, T.y, 20, 'rgba(255,240,140,0.5)');
     });
-    for (let i = 0; i < 4; i++) { const x = 160 + i * 320; g.strokeStyle = m.players[i].color; g.lineWidth = 6; g.beginPath(); g.moveTo(x - 20, 700); g.lineTo(x, 660); g.lineTo(x + 20, 700); g.stroke(); MGH.text(g, '●'.repeat(S.shots[i]), x, 640, 18, m.players[i].color, 'center', 'bold');
+    for (let i = 0; i < 4; i++) { const x = 160 + i * 320; g.strokeStyle = '#7a4a22'; g.lineWidth = 8; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, 712); g.lineTo(x, 680); g.lineTo(x - 22, 650); g.moveTo(x, 680); g.lineTo(x + 22, 650); g.stroke(); g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.beginPath(); g.moveTo(x - 22, 650); g.lineTo(x, 664); g.lineTo(x + 22, 650); g.stroke(); g.lineCap = 'butt';
+      MGH.text(g, '●'.repeat(Math.max(0, S.ammo ? S.ammo[i] : 0)), x, 710, 14, '#fff');
       const lastHit = S.hits.filter(h => h.i === i).pop();
-      MGH.av(g, m, i, x + 52, 686, 18, lastHit ? (lastHit.p ? 'cheer' : 'hurt') : 'determined', { look: { x: (m.cur[i].x - x) / 400, y: -1 } }); }
-    for (const s of S.stones) { const x = lerp(s.sx, s.tx, s.t), y = lerp(s.sy, s.ty, s.t) - Math.sin(s.t * Math.PI) * 60; g.fillStyle = '#ccc'; g.beginPath(); g.arc(x, y, 7 + (1 - s.t) * 4, 0, 7); g.fill(); }
-    S.hits.forEach(h => MGH.text(g, h.p ? '+' + h.p : 'miss', h.x, h.y - h.t * 40, 24, h.p ? m.players[h.i].color : '#aaa', 'center', 'bold'));
+      MGH.av(g, m, i, x + 54, 686, 18, lastHit ? (lastHit.p ? 'cheer' : 'hurt') : 'determined', { look: { x: (m.cur[i].x - x) / 400, y: -1 } }); }
+    for (const s of S.stones) { const x = lerp(s.sx, s.tx, s.t), y = lerp(s.sy, s.ty, s.t) - Math.sin(s.t * Math.PI) * 60; MGH.rock(g, x, y, 7 + (1 - s.t) * 4, 3, '#9a9a9a', s.t * 10); }
+    S.hits.forEach(h => MGH.label(g, h.p ? '+' + h.p : 'miss', h.x, h.y - h.t * 40, 22, h.p ? m.players[h.i].color : '#ccc'));
     MGH.cursors(m, g);
   },
 });
@@ -364,38 +402,46 @@ MG.def({
   fmt(s) { return `${s}% of the table`; },
   hud(m, S, i) { return `best ${S.p[i].best}%`; },
   draw(m, S, g) {
-    MGH.bg(g, '#1a0f08', '#050302'); MGH.lanes(g, m);
+    MGH.scene(g, 'night', m.t);
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160, base = 680;
-      g.fillStyle = '#6b3f1d'; g.fillRect(cx - 70, base - S.L - 10, 140, S.L + 10);
-      g.fillStyle = '#ffd34d'; g.fillRect(cx - 70, base - S.L - 10, 140, 6);
+      // the ledge: a tall stone pillar with a golden lip
+      g.fillStyle = MGH.grad(g, base - S.L - 10, base, ['#8a7a66', '#4a3e30']); g.fillRect(cx - 70, base - S.L - 10, 140, S.L + 10);
+      g.fillStyle = MGH.grad(g, base - S.L - 14, base - S.L, ['#ffe680', '#c98a1a']); MGH.rr(g, cx - 74, base - S.L - 14, 148, 10, 4); g.fill();
+      MGH.glow(g, cx, base - S.L - 10, 60, 'rgba(255,230,120,0.25)');
       const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
-      g.fillStyle = '#222'; g.fillRect(cx + 80, 200, 18, 400); g.fillStyle = m.players[i].color; g.fillRect(cx + 80, 600 - 400 * pw, 18, 400 * pw);
-      const y = p.coin ? base - p.coin.y : base;
-      g.fillStyle = '#e8b923'; g.beginPath(); g.arc(cx, y, 18, 0, 7); g.fill(); g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.stroke();
-      MGH.av(g, m, i, cx - 108, 664, 20, p.coin ? 'scared' : p.chg ? 'determined' : p.last === null ? 'happy' : p.last === 0 ? 'hurt' : p.last >= 85 ? 'cheer' : 'happy', { look: { x: 0.4, y: -1 } });
-      MGH.text(g, `${p.n}/3 · last ${p.last === null ? '-' : p.last + '%'}`, cx, 110, 18, '#fff');
+      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, cx + 80, 200, 20, 400, 10); g.fill();
+      g.fillStyle = MGH.grad(g, 200, 600, ['#ff4d6d', '#ffd34d', '#6fdc8c']); MGH.rr(g, cx + 80, 600 - 400 * pw, 20, 400 * pw, 10); g.fill();
+      const y = p.coin ? base - p.coin.y : base - 14;
+      if (p.coin) for (let s = 1; s < 4; s++) { g.globalAlpha = 0.2; MGH.coin(g, cx, y + s * 12, 16, m.t * 10); } g.globalAlpha = 1;
+      MGH.coin(g, cx, y, 18, p.coin ? m.t * 12 : 0);
+      MGH.av(g, m, i, cx - 108, 664, 20, p.coin ? 'nervous' : p.chg ? 'determined' : p.last === null ? 'happy' : p.last === 0 ? 'hurt' : p.last >= 85 ? 'cheer' : 'happy', { look: { x: 0.4, y: -1 } });
+      MGH.label(g, `${p.n}/3 · last ${p.last === null ? '-' : p.last + '%'}`, cx, 110, 16, '#fff');
     });
   },
 });
 
 // 39 ---------------------------------------------------------------- Dig Site
 MG.def({
-  id: 'dig', name: 'Dig Site', type: 'Strategy', controls: 'Cursor', cursor: true, dur: 30,
-  how: 'A shared grid of buried tiles. Everyone has 10 digs in 30 seconds. Gems score, bombs cost 3. Dug sand shows how many gems are next to it.',
+  id: 'dig', name: 'Dig Site', type: 'Strategy', controls: 'Move + dig', dur: 30,
+  how: 'A shared grid of buried tiles. Step your shovel around with the arrows / stick and press the button to dig. Everyone has 10 digs in 30 seconds. Gems score, bombs cost 3. Dug sand shows how many gems are next to it.',
   wins: 'Most gems.',
   init(m, S) {
     S.cols = 12; S.rows = 6; S.cell = 92; S.x0 = (1280 - 12 * 92) / 2; S.y0 = 110;
     const n = 72; const kinds = new Array(n).fill(0); R.shuffle([...Array(n).keys()]).slice(0, 18).forEach((k, j) => { kinds[k] = j < 12 ? 1 : 2; });
     S.kind = kinds; S.dug = new Array(n).fill(-1); S.left = [10, 10, 10, 10]; S.pts = [0, 0, 0, 0];
     S.bt = [0, 1, 2, 3].map(() => R.range(0.8, 2)); S.btTarget = [null, null, null, null];
+    S.sel = [[2, 1], [9, 1], [2, 4], [9, 4]].map(([c, r]) => ({ c, r })); S.mv = [0, 0, 0, 0];
   },
   idxAt(S, x, y) { const c = Math.floor((x - S.x0) / S.cell), r = Math.floor((y - S.y0) / S.cell); return c >= 0 && c < S.cols && r >= 0 && r < S.rows ? r * S.cols + c : -1; },
   adj(S, k) { const c = k % S.cols, r = Math.floor(k / S.cols); let n = 0; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { const cc = c + dc, rr = r + dr; if ((dr || dc) && cc >= 0 && cc < S.cols && rr >= 0 && rr < S.rows && S.kind[rr * S.cols + cc] === 1) n++; } return n; },
   update(m, S, dt) {
     for (let i = 0; i < 4; i++) {
+      const sl = S.sel[i];
+      if (m.pressed(i, 'left')) sl.c = Math.max(0, sl.c - 1); if (m.pressed(i, 'right')) sl.c = Math.min(S.cols - 1, sl.c + 1);
+      if (m.pressed(i, 'up')) sl.r = Math.max(0, sl.r - 1); if (m.pressed(i, 'down')) sl.r = Math.min(S.rows - 1, sl.r + 1);
       if (S.left[i] <= 0 || !m.pressed(i, 'a')) continue;
-      const k = this.idxAt(S, m.cur[i].x, m.cur[i].y);
+      const k = sl.r * S.cols + sl.c;
       if (k < 0 || S.dug[k] >= 0) continue;
       S.dug[k] = i; S.left[i]--;
       const cx = S.x0 + (k % S.cols + 0.5) * S.cell, cy = S.y0 + (Math.floor(k / S.cols) + 0.5) * S.cell;
@@ -419,33 +465,42 @@ MG.def({
       }
       S.btTarget[i] = best;
     }
-    const k = S.btTarget[i], x = S.x0 + (k % S.cols + 0.5) * S.cell, y = S.y0 + (Math.floor(k / S.cols) + 0.5) * S.cell;
-    S.bt[i] -= dt;
-    if (m.botCursor(i, x, y, 600) && S.bt[i] <= 0) { v.a = true; S.bt[i] = R.range(1.2, 2.4); S.btTarget[i] = null; }
+    const k = S.btTarget[i], tc = k % S.cols, tr = Math.floor(k / S.cols), sl = S.sel[i];
+    v.left = v.right = v.up = v.down = false;
+    S.bt[i] -= dt; S.mv[i] -= dt;
+    if (S.mv[i] <= 0 && (sl.c !== tc || sl.r !== tr)) { S.mv[i] = 0.16; if (sl.c < tc) v.right = true; else if (sl.c > tc) v.left = true; else if (sl.r < tr) v.down = true; else v.up = true; }
+    else if (sl.c === tc && sl.r === tr && S.bt[i] <= 0) { v.a = true; S.bt[i] = R.range(1.2, 2.4); S.btTarget[i] = null; }
   },
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return `💎${S.pts[i]} (${S.left[i]} digs)`; },
   draw(m, S, g) {
-    MGH.bg(g, '#3d2c18', '#1a1209');
+    MGH.scene(g, 'desert', m.t);
+    g.fillStyle = 'rgba(60,30,10,0.4)'; MGH.rr(g, S.x0 - 14, S.y0 - 14, S.cols * S.cell + 28, S.rows * S.cell + 28, 18); g.fill();
     for (let k = 0; k < 72; k++) {
-      const x = S.x0 + (k % S.cols) * S.cell, y = S.y0 + Math.floor(k / S.cols) * S.cell;
-      const d = S.dug[k];
-      g.fillStyle = d < 0 ? '#c9a36b' : '#4a3520'; g.fillRect(x + 2, y + 2, S.cell - 4, S.cell - 4);
-      if (d >= 0) {
-        g.strokeStyle = m.players[d].color; g.lineWidth = 3; g.strokeRect(x + 4, y + 4, S.cell - 8, S.cell - 8);
-        if (S.kind[k] === 1) MGH.text(g, '💎', x + S.cell / 2, y + S.cell / 2 + 14, 40, '#fff');
-        else if (S.kind[k] === 2) MGH.text(g, '💣', x + S.cell / 2, y + S.cell / 2 + 14, 40, '#fff');
-        else { const n = this.adj(S, k); MGH.text(g, n ? String(n) : '·', x + S.cell / 2, y + S.cell / 2 + 12, 32, '#9fd8ff', 'center', 'bold'); }
+      const x = S.x0 + (k % S.cols) * S.cell, y = S.y0 + Math.floor(k / S.cols) * S.cell, d = S.dug[k], c = S.cell - 4;
+      if (d < 0) { g.fillStyle = MGH.grad(g, y, y + c, ['#d9b47a', '#a8804a']); MGH.rr(g, x + 2, y + 2, c, c, 10); g.fill(); g.fillStyle = 'rgba(255,255,255,0.18)'; MGH.rr(g, x + 6, y + 5, c - 8, 10, 5); g.fill(); g.fillStyle = 'rgba(120,80,30,0.35)'; for (let s = 0; s < 4; s++) { g.beginPath(); g.arc(x + 14 + MGH.hash(k * 4 + s) * (c - 24), y + 22 + MGH.hash(k * 9 + s) * (c - 30), 3, 0, 7); g.fill(); } }
+      else {
+        g.fillStyle = MGH.grad(g, y, y + c, ['#5a3a1c', '#3a2410']); MGH.rr(g, x + 2, y + 2, c, c, 10); g.fill();
+        g.strokeStyle = m.players[d].color; g.lineWidth = 3; MGH.rr(g, x + 5, y + 5, c - 6, c - 6, 8); g.stroke();
+        if (S.kind[k] === 1) MGH.gem(g, x + S.cell / 2, y + S.cell / 2, 22, '#5fd8ff', m.t + k);
+        else if (S.kind[k] === 2) MGH.emoji(g, '💥', x + S.cell / 2, y + S.cell / 2, 40);
+        else { const n = this.adj(S, k); MGH.text(g, n ? String(n) : '·', x + S.cell / 2, y + S.cell / 2 + 12, 32, ['#9a8a7a', '#9fd8ff', '#7cf06a', '#ffd34d', '#ff8a3d'][Math.min(4, n)], 'center', 'bold'); }
       }
     }
-    MGH.cursors(m, g, S.pts.map((p, i) => S.left[i] <= 0 ? (p > 2 ? 'cheer' : 'neutral') : 'determined'));
+    // each player's shovel marker on the grid
+    for (let i = 0; i < 4; i++) {
+      const sl = S.sel[i], x = S.x0 + sl.c * S.cell, y = S.y0 + sl.r * S.cell, o = 3 + i * 4, pulse = 0.6 + 0.4 * Math.sin(m.t * 6 + i);
+      g.strokeStyle = m.players[i].color; g.globalAlpha = pulse; g.lineWidth = 4; MGH.rr(g, x + o, y + o, S.cell - o * 2, S.cell - o * 2, 10); g.stroke(); g.globalAlpha = 1;
+      MGH.av(g, m, i, x + 22 + (i % 2) * 48, y + 30 + Math.floor(i / 2) * 36, 11, S.left[i] <= 0 ? (S.pts[i] > 2 ? 'cheer' : 'neutral') : 'determined', { noFeet: true, prop: '⛏️' });
+    }
+    for (let i = 0; i < 4; i++) MGH.text(g, `${m.players[i].name}: ${'⛏'.repeat(Math.max(0, S.left[i]))}`, 160 + i * 320, 700, 16, m.players[i].color, 'center', 'bold');
   },
 });
 
 // 40 ---------------------------------------------------------------- Hoard Heist
 MG.def({
   id: 'heist', name: 'Hoard Heist', type: 'Stealth', controls: 'Move + grab', dur: 45,
-  how: "Coins lie on the floor of a hall. A Warden's lantern sweeps the room. Grab coins while the beam is away and carry them to the door. If caught, you drop what you carry.",
+  how: "Coins lie on the floor of a hall. A Warden's lantern sweeps the room. Grab coins while the beam is away and carry them to the door. If the light catches you, everything you carry is flung to random spots in the hall. When every coin is banked the game ends at once.",
   wins: 'Most coins banked at the door.',
   init(m, S) {
     S.coins = []; for (let k = 0; k < 34; k++) S.coins.push({ x: R.range(80, 1200), y: R.range(170, 560) });
@@ -470,12 +525,15 @@ MG.def({
         if (c >= 0) { MGH.burst(S.coins[c].x, S.coins[c].y, ['#ffe680', '#fff'], 10, { speed: 160 }); S.coins.splice(c, 1); b.carry++; if (!m.bot(i)) Sfx.coin(); }
       }
       if (b.carry > 0 && this.inBeam(S, b.x, b.y)) {
-        for (let k = 0; k < b.carry; k++) S.coins.push({ x: clamp(b.x + R.range(-60, 60), 60, 1220), y: clamp(b.y + R.range(-60, 60), 160, 600) });
+        for (let k = 0; k < b.carry; k++) { const c = { x: R.range(80, 1200), y: R.range(170, 560) }; S.coins.push(c); S.fly = S.fly || []; S.fly.push({ fx: b.x, fy: b.y, c, t: 0 }); }
         b.carry = 0; b.stun = 0.6; MGH.pop('Caught!', b.x, b.y - 30, '#ffe680', 26); MGH.shake(4); if (!m.bot(i)) Sfx.bad();
       }
       if (b.y > 640 && Math.abs(b.x - 640) < 110 && b.carry) { MGH.pop('+' + b.carry, b.x, b.y - 30, '#ffe680', 30); MGH.burst(b.x, b.y, ['#ffe680', '#fff'], 20, { speed: 240 }); b.bank += b.carry; b.carry = 0; if (!m.bot(i)) Sfx.star(); }
     });
     MGH.collide(S.b, 0.4);
+    if (S.fly) { S.fly.forEach(f => { f.t += dt; }); S.fly = S.fly.filter(f => f.t < 0.7); }
+    // every coin banked: the game ends and the richest thief is crowned
+    if (!S.coins.length && S.b.every(b => !b.carry) && !m.done) { MGH.burst(640, 400, ['#ffe680', '#fff'], 60, { speed: 400 }); m.finish(this.score(m, S)); }
   },
   bot(m, S, i) {
     const b = S.b[i], v = m.vin[i]; v.a = false;
@@ -493,12 +551,19 @@ MG.def({
   fmt(s) { return `${s} coins`; },
   hud(m, S, i) { return `${S.b[i].bank} (+${S.b[i].carry})`; },
   draw(m, S, g) {
-    MGH.bg(g, '#1c1612', '#0b0806');
-    g.fillStyle = '#2a211a'; g.fillRect(0, 130, 1280, 590);
-    g.fillStyle = '#5a3d22'; g.fillRect(530, 650, 220, 70); MGH.text(g, '🚪 DOOR', 640, 695, 22, '#ffe680', 'center', 'bold');
-    S.coins.forEach(c => { g.fillStyle = '#e8b923'; g.beginPath(); g.arc(c.x, c.y, 10, 0, 7); g.fill(); });
-    g.fillStyle = 'rgba(255,240,170,0.28)'; g.beginPath(); g.moveTo(S.wx, S.wy); g.arc(S.wx, S.wy, 720, S.ang - 0.2, S.ang + 0.2); g.closePath(); g.fill();
-    MGH.text(g, '🏮', S.wx, S.wy + 12, 40, '#fff');
-    S.b.forEach((b, i) => MGH.drawBody(g, b, m.players[i], b.stun > 0 ? '💫' : (b.carry ? '🪙' + b.carry : ''), b.stun > 0 ? 'dizzy' : this.inBeam(S, b.x, b.y) ? 'scared' : b.carry ? 'cheer' : null));
+    MGH.scene(g, 'temple', m.t);
+    g.fillStyle = MGH.grad(g, 130, 720, ['#3a2a20', '#1e1610']); g.fillRect(0, 130, 1280, 590);
+    for (let x = 0; x < 1280; x += 80) for (let y = 130; y < 720; y += 80) { g.fillStyle = (x + y) % 160 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.12)'; g.fillRect(x, y, 80, 80); }
+    // the door
+    g.fillStyle = MGH.grad(g, 640, 720, ['#7a4a22', '#3a200c']); MGH.rr(g, 530, 640, 220, 90, 14); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 4; g.stroke(); MGH.label(g, '🚪 BANK HERE', 640, 690, 18, '#ffe680');
+    S.coins.forEach((c, k) => MGH.coin(g, c.x, c.y, 10, m.t + k));
+    if (S.fly) S.fly.forEach(f => { const k = Math.min(1, f.t / 0.7); MGH.coin(g, lerp(f.fx, f.c.x, k), lerp(f.fy, f.c.y, k) - Math.sin(k * Math.PI) * 120, 10, f.t * 12); });
+    // lantern beam
+    const gr = g.createRadialGradient(S.wx, S.wy, 10, S.wx, S.wy, 720); gr.addColorStop(0, 'rgba(255,240,170,0.5)'); gr.addColorStop(1, 'rgba(255,240,170,0.05)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(S.wx, S.wy); g.arc(S.wx, S.wy, 720, S.ang - 0.2, S.ang + 0.2); g.closePath(); g.fill();
+    Char.draw(g, S.wx + 40, S.wy - 6, 22, -1, '#6a6a8a', { mood: 'determined', seed: 7, noFeet: true, look: { x: Math.cos(S.ang), y: 0.5 } });
+    MGH.glow(g, S.wx, S.wy, 50, 'rgba(255,220,120,0.7)'); MGH.emoji(g, '🏮', S.wx, S.wy + 6, 36);
+    S.b.forEach((b, i) => { MGH.shadow(g, b.x, b.y + b.r * 1.25, b.r, 0.35); MGH.drawBody(g, b, m.players[i], b.stun > 0 ? '💫' : (b.carry ? '🪙' + b.carry : ''), b.stun > 0 ? 'dizzy' : this.inBeam(S, b.x, b.y) ? 'scared' : b.carry ? 'cheer' : null); });
+    MGH.label(g, `🪙 ${S.coins.length} left on the floor`, 1120, 100, 18, '#ffe680');
   },
 });

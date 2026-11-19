@@ -51,97 +51,109 @@ MG.def({
     const cy = 2 * mid - y0;
     const inFront = Math.sin(ph) > 0;
     if (inFront !== front) return;
-    g.strokeStyle = front ? '#e8d5a8' : '#9c8a62'; g.lineWidth = front ? 8 : 5; g.lineCap = 'round';
+    const low = 1 - h; // 1 when sweeping at the feet
+    g.save(); g.lineCap = 'round';
+    g.shadowColor = front ? '#ffef7a' : 'rgba(0,0,0,0)'; g.shadowBlur = front ? 18 + low * 20 : 0;
+    g.strokeStyle = front ? `rgb(255,${200 - low * 120},${60 - low * 40})` : 'rgba(120,90,60,0.65)'; g.lineWidth = front ? 11 : 6;
     g.beginPath(); g.moveTo(150, y0); g.quadraticCurveTo(640, cy, 1130, y0); g.stroke();
+    if (front) { g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 3; g.setLineDash([14, 18]); g.lineDashOffset = -this._t * 120; g.beginPath(); g.moveTo(150, y0); g.quadraticCurveTo(640, cy, 1130, y0); g.stroke(); g.setLineDash([]); }
+    g.restore();
   },
   draw(m, S, g) {
-    MGH.bg(g, '#7ec8ff', '#d9f0ff');
-    g.fillStyle = '#6fbf4a'; g.beginPath(); g.ellipse(640, 760, 900, 190, 0, 0, 7); g.fill();
-    g.fillStyle = '#5aa83a'; g.fillRect(0, this.ground + 8, 1280, 200);
+    this._t = m.t;
+    MGH.scene(g, 'meadow', m.t);
+    g.fillStyle = MGH.grad(g, this.ground, 720, ['#6fbf4a', '#4a8a30']); g.fillRect(0, this.ground + 6, 1280, 200);
+    // the rope's shadow & a warning glow on the ground as it comes round to your feet
+    const warn = ph => { const a = ((ph % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); return a < Math.PI ? clamp(1 - (Math.PI - a) / 1.6, 0, 1) : 0; };
+    const wv = Math.max(warn(S.ph), S.ph2 !== null ? warn(S.ph2) : 0);
+    if (wv > 0) { g.fillStyle = `rgba(255,${200 - wv * 150},60,${0.15 + wv * 0.55})`; MGH.rr(g, 180, this.ground - 4, 920, 16, 8); g.fill(); MGH.glow(g, 640, this.ground, 500 * wv, `rgba(255,140,60,${0.25 * wv})`); }
+    if (wv > 0.82) MGH.label(g, 'JUMP!', 640, 200, 44, '#ffe680');
     this.drawRope(g, S.ph, false); if (S.ph2 !== null) this.drawRope(g, S.ph2, false);
     [130, 1150].forEach((x, k) => Char.draw(g, x, 500, 34, -1, '#b9bcc8', { hat: 'helmet', mood: 'determined', seed: k, look: { x: k ? -1 : 1, y: 0 } }));
     S.p.forEach((p, i) => {
-      g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(p.x, this.ground + 4, 26 - p.h * 0.1, 7, 0, 0, 7); g.fill();
-      MGH.av(g, m, i, p.x, this.ground - 30 - p.h, 30, !p.alive ? 'out' : p.h > 20 ? 'cheer' : (S.w > 6 ? 'scared' : 'determined'), { noFeet: false, alpha: p.alive ? 1 : 0.5 });
+      g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(p.x, this.ground + 4, 26 - p.h * 0.1, 7, 0, 0, 7); g.fill();
+      MGH.av(g, m, i, p.x, this.ground - 30 - p.h, 30, !p.alive ? 'out' : p.h > 20 ? 'cheer' : (wv > 0.6 ? 'scared' : 'determined'), { noFeet: false, alpha: p.alive ? 1 : 0.5 });
     });
     this.drawRope(g, S.ph, true); if (S.ph2 !== null) this.drawRope(g, S.ph2, true);
-    MGH.text(g, `Rope speed ${'▮'.repeat(Math.round(S.w))}`, 640, 90, 22, '#234', 'center', 'bold');
+    MGH.label(g, `Rope speed ${'▮'.repeat(Math.round(S.w))}`, 640, 92, 20, '#fff');
   },
 });
 
-// 42 ---------------------------------------------------------------- Leap of the Holds (long jump)
+// 42 ---------------------------------------------------------------- Mini Marathon (swim, run, bike)
 MG.def({
-  id: 'longjump', name: 'Leap of the Holds', type: 'Skill', controls: 'Left/Right + button',
-  how: 'Sprint by pressing LEFT and RIGHT alternately (same key twice makes you stumble). Press the button before the white line to take off — hold it to raise your angle, release to leap. Two attempts, best counts. Crossing the line is a foul.',
-  wins: 'Longest leap.',
+  id: 'marathon', name: 'Mini Marathon', type: 'Race', controls: 'A & B buttons', dur: 75,
+  how: 'A triathlon across your own lane! SWIM: mash A to paddle. RUN: you run by yourself — press A to hop over hurdles. BIKE: press the button that pops up (A or B) as fast as you can; pressing the wrong one slows you down. First to the finish wins.',
+  wins: 'First to the finish (else furthest).',
   init(m, S) {
-    S.best = [0, 0, 0, 0]; S.att = 1;
-    S.ax = 120; S.line = 760; S.mpx = 42;
-    this.reset(S);
+    S.D = 5200; S.hurd = []; for (let x = 1680; x < 3220; x += R.range(170, 250)) S.hurd.push(x);
+    S.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, jump: 0, jh: 0, stum: 0, cue: R.pick(['a', 'b']), cueT: 0, fin: 0, pen: 0, bt: 0 }));
   },
-  reset(S) { S.p = [0, 1, 2, 3].map(() => ({ x: 120, v: 0, last: null, st: 'run', ang: 0, hold: false, fx: 0, fy: 0, vx: 0, vy: 0, dist: 0, tm: 0, foul: false, botNext: 0, botAng: R.range(34, 46), botJump: R.range(10, 60) })); S.done = 0; S.wait = 0; },
+  stage(d) { return d < 1500 ? 0 : d < 3300 ? 1 : 2; },
   update(m, S, dt) {
     S.p.forEach((p, i) => {
-      if (p.st === 'run') {
-        p.tm += dt;
-        for (const k of ['left', 'right']) if (m.pressed(i, k)) {
-          if (p.last === k) { p.v *= 0.6; p.stumble = 0.3; } else { p.v = Math.min(11.5, p.v + 0.75); }
-          p.last = k;
-        }
-        p.v = Math.max(0, p.v - 2.2 * dt);
-        p.x += p.v * S.mpx * dt;
-        if (m.pressed(i, 'a') && p.x <= S.line + 2) { p.st = 'angle'; p.ang = 5; }
-        if (p.x > S.line + 4) { p.st = 'done'; p.foul = true; S.done++; MGH.pop('FOUL!', S.line, 40 + i * 170 + 60, '#ff6b6b', 30); }
-        if (p.tm > 12 && p.st === 'run') { p.st = 'done'; S.done++; }
-      } else if (p.st === 'angle') {
-        if (m.held(i, 'a')) p.ang = Math.min(70, p.ang + 75 * dt);
-        if (!m.held(i, 'a') || p.ang >= 70 || p.x > S.line + 4) {
-          if (p.x > S.line + 4) { p.st = 'done'; p.foul = true; S.done++; return; }
-          const a = p.ang * Math.PI / 180, sp = p.v * 0.95 + 0.6;
-          p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp; p.fy = 0; p.fx = 0; p.st = 'fly';
-          MGH.burst(p.x, 40 + i * 170 + 130, '#d9c7a8', 8, { speed: 120 });
-        }
-      } else if (p.st === 'fly') {
-        p.fx += p.vx * dt * 1.6; p.fy += p.vy * dt * 1.6; p.vy -= 9.8 * dt * 1.6;
-        if (p.fy <= 0 && p.vy < 0) {
-          p.fy = 0; p.st = 'done'; S.done++; p.dist = Math.max(0, (p.x - S.line) / S.mpx + p.fx);
-          S.best[i] = Math.max(S.best[i], p.dist);
-          MGH.burst(S.line + (p.x - S.line) + p.fx * S.mpx, 40 + i * 170 + 130, ['#e8d5a8', '#c9a36b'], 22, { speed: 220, up: 100, grav: 500 });
-          MGH.pop(p.dist.toFixed(2) + ' m', S.line + p.fx * S.mpx, 40 + i * 170 + 60, m.players[i].color, 28);
-        }
+      if (p.fin) return;
+      const st = this.stage(p.d), prev = p.d;
+      if (st === 0) { if (m.pressed(i, 'a')) { p.v = Math.min(340, p.v + 46); if (!m.bot(i)) Sfx.noise(0.08, 1200, 0.03, 'bandpass'); } p.v *= Math.pow(0.32, dt); }
+      else if (st === 1) {
+        p.stum -= dt; p.v = p.stum > 0 ? 80 : 330;
+        if (m.pressed(i, 'a') && p.jump <= 0) { p.jump = 0.5; if (!m.bot(i)) Sfx.tone(500, 0.12, 'triangle', 0.04, 300); }
+        if (p.jump > 0) { p.jump -= dt; p.jh = Math.sin(clamp(1 - p.jump / 0.5, 0, 1) * Math.PI) * 64; } else p.jh = 0;
+      } else {
+        p.pen -= dt; p.cueT += dt;
+        const other = p.cue === 'a' ? 'b' : 'a';
+        if (m.pressed(i, p.cue) && p.pen <= 0) { p.v = Math.min(480, p.v + 75); p.cue = Math.random() < 0.5 ? 'a' : 'b'; p.cueT = 0; if (!m.bot(i)) Sfx.tone(p.cue === 'a' ? 780 : 660, 0.05, 'square', 0.03); }
+        else if (m.pressed(i, other)) { p.v *= 0.4; p.pen = 0.45; if (!m.bot(i)) Sfx.bad(); }
+        p.v = Math.max(70, p.v * Math.pow(0.45, dt));
       }
+      p.d += p.v * dt;
+      if (st === 1) for (const h of S.hurd) if (prev < h && p.d >= h && p.jh < 22) { p.stum = 0.9; MGH.pop('Oof!', 300, 70 + i * 170, '#fff', 22); if (!m.bot(i)) Sfx.bad(); }
+      if (p.d >= S.D) { p.d = S.D; p.fin = m.t; Sfx.win(); }
     });
-    if (S.done >= 4) { S.wait += dt; if (S.wait > 1.6) { if (S.att >= 2) m.finish(S.best.slice()); else { S.att++; this.reset(S); } } }
+    const f = S.p.filter(p => p.fin).map(p => p.fin);
+    if (S.p.every(p => p.fin) || (f.length && m.t > Math.min(...f) + 5)) m.finish(this.score(m, S));
   },
   bot(m, S, i, dt) {
-    const p = S.p[i], v = m.vin[i]; v.left = v.right = false;
-    if (p.st === 'run') {
-      p.botNext -= dt; v.a = false;
-      if (p.botNext <= 0) { v[p.last === 'left' ? 'right' : 'left'] = true; p.botNext = R.range(0.085, 0.13); if (Math.random() < 0.03) v[p.last || 'left'] = true; }
-      if (S.line - p.x < p.botJump) v.a = true;
-    } else if (p.st === 'angle') v.a = p.ang < p.botAng;
-    else v.a = false;
+    const p = S.p[i], v = m.vin[i]; v.a = false; v.b = false; if (p.fin) return;
+    const st = this.stage(p.d); p.bt -= dt;
+    if (st === 0) { if (p.bt <= 0) { v.a = true; p.bt = R.range(0.1, 0.15); } }
+    else if (st === 1) { const h = S.hurd.find(x => x > p.d); if (h !== undefined && h - p.d < R.range(28, 48) && p.jump <= 0) v.a = true; }
+    else if (p.cueT > R.range(0.16, 0.3) && p.pen <= 0 && p.bt <= 0) { v[Math.random() < 0.06 ? (p.cue === 'a' ? 'b' : 'a') : p.cue] = true; p.bt = 0.05; }
   },
-  score(m, S) { return S.best.slice(); },
-  fmt(s) { return s.toFixed(2) + ' m'; },
-  hud(m, S, i) { return `${S.best[i].toFixed(2)}m (try ${S.att}/2)`; },
+  score(m, S) { return S.p.map(p => p.fin ? 10000 - p.fin : p.d); },
+  fmt(s) { return s >= 5000 ? `finished in ${(10000 - s).toFixed(1)}s` : `${Math.round(s / 52)}% of the course`; },
+  hud(m, S, i) { const p = S.p[i]; return p.fin ? '🏁' : ['🏊', '🏃', '🚴'][this.stage(p.d)] + ' ' + Math.round(p.d / 52) + '%'; },
   draw(m, S, g) {
-    MGH.bg(g, '#8fd0ff', '#e6f6ff'); MGH.lanes(g, m, 4, false);
     for (let i = 0; i < 4; i++) {
-      const top = 40 + i * 170, base = top + 130, p = S.p[i];
-      g.fillStyle = '#c75b3a'; g.fillRect(20, base, S.line - 20, 14);
-      g.fillStyle = '#e8d5a8'; g.fillRect(S.line, base - 2, 500, 18);
-      g.fillStyle = '#fff'; g.fillRect(S.line - 3, base - 4, 6, 22);
-      for (let mtr = 1; mtr <= 10; mtr++) { const x = S.line + mtr * S.mpx; g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, base + 14, 2, 6); if (mtr % 2 === 0) MGH.text(g, mtr + 'm', x, base + 34, 12, '#345'); }
-      if (S.best[i] > 0) { g.fillStyle = m.players[i].color; g.fillRect(S.line + S.best[i] * S.mpx - 2, base - 30, 4, 30); }
-      let x = p.x, y = base - 22;
-      if (p.st === 'fly' || (p.st === 'done' && !p.foul && p.dist > 0)) { x = p.x + p.fx * S.mpx; y = base - 22 - p.fy * S.mpx; }
-      if (p.stumble > 0) p.stumble -= 1 / 60;
-      const mood = p.foul ? 'hurt' : p.stumble > 0 ? 'dizzy' : p.st === 'fly' ? 'cheer' : p.st === 'done' ? 'happy' : 'determined';
-      MGH.av(g, m, i, x, y, 20, mood, { walk: p.st === 'run' && p.v > 1 ? 1 : 0, look: { x: 1, y: 0 } });
-      if (p.st === 'angle') { g.strokeStyle = '#fff'; g.lineWidth = 4; const a = p.ang * Math.PI / 180; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 70, y - Math.sin(a) * 70); g.stroke(); MGH.text(g, Math.round(p.ang) + '°', x + 40, y - 50, 18, '#fff', 'center', 'bold'); }
-      g.fillStyle = '#234'; g.fillRect(20, top + 12, 160, 10); g.fillStyle = m.players[i].color; g.fillRect(20, top + 12, 160 * p.v / 11.5, 10);
-      MGH.text(g, m.players[i].name, 190, top + 22, 15, '#123', 'left', 'bold');
+      const top = 40 + i * 170, base = top + 128, p = S.p[i], cam = p.d - 300, st = this.stage(p.d);
+      g.save(); g.beginPath(); g.rect(0, top, 1280, 170); g.clip();
+      g.fillStyle = MGH.grad(g, top, top + 170, ['#7fd0ff', '#d8f2ff']); g.fillRect(0, top, 1280, 170);
+      for (let k = 0; k < 6; k++) MGH.cloud(g, ((k * 260 - cam * 0.2) % 1560 + 1560) % 1560 - 140, top + 30 + (k % 2) * 20, 14, 'rgba(255,255,255,0.7)');
+      const X = d => d - cam;
+      // swim
+      if (X(0) < 1280 && X(1500) > 0) { g.fillStyle = MGH.grad(g, base - 40, top + 170, ['#3aa8ff', '#0a5aa8']); g.fillRect(X(0), base - 30, 1500, 80); g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2; for (let x = 0; x < 1500; x += 40) { g.beginPath(); g.arc(X(x) + (m.t * 30) % 40, base - 28, 10, Math.PI, 0); g.stroke(); } }
+      // run
+      if (X(1500) < 1280 && X(3300) > 0) { g.fillStyle = '#c8553a'; g.fillRect(X(1500), base, 1800, 50); g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(X(1500), base + 22, 1800, 3); g.fillStyle = '#4a9a3a'; g.fillRect(X(1500), base - 6, 1800, 6);
+        for (const h of S.hurd) { const x = X(h); if (x < -20 || x > 1300) continue; g.fillStyle = '#eee'; g.fillRect(x - 2, base - 34, 4, 34); g.fillRect(x + 14, base - 34, 4, 34); g.fillStyle = '#ff4d6d'; g.fillRect(x - 4, base - 38, 24, 8); } }
+      // bike
+      if (X(3300) < 1280 && X(5200) > 0) { g.fillStyle = '#5a5a66'; g.fillRect(X(3300), base, 1900, 50); g.fillStyle = '#ffe680'; for (let x = 3300; x < 5200; x += 60) g.fillRect(X(x), base + 22, 30, 4); for (let x = 3350; x < 5200; x += 180) MGH.emoji(g, '🌳', X(x), base - 30, 40); }
+      // stage gates
+      [[0, '🏊 SWIM'], [1500, '🏃 RUN'], [3300, '🚴 BIKE'], [5200, '🏁 FINISH']].forEach(([d, l]) => { const x = X(d); if (x < -100 || x > 1380) return; g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(x - 3, top + 30, 6, 140); MGH.label(g, l, x, top + 34, 14, '#123', 'rgba(255,255,255,0.85)'); });
+      // the athlete
+      const x = 300;
+      if (st === 0) { MGH.av(g, m, i, x, base - 18, 18, p.v > 250 ? 'determined' : 'effort', { noFeet: true, look: { x: 1, y: 0 } }); g.fillStyle = 'rgba(80,180,255,0.75)'; g.fillRect(x - 40, base - 18, 80, 20); if (p.v > 80 && Math.random() < 0.5) MGH.burst(x - 30, base - 22, ['#fff', '#9fd8ff'], 2, { speed: 90, life: 0.4, grav: 300 }); }
+      else if (st === 1) { MGH.shadow(g, x, base + 2, 16 - p.jh * 0.1, 0.3); MGH.av(g, m, i, x, base - 18 - p.jh, 18, p.stum > 0 ? 'dizzy' : p.jh > 5 ? 'cheer' : 'determined', { walk: p.stum > 0 ? 0 : 1, look: { x: 1, y: 0 } }); }
+      else {
+        const wr = m.t * p.v * 0.05;
+        for (const wx of [-26, 26]) { g.strokeStyle = '#222'; g.lineWidth = 4; g.beginPath(); g.arc(x + wx, base - 12, 14, 0, 7); g.stroke(); g.strokeStyle = '#aaa'; g.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const a = wr + k * 2.1; g.beginPath(); g.moveTo(x + wx, base - 12); g.lineTo(x + wx + Math.cos(a) * 13, base - 12 + Math.sin(a) * 13); g.stroke(); } }
+        g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.beginPath(); g.moveTo(x - 26, base - 12); g.lineTo(x - 4, base - 30); g.lineTo(x + 26, base - 12); g.moveTo(x - 4, base - 30); g.lineTo(x + 16, base - 34); g.stroke();
+        MGH.av(g, m, i, x - 4, base - 50, 16, p.pen > 0 ? 'dizzy' : p.v > 350 ? 'cheer' : 'determined', { noFeet: true, look: { x: 1, y: 0 } });
+        if (!p.fin) { const by = top + 52, pulse = 1 + 0.12 * Math.sin(m.t * 14); g.save(); g.translate(x + 70, by); g.scale(pulse, pulse); g.fillStyle = p.cue === 'a' ? '#2bb24c' : '#e0404a'; g.beginPath(); g.arc(0, 0, 22, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke(); g.font = 'bold 24px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(p.cue.toUpperCase(), 0, 1); g.textBaseline = 'alphabetic'; g.restore(); }
+      }
+      if (p.fin) MGH.label(g, '🏁 FINISHED!', 640, top + 90, 26, '#ffe680');
+      g.restore();
+      MGH.label(g, m.players[i].name, 60, top + 26, 15, m.players[i].color);
+      g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, 980, top + 12, 280, 10, 5); g.fill(); g.fillStyle = m.players[i].color; MGH.rr(g, 980, top + 12, 280 * p.d / S.D, 10, 5); g.fill();
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, top + 168, 1280, 3);
     }
   },
 });
@@ -162,7 +174,8 @@ MG.def({
   },
   keys: ['left', 'a', 'right'],
   update(m, S, dt) {
-    S.notes.forEach((n, k) => { if (!S.played.has(k) && m.t >= n.t) { S.played.add(k); Sfx.tone([330, 440, 550][n.lane], 0.09, 'triangle', 0.035); } });
+    S.notes.forEach((n, k) => { if (!S.played.has(k) && m.t >= n.t) { S.played.add(k); Sfx.drum(4, 0.6); } });
+    if (Math.floor(m.t / 0.42) !== Math.floor((m.t - dt) / 0.42) && m.t > 1.5 && m.t < S.end - 1) Sfx.drum(Math.floor(m.t / 0.42) % 2 ? 1 : 0, 0.35);
     for (let i = 0; i < 4; i++) {
       S.fb[i].t -= dt;
       for (let l = 0; l < 3; l++) {
@@ -173,7 +186,8 @@ MG.def({
           const perfect = bd < 0.07;
           S.hit[i].set(best, perfect ? 2 : 1); S.combo[i]++;
           S.pts[i] += (perfect ? 3 : 1) + Math.floor(S.combo[i] / 10);
-          S.fb[i] = { s: perfect ? 'PERFECT' : 'good', t: 0.4 };
+          S.fb[i] = { s: perfect ? 'PERFECT' : 'good', t: 0.4 }; S.hitT = S.hitT || [0, 0, 0, 0]; S.hitT[i] = m.t;
+          if (!m.bot(i)) { Sfx.drum([0, 1, 2][l], 1); if (perfect && S.combo[i] % 8 === 0) Sfx.drum(3, 0.8); }
           MGH.burst(i * 320 + 70 + l * 90, 610, perfect ? ['#ffe680', '#fff'] : ['#9fd8ff'], perfect ? 12 : 6, { speed: 200, kind: 'spark', size: 2.5 });
         } else { S.combo[i] = 0; S.fb[i] = { s: 'miss', t: 0.4 }; }
       }
@@ -194,39 +208,46 @@ MG.def({
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return `${S.pts[i]} (x${S.combo[i]})`; },
   draw(m, S, g) {
-    MGH.bg(g, '#1a0f2e', '#06030c');
-    const cols = ['#6bb0ff', '#ffd34d', '#ff6b9a'], lab = ['◀', '●', '▶'];
+    MGH.scene(g, 'stage', m.t);
+    const cols = ['#6bb0ff', '#ffd34d', '#ff6b9a'], lab = ['◀', '●', '▶'], beat = (m.t / 0.42) % 1;
     for (let i = 0; i < 4; i++) {
-      const ox = i * 320 + 25;
-      g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(ox, 40, 270, 680);
+      const ox = i * 320 + 25, p = m.players[i];
+      g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, ox, 40, 270, 520, 16); g.fill();
       for (let l = 0; l < 3; l++) {
-        const x = ox + 45 + l * 90;
-        g.strokeStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(x, 40); g.lineTo(x, 720); g.stroke();
-        const press = m.held(i, this.keys[l]);
-        g.fillStyle = press ? cols[l] : 'rgba(255,255,255,0.12)'; g.beginPath(); g.arc(x, 610, 30, 0, 7); g.fill();
-        MGH.text(g, lab[l], x, 618, 22, press ? '#000' : cols[l], 'center', 'bold');
+        const x = ox + 45 + l * 90, press = m.held(i, this.keys[l]);
+        g.fillStyle = `rgba(255,255,255,${0.04 + (press ? 0.12 : 0)})`; g.fillRect(x - 32, 40, 64, 520);
+        // drum pad
+        g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(x, 528, 36, 14, 0, 0, 7); g.fill();
+        g.fillStyle = press ? cols[l] : Char.shade(cols[l], -0.5); g.beginPath(); g.ellipse(x, 512 + (press ? 4 : 0), 34, 14, 0, 0, 7); g.fill();
+        g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); MGH.text(g, lab[l], x, 518 + (press ? 4 : 0), 16, '#fff', 'center', 'bold');
+        if (press) MGH.glow(g, x, 512, 60, cols[l], 0.6);
       }
+      g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.beginPath(); g.moveTo(ox + 5, 512); g.lineTo(ox + 265, 512); g.stroke();
       S.notes.forEach((n, k) => {
-        const st = S.hit[i].get(k);
-        if (st > 0) return;
-        const y = 610 - (n.t - m.t) * 420; if (y < 30 || y > 720) return;
+        const st = S.hit[i].get(k); if (st > 0) return;
+        const y = 512 - (n.t - m.t) * 420; if (y < 30 || y > 560) return;
         const x = ox + 45 + n.lane * 90;
         g.globalAlpha = st === 0 ? 0.25 : 1;
-        g.fillStyle = cols[n.lane]; g.beginPath(); g.arc(x, y, 24, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
+        MGH.glow(g, x, y, 36, cols[n.lane], 0.5);
+        g.fillStyle = MGH.grad(g, y - 22, y + 22, [Char.shade(cols[n.lane], 0.4), cols[n.lane]]); g.beginPath(); g.arc(x, y, 22, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
         g.globalAlpha = 1;
       });
       const fb = S.fb[i];
-      if (fb.t > 0) MGH.text(g, fb.s, ox + 135, 560 - (0.4 - fb.t) * 60, 24, fb.s === 'miss' ? '#ff6b6b' : fb.s === 'good' ? '#9fd8ff' : '#ffe680', 'center', 'bold');
-      MGH.av(g, m, i, ox + 135, 680, 22, fb.t > 0 ? (fb.s === 'miss' ? 'hurt' : 'cheer') : 'determined', { look: { x: 0, y: -1 } });
-      if (S.combo[i] >= 5) MGH.text(g, `${S.combo[i]} combo!`, ox + 135, 80, 18, '#ffe680', 'center', 'bold');
+      if (fb.t > 0) MGH.label(g, fb.s, ox + 135, 470 - (0.4 - fb.t) * 60, 22, fb.s === 'miss' ? '#ff6b6b' : fb.s === 'good' ? '#9fd8ff' : '#ffe680');
+      // the drummer dances: bounces on every beat, jumps and spins on hits
+      const since = S.hitT ? m.t - S.hitT[i] : 9, hop = Math.max(0, 1 - beat / 0.3) * 12 + Math.max(0, 1 - since / 0.25) * 18;
+      g.save(); g.translate(ox + 135, 648 - hop); g.rotate(Math.sin(m.t * 4.5 + i) * 0.18 + (since < 0.25 ? (1 - since / 0.25) * 0.3 : 0));
+      MGH.av(g, m, i, 0, 0, 26, fb.t > 0 ? (fb.s === 'miss' ? 'hurt' : 'cheer') : 'happy', { look: { x: Math.sin(m.t * 2 + i), y: -0.5 } });
+      g.restore();
+      if (S.combo[i] >= 5) MGH.label(g, `🔥 ${S.combo[i]} combo!`, ox + 135, 80, 18, '#ffe680');
     }
   },
 });
 
 // 44 ---------------------------------------------------------------- Comet Trails
 MG.def({
-  id: 'comet', name: 'Comet Trails', type: 'Arena', controls: 'Left/Right + button',
-  how: 'You are a comet that never stops, leaving a burning trail. Press LEFT or RIGHT to turn 90°. Press the button for a short burst of speed (recharges in 3 s). Hit a wall or any trail and you burn out.',
+  id: 'comet', name: 'Comet Trails', type: 'Arena', controls: 'Move + button',
+  how: 'You are a comet that never stops, leaving a burning trail. Steer with the arrows / stick: up, down, left or right (no reversing into yourself). Press the button for a short burst of speed (recharges in 3 s). Hit a wall or any trail and you burn out.',
   wins: 'Last comet burning.',
   init(m, S) {
     S.cs = 10; S.W = 128; S.H = 68;
@@ -239,8 +260,7 @@ MG.def({
   update(m, S, dt) {
     S.p.forEach((p, i) => {
       if (!p.alive) return;
-      if (m.pressed(i, 'left')) { [p.dx, p.dy] = [p.dy, -p.dx]; }
-      if (m.pressed(i, 'right')) { [p.dx, p.dy] = [-p.dy, p.dx]; }
+      for (const [k, dx, dy] of [['left', -1, 0], ['right', 1, 0], ['up', 0, -1], ['down', 0, 1]]) if (m.pressed(i, k) && !(dx === -p.dx && dy === -p.dy)) { p.dx = dx; p.dy = dy; }
       p.cd -= dt; p.boost -= dt;
       if (m.pressed(i, 'a') && p.cd <= 0) { p.boost = 0.7; p.cd = 3; MGH.ring((p.x + 0.5) * S.cs, 40 + (p.y + 0.5) * S.cs, m.players[i].color, 6, 40, 0.4); }
       p.acc += dt * (p.boost > 0 ? 34 : 17 + m.t * 0.15);
@@ -254,13 +274,14 @@ MG.def({
     if (S.p.filter(p => p.alive).length <= 1) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
-    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false; if (!p.alive) return;
+    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.up = v.down = v.a = false; if (!p.alive) return;
+    const nameOf = (dx, dy) => dx < 0 ? 'left' : dx > 0 ? 'right' : dy < 0 ? 'up' : 'down';
     const run = (dx, dy) => { let n = 0, x = p.x, y = p.y; while (n < 40) { x += dx; y += dy; if (!this.free(S, x, y)) break; n++; } return n; };
     const ahead = run(p.dx, p.dy), l = run(p.dy, -p.dx), r = run(-p.dy, p.dx);
     if (!S.botMem) S.botMem = [0, 0, 0, 0];
     S.botMem[i]--;
     if (ahead < 4 || (S.botMem[i] <= 0 && Math.random() < 0.02 && Math.max(l, r) > ahead + 6)) {
-      if (Math.max(l, r) > ahead) { v[l >= r ? 'left' : 'right'] = !m.prev[i].left && !m.prev[i].right; S.botMem[i] = 12; }
+      if (Math.max(l, r) > ahead) { const nd = l >= r ? [p.dy, -p.dx] : [-p.dy, p.dx], nm = nameOf(nd[0], nd[1]); v[nm] = !m.prev[i][nm]; S.botMem[i] = 12; }
     }
     if (ahead > 25 && p.cd <= 0 && Math.random() < 0.01) v.a = true;
   },
@@ -268,18 +289,19 @@ MG.def({
   fmt(s) { return s >= 1000 ? 'Still burning' : `burnt out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].alive ? (S.p[i].cd > 0 ? 'boost ' + Math.ceil(S.p[i].cd) : 'boost ready') : 'out'; },
   draw(m, S, g) {
-    MGH.bg(g, '#05031a', '#0d0630');
-    g.strokeStyle = 'rgba(120,100,255,0.08)'; g.lineWidth = 1;
+    MGH.scene(g, 'space', m.t);
+    g.strokeStyle = 'rgba(120,100,255,0.07)'; g.lineWidth = 1;
     for (let x = 0; x <= 1280; x += 40) { g.beginPath(); g.moveTo(x, 40); g.lineTo(x, 720); g.stroke(); }
     for (let y = 40; y <= 720; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(1280, y); g.stroke(); }
-    g.save(); g.shadowBlur = 10;
+    g.strokeStyle = 'rgba(160,140,255,0.6)'; g.lineWidth = 3; g.strokeRect(1, 41, 1278, 678);
+    g.save(); g.shadowBlur = 12;
     for (let y = 0; y < S.H; y++) for (let x = 0; x < S.W; x++) {
       const o = S.grid[y * S.W + x]; if (o < 0) continue;
-      g.fillStyle = m.players[o].color; g.shadowColor = m.players[o].color; g.globalAlpha = S.p[o].alive ? 0.9 : 0.35;
+      g.fillStyle = m.players[o].color; g.shadowColor = m.players[o].color; g.globalAlpha = S.p[o].alive ? 0.85 + 0.15 * Math.sin(m.t * 6 + x * 0.3 + y * 0.3) : 0.3;
       g.fillRect(x * S.cs + 1, 40 + y * S.cs + 1, S.cs - 2, S.cs - 2);
     }
     g.restore(); g.globalAlpha = 1;
-    S.p.forEach((p, i) => { if (p.alive) MGH.av(g, m, i, (p.x + 0.5) * S.cs, 40 + (p.y + 0.5) * S.cs, 13, p.boost > 0 ? 'cheer' : 'determined', { noFeet: true, noArms: true, look: { x: p.dx, y: p.dy } }); });
+    S.p.forEach((p, i) => { if (!p.alive) return; const X = (p.x + 0.5) * S.cs, Y = 40 + (p.y + 0.5) * S.cs; MGH.glow(g, X, Y, 40, m.players[i].color); MGH.fireball(g, X - p.dx * 6, Y - p.dy * 6, 9, m.t, p.dx, p.dy, ['#fff', m.players[i].color, '#ff3d1f']); MGH.av(g, m, i, X, Y, 13, p.boost > 0 ? 'cheer' : 'determined', { noFeet: true, noArms: true, look: { x: p.dx, y: p.dy } }); });
   },
 });
 
@@ -375,25 +397,30 @@ MG.def({
   fmt(s) { return s >= 100 ? `${Math.round(s - 100)} ♥ left` : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.hp[i] > 0 ? '♥'.repeat(S.hp[i]) : 'out'; },
   draw(m, S, g) {
-    MGH.bg(g, '#101830', '#05070f');
-    g.fillStyle = '#0c1430'; g.fillRect(S.x0, S.y0, S.sz, S.sz);
-    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.setLineDash([10, 10]); g.beginPath(); g.moveTo(S.x0, S.y0); g.lineTo(S.x0 + S.sz, S.y0 + S.sz); g.moveTo(S.x0 + S.sz, S.y0); g.lineTo(S.x0, S.y0 + S.sz); g.stroke(); g.setLineDash([]);
+    MGH.scene(g, 'night', m.t);
+    MGH.glow(g, S.x0 + S.sz / 2, S.y0 + S.sz / 2, S.sz * 0.8, 'rgba(120,100,255,0.25)');
+    g.fillStyle = MGH.grad(g, S.y0, S.y0 + S.sz, ['#14204a', '#0a1028']); g.fillRect(S.x0, S.y0, S.sz, S.sz);
+    g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 2; g.setLineDash([10, 10]); g.beginPath(); g.moveTo(S.x0, S.y0); g.lineTo(S.x0 + S.sz, S.y0 + S.sz); g.moveTo(S.x0 + S.sz, S.y0); g.lineTo(S.x0, S.y0 + S.sz); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = 'rgba(255,255,255,0.15)'; g.beginPath(); g.arc(S.x0 + S.sz / 2, S.y0 + S.sz / 2, 60, 0, 7); g.stroke();
+    MGH.emoji(g, '✦', S.x0 + S.sz / 2, S.y0 + S.sz / 2, 30, m.t);
     for (let i = 0; i < 4; i++) {
-      const p = m.players[i], q = this.padXY(S, i);
-      g.lineWidth = 6; g.strokeStyle = S.hp[i] > 0 ? p.color : '#555';
+      const p = m.players[i], q = this.padXY(S, i), alive = S.hp[i] > 0;
       const s = [[S.x0, S.y0 + S.sz, S.x0 + S.sz, S.y0 + S.sz], [S.x0, S.y0, S.x0, S.y0 + S.sz], [S.x0, S.y0, S.x0 + S.sz, S.y0], [S.x0 + S.sz, S.y0, S.x0 + S.sz, S.y0 + S.sz]][i];
-      g.beginPath(); g.moveTo(s[0], s[1]); g.lineTo(s[2], s[3]); g.stroke();
-      if (S.hp[i] <= 0) continue;
-      g.fillStyle = S.pad[i].smash > 0 ? '#fff' : p.color;
+      g.save(); g.shadowColor = alive ? p.color : '#000'; g.shadowBlur = alive ? 14 : 0; g.lineWidth = 6; g.strokeStyle = alive ? p.color : '#555'; g.beginPath(); g.moveTo(s[0], s[1]); g.lineTo(s[2], s[3]); g.stroke(); g.restore();
+      if (!alive) { g.fillStyle = 'rgba(120,120,140,0.6)'; if (i % 2 === 0) g.fillRect(s[0], s[1] - 6, S.sz, 12); else g.fillRect(s[0] - 6, s[1], 12, S.sz); continue; }
+      const sm = S.pad[i].smash > 0;
+      g.save(); g.shadowColor = sm ? '#fff' : p.color; g.shadowBlur = sm ? 30 : 12;
+      g.fillStyle = sm ? '#fff' : MGH.grad(g, q.y - 9, q.y + 9, [Char.shade(p.color, 0.4), p.color]);
       if (q.hor) MGH.rr(g, q.x - 70, q.y - 9, 140, 18, 9); else MGH.rr(g, q.x - 9, q.y - 70, 18, 140, 9);
-      g.fill();
+      g.fill(); g.restore();
       const cpos = [[S.x0 + S.sz / 2, S.y0 + S.sz + 38], [S.x0 - 50, S.y0 + S.sz / 2], [S.x0 + S.sz / 2, S.y0 - 30], [S.x0 + S.sz + 50, S.y0 + S.sz / 2]][i];
-      MGH.av(g, m, i, cpos[0] + (i === 0 || i === 2 ? (q.x - S.x0 - S.sz / 2) * 0.3 : 0), cpos[1], 20, S.pad[i].smash > 0 ? 'determined' : 'happy', { noFeet: true });
-      MGH.text(g, '♥'.repeat(S.hp[i]), cpos[0], cpos[1] + (i === 2 ? -22 : 40), 18, '#ff6b6b', 'center', 'bold');
+      MGH.av(g, m, i, cpos[0] + (i % 2 === 0 ? (q.x - S.x0 - S.sz / 2) * 0.3 : 0), cpos[1] + (i % 2 ? (q.y - S.y0 - S.sz / 2) * 0.3 : 0), 20, sm ? 'angry' : 'determined', { noFeet: true });
+      MGH.text(g, '❤️'.repeat(S.hp[i]), cpos[0], cpos[1] + (i === 2 ? -22 : 40), 14, '#fff', 'center');
     }
     for (const b of S.balls) {
-      g.save(); g.shadowColor = b.last >= 0 ? m.players[b.last].color : '#fff'; g.shadowBlur = 20;
-      g.fillStyle = '#fff'; g.beginPath(); g.arc(b.x, b.y, 11, 0, 7); g.fill(); g.restore();
+      const c = b.last >= 0 ? m.players[b.last].color : '#ffffff';
+      for (let k = 1; k < 6; k++) { g.globalAlpha = 0.12 * (6 - k); g.fillStyle = c; g.beginPath(); g.arc(b.x - b.vx * 0.012 * k, b.y - b.vy * 0.012 * k, 11 - k, 0, 7); g.fill(); } g.globalAlpha = 1;
+      MGH.glow(g, b.x, b.y, 34, c); g.fillStyle = '#fff'; g.beginPath(); g.arc(b.x, b.y, 11, 0, 7); g.fill();
     }
   },
 });
@@ -417,8 +444,9 @@ MG.def({
       if (!p.fly) {
         const ax = m.axis(i).x;
         p.w += (-(900 / p.L) * Math.sin(p.th)) * dt;
-        if (ax && Math.sign(ax) === Math.sign(p.w)) p.w += ax * 2.4 * dt;
-        p.w *= 1 - 0.15 * dt;
+        // pumping works best through the bottom of the swing, like a real swing
+        if (ax && Math.sign(ax) === Math.sign(p.w)) p.w += ax * 3.4 * Math.cos(p.th) * dt;
+        p.w *= 1 - 0.06 * dt;
         p.th += p.w * dt; p.th = clamp(p.th, -1.45, 1.45);
         if (m.pressed(i, 'a') && p.rope < S.ropes.length - 1) {
           const q = this.pos(S, p);
@@ -428,8 +456,9 @@ MG.def({
         p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
         for (let k = p.rope + 1; k < S.ropes.length; k++) {
           const r = S.ropes[k];
-          if (Math.abs(p.x - r.x) < 18 && p.y > 40 && p.y < 20 + r.L + 10) {
-            p.fly = false; p.rope = k; p.L = Math.max(70, p.y - 20); p.th = Math.asin(clamp((p.x - r.x) / p.L, -1, 1)); p.w = p.vx / p.L * Math.cos(p.th);
+          if (Math.abs(p.x - r.x) < 26 && p.y > 40 && p.y < 20 + r.L + 14) {
+            p.fly = false; p.rope = k; p.L = Math.max(70, Math.hypot(p.x - r.x, p.y - 20)); p.th = Math.atan2(p.x - r.x, p.y - 20);
+            p.w = (p.vx * Math.cos(p.th) - p.vy * Math.sin(p.th)) / p.L; Sfx.tone(520, 0.08, 'triangle', 0.04);
             if (S.cam) MGH.burst((i % 2) * 640 + p.x - S.cam[i], 40 + Math.floor(i / 2) * 340 + p.y * 0.85, ['#7ccf4a', '#c8e66b'], 8, { speed: 100 });
             if (k === S.ropes.length - 1) p.fin = m.t;
             break;
@@ -456,26 +485,38 @@ MG.def({
   fmt(s) { return s >= 100 ? 'Across!' : `vine ${Math.floor(s) + 1}`; },
   hud(m, S, i) { return `vine ${S.p[i].rope + 1}/${S.ropes.length}`; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a4a2a', '#0e1a0e');
     for (let i = 0; i < 4; i++) {
       const ox = (i % 2) * 640, oy = 40 + Math.floor(i / 2) * 340, p = S.p[i];
       const me = this.pos(S, p), cam = clamp(me.x - 240, 0, S.goal - 500);
       if (!S.cam) S.cam = [0, 0, 0, 0]; S.cam[i] = cam;
-      g.save(); g.beginPath(); g.rect(ox, oy, 640, 340); g.clip(); g.translate(ox - cam, oy); g.scale(1, 0.85);
-      g.fillStyle = '#0a140a'; g.fillRect(cam, 330, 700, 100);
-      g.fillStyle = '#4a3020'; g.fillRect(cam - 10, 0, 720, 14);
+      g.save(); g.beginPath(); g.rect(ox, oy, 640, 340); g.clip();
+      g.fillStyle = MGH.grad(g, oy, oy + 340, ['#9fe0c8', '#5fae7a', '#1f4a2a']); g.fillRect(ox, oy, 640, 340);
+      for (let k = 0; k < 10; k++) { const tx = ox + ((k * 120 - cam * 0.35) % 1200 + 1200) % 1200 - 100; g.fillStyle = 'rgba(40,110,60,0.6)'; g.beginPath(); g.moveTo(tx, oy + 300); g.lineTo(tx + 50, oy + 120 + (k % 3) * 30); g.lineTo(tx + 100, oy + 300); g.fill(); }
+      g.translate(ox - cam, oy); g.scale(1, 0.85);
+      // river far below
+      g.fillStyle = MGH.grad(g, 330, 420, ['#2a8ad8', '#0a3a7a']); g.fillRect(cam, 340, 720, 100);
+      for (let x = Math.floor(cam / 40) * 40; x < cam + 720; x += 40) { g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.beginPath(); g.arc(x + (m.t * 30) % 40, 348, 8, Math.PI, 0); g.stroke(); }
+      // canopy branch
+      g.fillStyle = MGH.grad(g, 0, 18, ['#7a5230', '#4a3020']); g.fillRect(cam - 10, 0, 720, 16);
+      for (let x = Math.floor(cam / 30) * 30; x < cam + 720; x += 30) MGH.emoji(g, '🍃', x, 14 + (x % 60 ? 4 : -2), 18, x);
       S.ropes.forEach((r, k) => {
         const mine = !p.fly && p.fall <= 0 && p.rope === k;
         const ex = mine ? me.x : r.x + Math.sin(Math.sin(m.t + k) * 0.08) * r.L, ey = mine ? me.y : 20 + r.L;
-        g.strokeStyle = k === S.ropes.length - 1 ? '#ffd34d' : '#5aa83a'; g.lineWidth = 4; g.beginPath(); g.moveTo(r.x, 14); g.lineTo(ex, ey); g.stroke();
-        g.fillStyle = '#7ccf4a'; g.beginPath(); g.arc(r.x + 4, 60, 5, 0, 7); g.fill();
+        g.strokeStyle = k === S.ropes.length - 1 ? '#ffd34d' : '#4f9a3a'; g.lineWidth = 5; g.beginPath(); g.moveTo(r.x, 14); g.quadraticCurveTo((r.x + ex) / 2 + 6, (14 + ey) / 2, ex, ey); g.stroke();
+        for (let s = 0.25; s < 1; s += 0.25) MGH.emoji(g, '🌿', lerp(r.x, ex, s), lerp(14, ey, s), 12, k + s);
       });
-      const fx = S.ropes[S.ropes.length - 1].x; MGH.text(g, '🏁', fx + 40, 80, 34, '#fff');
+      // where you'd fly if you let go now
+      if (!p.fly && p.fall <= 0 && !p.fin) {
+        let x = me.x, y = me.y, vx = Math.cos(p.th) * p.w * p.L, vy = -Math.sin(p.th) * p.w * p.L;
+        g.fillStyle = 'rgba(255,255,255,0.55)';
+        for (let k = 0; k < 40; k++) { vy += 900 / 30; x += vx / 30; y += vy / 30; if (y > 340) break; if (k % 2) { g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); } }
+      }
+      const fx = S.ropes[S.ropes.length - 1].x; MGH.plat(g, fx + 20, 210, 180, 20, 'grass'); MGH.emoji(g, '🏁', fx + 80, 180, 34);
       if (p.fall <= 0) MGH.av(g, m, i, me.x, me.y, 18, p.fin ? 'cheer' : p.fly ? 'cheer' : (Math.abs(p.w) > 1.5 ? 'determined' : 'happy'), { noFeet: true, look: { x: 1, y: 0 } });
       g.restore();
-      if (p.fall > 0) MGH.text(g, 'Fell! Climbing back…', ox + 320, oy + 170, 24, '#fff', 'center', 'bold');
+      if (p.fall > 0) MGH.label(g, 'Splash! Climbing back…', ox + 320, oy + 170, 22, '#fff');
       g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.strokeRect(ox + 2, oy + 2, 636, 336);
-      MGH.text(g, m.players[i].name, ox + 14, oy + 26, 16, m.players[i].color, 'left', 'bold');
+      MGH.label(g, m.players[i].name, ox + 60, oy + 28, 15, m.players[i].color);
     }
   },
 });
@@ -519,22 +560,23 @@ MG.def({
   fmt(s) { return Math.round(s / 10) + ' m'; },
   hud(m, S, i) { return Math.round(S.p[i].x / 10) + 'm'; },
   draw(m, S, g) {
-    MGH.bg(g, '#7ec8ff', '#cdeeff');
     for (let i = 0; i < 4; i++) {
       const top = 40 + i * 170, p = S.p[i], cam = p.x - 170;
       g.save(); g.beginPath(); g.rect(0, top, 1280, 170); g.clip();
-      for (let k = 0; k < 6; k++) { const cx = ((k * 260 - cam * 0.3) % 1560 + 1560) % 1560 - 140; g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.ellipse(cx, top + 30 + (k % 3) * 45, 70, 18, 0, 0, 7); g.fill(); }
+      g.fillStyle = MGH.grad(g, top, top + 170, [['#5fb8ff', '#d8f2ff'], ['#ffb37a', '#ffe8c8'], ['#8fa8ff', '#e0e8ff'], ['#7fd8c0', '#e0fff4']][i]); g.fillRect(0, top, 1280, 170);
+      for (let k = 0; k < 6; k++) MGH.cloud(g, ((k * 260 - cam * 0.3) % 1560 + 1560) % 1560 - 140, top + 30 + (k % 3) * 45, 18, 'rgba(255,255,255,0.6)');
       S.gates.forEach(gt => {
         const x = gt.x - cam; if (x < -60 || x > 1340) return;
-        g.fillStyle = '#ffffff'; g.strokeStyle = '#a8c8e8'; g.lineWidth = 2;
-        MGH.rr(g, x - 22, top, 44, gt.gap, 14); g.fill(); g.stroke();
-        MGH.rr(g, x - 22, top + gt.gap + gt.size, 44, 170 - gt.gap - gt.size, 14); g.fill(); g.stroke();
-        if (gt.star) MGH.text(g, '⭐', x, top + gt.gap + gt.size / 2 + 9, 22, '#fff');
+        const cl = (y, h) => { g.fillStyle = 'rgba(255,255,255,0.95)'; MGH.rr(g, x - 24, y, 48, h, 18); g.fill(); for (let yy = y + 10; yy < y + h; yy += 22) MGH.cloud(g, x, yy, 12, 'rgba(240,248,255,1)'); g.strokeStyle = 'rgba(160,190,220,0.8)'; g.lineWidth = 2; MGH.rr(g, x - 24, y, 48, h, 18); g.stroke(); };
+        cl(top, gt.gap); cl(top + gt.gap + gt.size, 170 - gt.gap - gt.size);
+        if (gt.star) MGH.star(g, x, top + gt.gap + gt.size / 2, 11, '#ffd34d', m.t * 2);
       });
+      if (p.boost > 0) for (let s = 1; s < 5; s++) { g.globalAlpha = 0.15; g.fillStyle = m.players[i].color; g.beginPath(); g.arc(170 - s * 14, top + p.y, 14, 0, 7); g.fill(); } g.globalAlpha = 1;
       MGH.av(g, m, i, 170, top + p.y, 16, p.stun > 0 ? 'dizzy' : p.boost > 0 ? 'cheer' : p.vy < 0 ? 'determined' : 'happy', { noFeet: true, look: { x: 1, y: p.vy / 400 } });
+      MGH.emoji(g, '🪁', 150, top + p.y - 26, 22, -0.3 + p.vy / 1200);
       g.restore();
-      MGH.text(g, m.players[i].name, 12, top + 20, 15, '#234', 'left', 'bold');
-      g.fillStyle = '#234'; g.fillRect(0, top + 168, 1280, 2);
+      MGH.label(g, m.players[i].name, 60, top + 24, 15, m.players[i].color);
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, top + 168, 1280, 3);
     }
   },
 });
@@ -584,16 +626,17 @@ MG.def({
   fmt(s) { return `${s} pins`; },
   hud(m, S, i) { return `roll ${S.p[i].roll}${S.p[i].st === 'done' ? ' ✔ ' + S.p[i].down : ''}`; },
   draw(m, S, g) {
-    MGH.bg(g, '#3a2a1c', '#170f08'); MGH.lanes(g, m);
+    MGH.scene(g, 'cave', m.t); MGH.lanes(g, m);
     S.p.forEach((p, i) => {
       const ox = i * 320;
-      g.fillStyle = '#c9a36b'; g.fillRect(ox + 30, 50, 260, 640);
-      g.fillStyle = '#5a4022'; g.fillRect(ox + 18, 50, 12, 640); g.fillRect(ox + 290, 50, 12, 640);
+      g.fillStyle = MGH.grad(g, 50, 690, ['#8a7a66', '#c9b48a', '#e0c89a']); g.fillRect(ox + 30, 50, 260, 640);
+      for (let k = 0; k < 9; k++) { g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(ox + 30 + k * 29, 50, 2, 640); }
+      g.fillStyle = '#3a2a1c'; g.fillRect(ox + 18, 50, 12, 640); g.fillRect(ox + 290, 50, 12, 640);
       for (let k = 0; k < 7; k++) { g.fillStyle = 'rgba(90,60,30,0.6)'; g.beginPath(); g.moveTo(ox + 160 + (k - 3) * 22, 480); g.lineTo(ox + 152 + (k - 3) * 22, 495); g.lineTo(ox + 168 + (k - 3) * 22, 495); g.fill(); }
       for (const pin of p.pins) { if (pin.gone) continue; g.save(); g.translate(ox + pin.x, pin.y); if (pin.down) g.rotate(1.2); g.fillStyle = '#e8e4da'; g.beginPath(); g.ellipse(0, 0, 9, pin.down ? 6 : 13, 0, 0, 7); g.fill(); g.fillStyle = '#c33'; g.fillRect(-8, -3, 16, 3); g.restore(); }
-      if (p.ball) { g.fillStyle = '#6b6b78'; g.beginPath(); g.arc(ox + p.ball.x, p.ball.y, 18, 0, 7); g.fill(); g.fillStyle = '#4a4a55'; g.beginPath(); g.arc(ox + p.ball.x + 5, p.ball.y - 5, 4, 0, 7); g.fill(); }
+      if (p.ball) { MGH.shadow(g, ox + p.ball.x, p.ball.y + 16, 16, 0.35); MGH.rock(g, ox + p.ball.x, p.ball.y, 19, i, '#7a7a88', -p.ball.y / 12); }
       if (p.st === 'aim') { g.strokeStyle = '#fff'; g.lineWidth = 3; g.setLineDash([8, 6]); g.beginPath(); g.moveTo(ox + p.x, 640); g.lineTo(ox + p.x + Math.sin(p.ang) * 300, 640 - Math.cos(p.ang) * 300); g.stroke(); g.setLineDash([]); }
-      if (p.st === 'pos' || p.st === 'aim') { g.fillStyle = '#6b6b78'; g.beginPath(); g.arc(ox + p.x, 640, 18, 0, 7); g.fill(); }
+      if (p.st === 'pos' || p.st === 'aim') MGH.rock(g, ox + p.x, 640, 19, i, '#7a7a88');
       MGH.av(g, m, i, ox + p.x - 34, 672, 18, p.st === 'done' ? (p.down >= 8 ? 'cheer' : p.down >= 5 ? 'happy' : 'hurt') : 'determined', { look: { x: 0.3, y: -1 } });
     });
   },
@@ -641,9 +684,11 @@ MG.def({
   fmt(s) { return Math.round(s / 10) + ' m'; },
   hud(m, S, i) { return Math.round(S.p[i].d / 10) + 'm'; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a1d12', '#0a0603'); MGH.lanes(g, m);
+    MGH.scene(g, 'cave', m.t); MGH.lanes(g, m);
     S.p.forEach((p, i) => {
       const ox = i * 320, cx = ox + 160, yC = 520;
+      g.fillStyle = 'rgba(30,20,10,0.55)'; g.fillRect(ox + 10, 40, 300, 680);
+      for (let k = 0; k < 6; k++) { const y = ((k * 140 + p.d * 0.9) % 840) - 60; MGH.gem(g, ox + 24, y, 7, ['#5fd8ff', '#ff6ad5', '#7cf06a'][k % 3], m.t); MGH.gem(g, ox + 296, y + 70, 6, ['#ffd34d', '#5fd8ff'][k % 2], m.t); }
       // lantern posts
       for (let k = 0; k < 8; k++) { const y = ((k * 110 + p.d * 0.9) % 880) - 120; g.fillStyle = 'rgba(255,190,90,0.18)'; g.beginPath(); g.arc(ox + 30, y, 26, 0, 7); g.arc(ox + 290, y + 55, 26, 0, 7); g.fill(); }
       const rails = (x1, x2, y1, y2) => { g.strokeStyle = '#8a8a96'; g.lineWidth = 4; g.beginPath(); g.moveTo(x1 - 22, y1); g.lineTo(x2 - 22, y2); g.moveTo(x1 + 22, y1); g.lineTo(x2 + 22, y2); g.stroke(); };
@@ -664,7 +709,10 @@ MG.def({
       const sx = cx + p.side * 30 + (p.crash > 0 ? Math.sin(m.t * 40) * 6 : 0);
       g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(sx, yC + 26, 34, 10, 0, 0, 7); g.fill();
       g.save(); g.translate(sx, yC - air * 30); g.scale(1 + air * 0.15, 1 + air * 0.15);
-      g.fillStyle = '#6b4a2a'; MGH.rr(g, -32, -10, 64, 36, 6); g.fill(); g.strokeStyle = '#3a2a1c'; g.lineWidth = 3; g.stroke();
+      g.fillStyle = MGH.grad(g, -10, 26, ['#8a6a4a', '#4a2e18']); MGH.rr(g, -32, -10, 64, 36, 6); g.fill(); g.strokeStyle = '#2a1a0c'; g.lineWidth = 3; g.stroke();
+      g.fillStyle = '#9a9aa8'; g.fillRect(-32, -10, 64, 5); g.fillRect(-32, 8, 64, 4);
+      for (const wx of [-22, 22]) { g.fillStyle = '#333'; g.beginPath(); g.arc(wx, 28, 7, 0, 7); g.fill(); }
+      if (Math.random() < 0.3) MGH.burst(sx + R.range(-20, 20), yC + 30, ['#ffd34d', '#ff8a3d'], 1, { speed: 120, life: 0.3, size: 2 });
       g.restore();
       MGH.av(g, m, i, sx, yC - 20 - air * 30, 17, p.crash > 0 ? 'dizzy' : p.air > 0 ? 'cheer' : 'determined', { noFeet: true, look: { x: p.choice === 'left' ? -1 : p.choice === 'right' ? 1 : 0, y: -1 } });
       if (p.choice) MGH.text(g, p.choice === 'left' ? '◀' : '▶', sx + (p.choice === 'left' ? -50 : 50), yC - 10, 26, m.players[i].color, 'center', 'bold');
@@ -713,8 +761,10 @@ MG.def({
   fmt(s) { return -s < 125 ? 'Pulled it home!' : `${Math.round(-s)} px away`; },
   hud(m, S, i) { return S.tag[i]; },
   draw(m, S, g) {
-    MGH.bg(g, '#2a1a10', '#0d0805');
-    g.strokeStyle = 'rgba(255,230,128,0.25)'; g.lineWidth = 2; g.beginPath(); g.arc(640, 385, 60 + Math.max(0, S.pulse || 0) * 300, 0, 7); g.stroke();
+    MGH.scene(g, 'meadow', m.t);
+    g.fillStyle = 'rgba(120,80,40,0.35)'; g.beginPath(); g.arc(640, 385, 330, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 4; g.setLineDash([12, 10]); g.beginPath(); g.arc(640, 385, 120, 0, 7); g.stroke(); g.setLineDash([]);
+    MGH.glow(g, 640, 385, 80 + Math.max(0, S.pulse || 0) * 300, 'rgba(255,230,128,0.35)');
     for (let i = 0; i < 4; i++) {
       const a = S.anchor[i], p = m.players[i];
       g.strokeStyle = p.color; g.lineWidth = 3; g.globalAlpha = 0.6; g.beginPath(); g.arc(a[0], a[1], 120, 0, 7); g.stroke(); g.globalAlpha = 1;
@@ -723,7 +773,7 @@ MG.def({
       MGH.av(g, m, i, a[0] + dx / d * lean, a[1] + dy / d * lean, 30, S.slip[i] > 0 ? 'dizzy' : S.flash[i] > 0 ? 'determined' : 'happy', { look: { x: -dx / d, y: -dy / d } });
       if (S.flash[i] > 0) MGH.text(g, S.tag[i], a[0], a[1] - 50, 20, S.tag[i] === 'PERFECT' ? '#ffe680' : S.tag[i] === 'good' ? '#9fd8ff' : '#ff6b6b', 'center', 'bold');
     }
-    g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(S.k.x, S.k.y, 20, 0, 7); g.fill(); g.strokeStyle = '#a8790a'; g.lineWidth = 4; g.stroke();
+    MGH.glow(g, S.k.x, S.k.y, 50, 'rgba(255,220,90,0.6)'); MGH.star(g, S.k.x, S.k.y, 24, '#ffd34d', m.t);
     const ph = (m.t % S.beat) / S.beat;
     g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(540, 700, 200, 12); g.fillStyle = ph < 0.1 || ph > 0.9 ? '#ffe680' : '#888'; g.fillRect(540 + ph * 200 - 4, 696, 8, 20);
   },
