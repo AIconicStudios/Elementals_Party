@@ -286,6 +286,43 @@ const Char = {
           return true;
       }
     }
+    // ---- game-face (focused, ready to play): also different per clan
+    if (mood === 'determined' && this._el >= 0) {
+      const blink = ((t + seed * 1.7) % 3.6) < 0.12;
+      const shut = () => { g.strokeStyle = ink; g.lineWidth = Math.max(1.2, r * 0.06); g.beginPath(); g.moveTo(ex - ew, ey + eh * 0.2); g.lineTo(ex + ew, ey + eh * 0.2); g.stroke(); };
+      switch (this._el) {
+        case 0: // Zephi: eager - wide bright eye, perky brow, cheeks puffed in a tiny "o"
+          blush(0.9);
+          if (blink) shut(); else eye(1.15, 0.5, 0, -0.45, -0.05);
+          brow(-1.2, -1.45, 1.1, -1.7, 1.2);
+          g.fillStyle = skin.light; g.globalAlpha *= 0.6; g.beginPath(); g.arc(-r * 0.72, r * 0.22, r * 0.12, 0, 7); g.fill(); g.globalAlpha /= 0.6;
+          g.strokeStyle = ink; g.lineWidth = lw; g.fillStyle = '#e0606e'; g.beginPath(); g.ellipse(mx - r * 0.02, my, r * 0.045, r * 0.05, 0, 0, 7); g.fill(); g.stroke();
+          return true;
+        case 1: // Drip: concentrating hard - big glossy eye, worried brow, biting the lip
+          blush(1.1);
+          if (blink) shut(); else { eye(1.05, 0.72, 0, -0.35, 0.05); g.fillStyle = '#fff'; g.beginPath(); g.arc(ex - ew * 0.05, ey + eh * 0.4, ew * 0.15, 0, 7); g.fill(); }
+          brow(-1.2, -1.25, 1.0, -1.6, 1);
+          g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx - r * 0.1, my); g.lineTo(mx + r * 0.08, my); g.stroke();
+          g.fillStyle = '#fff'; g.fillRect(mx - r * 0.04, my, r * 0.05, r * 0.035); g.strokeStyle = ink; g.lineWidth = lw * 0.5; g.strokeRect(mx - r * 0.04, my, r * 0.05, r * 0.035);
+          return true;
+        case 2: { // Pyra: fired up - fierce glare, sharp V-brow, cocky toothy side-grin
+          blush(0.6);
+          if (blink) shut(); else eye(1, 0.62, 0.22, -0.5, 0.18);
+          brow(-1.35, -0.75, 1.15, -1.45, 1.8);
+          g.fillStyle = '#fff'; g.strokeStyle = ink; g.lineWidth = lw;
+          g.beginPath(); g.moveTo(mx - r * 0.12, my - r * 0.02); g.lineTo(mx + r * 0.12, my - r * 0.02); g.quadraticCurveTo(mx + r * 0.16, my - r * 0.06, mx + r * 0.2, my - r * 0.1); g.lineTo(mx + r * 0.14, my + r * 0.06); g.lineTo(mx - r * 0.1, my + r * 0.06); g.closePath(); g.fill(); g.stroke();
+          g.lineWidth = lw * 0.5; g.beginPath(); g.moveTo(mx - r * 0.11, my + r * 0.02); g.lineTo(mx + r * 0.15, my + r * 0.02); g.moveTo(mx, my - r * 0.02); g.lineTo(mx, my + r * 0.06); g.stroke();
+          const ph = (t * 1.8) % 1; g.fillStyle = `rgba(255,140,40,${0.8 * (1 - ph)})`; g.beginPath(); g.arc(ex + ew * 0.2, ey - eh * 1.6 - ph * r * 0.3, r * 0.04 * (1 - ph), 0, 7); g.fill();
+          return true;
+        }
+        case 3: // Pebble: locked in - heavy half-lid, low flat brow, mouth set in a hard line
+          blush(0.35);
+          if (blink) shut(); else eye(1, 0.58, 0.5, -0.45, 0.32);
+          brow(-1.35, -1.0, 1.15, -1.1, 1.9);
+          g.strokeStyle = ink; g.lineWidth = lw * 1.2; g.beginPath(); g.moveTo(mx - r * 0.12, my + r * 0.01); g.lineTo(mx + r * 0.1, my + r * 0.01); g.stroke();
+          return true;
+      }
+    }
     switch (mood) {
       case 'evil': {
         blush(0.6);

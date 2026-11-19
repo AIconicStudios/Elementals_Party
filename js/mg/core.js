@@ -436,7 +436,7 @@ const MGH = {
   av(g, m, i, x, y, r, mood, o = {}) { const p = m.players[i], rs = r * 1.6; Char.draw(g, x, y - (rs - r) * (o.noFeet ? 0.4 : 1.2), rs, p.el.id, p.color, Object.assign({ mood: MGH.persona(mood, p.el.id), seed: i * 1.7 }, o)); },
   // each clan has its own personality: Air laughs it off, Water is emotional, Fire is fiery, Earth is steady
   persona(mood, el) {
-    const P = { cheer: ['laugh', 'starry', 'evil', 'proud'], hurt: ['shock', 'cry', 'angry', 'sad'], scared: ['shock', 'nervous', 'scared', 'nervous'], determined: ['determined', 'effort', 'effort', 'determined'] }[mood];
+    const P = { cheer: ['laugh', 'starry', 'evil', 'proud'], hurt: ['shock', 'cry', 'angry', 'sad'], scared: ['shock', 'nervous', 'scared', 'nervous'], determined: ['determined', 'determined', 'determined', 'determined'] }[mood];
     return P && el >= 0 ? P[el] : mood;
   },
   // seat-to-bot "near" helpers
