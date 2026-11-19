@@ -33,6 +33,11 @@ const Char = {
     g.translate(x, y - bob);
     if (out) g.rotate(0.4 * face);
     if (mood === 'hurt') g.translate(Math.sin(t * 50) * r * 0.06, 0);
+    if (mood === 'evil' || mood === 'laugh') g.translate(Math.sin(t * 32) * r * 0.035, -Math.abs(Math.sin(t * 11)) * r * 0.1);
+    if (mood === 'angry') g.translate(Math.sin(t * 55) * r * 0.045, 0);
+    if (mood === 'shock') g.translate(Math.sin(t * 60) * r * 0.02, -r * 0.08);
+    if (mood === 'starry') g.translate(0, -Math.abs(Math.sin(t * 6)) * r * 0.12);
+    if (mood === 'cry') g.translate(Math.sin(t * 20) * r * 0.015, 0);
     g.fillStyle = 'rgba(0,0,0,0.22)';
     g.beginPath(); g.ellipse(0, r * 1.3 + bob, r * 0.85, r * 0.15, 0, 0, 7); g.fill();
     g.scale(-face, 1); // everything below is drawn facing left
@@ -40,12 +45,14 @@ const Char = {
     if (!o.noArms) this.glove(g, r, C, mood, t, seed, walk, false);
     g.save(); g.scale(1 / Math.sqrt(squash), squash);
     this.body(g, r, skin);
+    if (mood === 'angry' || mood === 'sick' || mood === 'evil') { g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip(); const tg = g.createLinearGradient(0, -r, 0, r); const c = mood === 'angry' ? '255,40,30' : mood === 'sick' ? '90,200,60' : '120,40,160'; tg.addColorStop(0, `rgba(${c},${mood === 'evil' ? 0.25 : 0.45})`); tg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = tg; g.fillRect(-r, -r, r * 2, r * 2); g.restore(); }
     if (o.hat !== 'helmet') this.wrap(g, r, C, el, t, seed);
     this.face(g, r, mood, o.look ? clamp(o.look.y, -1, 1) : 0, t, seed, skin);
     if (o.hat === 'helmet') this.helmet(g, r, color);
     g.restore();
     if (!o.noArms) this.glove(g, r, C, mood, t, seed, walk, true);
     if (!o.simple) this.flair(g, r, el, t, seed);
+    this.moodFx(g, r, mood, t, seed);
     g.restore();
     if (o.prop) { g.save(); g.font = `${Math.round(r * 0.9)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.prop, x + face * r * 1.2, y - bob + r * 0.1); g.restore(); }
   },
@@ -130,7 +137,133 @@ const Char = {
     g.restore();
   },
 
+  // the extended emotions: returns true when it drew the whole face
+  faceEx(g, r, mood, t, seed, skin) {
+    const ink = '#2a1410';
+    const ex = -r * 0.42, ey = -r * 0.12, ew = r * 0.17, eh = r * 0.23, mx = -r * 0.8, my = r * 0.3;
+    const lw = Math.max(1, r * 0.05);
+    const eye = (sc = 1, pr = 0.68, lid = 0, pdx = -0.25, pdy = 0.08) => {
+      g.save(); g.beginPath(); g.ellipse(ex, ey, ew * sc, eh * sc, 0, 0, 7); g.clip();
+      g.fillStyle = '#fff'; g.fillRect(ex - ew * 2, ey - eh * 2, ew * 4, eh * 4);
+      const px = ex + ew * pdx, py = ey + eh * pdy;
+      g.fillStyle = ink; g.beginPath(); g.arc(px, py, ew * pr, 0, 7); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(px - ew * pr * 0.35, py - ew * pr * 0.4, ew * pr * 0.38, 0, 7); g.fill();
+      if (lid > 0) { g.fillStyle = skin.mid; g.fillRect(ex - ew * 2, ey - eh * 2, ew * 4, eh * (1 + lid * 2)); g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(ex - ew * 1.2, ey - eh + eh * lid * 2); g.lineTo(ex + ew * 1.2, ey - eh + eh * lid * 2); g.stroke(); }
+      g.restore();
+      g.strokeStyle = ink; g.lineWidth = Math.max(0.8, r * 0.035); g.beginPath(); g.ellipse(ex, ey, ew * sc, eh * sc, 0, 0, 7); g.stroke();
+    };
+    const brow = (x1, y1, x2, y2, w = 1) => { g.strokeStyle = ink; g.lineWidth = lw * w; g.beginPath(); g.moveTo(ex + x1 * ew, ey + y1 * eh); g.lineTo(ex + x2 * ew, ey + y2 * eh); g.stroke(); };
+    const blush = (a = 1) => { g.fillStyle = skin.blush; g.globalAlpha *= a; g.beginPath(); g.ellipse(-r * 0.3, r * 0.2, r * 0.17, r * 0.1, 0, 0, 7); g.fill(); g.globalAlpha /= a; };
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    switch (mood) {
+      case 'evil': {
+        blush(0.6);
+        eye(1, 0.45, 0.42, -0.45, 0.25);
+        brow(-1.3, -0.55, 1.2, -1.35, 1.6);
+        // huge sinister grin with teeth
+        g.fillStyle = '#5a1020'; g.strokeStyle = ink; g.lineWidth = lw;
+        g.beginPath(); g.moveTo(mx - r * 0.12, my - r * 0.12); g.quadraticCurveTo(mx + r * 0.2, my + r * 0.32, mx + r * 0.5, my - r * 0.18); g.quadraticCurveTo(mx + r * 0.2, my + r * 0.02, mx - r * 0.12, my - r * 0.12); g.fill(); g.stroke();
+        g.fillStyle = '#fff'; g.beginPath(); g.moveTo(mx - r * 0.08, my - r * 0.09); g.quadraticCurveTo(mx + r * 0.2, my + r * 0.05, mx + r * 0.45, my - r * 0.15); g.lineTo(mx + r * 0.4, my - r * 0.08); g.quadraticCurveTo(mx + r * 0.2, my + r * 0.1, mx - r * 0.04, my - r * 0.04); g.fill();
+        return true;
+      }
+      case 'laugh': {
+        blush(1.3);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.5; g.beginPath(); g.moveTo(ex - ew, ey - eh * 0.4); g.lineTo(ex + ew * 0.2, ey + eh * 0.1); g.lineTo(ex - ew * 0.9, ey + eh * 0.55); g.stroke();
+        for (let k = 0; k < 2; k++) { const ph = (t * 2 + k * 0.5) % 1; g.fillStyle = `rgba(140,210,255,${1 - ph})`; g.beginPath(); g.ellipse(ex - ew * 1.3 - ph * r * 0.4, ey - ph * r * 0.2 + ph * ph * r * 0.5, r * 0.05, r * 0.07, 0, 0, 7); g.fill(); }
+        const open = 0.18 + Math.abs(Math.sin(t * 14)) * 0.08;
+        g.fillStyle = '#5a1020'; g.strokeStyle = ink; g.lineWidth = lw;
+        g.beginPath(); g.moveTo(mx - r * 0.12, my - r * 0.06); g.lineTo(mx + r * 0.3, my - r * 0.1); g.quadraticCurveTo(mx + r * 0.15, my + r * open * 2.2, mx - r * 0.12, my - r * 0.06); g.fill(); g.stroke();
+        g.fillStyle = '#ff7a8a'; g.beginPath(); g.ellipse(mx + r * 0.08, my + r * open * 0.9, r * 0.08, r * 0.05, 0, 0, 7); g.fill();
+        return true;
+      }
+      case 'cry': {
+        blush(1.2);
+        brow(-1.2, -1.5, 1.1, -0.95, 1.2);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.4; g.beginPath(); g.arc(ex, ey + eh * 0.1, ew * 0.95, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
+        // tear rivers
+        g.fillStyle = 'rgba(140,210,255,0.55)'; g.beginPath(); rrPath(g, ex - ew * 0.5, ey, ew * 0.5, r * 0.9, ew * 0.25); g.fill();
+        for (let k = 0; k < 4; k++) { const ph = (t * 1.8 + k / 4) % 1; g.fillStyle = `rgba(100,190,255,${1 - ph * 0.6})`; g.beginPath(); g.ellipse(ex - ew * 0.25 + Math.sin(k) * 2, ey + ph * r * 1.0, r * 0.05, r * 0.08, 0, 0, 7); g.fill(); }
+        // wobbly bawling mouth
+        g.fillStyle = '#5a1020'; g.strokeStyle = ink; g.lineWidth = lw;
+        const wob = Math.sin(t * 25) * r * 0.02;
+        g.beginPath(); g.ellipse(mx + r * 0.05, my + r * 0.04 + wob, r * 0.14, r * 0.1 + wob, 0, 0, 7); g.fill(); g.stroke();
+        return true;
+      }
+      case 'shock': {
+        blush(0.5);
+        brow(-1.1, -1.9, 1.1, -2.1, 1.2);
+        eye(1.45, 0.25, 0, -0.2, 0);
+        g.fillStyle = '#5a1020'; g.strokeStyle = ink; g.lineWidth = lw;
+        g.beginPath(); g.ellipse(mx + r * 0.02, my + r * 0.12, r * 0.1, r * 0.22, 0, 0, 7); g.fill(); g.stroke();
+        return true;
+      }
+      case 'angry': {
+        brow(-1.3, -0.5, 1.2, -1.4, 2);
+        eye(1, 0.55, 0.35, -0.3, 0.2);
+        g.fillStyle = '#fff'; g.strokeStyle = ink; g.lineWidth = lw;
+        g.beginPath(); rrPath(g, mx - r * 0.12, my - r * 0.05, r * 0.32, r * 0.13, r * 0.04); g.fill(); g.stroke();
+        g.beginPath(); for (let k = 1; k < 4; k++) { g.moveTo(mx - r * 0.12 + k * r * 0.08, my - r * 0.05); g.lineTo(mx - r * 0.12 + k * r * 0.08, my + r * 0.08); } g.moveTo(mx - r * 0.12, my + r * 0.015); g.lineTo(mx + r * 0.2, my + r * 0.015); g.stroke();
+        return true;
+      }
+      case 'smug': {
+        blush(0.8);
+        brow(-1.1, -1.3, 1.1, -1.55, 1);
+        eye(1, 0.6, 0.5, -0.55, 0.3);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.2; g.beginPath(); g.moveTo(mx - r * 0.08, my + r * 0.02); g.quadraticCurveTo(mx + r * 0.15, my + r * 0.06, mx + r * 0.28, my - r * 0.1); g.stroke();
+        return true;
+      }
+      case 'starry': {
+        blush(1.3);
+        g.save(); g.translate(ex, ey); g.rotate(Math.sin(t * 3) * 0.3); const sc = 1 + Math.sin(t * 10) * 0.1;
+        g.fillStyle = '#ffd34d'; g.strokeStyle = '#a8790a'; g.lineWidth = lw * 0.8; g.beginPath();
+        for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = (k % 2 ? ew * 0.55 : ew * 1.35) * sc; k ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+        g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.arc(-ew * 0.3, -ew * 0.3, ew * 0.25, 0, 7); g.fill(); g.restore();
+        g.fillStyle = '#5a1020'; g.strokeStyle = ink; g.lineWidth = lw;
+        g.beginPath(); g.moveTo(mx - r * 0.14, my - r * 0.05); g.quadraticCurveTo(mx + r * 0.06, my + r * 0.3, mx + r * 0.26, my - r * 0.06); g.closePath(); g.fill(); g.stroke();
+        return true;
+      }
+      case 'sick': {
+        eye(0.9, 0.5, 0.45, -0.1, 0.3);
+        g.fillStyle = 'rgba(80,60,120,0.35)'; g.beginPath(); g.ellipse(ex, ey + eh * 1.05, ew * 0.9, eh * 0.25, 0, 0, 7); g.fill();
+        g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx - r * 0.12, my); for (let k = 0; k <= 5; k++) g.lineTo(mx - r * 0.12 + k * r * 0.06, my + (k % 2 ? -1 : 1) * r * 0.04 + Math.sin(t * 6) * r * 0.01); g.stroke();
+        return true;
+      }
+      case 'nervous': {
+        blush(0.6);
+        brow(-1.1, -1.4, 1.1, -1.1, 1);
+        eye(1.05, 0.5, 0, -0.25 + Math.sin(t * 9) * 0.5, 0.05);
+        g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx - r * 0.1, my); for (let k = 0; k <= 4; k++) g.lineTo(mx - r * 0.1 + k * r * 0.07, my + (k % 2 ? -1 : 1) * r * 0.035); g.stroke();
+        return true;
+      }
+      case 'sad': {
+        blush(0.5);
+        brow(-1.2, -1.55, 1.1, -1.05, 1.1);
+        eye(1, 0.62, 0.3, -0.25, 0.35);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.1; g.beginPath(); g.arc(mx + r * 0.05, my + r * 0.12, r * 0.12, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+        return true;
+      }
+      case 'proud': {
+        blush(1);
+        brow(-1.1, -1.5, 1.1, -1.6, 1);
+        g.strokeStyle = ink; g.lineWidth = lw * 1.3; g.beginPath(); g.arc(ex, ey + eh * 0.35, ew * 0.9, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+        g.beginPath(); g.arc(mx + r * 0.05, my - r * 0.08, r * 0.14, Math.PI * 0.15, Math.PI * 0.9); g.stroke();
+        return true;
+      }
+    }
+    return false;
+  },
+
+  // extra effects around the character for strong emotions
+  moodFx(g, r, mood, t, seed) {
+    if (mood === 'angry') for (let k = 0; k < 3; k++) { const ph = (t * 1.3 + k / 3) % 1; g.fillStyle = `rgba(255,255,255,${0.8 * (1 - ph)})`; g.beginPath(); g.arc((k - 1) * r * 0.45 + Math.sin(ph * 6) * r * 0.08, -r * 1.15 - ph * r * 0.8, r * (0.1 + ph * 0.18), 0, 7); g.fill(); }
+    if (mood === 'nervous' || mood === 'sick') for (let k = 0; k < 2; k++) { const ph = (t * 0.9 + k * 0.5) % 1; g.fillStyle = `rgba(150,210,255,${1 - ph})`; g.beginPath(); g.ellipse(r * (0.2 + k * 0.45), -r * 0.6 + ph * r * 0.7, r * 0.06, r * 0.1, 0, 0, 7); g.fill(); }
+    if (mood === 'starry') for (let k = 0; k < 5; k++) { const a = t * 2 + k * 1.26; const x = Math.cos(a) * r * 1.45, y = Math.sin(a) * r * 1.2 - r * 0.2; g.fillStyle = '#ffe680'; g.save(); g.translate(x, y); g.rotate(a * 2); const q = r * 0.09 * (1 + Math.sin(t * 8 + k) * 0.4); g.fillRect(-q * 2, -q * 0.4, q * 4, q * 0.8); g.fillRect(-q * 0.4, -q * 2, q * 0.8, q * 4); g.restore(); }
+    if (mood === 'shock') { g.fillStyle = '#ff4d4d'; g.font = `bold ${Math.round(r * 0.5)}px Georgia`; g.textAlign = 'center'; g.save(); g.scale(-1, 1); g.fillText('!', r * 0.25, -r * 1.25 - Math.abs(Math.sin(t * 10)) * r * 0.15); g.fillText('!', -r * 0.2, -r * 1.35 - Math.abs(Math.sin(t * 10 + 1)) * r * 0.15); g.restore(); }
+    if (mood === 'evil') { g.strokeStyle = 'rgba(150,60,200,0.35)'; g.lineWidth = r * 0.06; for (let k = 0; k < 2; k++) { const rr = r * (1.15 + ((t * 0.8 + k * 0.5) % 1) * 0.5); g.globalAlpha *= 1; g.beginPath(); g.arc(0, 0, rr, 0, 7); g.stroke(); } }
+  },
+
   face(g, r, mood, ly, t, seed, skin) {
+    if (this.faceEx(g, r, mood, t, seed, skin)) return;
     const ink = '#2a1410';
     const ex = -r * 0.42, ey = -r * 0.12, ew = r * 0.17, eh = r * 0.23;
     const blink = ((t + seed * 1.7) % 3.6) < 0.12;
@@ -188,8 +321,10 @@ const Char = {
     // Poses are chosen so the front hand never covers the eye (-0.42r,-0.12r), the nose or the mouth.
     let hx, hy, rot;
     const sw = walk ? Math.sin(t * 14 + (front ? 0 : Math.PI)) * r * 0.15 : 0;
-    const limp = mood === 'hurt' || mood === 'dizzy' || mood === 'out';
-    if (front) {
+    const limp = mood === 'hurt' || mood === 'dizzy' || mood === 'out' || mood === 'sad' || mood === 'cry';
+    const ex = this.glovePose(r, mood, t, front);
+    if (ex) { [hx, hy, rot] = ex; }
+    else if (front) {
       if (mood === 'cheer') { hx = -r * 0.75; hy = -r * 1.25 + Math.sin(t * 14) * r * 0.1; rot = -2.5; }
       else if (mood === 'scared') { hx = -r * 1.32; hy = r * 0.38 + Math.sin(t * 40) * r * 0.03; rot = -1.9; }
       else if (waving) { hx = -r * 1.3; hy = -r * 0.5 + w * r * 0.12; rot = -2.3 + w * 0.3; }
@@ -211,6 +346,21 @@ const Char = {
     if (C.pattern === 'flame') { g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(-s * 0.3, s * 0.2); g.quadraticCurveTo(-s * 0.1, -s * 0.8, s * 0.2, s * 0.2); g.fill(); }
     if (C.pattern === 'wave') { g.strokeStyle = '#ffffff'; g.beginPath(); g.moveTo(-s * 0.6, 0); g.lineTo(s * 0.4, 0); g.moveTo(-s * 0.5, s * 0.35); g.lineTo(s * 0.4, s * 0.35); g.stroke(); }
     g.restore();
+  },
+
+  glovePose(r, mood, t, front) {
+    const q = Math.sin(t * 18), shake = Math.sin(t * 40) * r * 0.05;
+    switch (mood) {
+      case 'evil': return front ? [-r * 0.45 + q * r * 0.12, r * 0.58 + Math.cos(t * 18) * r * 0.06, -0.6] : [r * 0.9, r * 0.5, 0.5];      // rubbing hands
+      case 'laugh': return front ? [-r * 0.15, r * 0.7 + Math.abs(Math.sin(t * 11)) * r * 0.1, -0.2] : [r * 0.95, r * 0.6, 0.4];          // holding the belly
+      case 'shock': return front ? [-r * 1.18, -r * 0.65 + shake, -2.5] : [r * 0.95, -r * 0.8 + shake, 2.5];                          // hands thrown up
+      case 'angry': return front ? [-r * 1.22, r * 0.45 + shake, -1.4] : [r * 1.0, r * 0.4 - shake, 1.2];                            // shaking fists
+      case 'smug': case 'proud': return front ? [-r * 0.62, r * 0.85, -0.2] : [r * 0.95, r * 0.65, 0.3];                             // hands on hips
+      case 'starry': return front ? [-r * 0.8, -r * 1.2 + Math.sin(t * 9) * r * 0.1, -2.5] : [r * 0.75, -r * 1.2 + Math.sin(t * 9 + 1) * r * 0.1, 2.5];
+      case 'sick': return front ? [-r * 0.1, r * 0.55, -0.3] : [r * 0.9, r * 0.6, 0.4];
+      case 'nervous': return front ? [-r * 0.3 + Math.sin(t * 12) * r * 0.08, r * 0.62, -0.5] : [r * 0.9, r * 0.55, 0.5];
+    }
+    return null;
   },
 
   shoes(g, r, C, t, seed, walk, out) {

@@ -1,6 +1,21 @@
 'use strict';
 // The Fourfold - rules engine. All rule logic lives here; UI and AI are called for decisions.
 
+// Lines the characters shout when they react on the board
+const LINES = {
+  evil: ['MWAHAHA!', 'Hehehe… gotcha!', 'All according to plan!', 'Too easy!', 'Muahahaha!', 'Fall into my trap!'],
+  laugh: ['HAHAHA!', 'Pfft— hahaha!', 'Oh, that’s gold!', 'Hahaha, oof!', 'Can’t stop laughing!'],
+  cry: ['Nooooo!', 'Waaah! My loot!', 'Why meee?!', '*sob sob*', 'Not fair!!'],
+  shock: ['WHAT?!', 'Oh no!', 'Did that just happen?!', 'Whoa!', 'Yikes!', 'No way!'],
+  angry: ['Grrr!', 'You’ll pay for that!', 'THIEF!', 'Hmph!', 'Unbelievable!'],
+  smug: ['Don’t mind me…', 'Easy pickings.', 'Heh.', 'Too slow!'],
+  starry: ['A STAR! ✨', 'So shiny!', 'Mine, all mine!', 'Yesss!'],
+  sick: ['Blehh…', 'I don’t feel so good…', 'Ugh… poison…'],
+  nervous: ['Uh-oh…', 'Gulp.', 'Stay calm…', 'Not good…'],
+  sad: ['Aww…', 'Bad luck…', 'Ugh.', 'So close…'],
+  proud: ['Nailed it!', 'Who’s the best? Me!', 'Flawless.', 'Too good!'],
+};
+
 class Game {
   constructor(cfg) {
     this.rounds = cfg.rounds || 20;
@@ -59,6 +74,16 @@ class Game {
   name(p) { return `<b style="color:${p.color}">${p.name}</b>`; }
 
   log(msg, cls) { UI.log(msg, cls); }
+  // emotional reactions on the board (purely visual, never block the game)
+  react(p, mood, line, delay = 0, warden = false) {
+    if (!p) return;
+    Render.react(p.id, mood, line === undefined ? R.pick(LINES[mood] || ['!']) : line, delay);
+    if (warden && Render.reactions[p.id]) Render.reactions[p.id].warden = true;
+  }
+  crowd(skip, moods, delay = 0.5) {
+    this.players.filter(q => !skip.includes(q)).forEach((q, k) => this.react(q, Array.isArray(moods) ? R.pick(moods) : moods, undefined, delay + k * 0.25));
+  }
+  emote(p, e) { Render.emote(p, e); }
   fx(p, text, color) { Render.floatText(p, text, color); }
 
   bankAdd(p, n) {
@@ -135,6 +160,7 @@ class Game {
     this.log(`${this.name(p)} banks ${n + bonus} coins${bonus ? ` (incl. ${bonus} interest)` : ''}${stars ? ` and ${stars}⭐` : ''} at ${where}.`, 'good');
     if (stars) Sfx.star(); else Sfx.coin();
     this.fx(p, `+${n + bonus}🏦${stars ? ` +${stars}⭐` : ''}`, '#ffe680');
+    if (stars) this.react(p, 'starry', 'Stars, safe at home!'); else if (n + bonus >= 15) this.react(p, 'proud', R.pick(['Safe and sound!', 'Ka-ching!'])); else this.emote(p, '🏦');
     UI.refresh();
     await sleep(300);
   }
@@ -279,7 +305,7 @@ class Game {
       if (this.hasItem(p, 'antidote') && !p.human) { this.consume(p, 'antidote'); t.poison = false; this.log(`${this.name(p)} drinks an Antidote.`); }
       else {
         if (p.cash > 0) p.cash--; else if (this.bank(p) > 0) this.bankTake(p, 1); else if (t.sHand > 0) t.sHand--; else if (p.vault > 0) p.vault--;
-        this.log(`${this.name(p)} suffers from Poison (−1).`, 'bad'); this.fx(p, '☠️ −1', '#9f6');
+        this.log(`${this.name(p)} suffers from Poison (−1).`, 'bad'); this.fx(p, '☠️ −1', '#9f6'); this.emote(p, '🤢');
       }
     }
 
@@ -290,8 +316,8 @@ class Game {
       if (this.hasItem(p, 'jailbreak')) opts.push({ label: '🗝️ Use Jail Break', value: 'break' });
       const v = await this.choose(p, { title: 'Imprisoned!', text: 'Your Wayfarer is locked in a rival Hold.', options: opts }, () => AI.prison(this, p));
       const owner = this.P(t.prisonBy);
-      if (v === 'bail') { this.pay(p, t.bail); this.bankAdd(owner, t.bail); this.log(`${this.name(p)} pays ${t.bail} bail to ${this.name(owner)}.`); this.sendToGateExit(p, owner); }
-      else if (v === 'break') { this.consume(p, 'jailbreak'); this.log(`${this.name(p)} picks the lock and escapes!`); this.sendToGateExit(p, owner); }
+      if (v === 'bail') { this.pay(p, t.bail); this.bankAdd(owner, t.bail); this.log(`${this.name(p)} pays ${t.bail} bail to ${this.name(owner)}.`); this.react(p, 'sad', 'Fine… take it.'); this.react(owner, 'proud', 'Pleasure doing business!', 0.3); this.sendToGateExit(p, owner); }
+      else if (v === 'break') { this.consume(p, 'jailbreak'); this.log(`${this.name(p)} picks the lock and escapes!`); this.react(p, 'smug', 'See ya, sucker!'); this.react(owner, 'angry', 'They escaped?!', 0.3); this.sendToGateExit(p, owner); }
       UI.refresh();
     }
 
@@ -494,6 +520,7 @@ class Game {
             this.gateOpen(t.pos, p);
             t.loc = 'ring'; t.ring = owner.id; t.pos = RING_GATE;
             this.log(`${this.name(p)} slips through the Waygate into ${this.name(owner)}'s ${owner.el.hold}!${rest ? ` (${rest} step${rest > 1 ? 's' : ''} discarded)` : ''}`, 'warn');
+            this.react(p, 'smug', R.pick(['Sneak sneak…', 'Don’t mind me…', 'Knock knock!'])); this.react(owner, 'shock', R.pick(['INTRUDER!', 'Get out of my Hold!', 'A raider?!']), 0.3);
             Render.burstAt(Render.ringPos(owner.id, RING_GATE), owner.color, 26); Sfx.bad();
             UI.refresh();
             return;
@@ -519,10 +546,10 @@ class Game {
     const t = p.trav;
     for (const q of this.players) {
       if (q === p || q.gone || q.trav.loc !== 'board' || q.trav.pos !== t.pos) continue;
-      if (t.thief.type === 'thief' && q.cash > 0) { q.cash--; p.cash++; this.log(`${this.name(p)} cuts 1 coin from ${this.name(q)}.`); }
-      if (t.thief.type === 'itemthief' && q.items.length) { const it = q.items.splice(R.int(0, q.items.length - 1), 1)[0]; if (p.items.length < HAND_LIMIT) p.items.push(it); this.log(`${this.name(p)}'s Magpie snatches ${itemLabel(it)} from ${this.name(q)}.`); }
+      if (t.thief.type === 'thief' && q.cash > 0) { q.cash--; p.cash++; this.log(`${this.name(p)} cuts 1 coin from ${this.name(q)}.`); this.emote(p, '😏'); this.emote(q, '😠'); }
+      if (t.thief.type === 'itemthief' && q.items.length) { const it = q.items.splice(R.int(0, q.items.length - 1), 1)[0]; if (p.items.length < HAND_LIMIT) p.items.push(it); this.log(`${this.name(p)}'s Magpie snatches ${itemLabel(it)} from ${this.name(q)}.`); this.react(p, 'evil', 'Yoink!'); this.react(q, 'angry', 'My item!', 0.3); }
       if (t.thief.type === 'starthief') {
-        if (q.trav.sHand > 0) { q.trav.sHand--; p.trav.sHand++; this.log(`${this.name(p)} fishes a star from ${this.name(q)}!`); }
+        if (q.trav.sHand > 0) { q.trav.sHand--; p.trav.sHand++; this.log(`${this.name(p)} fishes a star from ${this.name(q)}!`); this.react(p, 'evil'); this.react(q, 'cry', 'My star!!', 0.3); }
         else { const o = q.trav.hotS.findIndex(x => x > 0); if (o >= 0) { q.trav.hotS[o]--; p.trav.hotS[o]++; this.log(`${this.name(p)} fishes a looted star from ${this.name(q)}!`); } }
       }
     }
@@ -537,9 +564,9 @@ class Game {
       if (q === p || q.gone || q.trav.loc !== 'board' || q.trav.pos !== t.pos) continue;
       if (q.trav.bounty && (this.hotCoins(q) + this.hotStars(q) > 0)) {
         const r = this.moveHot(q); q.trav.bounty = false;
-        this.log(`${this.name(p)} claims the bounty on ${this.name(q)}: ${r.c} coins and ${r.s}⭐ return to their owners.`, 'good');
+        this.log(`${this.name(p)} claims the bounty on ${this.name(q)}: ${r.c} coins and ${r.s}⭐ return to their owners.`, 'good'); this.react(p, 'proud', 'Justice!'); this.react(q, 'cry', undefined, 0.3);
       }
-      if (q.cash > 0) { q.cash--; p.cash++; this.log(`${this.name(p)} lands on ${this.name(q)} and steals 1 coin.`); }
+      if (q.cash > 0) { q.cash--; p.cash++; this.log(`${this.name(p)} lands on ${this.name(q)} and steals 1 coin.`); this.emote(p, '😏'); this.emote(q, '😠'); }
     }
     if (sp === 'gate') {
       const owner = this.players.find(o => o.gate === t.pos);
@@ -563,10 +590,10 @@ class Game {
   async resolveSpace(p, sp) {
     const t = p.trav;
     switch (sp) {
-      case 'blue': p.cash += 5; this.fx(p, '+5', '#7fb0ff'); Sfx.coin(); this.log(`${this.name(p)} lands on a Boon: +5 coins.`); break;
+      case 'blue': p.cash += 5; this.fx(p, '+5', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on a Boon: +5 coins.`); break;
       case 'red':
         if (t.chain > 0) { this.log(`${this.name(p)}'s Chain Wallet shrugs off the Bane.`); break; }
-        { const l = Math.min(3, p.cash); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.log(`${this.name(p)} lands on a Bane: −${l} coins.`); }
+        { const l = Math.min(3, p.cash); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on a Bane: −${l} coins.`); }
         break;
       case 'summon': {
         this.ankar = t.pos;
@@ -574,7 +601,7 @@ class Game {
         if (this.board[t.pos] === 'summon') {
           const nt = R.pick(['blue', 'red']);
           this.board[t.pos] = nt;
-          this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing! The Altar crumbles into a ${SPACE[nt].lore} space.`, 'warn');
+          this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing! The Altar crumbles into a ${SPACE[nt].lore} space.`, 'warn'); this.react(p, 'evil', 'Rise, Tithe-Taker!'); this.crowd([p], ['nervous', 'shock']);
         } else this.log(`${this.name(p)} sets the <b>Ankar</b> loose on the Crossing!`, 'warn');
         Sfx.boom();
         await sleep(700);
@@ -583,7 +610,7 @@ class Game {
       case 'shutdown': {
         const gates = R.shuffle([0, 10, 20, 30]).slice(0, 2), banks = R.shuffle([5, 15, 25, 35]).slice(0, 2);
         gates.forEach(g => { this.closedGates[g] = 2; }); banks.forEach(b => { this.closedBanks[b] = 2; });
-        this.log(`🌑 An Eclipse! Waygates ${gates.map(g => ELEMENTS[g / 10].name).join(' & ')} and two Counting Houses close for 2 rounds.`, 'warn');
+        this.log(`🌑 An Eclipse! Waygates ${gates.map(g => ELEMENTS[g / 10].name).join(' & ')} and two Counting Houses close for 2 rounds.`, 'warn'); this.react(p, 'shock', 'The sky went dark!'); this.crowd([p], 'nervous');
         Sfx.boom();
         break;
       }
@@ -591,14 +618,14 @@ class Game {
         const add = Math.min(p.cash, 10); p.cash += add;
         let s = 0; if (this.carriedStars(p) > 0) { t.sHand += 1; s = 1; }
         this.fx(p, `×2 +${add}${s ? ' +1⭐' : ''}`, '#ffd34d'); Sfx.coin();
-        this.log(`${this.name(p)} drinks from the Gilded Spring: +${add} coins${s ? ' and +1 carried star' : ''}.`);
+        this.log(`${this.name(p)} drinks from the Gilded Spring: +${add} coins${s ? ' and +1 carried star' : ''}.`); if (add >= 8 || s) this.react(p, 'starry', 'Double the gold!'); else this.emote(p, '🤑');
         break;
       }
       case 'lucky': {
         const v = R.pick([1, 3, 5, 10]);
         for (let k = 0; k < 6; k++) { this.fx(p, R.pick(['1', '3', '5', '10']), '#5fe3b0'); await sleep(70); }
         p.cash += v; this.fx(p, `🎡 +${v}`, '#5fe3b0'); Sfx.coin();
-        this.log(`${this.name(p)} spins the Fortune Wheel: +${v} coins.`);
+        this.log(`${this.name(p)} spins the Fortune Wheel: +${v} coins.`); if (v === 10) this.react(p, 'starry', 'JACKPOT!'); else this.emote(p, v >= 5 ? '😄' : '🙂');
         break;
       }
       case 'item': await this.giveItem(p, this.randomHandItem()); break;
@@ -621,7 +648,7 @@ class Game {
     let n = Math.min(5, p.cash); p.cash -= n;
     if (n < 5) n += this.bankTake(p, 5 - n);
     if (!n) { this.log(`👁️ The Ankar finds nothing to take from ${this.name(p)}.`); return; }
-    this.log(`👁️ The Ankar takes ${n} coins from ${this.name(p)}.`, 'bad'); this.fx(p, `👁️ −${n}`, '#c58bff');
+    this.log(`👁️ The Ankar takes ${n} coins from ${this.name(p)}.`, 'bad'); this.fx(p, `👁️ −${n}`, '#c58bff'); this.react(p, R.pick(['cry', 'angry']), R.pick(['Not my coins!', 'Shoo! Go away!', 'Waaah, the Ankar!'])); this.crowd([p], ['laugh', 'nervous', 'shock']);
     Render.burstAt(Render.trackPos(t.pos), '#b46bff', 22);
     Sfx.boom();
   }
@@ -681,13 +708,13 @@ class Game {
     const t = p.trav;
     if (owner.hollow) {
       const n = this.takeHeld(p, 5); this.bankAdd(owner, n);
-      this.log(`⛰️ Famished Earth! ${this.name(p)} loses ${n} coins to ${this.name(owner)}.`, 'bad'); this.fx(p, `−${n}`, '#7ccf4a');
+      this.log(`⛰️ Famished Earth! ${this.name(p)} loses ${n} coins to ${this.name(owner)}.`, 'bad'); this.fx(p, `−${n}`, '#7ccf4a'); this.react(owner, 'evil', 'The earth hungers!'); this.react(p, 'angry', 'The ground ate my coins!', 0.3);
       return;
     }
     if (pile.mimic) {
       pile.mimic = false;
       const n = this.takeHeld(p, 5); this.bankAdd(owner, n);
-      this.log(`🧰 A Mimic Chest bites ${this.name(p)}! −${n} coins.`, 'bad'); this.fx(p, `🧰 −${n}`, '#ff6b6b'); Sfx.bad();
+      this.log(`🧰 A Mimic Chest bites ${this.name(p)}! −${n} coins.`, 'bad'); this.fx(p, `🧰 −${n}`, '#ff6b6b'); Sfx.bad(); this.react(p, 'shock', 'IT BIT ME!'); this.react(owner, 'laugh', undefined, 0.3);
       return;
     }
     let draws = 5;
@@ -699,6 +726,7 @@ class Game {
     }
     t.hotC[owner.id] += got;
     this.log(`${this.name(p)} loots a Hoard of ${this.name(owner)}: +${got} hot coins${fakes ? ` (${fakes} fake!)` : ''}${draws < 5 ? ' (Hoardward)' : ''}.`, got ? 'warn' : '');
+    if (got >= 4) { this.react(p, 'smug'); this.react(owner, 'angry', undefined, 0.3); } else if (fakes && !got) { this.react(p, 'angry', 'Fake coins?!'); this.react(owner, 'laugh', 'Gilded lead! Hah!', 0.3); } else if (got) this.emote(p, '💰');
     this.fx(p, `+${got}🔥`, '#ffb347'); if (got) Sfx.coin();
   }
 
@@ -721,9 +749,9 @@ class Game {
     if (!tot) { this.log(`${this.name(owner)}'s Starvault is empty.`); return; }
     if (Math.random() < owner.vault / tot) {
       owner.vault--; t.hotS[owner.id]++;
-      this.log(`⭐ ${this.name(p)} steals a star from ${this.name(owner)}'s Starvault!`, 'warn'); this.fx(p, '+1⭐🔥', '#ffe680'); Sfx.star();
+      this.log(`⭐ ${this.name(p)} steals a star from ${this.name(owner)}'s Starvault!`, 'warn'); this.fx(p, '+1⭐🔥', '#ffe680'); Sfx.star(); this.react(p, 'evil', R.pick(['A STAR! Mwahaha!', 'Your star is MINE!'])); this.react(owner, 'cry', R.pick(['My star!!', 'NOOO, my Starvault!']), 0.3); this.crowd([p, owner], ['shock', 'laugh'], 0.7);
     } else {
-      owner.fakeStars--; this.log(`${this.name(p)} grabs a Paste Star — a fake!`); this.fx(p, 'fake ✴️', '#aaa');
+      owner.fakeStars--; this.log(`${this.name(p)} grabs a Paste Star — a fake!`); this.fx(p, 'fake ✴️', '#aaa'); this.react(p, 'angry', 'A FAKE?!'); this.react(owner, 'laugh', 'Glass! Hahaha!', 0.3);
     }
   }
 
@@ -735,12 +763,17 @@ class Game {
     if (id === 'poison' && this.consume(p, 'stomach')) { remove(); this.log(`${this.name(p)}'s Iron Stomach shrugs off the poison.`); return; }
     if (t.armor && id !== 'rust') {
       t.armorLeft--; remove();
-      this.log(`${this.name(p)}'s ${t.armor === 'heavy' ? 'Ironplate' : 'Hide Mantle'} turns aside a ${it.lore}!`);
+      this.log(`${this.name(p)}'s ${t.armor === 'heavy' ? 'Ironplate' : 'Hide Mantle'} turns aside a ${it.lore}!`); this.react(p, 'proud', 'Ha! Armour!'); this.react(owner, 'angry', 'My trap!', 0.3);
       if (t.armorLeft <= 0) t.armor = null;
       return;
     }
     remove();
     this.log(`💥 ${this.name(p)} triggers ${it.icon} <b>${it.lore}</b> (${it.name})!`, 'bad');
+    {
+      const vict = { dog: ['shock', 'A HOUND?! RUN!'], prison: ['cry', 'Let me ouuut!'], poison: ['sick', 'Blehh… poison…'], atm: ['angry', 'My coins!'], stardrill: ['cry', 'My star!!'], grace: ['shock', 'A hidden ward?!'], banana: ['shock', 'Whoaaaa!'], alarm: ['nervous', 'Uh-oh, a bell…'], rust: ['sad', 'My armour…'] }[id] || ['shock'];
+      this.react(owner, 'evil', R.pick(['Hehehe… my trap!', 'Gotcha!', 'Fell for it!'])); this.react(p, vict[0], vict[1], 0.25);
+      this.crowd([p, owner], ['laugh', 'shock'], 0.6);
+    }
     this.fx(p, it.icon, '#ff6b6b'); Sfx.bad();
     await sleep(300);
     switch (id) {
@@ -815,24 +848,24 @@ class Game {
     const t = r.trav;
     if (t.camo && !(mode === 'unicorn' && this.hotStars(r) > 0)) {
       t.camo = false;
-      this.log(`🫥 ${this.name(r)}'s Veilcloak — the Warden looks straight through them.`);
+      this.log(`🫥 ${this.name(r)}'s Veilcloak — the Warden looks straight through them.`); this.react(r, 'smug', 'Can’t see me~'); this.react(owner, 'angry', 'Where did they go?!', 0.3);
       return false;
     }
     Sfx.boom();
     if (t.armor === 'heavy') {
       const ret = this.moveHot(r, { coinFrac: 0.5, protect: true });
       t.armor = null; t.armorLeft = 0;
-      this.log(`🛡️ ${this.name(r)} is caught but Ironplate saves them: sent to the Gate, dropping ${ret.c} coins${ret.s ? ` and ${ret.s}⭐` : ''}.`, 'warn');
+      this.log(`🛡️ ${this.name(r)} is caught but Ironplate saves them: sent to the Gate, dropping ${ret.c} coins${ret.s ? ` and ${ret.s}⭐` : ''}.`, 'warn'); this.react(owner, 'proud', 'Out you go!', 0, true); this.react(r, 'shock', 'Phew… the armour held!', 0.3);
       this.sendToGateExit(r, owner);
     } else if (mode === 'unicorn') {
       const ret = this.moveHot(r, { to: owner, protect: true });
       const c = r.cash; this.bankAdd(owner, c); r.cash = 0;
-      this.log(`🦄 The Moonmane seizes everything from ${this.name(r)}: ${ret.c + c} coins${ret.s ? ` and ${ret.s}⭐` : ''} go to ${this.name(owner)}.`, 'warn');
+      this.log(`🦄 The Moonmane seizes everything from ${this.name(r)}: ${ret.c + c} coins${ret.s ? ` and ${ret.s}⭐` : ''} go to ${this.name(owner)}.`, 'warn'); this.react(owner, 'evil', 'The Moonmane sees ALL!', 0, true); this.react(r, 'cry', 'A UNICORN?! Everything…', 0.3); this.crowd([r, owner], ['shock', 'laugh'], 0.7);
       this.sendToGateExit(r, owner);
     } else {
       const c = r.cash;
       this.killTrav(r, owner);
-      this.log(`⚔️ ${this.name(owner)}'s Warden catches ${this.name(r)}! The raider dies; loot returns and ${c} cash goes to ${this.name(owner)}.`, 'warn');
+      this.log(`⚔️ ${this.name(owner)}'s Warden catches ${this.name(r)}! The raider dies; loot returns and ${c} cash goes to ${this.name(owner)}.`, 'warn'); this.react(owner, R.pick(['evil', 'laugh']), R.pick(['GOTCHA!', 'Caught you red-handed!', 'MWAHAHA! Not in MY Hold!']), 0, true); this.react(r, 'cry', R.pick(['Nooooo!', 'Busted!! Waaah!', 'So close…']), 0.3); this.crowd([r, owner], ['shock', 'laugh'], 0.7);
     }
     this.fx(owner, 'CAUGHT!', '#fff');
     UI.refresh();
@@ -905,24 +938,25 @@ class Game {
   async useUltimate(p, id) {
     p.ultUsed = true; p.ultHeld = false;
     Sfx.boom();
+    this.react(p, 'evil', { typhoon: 'TYPHOON!!', washout: 'GREAT EBB!', inferno: 'SACRIFICE PYRE!', hollow: 'FAMISHED EARTH!' }[id]);
     if (id === 'typhoon') {
       for (const r of this.raidersIn(p)) {
         this.moveHot(r, { onlyFrom: p.id });
         this.moveHot(r);
         r.cash = 0; r.trav.sHand = 0;
         this.sendToGateExit(r, p);
-        this.log(`🌪️ TYPHOON! ${this.name(r)} is swept out of ${p.el.hold}, losing everything unbanked.`, 'warn');
+        this.log(`🌪️ TYPHOON! ${this.name(r)} is swept out of ${p.el.hold}, losing everything unbanked.`, 'warn'); this.react(r, 'shock', 'WHOOOAAA!', 0.3);
       }
     } else if (id === 'hollow') {
       p.hollow = true;
-      this.log(`⛰️ FAMISHED EARTH: ${this.name(p)}'s Hold now punishes every raider.`, 'warn');
+      this.log(`⛰️ FAMISHED EARTH: ${this.name(p)}'s Hold now punishes every raider.`, 'warn'); this.react(p, 'evil', 'Feast, earth, feast!'); this.crowd([p], 'nervous');
     } else if (id === 'inferno') {
       const r = await this.pickRaider(p, 'Sacrifice Pyre');
       p.vault--;
       this.moveHot(r); r.cash = 0;
       if (r.def) {
         r.def = null; r.trav = Object.assign(this.newTrav(r.gate), { bag: r.trav.bag });
-        this.log(`🔥 SACRIFICE PYRE! ${this.name(p)} burns a star. ${this.name(r)}'s Wayfarer dies for good — their Warden must go to work.`, 'warn');
+        this.log(`🔥 SACRIFICE PYRE! ${this.name(p)} burns a star. ${this.name(r)}'s Wayfarer dies for good — their Warden must go to work.`, 'warn'); this.react(p, 'evil', 'BURN!'); this.react(r, 'cry', 'My Wayfarer!!', 0.3); this.crowd([p, r], 'shock', 0.7);
       } else {
         r.gone = true; r.trav.loc = 'board'; r.trav.pos = r.gate;
         this.log(`🔥 SACRIFICE PYRE! ${this.name(r)} has no one left to walk the Crossing.`, 'warn');
@@ -930,7 +964,7 @@ class Game {
     } else if (id === 'washout') {
       const r = await this.pickRaider(p, 'Great Ebb');
       r.trav.loc = 'board'; r.trav.ring = null; r.trav.pos = R.int(0, 39);
-      this.log(`🌊 GREAT EBB! ${this.name(r)} is washed out to the Crossing.`, 'warn');
+      this.log(`🌊 GREAT EBB! ${this.name(r)} is washed out to the Crossing.`, 'warn'); this.react(p, 'evil', 'The tide takes you!'); this.react(r, 'shock', 'Blub blub!', 0.3);
       const targets = r.piles.filter(x => x.real + x.fake > 0).map(x => ({ pile: x }));
       if (r.vault + r.fakeStars > 0) targets.push({ vault: true });
       if (targets.length) {
@@ -1019,10 +1053,10 @@ class Game {
       case 'robin': {
         const rich = this.players.filter(q => q !== p).sort((a, b) => b.vault - a.vault || this.bank(b) - this.bank(a))[0];
         let n = Math.min(3, rich.cash); rich.cash -= n; if (n < 3) n += this.bankTake(rich, 3 - n);
-        p.cash += n; this.log(`${this.name(p)} takes ${n} coins from ${this.name(rich)}.`);
+        p.cash += n; this.log(`${this.name(p)} takes ${n} coins from ${this.name(rich)}.`); this.react(p, 'smug', 'For the poor! (me)'); this.react(rich, 'angry', undefined, 0.3);
         break;
       }
-      case 'swap': { const a = p.cash; p.cash = target.cash; target.cash = a; break; }
+      case 'swap': { const a = p.cash; p.cash = target.cash; target.cash = a; if (target.cash < p.cash) { this.react(p, 'evil', 'Thanks for the wallet!'); this.react(target, 'shock', 'My purse!', 0.3); } break; }
       case 'thief': case 'itemthief': case 'starthief': t.thief = { type: id, round: this.round }; break;
       case 'plunder':
         if (target.items.length) { const x = target.items.splice(R.int(0, target.items.length - 1), 1)[0]; await this.giveItem(p, x); }
@@ -1078,7 +1112,7 @@ class Game {
       if (v === 'star') {
         this.pay(p, sp); p.vault++; stars++;
         if (sale) this.consume(p, 'starsale');
-        this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680');
+        this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); this.fx(p, '+1⭐', '#ffe680'); this.react(p, 'starry'); { const riv = this.players.filter(q => q !== p); this.react(R.pick(riv), R.pick(['sad', 'angry', 'nervous']), R.pick(['Show-off…', 'Hmph!', 'Must… catch up…']), 0.4); }
       } else if (v === 'ult') {
         this.pay(p, ult.price); p.ultBought = true; p.ultHeld = true; itemBought = true;
         this.log(`${this.name(p)} buys the ${p.el.name} ultimate: ${ult.icon} ${ult.lore}!`, 'good');
@@ -1138,6 +1172,7 @@ class Game {
     const winners = this.order.filter(x => res.winners.includes(x));
     winners.forEach(x => { const w = this.P(x); w.mgWins++; this.bankAdd(w, 2); });
     this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and each win' : 'wins'} the Moot <b>${MG.byId[id].name}</b>: +2 banked${winners.length > 1 ? ' each' : ''} and ${winners.length > 1 ? 'lead' : 'leads'} the next round.`, 'good');
+    this.players.forEach((q, k) => this.react(q, winners.includes(q.id) ? R.pick(['proud', 'laugh']) : R.pick(['sad', 'angry', 'cry']), winners.includes(q.id) ? R.pick(['Victory!', 'Too easy!', 'Champion!']) : undefined, k * 0.15));
     this.order = winners.concat(this.order.filter(x => !winners.includes(x)));
     UI.refresh();
   }

@@ -104,6 +104,71 @@ const Render = {
     this.trapAnims.push({ owner, tile, x: at.x, y: at.y, icon, label, t: 0 });
   },
 
+  // ---------------------------------------------------------- emotional reactions
+  reactions: {}, emotes: {},
+  // big pop-up: the player's mascot grows in the middle of their own Hold with a speech bubble
+  react(pid, mood, text, delay = 0, dur = 2.8) {
+    if (Settings.test) return;
+    this.reactions[pid] = { mood, text, t: -delay, dur, fx: false };
+  },
+  // small emoji bubble over a token on the board
+  emote(pl, emoji, dur = 1.6) { if (!Settings.test) this.emotes[pl.id] = { emoji, t: 0, dur }; },
+  reactionOf(pid) { const r = this.reactions[pid]; return r && r.t >= 0 && r.t < r.dur ? r : null; },
+  drawReactions(g, now) {
+    const G = this.game;
+    for (const pl of G.players) {
+      const re = this.reactions[pl.id]; if (!re) continue;
+      re.t += 1 / 60; if (re.t < 0) continue;
+      if (re.t > re.dur) { delete this.reactions[pl.id]; continue; }
+      const c = this.homeCenter(pl.id);
+      const e = Math.min(1, re.t / 0.35), pop = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2);
+      const out = re.t > re.dur - 0.3 ? (re.dur - re.t) / 0.3 : 1;
+      const r = 25 + 26 * pop * out;
+      if (!re.fx) { re.fx = true; this.moodBurst(c, re.mood, pl.color); }
+      if (Math.random() < 0.12 && (re.mood === 'laugh' || re.mood === 'evil')) this.addP({ x: c.x + R.range(-50, 50), y: c.y - 40, vy: -60, vx: R.range(-30, 30), life: 0.9, kind: 'text', text: re.mood === 'evil' ? R.pick(['MWA', 'HA', 'HAH']) : R.pick(['HA', 'HA!', 'hehe']), color: re.mood === 'evil' ? '#d08cff' : '#ffe680', size: 15 });
+      if (Math.random() < 0.15 && re.mood === 'cry') this.addP({ x: c.x + R.range(-30, 30), y: c.y, vy: R.range(40, 90), vx: R.range(-60, 60), grav: 300, life: 0.8, kind: 'dot', color: '#8fd0ff', size: 4 });
+      // glow disc behind the mascot
+      g.save(); g.globalAlpha = 0.5 * out;
+      const gl = g.createRadialGradient(c.x, c.y - 14, 10, c.x, c.y - 14, r * 2);
+      gl.addColorStop(0, this.moodColor(re.mood)); gl.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gl; g.beginPath(); g.arc(c.x, c.y - 14, r * 2, 0, 7); g.fill(); g.restore();
+      Char.draw(g, c.x, c.y - 14 - 6 * pop, r, pl.id, pl.color, { mood: re.mood, seed: pl.id * 5, look: { x: pl.id % 3 === 0 ? 0.5 : -0.5, y: 0 }, alpha: out });
+      // speech bubble
+      if (re.text) {
+        g.save(); g.globalAlpha = out;
+        g.font = 'bold 16px Georgia, "Segoe UI Emoji"'; const tw = Math.min(260, g.measureText(re.text).width + 22);
+        const bx = clamp(c.x - tw / 2, 6, 1594 - tw), by = c.y - 14 - r * 1.55 - 34 - (1 - e) * 10;
+        g.fillStyle = 'rgba(255,255,255,0.95)'; g.strokeStyle = pl.color; g.lineWidth = 3;
+        this.rr(g, bx, by, tw, 30, 12); g.fill(); g.stroke();
+        g.beginPath(); g.moveTo(c.x - 8, by + 29); g.lineTo(c.x + 4, by + 42); g.lineTo(c.x + 8, by + 29); g.closePath(); g.fill();
+        g.fillStyle = '#2a1410'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(re.text, bx + tw / 2, by + 16, tw - 14); g.textBaseline = 'alphabetic';
+        g.restore();
+      }
+    }
+    // small emoji bubbles over tokens
+    for (const pl of G.players) {
+      const em = this.emotes[pl.id]; if (!em) continue;
+      em.t += 1 / 60; if (em.t > em.dur) { delete this.emotes[pl.id]; continue; }
+      const d = this.disp['T' + pl.id]; if (!d || pl.gone) continue;
+      const k = Math.min(1, em.t / 0.2), a = em.t > em.dur - 0.25 ? (em.dur - em.t) / 0.25 : 1;
+      g.save(); g.globalAlpha = a; g.translate(d.x + 16, d.y - 34 - k * 6); g.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
+      g.fillStyle = 'rgba(255,255,255,0.95)'; g.strokeStyle = pl.color; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(0, 0, 17, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(-8, 12); g.lineTo(-14, 22); g.lineTo(-2, 15); g.fill();
+      g.font = '20px "Segoe UI Emoji", "Apple Color Emoji"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#000'; g.fillText(em.emoji, 0, 1);
+      g.restore();
+    }
+  },
+  moodColor(m) { return { evil: 'rgba(160,60,220,0.9)', laugh: 'rgba(255,220,90,0.9)', cry: 'rgba(90,170,255,0.9)', shock: 'rgba(255,255,255,0.9)', angry: 'rgba(255,60,40,0.9)', smug: 'rgba(200,160,255,0.8)', starry: 'rgba(255,230,120,0.95)', sick: 'rgba(120,220,80,0.8)', nervous: 'rgba(150,210,255,0.7)', sad: 'rgba(120,140,200,0.7)', proud: 'rgba(255,200,80,0.9)' }[m] || 'rgba(255,255,255,0.6)'; },
+  moodBurst(c, mood, col) {
+    const at = { x: c.x, y: c.y - 20 };
+    if (mood === 'shock') { this.addP({ x: at.x, y: at.y, kind: 'ring', color: '#fff', size: 20, grow: 90, life: 0.5 }); this.burstAt(at, ['#fff', '#ffe680'], 16, { speed: 280, kind: 'spark', size: 3 }); }
+    else if (mood === 'evil') { this.burstAt(at, ['#b46bff', '#3a1a5c', '#e0c3ff'], 26, { speed: 220 }); }
+    else if (mood === 'starry') { this.burstAt(at, ['#ffe680', '#fff'], 30, { speed: 260, kind: 'spark', size: 3 }); }
+    else if (mood === 'angry') { this.burstAt(at, ['#ff4d4d', '#ffb347'], 18, { speed: 240, kind: 'spark', size: 3 }); }
+    else if (mood === 'cry') { this.burstAt(at, ['#8fd0ff', '#4f8dff'], 16, { speed: 200, grav: 400 }); }
+    else if (mood === 'laugh' || mood === 'proud') { this.burstAt(at, ['#ffe680', col], 18, { speed: 220 }); }
+  },
+
   // ---------------------------------------------------------- dice
   startRoll(who, faces) {
     this.die = { who, faces, state: 'rolling', face: R.pick(faces), rot: 0, hop: 0, spin: 0, note: '', total: null, t: 0 };
@@ -156,7 +221,8 @@ const Render = {
     g.fillText(G.round === G.rounds ? '🔔 The final bell has rung' : (G.round > 0 && G.round <= 3 ? 'Waygates sealed until round 4' : 'The Crossing'), 552, 254);
     if (G.current) {
       const c = G.current;
-      const mood = this.die && this.die.who === c.id ? (this.die.state === 'landed' ? (this.die.face >= 4 ? 'cheer' : 'happy') : 'determined') : 'happy';
+      const cre = this.reactionOf(c.id);
+      const mood = cre ? cre.mood : this.die && this.die.who === c.id ? (this.die.state === 'landed' ? (this.die.face >= 4 ? 'cheer' : 'happy') : 'determined') : 'happy';
       Char.draw(g, 552, 330, 44, c.id, c.color, { mood, look: { x: 0, y: 0.6 }, seed: c.id * 2 });
       g.font = 'bold 17px Georgia'; g.fillStyle = c.color; g.fillText(`${c.name}'s turn`, 552, 405);
     }
@@ -229,6 +295,7 @@ const Render = {
 
     this.stepParts(g);
     this.drawTrapAnims(g, now);
+    this.drawReactions(g, now);
     if (this.highlight) {
       const o = this.highlight.owner;
       for (const k of this.highlight.tiles) {
@@ -311,7 +378,7 @@ const Render = {
     g.strokeStyle = 'rgba(255,255,255,0.13)'; g.lineWidth = 14; g.beginPath(); g.arc(c.x, c.y, this.RING, 0, 7); g.stroke();
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const raided = G.raidersIn(pl).length > 0;
-    Char.draw(g, c.x, c.y - 22, 25, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
+    if (!this.reactionOf(pl.id)) Char.draw(g, c.x, c.y - 22, 25, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
     g.font = 'bold 15px Georgia'; g.fillStyle = '#fff'; g.fillText(pl.el.hold, c.x, c.y + 24);
     g.font = '14px Georgia'; g.fillStyle = '#ffe680'; g.fillText(`⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 43);
     if (pl.hollow) { g.font = '12px Georgia'; g.fillStyle = '#7ccf4a'; g.fillText('Famished Earth', c.x, c.y + 60); }
@@ -337,6 +404,7 @@ const Render = {
 
   tokenMood(pl, kind) {
     const G = this.game, t = pl.trav;
+    const re = this.reactionOf(pl.id); if (re && (kind === 'T' || re.warden)) return re.mood;
     if (kind === 'D') return G.raidersIn(pl).length ? 'determined' : (G.current === pl ? 'happy' : 'neutral');
     if (t.prison) return 'hurt';
     if (t.frozen) return 'dizzy';
@@ -386,6 +454,7 @@ const Render = {
       const k = 1 - p.t / p.life;
       g.globalAlpha = Math.min(1, k * 1.6);
       switch (p.kind) {
+        case 'text': g.font = `bold ${p.size}px Georgia`; g.textAlign = 'center'; g.fillStyle = p.color; g.fillText(p.text, p.x, p.y); break;
         case 'ring': g.strokeStyle = p.color; g.lineWidth = 3 * k + 1; g.beginPath(); g.arc(p.x, p.y, p.size + (1 - k) * p.grow, 0, 7); g.stroke(); break;
         case 'spark': g.strokeStyle = p.color; g.lineWidth = p.size * k; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05); g.stroke(); break;
         case 'streak': g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 0.12, p.y - p.vy * 0.12); g.stroke(); break;
