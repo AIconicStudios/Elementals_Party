@@ -106,3 +106,8 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 #boardPause button { font-family: inherit; font-size: 24px; min-width: 340px; padding: 12px 20px; border-radius: 12px; border: 2px solid #8f7bff; background: rgba(36,28,66,0.95); color: #fff; cursor: pointer; }
 #boardPause button.navsel, #boardPause button:hover { background: #5b46c8; border-color: #ffe680; }
 #boardPause p { color: #a99bd8; margin: 6px 0 0; }
+/* daylight board: frosted-glass panels and a readable logo */
+.pc { background: rgba(18,22,48,0.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 6px 18px rgba(0,30,60,0.25); }
+#action { background: rgba(18,22,48,0.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#ctrl .logo { color: #fff; text-shadow: 0 2px 0 #2a3a6a, 0 0 14px rgba(40,80,160,0.8); }
+#ctrl button { background: rgba(28,34,72,0.82); border-color: rgba(255,255,255,0.25); box-shadow: 0 3px 8px rgba(0,30,60,0.25); }

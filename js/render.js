@@ -206,6 +206,7 @@ const Render = {
   draw() {
     const g = this.g, G = this.game;
     const now = performance.now() / 1000;
+    if (G && !this.mapMode) return this.drawBoard(g, G, now);
     const bg = g.createRadialGradient(800, 450, 80, 800, 450, 950);
     bg.addColorStop(0, '#271a4a'); bg.addColorStop(1, '#07060f');
     g.fillStyle = bg; g.fillRect(0, 0, 1600, 900);
@@ -220,36 +221,31 @@ const Render = {
     if (Math.random() < 0.006) this.addP({ x: R.range(0, 1600), y: R.range(0, 300), vx: R.range(400, 700), vy: R.range(150, 300), life: 0.8, size: 2, kind: 'streak', color: '#fff', drag: 0 });
     if (!G) { this.stepParts(g); this.drawTitle(g, now); return; }
     if (this.mapMode) { this.drawMap(g, now); return; }
+  },
+  outlined(g, s, x, y, font, col, lw = 4) { g.font = font; g.lineJoin = 'round'; g.lineWidth = lw; g.strokeStyle = 'rgba(20,30,20,0.75)'; g.strokeText(s, x, y); g.fillStyle = col; g.fillText(s, x, y); },
+  drawBoard(g, G, now) {
+    World.sky(g, now);
     this.ambient(G, now);
     const camOn = this.beginCam(g, G);
+    World.island(g, G, now);
 
     // inner field
     if (!this.zoom && !(this.cam && this.cam.s > 1.15)) {
-    g.fillStyle = 'rgba(255,255,255,0.035)'; this.rr(g, 392, 182, 816, 536, 26); g.fill();
-    g.strokeStyle = 'rgba(180,160,255,0.12)'; g.lineWidth = 2; g.stroke();
 
     // centre-left: round, current player, die
     g.textAlign = 'center';
-    g.font = 'bold 30px Cinzel, Georgia, serif'; g.fillStyle = '#efe6ff';
-    g.fillText(G.round ? `Round ${G.round} / ${G.rounds}` : 'Setup', 552, 230);
-    g.font = '15px Georgia'; g.fillStyle = G.round === G.rounds ? '#ffcf5a' : '#a99bd8';
-    g.fillText(G.round === G.rounds ? '🔔 The final bell has rung' : (G.round > 0 && G.round < G.raidRound ? `Waygates sealed until round ${G.raidRound}` : (G.simple ? 'The Starter Crossing' : 'The Crossing')), 552, 254);
+    this.outlined(g, G.round ? `Round ${G.round} / ${G.rounds}` : 'Setup', 552, 230, 'bold 30px Cinzel, Georgia, serif', '#fffbe8', 6);
+    this.outlined(g, G.round === G.rounds ? '🔔 The final bell has rung' : (G.round > 0 && G.round < G.raidRound ? `Waygates sealed until round ${G.raidRound}` : (G.simple ? 'The Starter Crossing' : 'The Crossing')), 552, 254, '15px Georgia', G.round === G.rounds ? '#ffcf5a' : '#e8f4e0', 4);
     if (G.current) {
       const c = G.current;
       const cre = this.reactionOf(c.id);
       const mood = cre ? cre.mood : this.die && this.die.who === c.id ? (this.die.state === 'landed' ? (this.die.face >= 4 ? 'cheer' : 'happy') : 'determined') : 'happy';
       Char.draw(g, 552, 330, 44, c.id, c.color, { mood, look: { x: 0, y: 0.6 }, seed: c.id * 2 });
-      g.font = 'bold 17px Georgia'; g.fillStyle = c.color; g.fillText(`${c.name}'s turn`, 552, 405);
+      this.outlined(g, `${c.name}'s turn`, 552, 405, 'bold 17px Georgia', c.color, 4);
     }
     this.drawDie(g, now);
     }
 
-    // connectors
-    for (let el = 0; el < 4; el++) {
-      const a = this.trackPos(el * 10), c = G.simple ? this.homeCenter(el) : this.ringPos(el, 16);
-      g.strokeStyle = ELEMENTS[el].color; g.lineWidth = 5; g.globalAlpha = 0.45; g.setLineDash([8, 8]); g.lineDashOffset = -now * 20;
-      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
-    }
     // track
     for (let i = 0; i < 40; i++) {
       const p0 = this.trackPos(i), sp = SPACE[G.board[i]], type = G.board[i];
@@ -413,7 +409,7 @@ const Render = {
     g.fillText(G.round ? `Round ${G.round}/${G.rounds}` : 'Setup', 1400, 38);
     // die in the corner
     this.drawDie(g, now, 620, 770, 0.75);
-    if (G.current && !this.die) { g.textAlign = 'center'; g.font = 'bold 22px Georgia'; g.fillStyle = G.current.color; g.fillText(`${G.current.name}'s turn`, 620, 860); }
+    if (G.current && !this.die) { g.textAlign = 'center'; this.outlined(g, `${G.current.name}'s turn`, 620, 860, 'bold 24px Georgia', G.current.color, 6); }
     // reaction portraits slide in from the left edge
     let k = 0;
     for (const pl of G.players) {
@@ -490,17 +486,15 @@ const Render = {
   drawHome(g, pl, now) {
     const c = this.homeCenter(pl.id), G = this.game;
     g.save();
-    const grd = g.createRadialGradient(c.x, c.y, 10, c.x, c.y, 150);
-    grd.addColorStop(0, pl.el.dark); grd.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grd; g.beginPath(); g.arc(c.x, c.y, 150, 0, 7); g.fill();
     if (G.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.5 + 0.5 * Math.sin(now * 4); g.beginPath(); g.arc(c.x, c.y, 146, 0, 7); g.stroke(); g.globalAlpha = 1; }
-    if (G.simple) { g.fillStyle = 'rgba(255,255,255,0.06)'; g.beginPath(); g.arc(c.x, c.y, 92, 0, 7); g.fill(); g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6; g.stroke(); g.globalAlpha = 1; }
-    else { g.strokeStyle = 'rgba(255,255,255,0.13)'; g.lineWidth = 14; g.beginPath(); g.arc(c.x, c.y, this.RING, 0, 7); g.stroke(); }
+    if (G.simple) { g.fillStyle = 'rgba(255,255,255,0.22)'; g.beginPath(); g.arc(c.x, c.y, 92, 0, 7); g.fill(); g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6; g.stroke(); g.globalAlpha = 1; }
+    else { g.strokeStyle = 'rgba(80,60,40,0.35)'; g.lineWidth = 16; g.beginPath(); g.arc(c.x, c.y, this.RING, 0, 7); g.stroke(); }
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const raided = G.raidersIn(pl).length > 0;
     if (!this.reactionOf(pl.id)) Char.draw(g, c.x, c.y - 22, 25, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
-    g.font = 'bold 15px Georgia'; g.fillStyle = '#fff'; g.fillText(pl.el.hold, c.x, c.y + 24);
-    g.font = '14px Georgia'; g.fillStyle = '#ffe680'; g.fillText(G.simple ? `⭐${pl.vault}   🪙${pl.cash}` : `⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 43);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(c.x, c.y + 18, 30, 8, 0, 0, 7); g.fill();
+    this.outlined(g, pl.el.hold, c.x, c.y + 26, 'bold 16px Georgia', '#fff', 5);
+    this.outlined(g, G.simple ? `⭐${pl.vault}   🪙${pl.cash}` : `⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 46, 'bold 15px Georgia', '#ffe680', 5);
     if (G.simple) { const guards = ['sdog', 'speel', 'slock'].filter(x => pl.items.includes(x)); guards.forEach((x, k) => { const a = 0.55 + k * 0.55, bob = Math.sin(now * 3 + k) * 2; g.font = '22px "Segoe UI Emoji"'; g.fillText(ITEM[x].icon, c.x + Math.cos(a) * 70, c.y + Math.sin(a) * 70 + bob); }); g.textBaseline = 'alphabetic'; g.restore(); return; }
     if (pl.hollow) { g.font = '12px Georgia'; g.fillStyle = '#7ccf4a'; g.fillText('Famished Earth', c.x, c.y + 60); }
     for (let k = 1; k <= 16; k++) {
