@@ -305,16 +305,13 @@ const Char = {
           g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx - r * 0.1, my); g.lineTo(mx + r * 0.08, my); g.stroke();
           g.fillStyle = '#fff'; g.fillRect(mx - r * 0.04, my, r * 0.05, r * 0.035); g.strokeStyle = ink; g.lineWidth = lw * 0.5; g.strokeRect(mx - r * 0.04, my, r * 0.05, r * 0.035);
           return true;
-        case 2: { // Pyra: fired up - fierce glare, sharp V-brow, cocky toothy side-grin
+        case 2: // Pyra: smug - lazy half-lid eye, one cocky raised brow, closed smirk curling up
           blush(0.6);
-          if (blink) shut(); else eye(1, 0.62, 0.22, -0.5, 0.18);
-          brow(-1.35, -0.75, 1.15, -1.45, 1.8);
-          g.fillStyle = '#fff'; g.strokeStyle = ink; g.lineWidth = lw;
-          g.beginPath(); g.moveTo(mx - r * 0.12, my - r * 0.02); g.lineTo(mx + r * 0.12, my - r * 0.02); g.quadraticCurveTo(mx + r * 0.16, my - r * 0.06, mx + r * 0.2, my - r * 0.1); g.lineTo(mx + r * 0.14, my + r * 0.06); g.lineTo(mx - r * 0.1, my + r * 0.06); g.closePath(); g.fill(); g.stroke();
-          g.lineWidth = lw * 0.5; g.beginPath(); g.moveTo(mx - r * 0.11, my + r * 0.02); g.lineTo(mx + r * 0.15, my + r * 0.02); g.moveTo(mx, my - r * 0.02); g.lineTo(mx, my + r * 0.06); g.stroke();
-          const ph = (t * 1.8) % 1; g.fillStyle = `rgba(255,140,40,${0.8 * (1 - ph)})`; g.beginPath(); g.arc(ex + ew * 0.2, ey - eh * 1.6 - ph * r * 0.3, r * 0.04 * (1 - ph), 0, 7); g.fill();
+          if (blink) shut(); else eye(1, 0.6, 0.36, -0.45, 0.28);
+          g.strokeStyle = ink; g.lineWidth = lw * 1.4; g.beginPath(); g.moveTo(ex - ew * 1.25, ey - eh * 1.1); g.quadraticCurveTo(ex, ey - eh * 1.75, ex + ew * 1.15, ey - eh * 1.55); g.stroke();
+          g.lineWidth = lw * 1.1; g.beginPath(); g.moveTo(mx - r * 0.09, my + r * 0.03); g.quadraticCurveTo(mx + r * 0.08, my + r * 0.07, mx + r * 0.22, my - r * 0.08); g.stroke();
+          g.lineWidth = lw * 0.7; g.beginPath(); g.moveTo(mx + r * 0.19, my - r * 0.12); g.quadraticCurveTo(mx + r * 0.25, my - r * 0.08, mx + r * 0.24, my - r * 0.03); g.stroke();
           return true;
-        }
         case 3: // Pebble: locked in - heavy half-lid, low flat brow, mouth set in a hard line
           blush(0.35);
           if (blink) shut(); else eye(1, 0.58, 0.5, -0.45, 0.32);
