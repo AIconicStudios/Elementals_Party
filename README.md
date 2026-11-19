@@ -46,6 +46,17 @@ In the desktop app, F11 toggles fullscreen.
 
 Seats set to *Bot* are played by the AI. Pause any minigame with Esc, gamepad Start or the ⏸ button; from there you can resume or quit (quitting a Moot gives no reward). Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — hold your alt button to peek at your own choice. The menu's **Moot practice** mode lets you play any of the 60 minigames directly.
 
+## Two boards
+
+Pick the board on the main menu:
+
+- **🌱 Starter Crossing (for beginners)** keeps the same heart (walk the Crossing, collect coins, buy stars, raid rivals, the Moot minigames and the character reactions) but is much simpler. There is one wallet and one action per turn: use an item if you like, then roll. Stars cost 15 at a Counting House, plus one item per visit.
+  - **Spaces:** 🔵 +3, 🔴 −3, 🎡 Lucky Wheel, 🎁 free item, 🌪️ Whirlwind (swap places with a random player), 🎉 Party (everyone +3, you +6) and 🏠 your own Gate (+3 when you pass).
+  - **Raiding:** from round 3, passing a rival's Gate lets you sneak in with one dice roll: 1–2 you're caught and pay 3, 3–5 you grab 5 coins, 6 you grab a star.
+  - **Seven items:** Double Dice, Magic Die, Guard Dog, Coin Magnet, Snail, Shop Wind and Lucky Star Box.
+  - Default length is 12 rounds. The Help screen has a Starter tab explaining everything.
+- **⚔️ The Crossing (full game)** is everything below.
+
 ## What is implemented
 
 - **Setup:** 10 coins banked over 4 player-chosen Hoard tiles, plus a random Common item. Travellers start on their Gate and Defenders on tile 9. Gates are sealed for rounds 1–3, and round 1 order is set by a die roll.

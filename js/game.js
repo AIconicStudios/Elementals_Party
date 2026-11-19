@@ -34,6 +34,7 @@ class Game {
     this.dice = null;
     this.over = false;
     this.aborted = false;
+    this.raidRound = 4;
   }
 
   makePlayer(i, seat) {
@@ -234,7 +235,7 @@ class Game {
         this.round = r;
         if (r === 1) await this.firstOrder();
         await UI.banner(r === this.rounds ? `Final Round ${r}` : `Round ${r} / ${this.rounds}`,
-          r === this.rounds ? '🔔 The final bell rings. This is everyone’s last turn!' : (r <= 3 ? 'The Waygates are sealed — no raiding until round 4.' : (r === Math.floor(this.rounds / 2) + 1 ? 'Second half: Rare and Legendary wares appear!' : '')));
+          r === this.rounds ? '🔔 The final bell rings. This is everyone’s last turn!' : (r < this.raidRound ? `The Waygates are sealed — no raiding until round ${this.raidRound}.` : (r === this.raidRound && this.simple ? 'Raiding is open! Pass a rival’s Gate to sneak in.' : (!this.simple && r === Math.floor(this.rounds / 2) + 1 ? 'Second half: Rare and Legendary wares appear!' : ''))));
         for (const pid of this.order.slice()) {
           await this.takeTurn(this.P(pid));
         }

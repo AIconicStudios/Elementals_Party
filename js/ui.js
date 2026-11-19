@@ -49,15 +49,15 @@ const UI = {
       if (t.repel) st.push(`🧿${t.repel}`); if (t.thief) st.push('🦹Thief'); if (t.bounty) st.push('📃Bounty');
       if (t.bag) st.push(`👜${t.bag.c}c/${t.bag.s}⭐`); if (p.ultHeld) st.push(`${ITEM[p.el.ult].icon}${ITEM[p.el.ult].lore}`);
       if (p.vaultProt) st.push(`🔏${p.vaultProt}`); if (p.fakeStars) st.push(`✴️×${p.fakeStars}`);
-      if (p.gone) st.push('💀No Wayfarer'); else if (!p.def) st.push('No Warden');
+      if (p.gone) st.push('💀No Wayfarer'); else if (!p.def && !G.simple) st.push('No Warden');
       const loc = p.gone ? '—' : t.loc === 'board' ? `On the Crossing: ${SPACE[G.board[t.pos]].lore}` : (t.ring === p.id ? `Guarding own Hold, tile ${t.pos}` : `⚔️ Raiding ${G.P(t.ring).el.hold}, tile ${t.pos}`);
       const items = p.items.map(id => `<span class="it" title="${esc(itemLabel(id) + ': ' + ITEM[id].desc)}">${ITEM[id].icon}</span>`).join('') || '<span class="dim">no items</span>';
       const el = $('#pc' + p.id);
       el.className = 'pc' + (G.current === p ? ' cur' : '');
       el.style.setProperty('--c', p.color);
       el.innerHTML = `<div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="ord">turn order #${G.order.indexOf(p.id) + 1}</span></div>
-        <div class="pcs"><span title="Banked stars (Starvault)">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 ${G.bank(p)}</span><span title="Coins on hand">💰 ${p.cash}</span>
-        <span title="Hot loot (unbanked)">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>${t.sHand ? `<span title="Carried stars">✨${t.sHand}</span>` : ''}<span title="Moot wins">🏆 ${p.mgWins}</span></div>
+        <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b> stars</span><span title="Coins">🪙 <b>${p.cash}</b> coins</span><span title="Moot wins">🏆 ${p.mgWins}</span>` : `<span title="Banked stars (Starvault)">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 ${G.bank(p)}</span><span title="Coins on hand">💰 ${p.cash}</span>
+        <span title="Hot loot (unbanked)">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>${t.sHand ? `<span title="Carried stars">✨${t.sHand}</span>` : ''}<span title="Moot wins">🏆 ${p.mgWins}</span>`}</div>
         <div class="pcl">${esc(loc)}</div>
         <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
     });
@@ -147,6 +147,7 @@ const UI = {
   // ---------------------------------------------------------- map & help
   toggleMap(on) {
     if (!this.game) return;
+    if (this.game.simple && on !== false) { this.log('The map shows traps — the Starter board has none. Try the full board later!'); return; }
     Render.mapMode = on === undefined ? !Render.mapMode : on;
     $('#app').classList.toggle('mapmode', Render.mapMode);
     Sfx.click();
@@ -160,11 +161,28 @@ const UI = {
   },
   renderHelp(tab) {
     this.helpTab = tab;
-    const tabs = [['spaces', '🎲 Board spaces'], ['hold', '🏰 Your Hold'], ['items', '🎒 Items'], ['rules', '📖 Rules'], ['controls', '🎮 Controls']];
+    const tabs = [['starter', '🌱 Starter board'], ['spaces', '🎲 Board spaces'], ['hold', '🏰 Your Hold'], ['items', '🎒 Items'], ['rules', '📖 Rules'], ['controls', '🎮 Controls']];
     const row = (sw, title, meta, text, col) => `<div class="hrow" style="--c:${col || '#6b5bd6'}">${sw}<div><b>${title}</b>${meta ? `<span class="meta">${meta}</span>` : ''}<p>${text}</p></div></div>`;
     const swatch = (bg, txt, fg = '#111') => `<div class="hsw" style="background:${bg};color:${fg}">${txt}</div>`;
     let body = '', one = false;
-    if (tab === 'spaces') {
+    if (tab === 'starter') {
+      const sw2 = (k, fg = '#111') => swatch(SPACE[k].color, SPACE[k].icon, fg);
+      body = `<div class="hsec">The Starter Crossing — the easy board for new players</div>`
+        + row(swatch('#ffd34d', '⭐'), 'Goal', '', 'Have the most stars at the end. Buy stars for 15 coins at a Counting House 🏛️. If stars are tied, most coins wins.', '#ffd34d')
+        + row(swatch('#6b5bd6', '🎲', '#fff'), 'Your turn', '', 'Use an item if you like, then press Roll! Your piece walks forward. That’s it!', '#6b5bd6')
+        + row(swatch(SPACE.blue.color, '+3', '#fff'), 'Blue space', '', '+3 coins.', SPACE.blue.color)
+        + row(sw2('red', '#fff'), 'Red space', '', '−3 coins.', SPACE.red.color)
+        + row(sw2('bank'), 'Counting House', '', 'Pass or land here to buy a star (15 coins) and one item.', SPACE.bank.color)
+        + row(sw2('lucky'), 'Lucky Wheel', '', 'Win 1, 3, 5 or 10 coins.', SPACE.lucky.color)
+        + row(sw2('item'), 'Gift', '', 'Get a free item.', SPACE.item.color)
+        + row(sw2('swirl'), 'Whirlwind', '', 'Swap places with a random player!', SPACE.swirl.color)
+        + row(sw2('party'), 'Party', '', 'Everyone gets 3 coins — you get 6!', SPACE.party.color)
+        + row(swatch('#8fe0ff', '🏠'), 'Your Gate', '', 'Passing your own Gate gives +3 coins.', '#8fe0ff')
+        + row(swatch('#ff9a3d', '🦹'), 'Sneaking in', '', 'From round 3, passing a rival’s Gate lets you sneak into their Hold. Roll: 1–2 you get caught and pay 3 · 3–5 you grab 5 coins · 6 you grab a STAR!', '#ff9a3d')
+        + `<div class="hsec">Starter items</div>`
+        + SIMPLE_ITEMS.map(it => row(swatch('#2a2150', it.icon, '#fff'), it.name, `${it.price} coins · ${it.use === 'play' ? 'use on your turn' : 'works by itself'}`, it.desc, '#6b5bd6')).join('')
+        + `<div class="hsec">After every round</div>` + row(swatch('#5a3fd0', '🎮', '#fff'), 'The Moot', '', 'Everyone plays a quick minigame. Winners get coins and go first next round.', '#5a3fd0');
+    } else if (tab === 'spaces') {
       body = Object.keys(SPACE).map(k => {
         const sp = SPACE[k];
         const fg = ['blue', 'red', 'doubler', 'shutdown', 'summon'].includes(k) ? '#fff' : '#111';
@@ -227,7 +245,8 @@ const UI = {
         <input id="sn${i}" value="${esc(seats[i].name)}" maxlength="14">
         <select id="sh${i}"><option value="1" ${seats[i].human ? 'selected' : ''}>Human</option><option value="0" ${!seats[i].human ? 'selected' : ''}>Bot</option></select>
         <small class="keys">Moot keys: ${Input.keyNames[i]} · <span id="kh${i}"></span></small></div>`).join('')}</div>
-      <div class="row"><label>Game length <select id="rounds"><option value="20">20 rounds (full)</option><option value="15">15 rounds</option><option value="10">10 rounds (quick)</option></select></label>
+      <div class="row"><label>Board <select id="boardSel"><option value="simple">🌱 Starter Crossing — for beginners</option><option value="full">⚔️ The Crossing — full game</option></select></label>
+      <label>Game length <select id="rounds"><option value="20">20 rounds</option><option value="15">15 rounds</option><option value="12">12 rounds</option><option value="10">10 rounds (quick)</option></select></label>
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label></div>
       <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (60 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
@@ -237,12 +256,15 @@ const UI = {
     const padLabels = () => { Input.setHumans(readSeats()); ELEMENTS.forEach((el, i) => { const n = Input.padNumberForSeat(i); $('#kh' + i).textContent = n ? `🎮 gamepad ${n}` : 'bot — no gamepad'; }); };
     ELEMENTS.forEach((el, i) => { $('#sh' + i).addEventListener('change', padLabels); });
     padLabels();
+    const board0 = localStorageGet('ff_board') || 'full';
+    $('#boardSel').value = board0; $('#rounds').value = board0 === 'simple' ? '12' : '20';
+    $('#boardSel').onchange = () => { $('#rounds').value = $('#boardSel').value === 'simple' ? '12' : '20'; };
     $('#startBtn').onclick = () => {
-      const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s));
+      const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); localStorageSet('ff_board', $('#boardSel').value);
       Settings.speed = +$('#speed').value; Settings.sound = $('#snd').checked;
       Sfx.init();
       $('#overlay').classList.add('hidden');
-      startGame({ seats: s, rounds: +$('#rounds').value });
+      startGame({ seats: s, rounds: +$('#rounds').value, simple: $('#boardSel').value === 'simple' });
     };
     $('#practiceBtn').onclick = () => { const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); Settings.sound = $('#snd').checked; Sfx.init(); this.showPractice(s); };
     $('#rulesBtn').onclick = () => this.toggleHelp(true, 'rules');

@@ -46,6 +46,7 @@ const Render = {
   },
   hitTile(x, y) {
     if (!this.game) return null;
+    if (this.game.simple) return null;
     for (let el = 0; el < 4; el++) for (let k = 1; k <= 16; k++) {
       const p = this.ringPos(el, k); if (dist(x, y, p.x, p.y) < 22) return { owner: this.game.players[el], tile: k };
     }
@@ -218,7 +219,7 @@ const Render = {
     g.font = 'bold 30px Cinzel, Georgia, serif'; g.fillStyle = '#efe6ff';
     g.fillText(G.round ? `Round ${G.round} / ${G.rounds}` : 'Setup', 552, 230);
     g.font = '15px Georgia'; g.fillStyle = G.round === G.rounds ? '#ffcf5a' : '#a99bd8';
-    g.fillText(G.round === G.rounds ? '🔔 The final bell has rung' : (G.round > 0 && G.round <= 3 ? 'Waygates sealed until round 4' : 'The Crossing'), 552, 254);
+    g.fillText(G.round === G.rounds ? '🔔 The final bell has rung' : (G.round > 0 && G.round < G.raidRound ? `Waygates sealed until round ${G.raidRound}` : (G.simple ? 'The Starter Crossing' : 'The Crossing')), 552, 254);
     if (G.current) {
       const c = G.current;
       const cre = this.reactionOf(c.id);
@@ -230,7 +231,7 @@ const Render = {
 
     // connectors
     for (let el = 0; el < 4; el++) {
-      const a = this.trackPos(el * 10), c = this.ringPos(el, 16);
+      const a = this.trackPos(el * 10), c = G.simple ? this.homeCenter(el) : this.ringPos(el, 16);
       g.strokeStyle = ELEMENTS[el].color; g.lineWidth = 5; g.globalAlpha = 0.45; g.setLineDash([8, 8]); g.lineDashOffset = -now * 20;
       g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
     }
@@ -255,7 +256,7 @@ const Render = {
       const txt = /[0-9×+−]/.test(sp.icon) && sp.icon.length <= 2;
       g.fillStyle = ['blue', 'red', 'doubler'].includes(type) ? '#fff' : '#111';
       g.font = txt ? 'bold 21px Georgia' : (type === 'gate' ? '30px' : '25px') + ' "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-      g.fillText(type === 'gate' ? ELEMENTS[i / 10].glyph : sp.icon, p.x, p.y + 2);
+      g.fillText(type === 'gate' ? ELEMENTS[i / 10].glyph : (G.simple && type === 'blue' ? '+3' : sp.icon), p.x, p.y + 2);
       if (closed) { g.fillStyle = 'rgba(0,0,0,0.65)'; this.rr(g, p.x - w / 2, p.y - h / 2, w, h, 10); g.fill(); g.font = '22px sans-serif'; g.fillStyle = '#fff'; g.fillText('🌑', p.x, p.y); }
       g.textBaseline = 'alphabetic';
     }
@@ -375,12 +376,14 @@ const Render = {
     grd.addColorStop(0, pl.el.dark); grd.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grd; g.beginPath(); g.arc(c.x, c.y, 150, 0, 7); g.fill();
     if (G.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.5 + 0.5 * Math.sin(now * 4); g.beginPath(); g.arc(c.x, c.y, 146, 0, 7); g.stroke(); g.globalAlpha = 1; }
-    g.strokeStyle = 'rgba(255,255,255,0.13)'; g.lineWidth = 14; g.beginPath(); g.arc(c.x, c.y, this.RING, 0, 7); g.stroke();
+    if (G.simple) { g.fillStyle = 'rgba(255,255,255,0.06)'; g.beginPath(); g.arc(c.x, c.y, 92, 0, 7); g.fill(); g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6; g.stroke(); g.globalAlpha = 1; }
+    else { g.strokeStyle = 'rgba(255,255,255,0.13)'; g.lineWidth = 14; g.beginPath(); g.arc(c.x, c.y, this.RING, 0, 7); g.stroke(); }
     g.textAlign = 'center'; g.textBaseline = 'middle';
     const raided = G.raidersIn(pl).length > 0;
     if (!this.reactionOf(pl.id)) Char.draw(g, c.x, c.y - 22, 25, pl.id, pl.color, { mood: raided ? 'scared' : (G.current === pl ? 'cheer' : 'happy'), seed: pl.id * 5, look: { x: Math.sin(now * 0.7 + pl.id), y: 0.2 } });
     g.font = 'bold 15px Georgia'; g.fillStyle = '#fff'; g.fillText(pl.el.hold, c.x, c.y + 24);
-    g.font = '14px Georgia'; g.fillStyle = '#ffe680'; g.fillText(`⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 43);
+    g.font = '14px Georgia'; g.fillStyle = '#ffe680'; g.fillText(G.simple ? `⭐${pl.vault}   🪙${pl.cash}` : `⭐${pl.vault}   🏦${G.bank(pl)}`, c.x, c.y + 43);
+    if (G.simple) { if (pl.items.includes('sdog')) { g.font = '22px "Segoe UI Emoji"'; g.fillText('🐕', c.x + 58, c.y + 30); } g.textBaseline = 'alphabetic'; g.restore(); return; }
     if (pl.hollow) { g.font = '12px Georgia'; g.fillStyle = '#7ccf4a'; g.fillText('Famished Earth', c.x, c.y + 60); }
     for (let k = 1; k <= 16; k++) {
       const p = this.ringPos(pl.id, k);

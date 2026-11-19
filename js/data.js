@@ -20,6 +20,8 @@ const SPACE = {
   lucky:    { name: 'Lucky',           lore: 'Fortune Wheel',  color: '#2fbf8f', icon: '🎡' , desc: 'Spin the wheel: win 1, 3, 5 or 10 coins.' },
   item:     { name: 'Item',            lore: "Pedlar's Stall", color: '#c46bd6', icon: '🎁' , desc: 'Get a random item.' },
   chameleon:{ name: 'Chameleon',       lore: 'Mirage',         color: '#8a8f99', icon: '❓' , desc: 'Turns into another special space (picked by a die roll) when you land on it.' },
+  swirl:    { name: 'Whirlwind',       lore: 'Whirlwind',      color: '#5fc8e8', icon: '🌪️', desc: 'Starter board: swap places with a random other player.' },
+  party:    { name: 'Party',           lore: 'Party',          color: '#ff8ad8', icon: '🎉', desc: 'Starter board: everyone gets 3 coins — and you get 6!' },
 };
 const SPECIAL_TYPES = ['summon', 'shutdown', 'doubler', 'lucky', 'item'];
 
@@ -121,10 +123,21 @@ const ITEMS = [
   { id: 'decoy', name: 'Decoy Star', lore: 'Lure Star', price: 5, r: 'U', cat: 'chaos', use: 'passive', icon: '⭐', desc: 'Automatic: if the Ankar would take your coins, it takes this instead.' },
   { id: 'bounty', name: 'Bounty Poster', lore: 'Bounty Poster', price: 5, r: 'U', cat: 'chaos', use: 'play', target: 'enemy', icon: '📃', desc: 'Marks a thief. Any Traveller who lands on that raider takes its loot back to its owners.' },
 ];
+// ---- Starter board (beginner) items: few, simple, self-explanatory ----
+const SIMPLE_ITEMS = [
+  { id: 'sdouble', name: 'Double Dice', lore: 'Double Dice', price: 5, cat: 'simple', simple: true, use: 'play', icon: '🎲', desc: 'Your roll this turn counts double!' },
+  { id: 'smagic', name: 'Magic Die', lore: 'Magic Die', price: 6, cat: 'simple', simple: true, use: 'play', icon: '🎯', desc: 'Choose your roll this turn (1 to 6).' },
+  { id: 'sdog', name: 'Guard Dog', lore: 'Guard Dog', price: 5, cat: 'simple', simple: true, use: 'passive', icon: '🐕', desc: 'Keep it in your bag: the next player who sneaks into your Hold gets chased off and pays you 5 coins.' },
+  { id: 'smagnet', name: 'Coin Magnet', lore: 'Coin Magnet', price: 5, cat: 'simple', simple: true, use: 'play', icon: '🧲', desc: 'Pull 5 coins from the richest other player.' },
+  { id: 'ssnail', name: 'Snail', lore: 'Snail', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🐌', desc: 'Pick a player: their next roll is cut in half.' },
+  { id: 'swind', name: 'Shop Wind', lore: 'Shop Wind', price: 4, cat: 'simple', simple: true, use: 'play', icon: '💨', desc: 'Whoosh! Fly straight to the next Counting House and shop there.' },
+  { id: 'sbox', name: 'Lucky Star Box', lore: 'Lucky Star Box', price: 6, cat: 'simple', simple: true, use: 'play', icon: '🎁', desc: 'Open it: 1 in 3 chance of a free star, otherwise 3 coins.' },
+];
+ITEMS.push(...SIMPLE_ITEMS);
 const ITEM = {};
 ITEMS.forEach(it => { ITEM[it.id] = it; });
 
-const HAND_ITEMS = ITEMS.filter(i => i.use);
+const HAND_ITEMS = ITEMS.filter(i => i.use && !i.simple);
 const DEFENSES = ITEMS.filter(i => i.cat === 'defense');
 const HAND_LIMIT = 4;
 
