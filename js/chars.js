@@ -35,6 +35,7 @@ const Char = {
     squash += idle.sq;
     this._pose = idle.pose; this._pp = idle.pp;
     const faceMood = idle.face || mood;
+    this._el = el;
     g.translate(x, y - bob);
     if (out) g.rotate(0.4 * face);
     if (mood === 'hurt') g.translate(Math.sin(t * 50) * r * 0.06, 0);
@@ -162,24 +163,24 @@ const Char = {
     const posing = pp >= 0 && mood !== 'determined';
     if (el === 0) {
       res.lift = r * (0.12 + 0.08 * Math.sin(t * 2.2 + seed));
-      if (posing) { res.flip = Math.cos(pp * Math.PI * 2); res.lift += Math.sin(pp * Math.PI) * r * 0.3; res.pose = 'spin'; res.face = 'cheer'; }
+      if (posing) { res.flip = Math.cos(pp * Math.PI * 2); res.lift += Math.sin(pp * Math.PI) * r * 0.3; res.pose = 'spin'; }
     } else if (el === 1) {
       res.sq = Math.sin(t * 5 + seed) * 0.05;
       if (posing) {
         const h = Math.sin(Math.min(1, pp / 0.75) * Math.PI);
         res.lift = pp < 0.75 ? h * r * 0.6 : 0;
         res.sq = pp < 0.08 ? -0.14 : pp > 0.75 ? 0.2 * (1 - (pp - 0.75) / 0.25) : 0.08;
-        res.pose = 'splash'; res.face = pp > 0.75 ? 'laugh' : 'cheer';
+        res.pose = 'splash';
       }
     } else if (el === 2) {
       res.lift = Math.abs(Math.sin(t * 8 + seed)) * r * 0.07;
-      if (posing) { res.lift += Math.sin(pp * Math.PI) * r * 0.18; res.pose = 'pump'; res.face = 'cheer'; }
+      if (posing) { res.lift += Math.sin(pp * Math.PI) * r * 0.18; res.pose = 'pump'; }
     } else if (el === 3) {
       res.sq = Math.sin(t * 1.6 + seed) * 0.035;
       if (posing) {
-        if (pp < 0.35) { res.lift = Math.sin(pp / 0.35 * Math.PI / 2) * r * 0.35; res.pose = 'stomp'; res.face = 'determined'; }
-        else if (pp < 0.42) { res.lift = r * 0.35 * (1 - (pp - 0.35) / 0.07); res.pose = 'stomp'; res.face = 'determined'; }
-        else { res.sq = pp < 0.55 ? 0.14 * (1 - (pp - 0.42) / 0.13) : 0; res.pose = 'flex'; res.face = 'proud'; }
+        if (pp < 0.35) { res.lift = Math.sin(pp / 0.35 * Math.PI / 2) * r * 0.35; res.pose = 'stomp'; }
+        else if (pp < 0.42) { res.lift = r * 0.35 * (1 - (pp - 0.35) / 0.07); res.pose = 'stomp'; }
+        else { res.sq = pp < 0.55 ? 0.14 * (1 - (pp - 0.42) / 0.13) : 0; res.pose = 'flex'; }
       }
     }
     res.pp = pp;
@@ -236,6 +237,50 @@ const Char = {
     const brow = (x1, y1, x2, y2, w = 1) => { g.strokeStyle = ink; g.lineWidth = lw * w; g.beginPath(); g.moveTo(ex + x1 * ew, ey + y1 * eh); g.lineTo(ex + x2 * ew, ey + y2 * eh); g.stroke(); };
     const blush = (a = 1) => { g.fillStyle = skin.blush; g.globalAlpha *= a; g.beginPath(); g.ellipse(-r * 0.3, r * 0.2, r * 0.17, r * 0.1, 0, 0, 7); g.fill(); g.globalAlpha /= a; };
     g.lineCap = 'round'; g.lineJoin = 'round';
+    // ---- resting faces: open eyes, closed mouth, a different personality per clan
+    if ((mood === 'happy' || mood === 'neutral') && this._el >= 0) {
+      const blink = ((t + seed * 1.7) % 3.6) < 0.12;
+      const shut = () => { g.strokeStyle = ink; g.lineWidth = Math.max(1.2, r * 0.06); g.beginPath(); g.moveTo(ex - ew, ey + eh * 0.15); g.quadraticCurveTo(ex, ey + eh * 0.45, ex + ew, ey + eh * 0.15); g.stroke(); };
+      const lashes = (n, sc = 1) => { g.strokeStyle = ink; g.lineWidth = Math.max(0.8, r * 0.035); for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + 0.25 + k * 0.32; g.beginPath(); g.moveTo(ex + Math.cos(a) * ew * sc, ey + Math.sin(a) * eh * sc); g.lineTo(ex + Math.cos(a) * ew * sc * 1.45 + r * 0.02, ey + Math.sin(a) * eh * sc * 1.3); g.stroke(); } };
+      const lineMouth = (pts) => { g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx + pts[0] * r, my + pts[1] * r); g.quadraticCurveTo(mx + pts[2] * r, my + pts[3] * r, mx + pts[4] * r, my + pts[5] * r); g.stroke(); };
+      const look = Math.sin(t * 0.7 + seed * 2.3) * 0.12; // eyes drift around a little
+      switch (this._el) {
+        case 0: // Zephi (Air): curious and cute - big round eye, lifted brow, pursed "o" lips
+          blush(0.8);
+          if (blink) shut(); else { eye(1.12, 0.6, 0, -0.3 + look, -0.05); lashes(2, 1.12); }
+          g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(ex - ew * 1.1, ey - eh * 1.45); g.quadraticCurveTo(ex, ey - eh * 1.85, ex + ew * 1.0, ey - eh * 1.5); g.stroke();
+          g.fillStyle = '#e0606e'; g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.ellipse(mx - r * 0.02, my, r * 0.065, r * 0.07, 0, 0, 7); g.fill(); g.stroke();
+          g.fillStyle = '#7a2030'; g.beginPath(); g.ellipse(mx - r * 0.035, my, r * 0.022, r * 0.03, 0, 0, 7); g.fill();
+          return true;
+        case 1: { // Drip (Water): sweet and gentle - sparkly eye, long lashes, rosy cheeks, tiny closed smile
+          blush(1.25);
+          g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.arc(-r * 0.24, r * 0.16, r * 0.035, 0, 7); g.fill();
+          if (blink) shut(); else {
+            eye(1.06, 0.74, 0, -0.22 + look, 0.1);
+            g.fillStyle = '#fff'; g.beginPath(); g.arc(ex - ew * 0.02, ey + eh * 0.38, ew * 0.16, 0, 7); g.fill();
+            const tw = 0.5 + 0.5 * Math.sin(t * 4 + seed); g.fillStyle = `rgba(255,255,255,${0.6 + tw * 0.4})`; g.save(); g.translate(ex - ew * 0.55, ey - eh * 0.25); g.rotate(t); const q = ew * 0.12 * (0.7 + tw * 0.5); g.fillRect(-q * 2, -q * 0.35, q * 4, q * 0.7); g.fillRect(-q * 0.35, -q * 2, q * 0.7, q * 4); g.restore();
+            lashes(3, 1.06);
+          }
+          g.strokeStyle = ink; g.lineWidth = lw * 0.8; g.beginPath(); g.moveTo(ex - ew * 0.9, ey - eh * 1.42); g.quadraticCurveTo(ex, ey - eh * 1.62, ex + ew * 0.8, ey - eh * 1.35); g.stroke();
+          lineMouth([-0.09, -0.01, 0.0, 0.07, 0.08, -0.01]);
+          return true;
+        }
+        case 2: // Pyra (Fire): confident - sharp brow, focused eye, closed half-smirk
+          blush(0.55);
+          if (blink) shut(); else eye(1, 0.62, 0.14, -0.38 + look * 0.5, 0.12);
+          brow(-1.35, -1.05, 1.15, -1.35, 1.5);
+          g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx - r * 0.1, my + r * 0.01); g.lineTo(mx + r * 0.06, my + r * 0.02); g.quadraticCurveTo(mx + r * 0.14, my + r * 0.015, mx + r * 0.17, my - r * 0.06); g.stroke();
+          g.lineWidth = lw * 0.7; g.beginPath(); g.moveTo(mx + r * 0.15, my - r * 0.1); g.lineTo(mx + r * 0.2, my - r * 0.03); g.stroke();
+          return true;
+        case 3: // Pebble (Earth): calm and smug - relaxed half-lidded eye, quiet knowing smirk
+          blush(0.65);
+          if (blink) shut(); else eye(1, 0.62, 0.38, -0.3 + look * 0.4, 0.3);
+          brow(-1.2, -1.35, 1.1, -1.4, 1.2);
+          lineMouth([-0.11, -0.04, -0.02, 0.04, 0.1, 0.01]);
+          g.strokeStyle = ink; g.lineWidth = lw * 0.7; g.beginPath(); g.moveTo(mx - r * 0.14, my - r * 0.07); g.quadraticCurveTo(mx - r * 0.125, my - r * 0.02, mx - r * 0.1, my - r * 0.03); g.stroke();
+          return true;
+      }
+    }
     switch (mood) {
       case 'evil': {
         blush(0.6);
