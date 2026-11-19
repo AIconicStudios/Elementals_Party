@@ -291,13 +291,19 @@ const Char = {
       const blink = ((t + seed * 1.7) % 3.6) < 0.12;
       const shut = () => { g.strokeStyle = ink; g.lineWidth = Math.max(1.2, r * 0.06); g.beginPath(); g.moveTo(ex - ew, ey + eh * 0.2); g.lineTo(ex + ew, ey + eh * 0.2); g.stroke(); };
       switch (this._el) {
-        case 0: // Zephi: eager - wide bright eye, perky brow, cheeks puffed in a tiny "o"
-          blush(0.9);
-          if (blink) shut(); else eye(1.15, 0.5, 0, -0.45, -0.05);
-          brow(-1.2, -1.45, 1.1, -1.7, 1.2);
-          g.fillStyle = skin.light; g.globalAlpha *= 0.6; g.beginPath(); g.arc(-r * 0.72, r * 0.22, r * 0.12, 0, 7); g.fill(); g.globalAlpha /= 0.6;
-          g.strokeStyle = ink; g.lineWidth = lw; g.fillStyle = '#e0606e'; g.beginPath(); g.ellipse(mx - r * 0.02, my, r * 0.045, r * 0.05, 0, 0, 7); g.fill(); g.stroke();
+        case 0: { // Zephi: happy-go-lucky - bright smiling eye, carefree arched brow, big joyful open smile
+          blush(1.2);
+          if (blink) shut(); else {
+            eye(1.1, 0.62, 0, -0.3, -0.08);
+            g.fillStyle = skin.mid; g.beginPath(); g.ellipse(ex, ey + eh * 1.35, ew * 1.4, eh * 0.6, 0, 0, 7); g.fill(); // cheek pushes up: smiling eye
+          }
+          g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(ex - ew * 1.1, ey - eh * 1.4); g.quadraticCurveTo(ex, ey - eh * 2.0, ex + ew * 1.0, ey - eh * 1.55); g.stroke();
+          g.fillStyle = '#c23a4a'; g.lineWidth = lw; g.beginPath(); g.moveTo(mx - r * 0.15, my - r * 0.05); g.quadraticCurveTo(mx + r * 0.04, my + r * 0.28, mx + r * 0.22, my - r * 0.05); g.closePath(); g.fill(); g.stroke();
+          g.fillStyle = '#ff8a9a'; g.beginPath(); g.ellipse(mx + r * 0.04, my + r * 0.08, r * 0.07, r * 0.04, 0, 0, 7); g.fill();
+          const ph = (t * 0.9 + seed) % 1, nx = r * (0.5 + ph * 0.5), ny = -r * (1.15 + ph * 0.6) + Math.sin(ph * 9) * r * 0.06; // happy little tune
+          g.fillStyle = `rgba(80,110,170,${1 - ph})`; g.font = `bold ${Math.round(r * 0.32)}px Georgia`; g.textAlign = 'center'; g.save(); g.scale(-1, 1); g.fillText(ph < 0.5 ? '\u266A' : '\u266B', -nx, ny); g.restore();
           return true;
+        }
         case 1: // Drip: concentrating hard - big glossy eye, worried brow, biting the lip
           blush(1.1);
           if (blink) shut(); else { eye(1.05, 0.72, 0, -0.35, 0.05); g.fillStyle = '#fff'; g.beginPath(); g.arc(ex - ew * 0.05, ey + eh * 0.4, ew * 0.15, 0, 7); g.fill(); }
