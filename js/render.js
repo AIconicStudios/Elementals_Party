@@ -350,6 +350,8 @@ const Render = {
     const moving = d.k < 1;
     const look = { x: clamp((d.x - d.px) * 0.3, -1, 1), y: 0.2 };
     const r = kind === 'T' ? 16 : 13;
+    g.fillStyle = pl.color; g.globalAlpha = 0.55; g.beginPath(); g.ellipse(d.x, d.y + r * 1.3 - d.hop, r * 1.05, r * 0.32, 0, 0, 7); g.fill();
+    g.globalAlpha = 1; g.strokeStyle = pl.color; g.lineWidth = 2; g.stroke();
     if (kind === 'T' && this.game.current === pl) {
       g.fillStyle = pl.color; g.globalAlpha = 0.35 + 0.2 * Math.sin(now * 5);
       g.beginPath(); g.ellipse(d.x, d.y + r + 2, r * 1.4, r * 0.45, 0, 0, 7); g.fill(); g.globalAlpha = 1;
