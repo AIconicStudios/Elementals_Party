@@ -252,7 +252,7 @@ const UI = {
       <p><b>Counting Houses:</b> passing or landing lets you deposit what you carry, buy one star and one item per visit.</p>
       <p><b>Raiding (from round 4):</b> when you pass or land on a rival’s Waygate you may raid. The rest of your roll is discarded; next turn you start walking their Hold from tile 16. Hoards give up to 5 coins, the Starvault a star. Leave by passing tile 16 again.</p>
       <p><b>The Ankar:</b> summoned on an Ankar’s Altar (which then becomes a Boon or Bane). It follows the nearest Wayfarer and takes 5 coins on contact.</p>
-      <p><b>The Moot:</b> after each round but the last, a minigame. The halfway Moot is always a <b>Marathon</b> (several events back to back: The Elemental Games, Titan Trials, Turbo Stunt Rally or Tower of Trials), and the last Moot of every game is the <b>Grand Finale: Fourfold Clash</b>, a six-life brawl where A jumps and B is your clan power. 1st place wins 3 coins, 2nd 2 coins, 3rd 1 coin (ties share the better place); the winners play first next round. The player with the fewest stars picks between two games.</p>
+      <p><b>The Moot:</b> after each round but the last, a minigame. The halfway Moot is always a <b>Marathon</b> (several events back to back: The Elemental Games, Titan Trials, Turbo Stunt Rally or Tower of Trials), and the last Moot of every game is the <b>Grand Finale brawl</b> in one of four arenas — Fourfold Clash, Temple of Traps, Ledge Cage or Sand Colosseum — where A jumps and B is your clan power (hit an arena's switches to spring traps on your rivals). 1st place wins 3 coins, 2nd 2 coins, 3rd 1 coin (ties share the better place); the winners play first next round. The player with the fewest stars picks between two games.</p>
       </div>`;
     } else {
       one = true;
@@ -260,7 +260,7 @@ const UI = {
       <p><b>Board (mouse):</b> click the options in the middle panel, click highlighted tiles to place things, or press 1–9.</p>
       <p><b>Board (keyboard):</b> arrow keys move the highlight, Enter selects, Space stops the die, M opens the map, H opens help, V switches between the whole board and the close-up view, Esc goes back.</p>
       <p><b>Board (gamepad):</b> d-pad / stick to move, A to select or stop the die, B to go back or close, Y for the map, X for help, LB or LT to switch between the whole board and the close-up view. Only the player whose turn or decision it is can answer with their own gamepad.</p>
-      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br><b>Gamepads:</b> each connected gamepad belongs to exactly one human player, in seat order (1st gamepad → 1st human seat, 2nd → 2nd human, …). A = action / select, B = back and secret-pick peek, X = help, Y = map, Start = pause in minigames. Every minigame starts with a practice round that doesn't count and has no timer — everyone presses X or Y on their gamepad when they're ready, and the real game begins. On the board, only the player whose decision it is can answer with their gamepad. Player 1 can also use the mouse in cursor games.</p>
+      <p><b>Minigames:</b><br>${Input.keyNames.map((k, i) => `Player ${i + 1} (${ELEMENTS[i].name}): ${k}`).join('<br>')}<br><b>Gamepads:</b> each connected gamepad belongs to exactly one human player, in seat order (1st gamepad → 1st human seat, 2nd → 2nd human, …). A = action / select, B = back and secret-pick peek, X = help, Y = map, right stick = scroll help, map and long menus, Start = pause in minigames. Every minigame starts with a practice round that doesn't count and has no timer — everyone presses X or Y on their gamepad when they're ready (or anyone presses Start and picks “End practice”), and the real game begins. On the board, only the player whose decision it is can answer with their gamepad. Player 1 can also use the mouse in cursor games.</p>
       <p><b>Secret picks:</b> in bluffing games nobody’s cursor is shown. Hold your alt button (B) to peek at your own choice.</p>
       </div>`;
     }
@@ -272,13 +272,49 @@ const UI = {
   },
 
   // ---------------------------------------------------------- screens
+  // the menu backdrop: four elemental auroras drifting around, light rays and each clan's particles
+  menuBgParts: null,
+  drawMenuBg(c, t) {
+    const W = c.clientWidth, Hh = c.clientHeight; if (c.width !== W || c.height !== Hh) { c.width = W; c.height = Hh; }
+    const g = c.getContext('2d');
+    g.fillStyle = '#0d0820'; g.fillRect(0, 0, W, Hh);
+    const blobs = [['143,224,255', 0.22, 0.25], ['79,141,255', 0.8, 0.22], ['255,106,61', 0.2, 0.8], ['124,207,74', 0.8, 0.8]];
+    g.globalCompositeOperation = 'lighter';
+    blobs.forEach(([rgb, bx, by], k) => {
+      const x = W * (bx + 0.06 * Math.sin(t * 0.3 + k * 1.7)), y = Hh * (by + 0.06 * Math.cos(t * 0.25 + k)), r = Math.max(W, Hh) * (0.42 + 0.04 * Math.sin(t * 0.5 + k));
+      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rgb},0.55)`); gr.addColorStop(0.5, `rgba(${rgb},0.2)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
+    });
+    // slow light rays from the top
+    g.save(); g.translate(W / 2, -Hh * 0.15); g.rotate(Math.sin(t * 0.1) * 0.1);
+    for (let k = 0; k < 9; k++) { const a = -0.9 + k * 0.225; g.save(); g.rotate(a); const gr = g.createLinearGradient(0, 0, 0, Hh * 1.3); gr.addColorStop(0, `rgba(255,240,200,${0.07 + 0.04 * Math.sin(t + k)})`); gr.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(-14, 0); g.lineTo(14, 0); g.lineTo(90, Hh * 1.3); g.lineTo(-90, Hh * 1.3); g.fill(); g.restore(); }
+    g.restore();
+    g.globalCompositeOperation = 'source-over';
+    // particles: air wisps, water bubbles, fire embers, earth leaves
+    if (!this.menuBgParts) this.menuBgParts = Array.from({ length: 70 }, (_, k) => ({ k: k % 4, x: Math.random(), y: Math.random(), s: R.range(0.5, 1.4), p: Math.random() * 7 }));
+    for (const q of this.menuBgParts) {
+      const sp = 0.012 * q.s;
+      if (q.k === 0) { q.x += sp * 0.03; q.y += Math.sin(t + q.p) * 0.0004; }
+      else if (q.k === 1 || q.k === 2) q.y -= sp * (q.k === 2 ? 0.05 : 0.035);
+      else { q.y += sp * 0.03; q.x += Math.sin(t * 1.3 + q.p) * 0.0006; }
+      if (q.x > 1.05) q.x = -0.05; if (q.y < -0.05) q.y = 1.05; if (q.y > 1.05) q.y = -0.05;
+      const x = q.x * W, y = q.y * Hh, r = 3 * q.s;
+      if (q.k === 0) { g.strokeStyle = 'rgba(220,245,255,0.35)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 14 * q.s, 0.2 + t % 6, 2.2 + t % 6); g.stroke(); }
+      else if (q.k === 1) { g.strokeStyle = 'rgba(150,210,255,0.5)'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r * 1.6, 0, 7); g.stroke(); g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(x - r * 0.5, y - r * 0.5, r * 0.4, 0, 7); g.fill(); }
+      else if (q.k === 2) { const a = 0.5 + 0.5 * Math.sin(t * 6 + q.p); g.fillStyle = `rgba(255,${150 + a * 80},70,${0.4 + a * 0.4})`; g.beginPath(); g.arc(x, y, r * 0.8, 0, 7); g.fill(); }
+      else { g.save(); g.translate(x, y); g.rotate(t + q.p); g.fillStyle = 'rgba(140,210,90,0.55)'; g.beginPath(); g.ellipse(0, 0, r * 2, r, 0, 0, 7); g.fill(); g.restore(); }
+    }
+    for (let k = 0; k < 40; k++) { const x = (k * 197.3) % W, y = (k * 113.7) % Hh, a = 0.5 + 0.5 * Math.sin(t * 2 + k); g.fillStyle = `rgba(255,255,255,${0.15 + a * 0.35})`; g.fillRect(x, y, 2, 2); }
+    const v = g.createRadialGradient(W / 2, Hh / 2, Hh * 0.3, W / 2, Hh / 2, Math.max(W, Hh) * 0.75); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.55)'); g.fillStyle = v; g.fillRect(0, 0, W, Hh);
+  },
   // live, idling clan portraits on the menu seat cards
   menuPortraits() {
     const tick = () => {
-      const cv = [0, 1, 2, 3].map(i => document.getElementById('mport' + i));
-      if (!cv[0] || $('#overlay').classList.contains('hidden')) { this.menuRaf = null; return; }
+      const cv = [0, 1, 2, 3].map(i => document.getElementById('mport' + i)), bg = document.getElementById('menuBg');
+      if ((!cv[0] && !bg) || $('#overlay').classList.contains('hidden')) { this.menuRaf = null; return; }
       const t = performance.now() / 1000;
-      cv.forEach((c, i) => {
+      if (bg) this.drawMenuBg(bg, t);
+      if (cv[0]) cv.forEach((c, i) => {
         const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.setTransform(1.4, 0, 0, 1.4, 0, 0);
         const hov = c.closest('.seat') && c.closest('.seat').matches(':hover');
         Char._wave = hov;
@@ -294,7 +330,8 @@ const UI = {
     $('#overlay').classList.remove('hidden');
     const seats = JSON.parse(localStorageGet('ff_seats') || 'null') || [
       { name: 'Player 1', human: true }, { name: 'Bot Tide', human: false }, { name: 'Bot Ember', human: false }, { name: 'Bot Root', human: false }];
-    $('#overlay').innerHTML = `<div class="panel menu">
+    $('#overlay').innerHTML = `<canvas id="menuBg"></canvas><div class="panel menu">
+      <div class="crest">${['💨', '💧', '🔥', '🪨'].map((e, k) => `<span style="--c:${ELEMENTS[k].color};--d:${k * 0.4}s">${e}</span>`).join('')}</div>
       <h1>THE FOURFOLD</h1><p class="sub">Four Holds race to hold the most stars after the final bell — raiding each other along the way.</p>
       <div class="seats">${ELEMENTS.map((el, i) => `<div class="seat" style="--c:${el.color}">
         <canvas class="mport" id="mport${i}" width="168" height="168"></canvas><div><b class="mname">${el.mascot}</b><br><small>${el.hold} · ${el.name}</small></div>
@@ -308,7 +345,7 @@ const UI = {
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label>
       <label><input type="checkbox" id="mus" ${Settings.music ? 'checked' : ''}> Music</label></div>
       <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (${MG.list.length} minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
-      <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
+      <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map · right stick scrolls · Start pauses). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
     const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1', pad: $('#sp' + i).value }));
     const padLabels = () => { const S = readSeats(); Input.setHumans(S); ELEMENTS.forEach((el, i) => { const n = Input.padNumberForSeat(i); $('#sp' + i).disabled = !S[i].human; $('#kh' + i).textContent = !S[i].human ? 'bot' : n ? `🎮 gamepad ${n}` : 'keyboard only'; }); };
@@ -331,10 +368,15 @@ const UI = {
   },
 
   showPractice(seats) {
-    $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the ${MG.list.length} minigames — including the Grand Finale brawl and the four marathons. Seats set to Human use their keys; the rest are bots.</p>
-      <div class="mglist">${MG.list.map((g, i) => `<button data-id="${g.id}" class="${g.finale ? 'finale' : g.long ? 'marathon' : ''}"><b>${i + 1}. ${esc(g.name)}${g.finale ? ' <span class="tag">FINALE</span>' : g.long ? ' <span class="tag">MARATHON</span>' : ''}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
+    $('#overlay').innerHTML = `<canvas id="menuBg"></canvas><div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the ${MG.list.length} minigames — including the Grand Finale brawl and the four marathons. Seats set to Human use their keys; the rest are bots.</p>
+      <div class="mglist grid">${MG.list.map((g, i) => `<button data-id="${g.id}" class="${g.finale ? 'finale' : g.long ? 'marathon' : ''}"><span class="thumb"><img alt="" data-thumb="${g.id}"${MG.thumbs[g.id] ? ` src="${MG.thumbs[g.id]}"` : ''}><i>${i + 1}</i>${g.finale ? '<span class="tag">FINALE</span>' : g.long ? '<span class="tag">MARATHON</span>' : ''}</span><b>${esc(g.name)}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
       <div class="row btns"><button id="backBtn" data-back="1">← Back</button></div></div>`;
     $('#backBtn').onclick = () => this.showMenu();
+    this.menuPortraits();
+    // fill in the pictures a few at a time so the menu opens instantly
+    const imgs = [...document.querySelectorAll('img[data-thumb]')].filter(im => !im.src);
+    const step = () => { const t0 = performance.now(); while (imgs.length && performance.now() - t0 < 24) { const im = imgs.shift(); if (document.body.contains(im)) im.src = MG.thumb(im.dataset.thumb); } if (imgs.length) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
     document.querySelectorAll('.mglist button').forEach(b => b.onclick = async () => {
       $('#overlay').classList.add('hidden');
       Input.setHumans(seats);

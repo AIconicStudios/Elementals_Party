@@ -537,10 +537,19 @@ const Render = {
     if (G.ankar !== null && t.loc === 'board' && ((t.pos - G.ankar + 40) % 40) < 6) return 'scared';
     return G.current === pl ? 'happy' : 'neutral';
   },
+  // one soft contact shadow on the ground under each piece: flat (the board is seen from above at an angle),
+  // nudged away from the sun (top-left), and smaller and fainter the higher the piece hops
   drawTokenShadow(g, pl, kind, d, now) {
-    const r = this.tokenR(pl, kind), k = 1 + d.hop / 120;
-    g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(d.x, d.y, r * 0.8 * k, r * 0.6 * k, 0, 0, 7); g.fill();
-    if (kind === 'T' && this.game.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6 + 0.3 * Math.sin(now * 5); g.beginPath(); g.ellipse(d.x, d.y, r * 1.15, r * 0.95, 0, 0, 7); g.stroke(); g.globalAlpha = 1; }
+    const r = this.tokenR(pl, kind), lf = this.lifeState[kind + pl.id], up = Math.max(0, -d.hop) + Math.max(0, -((lf && lf.lastDy) || 0));
+    const k = clamp(1 - up / (r * 3), 0.45, 1), sx = d.x + r * 0.12, w = r * 1.02 * k, h = r * 0.34 * k;
+    if (kind === 'T' && this.game.current === pl) {
+      // the current player's glowing ground ring
+      g.save(); g.globalAlpha = 0.5 + 0.3 * Math.sin(now * 5); g.strokeStyle = pl.color; g.lineWidth = 4; g.beginPath(); g.ellipse(d.x, d.y, r * 1.2, r * 0.46, 0, 0, 7); g.stroke();
+      g.globalAlpha *= 0.35; g.lineWidth = 10; g.stroke(); g.restore();
+    }
+    const gr = g.createRadialGradient(sx, d.y, 0, sx, d.y, w);
+    gr.addColorStop(0, `rgba(25,15,35,${0.5 * k})`); gr.addColorStop(0.5, `rgba(25,15,35,${0.3 * k})`); gr.addColorStop(1, 'rgba(25,15,35,0)');
+    g.save(); g.translate(sx, d.y); g.scale(1, h / w); g.translate(-sx, -d.y); g.fillStyle = gr; g.beginPath(); g.arc(sx, d.y, w, 0, 7); g.fill(); g.restore();
   },
   // board pieces are big and readable; a little smaller inside the Holds' rings, where tiles sit closer
   tokenR(pl, kind) { if (kind !== 'T') return 28; return pl.trav.loc === 'board' ? 42 : 32; },
@@ -572,6 +581,7 @@ const Render = {
     const lf = kind === 'T' ? this.life(kind + pl.id, now, moving || !!this.anim[pl.id] || !!this.reactionOf(pl.id) || (this.die && this.die.who === pl.id), this.game.current === pl) : {};
     if (lf.lookX !== undefined) look.x = lf.lookX; if (lf.lookY !== undefined) look.y = lf.lookY;
     const r = this.tokenR(pl, kind), cy = d.y + d.hop - r * 1.28 + (lf.dy || 0);
+    if (this.lifeState[kind + pl.id]) this.lifeState[kind + pl.id].lastDy = lf.dy || 0;
     const t = pl.trav;
     let prop = null;
     if (kind === 'T') { if (t.prison) prop = '⛓️'; else if (t.armor) prop = '🛡️'; else if (this.game.hotCoins(pl) + this.game.hotStars(pl) > 0) prop = '💰'; }
@@ -584,7 +594,7 @@ const Render = {
     Char._wave = !!lf.wave;
     Char.draw(g, d.x, cy, r, pl.id, pl.color, {
       mood: an && an.mood ? an.mood : lf.mood && this.tokenMood(pl, kind) !== 'scared' ? lf.mood : this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
-      hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop,
+      hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop, noShadow: true, // the ground shadow is drawn separately (it stays put when they hop)
     });
     Char._wave = false;
     g.restore();

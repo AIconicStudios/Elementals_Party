@@ -315,6 +315,26 @@ const MG = {
     d.fx = this.fx; this.fx = keepFx; this.shakeAmt = keepShake; Sfx.suppress = false;
   },
 
+  // a picture of a minigame for the practice grid: play it a few seconds with bots and draw one frame
+  thumbs: {},
+  thumb(id) {
+    if (this.thumbs[id]) return this.thumbs[id];
+    const game = this.byId[id], test = Settings.test;
+    const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const g = c.getContext('2d');
+    try {
+      const pl = [0, 1, 2, 3].map(i => ({ id: i, name: ['Zephi', 'Drip', 'Pyra', 'Pebble'][i], color: ELEMENTS[i].color, human: false, el: ELEMENTS[i] }));
+      const m = this.makeCtx(game, pl), S = {}; game.init(m, S); m.dt = 1 / 30;
+      if (S.phase === 'intro') { S.phase = 'play'; S.pt = 0; S.stageT = 0; }
+      Settings.test = true;
+      const secs = game.thumbT || (game.finale ? 6 : 3.2);
+      for (let k = 0; k < secs * 30 && !m.done; k++) { this.readInputs(m); for (let i = 0; i < 4; i++) if (game.bot) game.bot(m, S, i, m.dt); m.t += m.dt; game.update(m, S, m.dt); }
+      Settings.test = test;
+      g.fillStyle = '#100a24'; g.fillRect(0, 0, 1280, 720); game.draw(m, S, g);
+    } catch (e) { Settings.test = test; g.fillStyle = '#241c42'; g.fillRect(0, 0, 1280, 720); }
+    this.fx = []; this.shakeAmt = 0;
+    const t = document.createElement('canvas'); t.width = 320; t.height = 180; t.getContext('2d').drawImage(c, 0, 40, 1280, 680, 0, 0, 320, 180);
+    return (this.thumbs[id] = t.toDataURL('image/jpeg', 0.82));
+  },
   simulate(game, players, order) {
     const m = this.makeCtx(game, players.map(p => Object.assign({}, p, { human: false })));
     const S = {}; game.init(m, S);
