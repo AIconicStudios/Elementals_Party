@@ -46,7 +46,10 @@ const World = {
       { rim: '#6a3424', a: '#5a3a30', b: '#2a1810' },
       { rim: '#7a6a44', a: '#5aa83a', b: '#3f7a2a' },
     ];
+    const B3 = typeof Board3D !== 'undefined' && Board3D.ok();
     R.HOMES.forEach((c, el) => {
+      const sp3 = B3 && Board3D.hold(el, G.simple);
+      if (sp3) { Board3D.putGround(g, sp3, c.x, c.y); return; }
       const T = theme[el], r0 = 168;
       g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.arc(c.x + 4, c.y + 8, r0 + 10, 0, 7); g.fill();
       g.fillStyle = T.rim; g.beginPath(); g.arc(c.x, c.y, r0 + 10, 0, 7); g.fill();
@@ -60,10 +63,13 @@ const World = {
       else { g.strokeStyle = 'rgba(120,90,50,0.35)'; g.lineWidth = 50; g.beginPath(); g.arc(c.x, c.y, R.RING, 0, 7); g.stroke(); }
     });
     // ---- a pond and flowerbeds in the middle field
+    const pond3 = B3 && Board3D.pond();
+    if (pond3) Board3D.putGround(g, pond3, 1010, 638); else {
     g.fillStyle = '#c9b48a'; g.beginPath(); g.ellipse(1010, 640, 128, 70, 0, 0, 7); g.fill();
     g.fillStyle = this.lg(g, 540, 660, ['#8fe0ff', '#3a9ae0', '#2a78c0']); g.beginPath(); g.ellipse(1010, 636, 116, 60, 0, 0, 7); g.fill();
     g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3; g.beginPath(); g.ellipse(990, 624, 60, 22, 0, 3.4, 5.6); g.stroke();
     for (const [x, y] of [[960, 630], [1060, 648], [1010, 665]]) { g.fillStyle = '#4fa83a'; g.beginPath(); g.arc(x, y, 11, 0.4, Math.PI * 2 - 0.2); g.lineTo(x, y); g.fill(); }
+    }
     for (let k = 0; k < 90; k++) { const x = 440 + this.h(k + 900) * 720, y = 140 + this.h(k + 950) * 620; if (Math.hypot((x - 1010) / 140, (y - 640) / 80) < 1.1) continue; g.fillStyle = ['#ff8ad0', '#ffffff', '#ffd34d', '#b48aff', '#ff6a5a'][k % 5]; for (let l = 0; l < 5; l++) { g.beginPath(); g.arc(x + Math.cos(l * 1.26) * 3, y + Math.sin(l * 1.26) * 3, 2.4, 0, 7); g.fill(); } g.fillStyle = '#ffe680'; g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); }
     return cv;
   },
@@ -84,6 +90,7 @@ const World = {
     return D;
   },
   drawDecor(g, d, now) {
+    if (typeof Board3D !== 'undefined' && Board3D.drawDecor(g, d, now)) return;
     const s = d.s;
     g.save(); g.translate(d.x, d.y); g.scale(s, s);
     g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(4, 2, d.kind === 'tree' ? 34 : 26, 8, 0, 0, 7); g.fill();
