@@ -251,7 +251,7 @@ const UI = {
       <p><b>Counting Houses:</b> passing or landing lets you deposit what you carry, buy one star and one item per visit.</p>
       <p><b>Raiding (from round 4):</b> when you pass or land on a rival’s Waygate you may raid. The rest of your roll is discarded; next turn you start walking their Hold from tile 16. Hoards give up to 5 coins, the Starvault a star. Leave by passing tile 16 again.</p>
       <p><b>The Ankar:</b> summoned on an Ankar’s Altar (which then becomes a Boon or Bane). It follows the nearest Wayfarer and takes 5 coins on contact.</p>
-      <p><b>The Moot:</b> after each round but the last, a minigame. 1st place wins 3 coins, 2nd 2 coins, 3rd 1 coin (ties share the better place); the winners play first next round. The player with the fewest stars picks between two games.</p>
+      <p><b>The Moot:</b> after each round but the last, a minigame. The halfway Moot is always a <b>Marathon</b> (several events back to back: The Elemental Games, Titan Trials, Turbo Stunt Rally or Tower of Trials), and the last Moot of every game is the <b>Grand Finale: Fourfold Clash</b>, a six-life brawl where A jumps and B is your clan power. 1st place wins 3 coins, 2nd 2 coins, 3rd 1 coin (ties share the better place); the winners play first next round. The player with the fewest stars picks between two games.</p>
       </div>`;
     } else {
       one = true;
@@ -306,7 +306,7 @@ const UI = {
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label>
       <label><input type="checkbox" id="mus" ${Settings.music ? 'checked' : ''}> Music</label></div>
-      <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (60 minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
+      <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (${MG.list.length} minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
     const readSeats = () => ELEMENTS.map((el, i) => ({ name: $('#sn' + i).value.trim() || el.name, human: $('#sh' + i).value === '1', pad: $('#sp' + i).value }));
@@ -330,7 +330,7 @@ const UI = {
   },
 
   showPractice(seats) {
-    $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the 60 minigames. Seats set to Human use their keys; the rest are bots.</p>
+    $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the ${MG.list.length} minigames — including the Grand Finale brawl and the four marathons. Seats set to Human use their keys; the rest are bots.</p>
       <div class="mglist">${MG.list.map((g, i) => `<button data-id="${g.id}" class="${g.finale ? 'finale' : g.long ? 'marathon' : ''}"><b>${i + 1}. ${esc(g.name)}${g.finale ? ' <span class="tag">FINALE</span>' : g.long ? ' <span class="tag">MARATHON</span>' : ''}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
       <div class="row btns"><button id="backBtn" data-back="1">← Back</button></div></div>`;
     $('#backBtn').onclick = () => this.showMenu();

@@ -48,7 +48,7 @@
       how: 'HOLD A for throttle, B for TURBO. In the air, LEFT/RIGHT spins the bike — flip it all the way round for a stunt and land with the wheels matching the slope! Clean landings and flips fill your turbo. Land badly, or drop into a pit, and you crash.',
       init(m, S, T) {
         T.tr = makeTrack(theme, len);
-        T.p = [0, 1, 2, 3].map(i => ({ x: 120 + i * 6, y: 0, v: 0, vx: 0, vy: 0, ang: 0, air: false, rot: 0, boost: 0.25, turbo: false, crash: 0, fin: 0, wheelie: 0, camY: 0, flips: 0, stunts: 0, bpad: 0, skill: R.range(0.6, 1), flipGo: false, trail: [] }));
+        T.p = [0, 1, 2, 3].map(i => ({ x: 120, y: 0, v: 0, vx: 0, vy: 0, ang: 0, air: false, rot: 0, boost: 0.25, turbo: false, crash: 0, fin: 0, wheelie: 0, camY: 0, flips: 0, stunts: 0, bpad: 0, skill: R.range(0.6, 1), flipGo: false, trail: [] }));
         T.parts = [];
       },
       idle(m, S, T, dt) { this.stepParts(T, dt); },
