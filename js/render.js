@@ -17,6 +17,7 @@ const Render = {
     this.canvas = canvas; this.g = canvas.getContext('2d');
     for (let i = 0; i < 180; i++) this.stars.push({ x: Math.random() * 1600, y: Math.random() * 900, r: Math.random() * 1.4 + 0.2, t: Math.random() * 6 });
     canvas.addEventListener('mousemove', e => { const m = this.mpos(e), p = this.toWorld(m.x, m.y); this.hover = this.hitTile(p.x, p.y); });
+    canvas.addEventListener('wheel', e => { if (!this.mapMode) return; const m = this.mpos(e); this.mapSel = (m.x >= 800 ? 1 : 0) + (m.y >= 490 ? 2 : 0); this.mapScroll(e.deltaY > 0 ? 50 : -50); e.preventDefault(); }, { passive: false });
     canvas.addEventListener('click', e => {
       const m0 = this.mpos(e), p = this.toWorld(m0.x, m0.y);
       if (this.mapMode) { UI.toggleMap(false); return; }
@@ -654,13 +655,14 @@ const Render = {
   },
 
   // ---------------------------------------------------------- map view (key M / gamepad Y)
+  mapScroll(d) { const k = this.mapSel || 0; this.mapOff = this.mapOff || [0, 0, 0, 0]; const mx = (this.mapMax || [0, 0, 0, 0])[k]; this.mapOff[k] = clamp(this.mapOff[k] + d, 0, mx); },
   drawMap(g, now) {
     const G = this.game;
     g.fillStyle = 'rgba(8,6,20,0.92)'; g.fillRect(0, 0, 1600, 900);
     g.textAlign = 'center'; g.font = 'bold 30px Georgia'; g.fillStyle = '#efe6ff';
     g.fillText('🗺️ Map of the Holds — traps and defenses', 800, 42);
     g.font = '15px Georgia'; g.fillStyle = '#a99bd8';
-    g.fillText('Press M, gamepad Y or B, or click to close. Hidden wards (Saving Grace) never appear here.', 800, 66);
+    g.fillText('Up/Down (or mouse wheel) scrolls a Hold\'s list · Left/Right picks a Hold · M, gamepad Y or B, or click closes. Hidden wards never appear here.', 800, 66);
     G.players.forEach((pl, idx) => {
       const ox = (idx % 2) * 800, oy = 80 + Math.floor(idx / 2) * 410;
       g.fillStyle = 'rgba(255,255,255,0.04)'; this.rr(g, ox + 14, oy + 6, 772, 396, 18); g.fill();
@@ -681,20 +683,25 @@ const Render = {
       }
       if (pl.def) { const p = tp(pl.def.pos); Char.draw(g, p.x, p.y - 6, 11, pl.id, pl.color, { hat: 'helmet', noArms: true, mood: 'determined' }); }
       for (const r of G.raidersIn(pl)) { const p = tp(r.trav.pos); Char.draw(g, p.x + 8, p.y - 10, 10, r.id, r.color, { noArms: true, mood: 'determined' }); }
-      // legend
+      // legend (scrollable)
       const lines = [];
       Object.keys(pl.traps).map(Number).sort((a, b) => a - b).forEach(k => { const it = ITEM[pl.traps[k].id]; lines.push([`Tile ${k}: ${it.icon} ${it.lore} (${it.name})`, it.desc]); });
       pl.piles.forEach(x => { const extra = []; if (x.prot) extra.push(`Hoardward ${x.prot} (${x.protUses} uses)`); if (x.mimic) extra.push('Mimic Chest'); lines.push([`Tile ${x.tile}: 🪙 Hoard showing ${x.real + x.fake} coins`, extra.join(', ') || 'A raider landing here takes up to 5 coins.']); });
       lines.push([`Tile 8: ⭐ Starvault — ${pl.vault} star${pl.vault === 1 ? '' : 's'}`, pl.vaultProt ? `🔏 Warding Seal active for ${pl.vaultProt} more turns.` : 'A raider landing here tries to steal a star.']);
       if (pl.hollow) lines.push(['⛰️ Famished Earth is active', 'Raiders lose coins and stars on Hoards and the Starvault.']);
       if (pl.ultHeld) lines.push([`${ITEM[pl.el.ult].icon} Holds the ${ITEM[pl.el.ult].lore} ultimate`, ITEM[pl.el.ult].desc]);
-      g.textAlign = 'left'; let y = oy + 40;
+      g.textAlign = 'left'; const sc = (this.mapOff = this.mapOff || [0, 0, 0, 0])[idx]; let y = oy + 40 - sc;
+      g.save(); g.beginPath(); g.rect(ox + 360, oy + 18, 420, 378); g.clip();
       for (const [h, d] of lines) {
-        if (y > oy + 380) break;
         g.font = 'bold 14px Georgia, "Segoe UI Emoji"'; g.fillStyle = '#fff'; g.fillText(h, ox + 370, y); y += 17;
         g.font = '12.5px Georgia'; g.fillStyle = '#b9b3d6';
         y = this.wrapText(g, d, ox + 382, y, 390, 15) + 6;
       }
+      g.restore();
+      // how far this legend can scroll; a scroll bar when it doesn't fit
+      const total = y + sc - (oy + 40), view = 340; (this.mapMax = this.mapMax || [0, 0, 0, 0])[idx] = Math.max(0, total - view);
+      if (total > view) { const bh = view * view / total, by = oy + 26 + (view - bh) * (sc / Math.max(1, total - view)); g.fillStyle = 'rgba(255,255,255,0.12)'; this.rr(g, ox + 772, oy + 26, 6, view, 3); g.fill(); g.fillStyle = pl.color; this.rr(g, ox + 772, by, 6, bh, 3); g.fill(); }
+      if ((this.mapSel || 0) === idx) { g.strokeStyle = '#ffe680'; g.lineWidth = 4; this.rr(g, ox + 10, oy + 2, 780, 404, 20); g.stroke(); if (total > view) { g.font = '12px Georgia'; g.fillStyle = '#ffe680'; g.textAlign = 'right'; g.fillText('▲▼ scroll', ox + 766, oy + 396); } }
       if (!Object.keys(pl.traps).length) { g.font = 'italic 13px Georgia'; g.fillStyle = '#888'; g.fillText('No traps set yet.', ox + 370, Math.min(y + 4, oy + 390)); }
       g.textAlign = 'center';
     });

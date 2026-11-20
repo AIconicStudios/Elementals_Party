@@ -175,7 +175,9 @@ const MG = {
           this.drawGame(g, game, m, S, dt, true);
           if (phaseT < 1.1) this.bigText(g, 'FINISH!', '#ffd34d', phaseT, 150);
           else this.drawResult(g, game, m, ranking, winners, phaseT - 1.1);
-          if (phaseT > 6.5 || (phaseT > 2.6 && m.players.some(p => p.human && m.pressed(p.i, 'a')))) {
+          // any player's A, or any gamepad's A / B / Start, moves on from the results
+          const anyPad = this.anyPadTap();
+          if (phaseT > 6.5 || (phaseT > 2.6 && (anyPad || m.players.some(p => p.human && m.pressed(p.i, 'a'))))) {
             finishWith({ winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores });
             return;
           }
@@ -186,6 +188,12 @@ const MG = {
     });
   },
 
+  // a fresh A / B / Start press on any connected gamepad
+  anyPadTap() {
+    const pads = Input.pads(), now = pads.map(p => !!((p.buttons[0] && p.buttons[0].pressed) || (p.buttons[1] && p.buttons[1].pressed) || (p.buttons[9] && p.buttons[9].pressed)));
+    const prev = this._anyPrev || []; this._anyPrev = now;
+    return now.some((v, k) => v && !prev[k]);
+  },
   // banner shown over the practice round
   drawPractice(g, m, left, skip, over) {
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
@@ -202,14 +210,18 @@ const MG = {
 
   // pause menu input from any keyboard player, any gamepad, or Esc
   pauseInput() {
-    const now = { esc: false, start: false, up: false, down: false, a: false };
+    const now = { esc: false, start: false, up: false, down: false, a: false, b: false };
     const escTap = !!this._escQueued; this._escQueued = false;
     const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && p.connected) : [];
-    for (const p of pads) if (p.buttons[9] && p.buttons[9].pressed) now.start = true;
+    for (const p of pads) {
+      const bt = n => p.buttons[n] && p.buttons[n].pressed, ay = p.axes[1] || 0;
+      if (bt(9)) now.start = true;
+      if (this.paused) { if (bt(12) || ay < -0.5) now.up = true; if (bt(13) || ay > 0.5) now.down = true; if (bt(0)) now.a = true; if (bt(1)) now.b = true; }
+    }
     for (let i = 0; i < 4; i++) { const st = Input.state(i); if (st.up) now.up = true; if (st.down) now.down = true; if (st.a) now.a = true; }
     const pv = this._pin || {}; this._pin = now;
     const e = k => now[k] && !pv[k];
-    return { toggle: escTap || e('start'), up: e('up'), down: e('down'), a: e('a') };
+    return { toggle: escTap || e('start') || (this.paused && e('b')), up: e('up'), down: e('down'), a: e('a') };
   },
   pauseUI(on) {
     const el = document.getElementById('mgPause'); if (!el) return;

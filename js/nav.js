@@ -28,6 +28,11 @@ const Nav = {
     const loop = () => { try { this.poll(); } catch (err) { console.error(err); } requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
   },
+  // the pad that drives menus: the first human seat's own gamepad if it is connected, otherwise the first pad
+  menuPad(n) {
+    const first = Input.humanSeats && Input.humanSeats.length ? Input.padOf[Input.humanSeats[0]] : null;
+    return first !== null && first !== undefined && first >= 0 && first < n ? first : 0;
+  },
   // true when no minigame is on screen
   boardContext() { return document.getElementById('mgLayer').classList.contains('hidden'); },
   container() {
@@ -40,7 +45,7 @@ const Nav = {
   },
   items() {
     const c = this.container(); if (!c) return [];
-    return [...c.querySelectorAll('button:not([disabled]), select')].filter(el => el.offsetParent !== null);
+    return [...c.querySelectorAll('button:not([disabled]), select:not([disabled]), input[type=checkbox]')].filter(el => el.offsetParent !== null);
   },
   poll() {
     if (!this.boardContext()) return;
@@ -57,8 +62,11 @@ const Nav = {
       const prev = this.prev[idx] || {};
       // menus, help and map belong to gamepad 1 (and the keyboard); a board decision belongs to its player's own pad;
       // the pause menu answers to any pad, and any pad's Start can pause
-      const mine = owner === 'any' || (owner === null ? idx === 0 : Input.seatForPad(idx) === owner);
-      const lead = idx === 0 || owner === 'any' || (owner !== null && Input.seatForPad(idx) === owner);
+      const menuPad = this.menuPad(pads.length);
+      const ownerPad = owner !== null && owner !== 'any' ? Input.padOf[owner] : null;
+      const ownerHasPad = ownerPad !== null && ownerPad !== undefined && ownerPad < pads.length;
+      const mine = owner === 'any' || (owner === null ? idx === menuPad : ownerHasPad ? Input.seatForPad(idx) === owner : idx === menuPad);
+      const lead = idx === menuPad || owner === 'any' || (owner !== null && Input.seatForPad(idx) === owner);
       for (const k of ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'v', 'start']) {
         if (k === 'start') { if (now.start && !prev.start) this.handle('start'); continue; }
         if (['x', 'y', 'v'].includes(k) ? !lead : !mine) continue;
@@ -86,13 +94,19 @@ const Nav = {
     }
     if (k === 'a' && Render.stopper) { Render.stopper.onStop(); return; }
     if (k === 'a' && Render.die && Render.die.onStop) { Render.die.onStop(); return; }
-    if (Render.mapMode) { if (k === 'a') UI.toggleMap(false); return; }
+    if (Render.mapMode) {
+      if (k === 'a') UI.toggleMap(false);
+      else if (k === 'up' || k === 'down') Render.mapScroll(k === 'up' ? -60 : 60);
+      else if (k === 'left' || k === 'right') { Render.mapSel = ((Render.mapSel || 0) + (k === 'left' ? 3 : 1)) % 4; Sfx.tone(520, 0.03, 'triangle', 0.03); }
+      return;
+    }
     const list = this.items(); if (!list.length) return;
     this.active = true;
     if (!this.sel || !list.includes(this.sel)) { this.sel = list[0]; if (k !== 'a') { this.paint(); return; } }
     if (k === 'a') {
       const el = this.sel;
-      if (el.tagName === 'SELECT') { el.selectedIndex = (el.selectedIndex + 1) % el.options.length; el.dispatchEvent(new Event('change')); }
+      if (el.tagName === 'INPUT') { el.checked = !el.checked; el.dispatchEvent(new Event('change')); Sfx.click(); }
+      else if (el.tagName === 'SELECT') { el.selectedIndex = (el.selectedIndex + 1) % el.options.length; el.dispatchEvent(new Event('change')); }
       else { Sfx.click(); el.click(); }
       this.sel = null;
       setTimeout(() => { if (this.active) { const l = this.items(); this.sel = l.find(x => x.classList.contains('on')) || l[0] || null; this.paint(); } }, 30);
