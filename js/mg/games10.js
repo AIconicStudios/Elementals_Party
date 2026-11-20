@@ -82,13 +82,14 @@
             if (P.wheelie < -0.3) P.v += 40 * dt;
             const nx = P.x + P.v * Math.cos(a) * dt, ny = G(tr, nx);
             const fall = ny - P.y, ball = P.v * Math.sin(a) * dt + 0.5 * GR * dt * dt;
-            if (fall > ball + 3) { const sp = K(tr, P.x) === 'ramp' ? this.launchSpeed(tr, P.x, P.y, a, P.v) : P.v; P.air = true; P.vx = sp * Math.cos(a); P.vy = sp * Math.sin(a); P.rot = 0; P.flipGo = false; P.x = nx; }
+            if (fall > ball + 3) { const sp = K(tr, P.x) === 'ramp' ? this.launchSpeed(tr, P.x, P.y, a, P.v) : P.v; P.air = true; P.steered = false; P.rescued = false; P.vx = sp * Math.cos(a); P.vy = sp * Math.sin(a); P.rot = 0; P.flipGo = false; P.x = nx; }
             else { P.x = nx; P.y = ny; }
             P.ang = a + P.wheelie;
             if (P.v > 300 && Math.random() < 0.35) this.puff(T, P.x - 30, P.y, 1, kind === 'water' ? '#bfe6ff' : 'rgba(230,210,170,0.8)', { lane: i, v: 50, back: P.v * 0.2, grav: -20 });
           } else {
             P.vy += GR * dt; P.x += P.vx * dt; P.y += P.vy * dt;
             // spin with LEFT/RIGHT; let go and the bike lines itself up with the ground it's about to land on
+            if (Math.abs(ax) > 0.2) P.steered = true;
             let da = ax * 4.6 * dt;
             if (Math.abs(ax) < 0.2) {
               const tgt = slope(tr, P.x + P.vx * 0.3); let rem = wrap(tgt - P.ang);
@@ -101,18 +102,18 @@
             if ((kind === 'lava' || kind === 'void') && P.y > gy - 640 && P.vy > 0) {
               // rescue updraft: bounced across the pit (costs some turbo) instead of a crash
               const a2 = -0.75, sp = this.launchSpeed(tr, P.x, P.y, a2, 600);
-              P.vx = sp * Math.cos(a2); P.vy = sp * Math.sin(a2); P.boost = Math.max(0, P.boost - 0.2); P.rot = 0;
+              P.vx = sp * Math.cos(a2); P.vy = sp * Math.sin(a2); P.boost = Math.max(0, P.boost - 0.25); P.rot = 0; P.rescued = true;
               say(T, i, kind === 'lava' ? 'HOT! RESCUE BOUNCE!' : 'UPDRAFT SAVE!', '#ff9a6b'); Sfx.tone(300, 0.25, 'sine', 0.07, 600);
               this.puff(T, P.x, P.y, 14, kind === 'lava' ? ['#ffb03a', '#ff5a1f'] : ['#ffffff', '#dff0ff'], { lane: i, v: 200, grav: 300 });
             }
             if (P.y >= gy) {
               const a = slope(tr, P.x), diff = Math.abs(wrap(P.ang - a));
               if (diff < 1.05) {
-                P.air = false; P.y = gy; P.v = Math.max(120, P.vx * Math.cos(a) + P.vy * Math.sin(a)); P.ang = a; P.wheelie = 0;
+                P.air = false; P.y = gy; P.v = Math.max(120, P.vx * Math.cos(a) + P.vy * Math.sin(a)); P.ang = a; P.wheelie = 0; if (P.rescued) { P.v = Math.min(P.v, 300); P.rescued = false; }
                 const flips = Math.floor(Math.abs(P.rot) / (Math.PI * 2) + 0.18);
                 let gain = 0;
                 if (flips > 0) { gain += 0.32 * flips; P.flips += flips; P.stunts += flips; say(T, i, `${flips > 1 ? flips + 'x ' : ''}${P.rot < 0 ? 'BACKFLIP' : 'FRONTFLIP'}!`, '#ffe680'); Sfx.star(); }
-                if (diff < 0.3) { gain += 0.12; if (!flips) say(T, i, 'PERFECT LANDING', '#7cf06a'); P.v += 120; }
+                if (diff < 0.3 && P.steered) { gain += 0.15; if (!flips) say(T, i, 'PERFECT LANDING', '#7cf06a'); P.v += 160; } // only when you lined it up yourself
                 P.boost = Math.min(1, P.boost + gain);
                 this.puff(T, P.x, P.y, 8, ['#e8dcc4', '#ffffff'], { lane: i, v: 160, grav: 400 });
                 Sfx.thud();
