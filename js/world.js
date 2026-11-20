@@ -18,6 +18,8 @@ const World = {
   // a sandy path band between points (drawn in layers for soft edges)
   path(g, draw, w) {
     g.lineCap = 'round'; g.lineJoin = 'round';
+    // a raised edge: the path's darker side shows just below it, so the band reads as a low slab
+    g.save(); g.translate(0, 9); g.strokeStyle = 'rgba(60,80,30,0.35)'; g.lineWidth = w + 22; draw(); g.stroke(); g.strokeStyle = '#a07a3a'; g.lineWidth = w + 8; draw(); g.stroke(); g.restore();
     for (const [lw, col] of [[w + 18, 'rgba(90,120,40,0.35)'], [w + 8, '#c9a35e'], [w, '#e9cf8c'], [w - 18, '#f1dca0']]) { g.strokeStyle = col; g.lineWidth = lw; draw(); g.stroke(); }
   },
   paint(G) {
@@ -153,6 +155,13 @@ const World = {
   gate(g, x, y, el, now, closed) {
     const col = ELEMENTS[el].color;
     g.save(); g.translate(x, y);
+    const sp3 = typeof Board3D !== 'undefined' && Board3D.gate(closed ? '#666670' : col);
+    if (sp3) {
+      Board3D.put(g, sp3, 0, 0);
+      g.font = '18px "Segoe UI Emoji"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(closed ? '🔒' : ELEMENTS[el].glyph, 0, -86); g.textBaseline = 'alphabetic';
+      if (!closed) for (let k = 0; k < 3; k++) { const a = now * 2 + k * 2.1; g.fillStyle = `rgba(255,255,255,${0.5 + 0.5 * Math.sin(now * 4 + k)})`; g.beginPath(); g.arc(Math.cos(a) * 34, -50 + Math.sin(a) * 26, 2.5, 0, 7); g.fill(); }
+      g.restore(); return;
+    }
     for (const s of [-1, 1]) { g.fillStyle = '#7a5230'; g.fillRect(s * 44 - 6, -84, 12, 84); g.fillStyle = '#9a6a40'; g.fillRect(s * 44 - 6, -84, 4, 84); g.fillStyle = '#4fa83a'; for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(s * 44 + (k % 2 ? 6 : -6), -20 - k * 18, 6, 4, 0.5, 0, 7); g.fill(); } }
     g.fillStyle = '#8a5a32'; g.beginPath(); g.moveTo(-58, -84); g.quadraticCurveTo(0, -122, 58, -84); g.lineTo(58, -72); g.quadraticCurveTo(0, -108, -58, -72); g.closePath(); g.fill();
     g.fillStyle = closed ? '#555' : col; g.beginPath(); g.arc(0, -98, 17, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();

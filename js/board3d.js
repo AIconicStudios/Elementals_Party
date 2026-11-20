@@ -162,6 +162,22 @@ const Board3D = {
     });
   },
 
+  // the wooden arch over a Waygate, with climbing leaves and an element medallion
+  gate(col) {
+    return this.sprite('gate|' + col, 76, 136, 18, grp => {
+      const wood = this.M('#7a5230', { roughness: 0.75, clearcoat: 0.1 }), leaf = this.M('#4fa83a', { roughness: 0.5, clearcoat: 0.4 });
+      for (const s of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 6.5, 86, 14), wood); post.position.set(s * 44, 43, 0); grp.add(post);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(7.5, 7.5, 5, 14), this.M('#9a6a40', { roughness: 0.6 })); cap.position.set(s * 44, 86, 0); grp.add(cap);
+        for (let k = 0; k < 6; k++) { const a = k * 1.9; const l = this.ball(5, leaf, s * 44 + Math.cos(a) * 6.5, 12 + k * 13, Math.sin(a) * 6.5 + 2, null, 1.3, 0.55, 0.9); l.rotation.z = s * 0.6; grp.add(l); }
+      }
+      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-60, 82, 0), new THREE.Vector3(0, 122, 0), new THREE.Vector3(60, 82, 0));
+      grp.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 6.5, 12, false), this.M('#8a5a32', { roughness: 0.7, clearcoat: 0.15 })));
+      for (let k = 0; k < 7; k++) { const p = curve.getPoint(0.08 + k * 0.14); grp.add(this.ball(4.5, leaf, p.x, p.y + 3, 5, null, 1.3, 0.6, 0.9)); }
+      const med = new THREE.Mesh(new THREE.CylinderGeometry(17, 17, 5, 40), this.M(col, { roughness: 0.25, clearcoat: 1 })); med.rotation.x = Math.PI / 2; med.position.set(0, 98, 6); grp.add(med);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(17, 2.4, 12, 40), this.M('#ffffff', { roughness: 0.3, clearcoat: 0.8 })); ring.position.set(0, 98, 8.5); grp.add(ring);
+    });
+  },
   // draw a decor item in 3D; returns false to fall back to the 2D drawing
   drawDecor(g, d, now) {
     const kinds = { bush: () => this.bush(d.v), tree: () => this.tree(d.v), sign: () => this.sign(d.v), rock: () => this.rock(d.v), flowers: () => this.flowers(d.v), windmill: () => this.windmill(), shell: () => this.shell(), volcano: () => this.volcano(), stones: () => this.stones() };
