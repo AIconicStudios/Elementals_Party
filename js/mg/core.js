@@ -117,7 +117,9 @@ const MG = {
         // pause toggle: Esc, any gamepad Start, or the on-screen button
         const pin = this.pauseInput();
         document.getElementById('mgSkipPr').classList.toggle('hidden', phase !== 'practice');
-        if (pin.toggle && phase !== 'result') { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); }
+        // on the intro card and in practice, Start / Select mean "I'm ready" (Esc or the ⏸ button still pause)
+        const startReady = (phase === 'card' || phase === 'practice') && !this.paused && pin.start && !pin.esc;
+        if (pin.toggle && phase !== 'result' && !startReady) { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); }
         if (this.paused) {
           const btns = this.pauseBtns(), n = btns.length;
           if (pin.up || pin.down) { this.pauseSel = ((this.pauseSel || 0) + (pin.up ? n - 1 : 1)) % n; this.pauseUI(true); }
@@ -129,7 +131,9 @@ const MG = {
         m.dt = dt; phaseT += dt;
         this.readInputs(phase === 'practice' ? pm : m);
         if (phase === 'card') {
-          m.players.forEach((p, i) => { if (p.human && !ready[i] && m.pressed(i, 'a')) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } });
+          const freeR = this.freePadTap([8, 9]);
+          m.players.forEach((p, i) => { if (p.human && !ready[i] && (m.pressed(i, 'a') || m.pressed(i, 'start') || m.pressed(i, 'select'))) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } });
+          if (freeR) { const i = m.players.findIndex((p, j) => p.human && !ready[j]); if (i >= 0) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } }
           this.drawCard(g, game, m, phaseT, ready, demo, dt);
           if (this.openT === undefined) this.openT = 0; this.openT += dt; if (this.openT < 0.7) this.iris(g, this.openT / 0.7);
           const humans = m.players.some(p => p.human);
@@ -142,6 +146,10 @@ const MG = {
           } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
         } else if (phase === 'practice') {
           // X / Y on a gamepad that isn't tied to a seat readies the first human still practising
+          // Start / Select on a seat's own gamepad (or on a gamepad no seat owns) ends practice for that player
+          const freeS = this.freePadTap([8, 9]);
+          if (phaseT > 0.6) m.players.forEach((p, i) => { if (p.human && !skip[i] && (pm.pressed(i, 'start') || pm.pressed(i, 'select'))) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } });
+          if (freeS && phaseT > 0.6) { const i = m.players.findIndex((p, j) => p.human && !skip[j]); if (i >= 0) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } }
           if (!game.noPadSkip) Input.pads().forEach((pd, k) => { const on = !!((pd.buttons[2] && pd.buttons[2].pressed) || (pd.buttons[3] && pd.buttons[3].pressed)); this._xyPrev = this._xyPrev || []; if (on && !this._xyPrev[k] && Input.seatForPad(k) === null) { const i = m.players.findIndex((p, j) => p.human && !skip[j]); if (i >= 0) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } } this._xyPrev[k] = on; });
           // (a game that needs X / Y itself ends practice only from the keyboard keys or Start ▸ End practice)
           m.players.forEach((p, i) => { const st = Input.state(i), k = p.human && (game.noPadSkip ? st.skip && !st.padSkip : st.skip); if (k && !skipPrev[i] && !skip[i]) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } skipPrev[i] = k; });
@@ -233,6 +241,12 @@ const MG = {
     g.save(); g.fillStyle = '#07040f'; g.beginPath(); g.rect(0, 0, 1280, 720); g.arc(640, 360, Math.max(0.1, r), 0, Math.PI * 2, true); g.fill('evenodd');
     g.strokeStyle = 'rgba(255,230,128,0.8)'; g.lineWidth = 6; g.beginPath(); g.arc(640, 360, Math.max(0.1, r), 0, 7); g.stroke(); g.restore();
   },
+  // a fresh press of one of these buttons on a gamepad that no seat owns
+  freePadTap(btns) {
+    const pads = Input.pads(), prev = this._freePrev || []; let hit = false;
+    this._freePrev = pads.map((pd, k) => { const on = btns.some(n => pd.buttons[n] && pd.buttons[n].pressed); if (on && !prev[k] && Input.seatForPad(k) === null) hit = true; return on; });
+    return hit;
+  },
   // a fresh A / B / Start press on any connected gamepad
   anyPadTap() {
     const pads = Input.pads(), now = pads.map(p => !!((p.buttons[0] && p.buttons[0].pressed) || (p.buttons[1] && p.buttons[1].pressed) || (p.buttons[9] && p.buttons[9].pressed)));
@@ -248,7 +262,7 @@ const MG = {
     MGH.text(g, 'PRACTICE ROUND — no timer', 640, 652, 24, '#ffe680', 'center', 'bold');
     MGH.text(g, "Just for fun — this doesn't count", 640, 676, 15, '#d8d0f0');
     const hum = m.players.filter(p => p.human);
-    MGH.text(g, m.game && m.game.noPadSkip ? 'Ready for the real thing? Gamepad: Start ▸ End practice  ·  keys X, V, M, Backspace (P1–P4)' : 'Ready for the real thing? Gamepad X / Y (or Start ▸ End practice)  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
+    MGH.text(g, 'Ready for the real thing? Press  START  or  SELECT  on your gamepad  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
     hum.forEach((p, k) => { const x = 640 + (k - (hum.length - 1) / 2) * 120; g.fillStyle = p.color; g.globalAlpha = skip[p.i] ? 1 : 0.35; MGH.rr(g, x - 54, 600, 108, 24, 12); g.fill(); g.globalAlpha = 1; MGH.text(g, skip[p.i] ? `P${p.i + 1} ✔ ready` : `P${p.i + 1} practising`, x, 617, 13, '#fff', 'center', 'bold'); });
     g.restore();
   },
@@ -266,7 +280,7 @@ const MG = {
     for (let i = 0; i < 4; i++) { const st = Input.state(i); if (st.up) now.up = true; if (st.down) now.down = true; if (st.a) now.a = true; }
     const pv = this._pin || {}; this._pin = now;
     const e = k => now[k] && !pv[k];
-    return { toggle: escTap || e('start') || (this.paused && e('b')), up: e('up'), down: e('down'), a: e('a') };
+    return { toggle: escTap || e('start') || (this.paused && e('b')), up: e('up'), down: e('down'), a: e('a'), start: e('start'), esc: escTap };
   },
   pauseBtns() { return [...document.querySelectorAll('#mgPause button')].filter(b => !b.classList.contains('hidden')); },
   pauseUI(on) {
@@ -388,7 +402,7 @@ const MG = {
       MGH.text(g, p.name, x + 20, y0 + 32, 21, p.color, 'center', 'bold');
       if (p.human) {
         if (ready[i]) MGH.text(g, '✔ READY', x + 20, y0 + 66, 24, '#7f7', 'center', 'bold');
-        else { const k = 0.85 + 0.15 * Math.sin(t * 6 + i); this.btnA(g, x - 10, y0 + 60, 15 * k); MGH.text(g, 'ready?', x + 40, y0 + 66, 18, '#fff', 'center', 'bold'); }
+        else { const k = 0.85 + 0.15 * Math.sin(t * 6 + i); this.btnA(g, x - 10, y0 + 60, 15 * k); MGH.text(g, 'or START', x + 52, y0 + 66, 16, '#fff', 'center', 'bold'); }
         MGH.text(g, MGH.keyHint(game, i), x + 20, y0 + 100, 12, '#aaa', 'center');
       } else MGH.text(g, '🤖 ready', x + 20, y0 + 70, 18, '#aaa', 'center', 'bold');
     });

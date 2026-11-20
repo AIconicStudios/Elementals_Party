@@ -71,6 +71,7 @@ const Input = {
       if (b(1)) s.b = true;   // B = alt / peek
       if (b(2) || b(3)) { s.padSkip = true; s.skip = true; } // X / Y = skip practice
       if (b(2)) s.x = true; if (b(3)) s.y = true;     // X and Y on their own (The Traitors' vote)
+      if (b(9)) s.start = true; if (b(8)) s.select = true; // Start / Select (begin and end practice rounds)
       if (Math.abs(ax) > 0.2) s.ax = ax;
       if (Math.abs(ay) > 0.2) s.ay = ay;
     }

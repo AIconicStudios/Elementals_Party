@@ -12,7 +12,7 @@
 (() => {
   const CAUL = { x: 640, y: 372 };
   const WELLS = [{ x: 170, y: 175 }, { x: 1110, y: 175 }, { x: 170, y: 585 }, { x: 1110, y: 585 }];
-  const MISSION = 50, FILL = 0.7, QUOTA = 9, HINT_T = 0.15;
+  const MISSION = 50, FILL = 0.7, QUOTA = 9, HINT_T = 0.25;
   // round table seats, laid out like a gamepad's face buttons (and the arrow keys)
   const SEATS = [{ x: 640, y: 290, btn: 'y', key: 'up', lab: 'Y', arrow: '▲', col: '#ffd34d' }, { x: 900, y: 440, btn: 'b', key: 'right', lab: 'B', arrow: '▶', col: '#ff5a5a' },
     { x: 640, y: 590, btn: 'a', key: 'down', lab: 'A', arrow: '▼', col: '#5fd85f' }, { x: 380, y: 440, btn: 'x', key: 'left', lab: 'X', arrow: '◀', col: '#4f9dff' }];
@@ -30,6 +30,7 @@
       S.traitor = R.int(0, 3);
       S.P = [0, 1, 2, 3].map(i => Object.assign(MGH.body(CAUL.x + [-90, 90, -90, 90][i], CAUL.y + [-90, -90, 110, 110][i], 22), { carry: 0, fill: 0, pours: 0, waved: false, waveT: 0, nope: 0, botWave: R.range(0.8, 3.2), idle: 0, spd: R.range(0.86, 1), goal: null, voted: false }));
       S.phase = 'wave'; S.t = 0; S.mT = 0; S.pot = 0; S.sparks = []; S.vote = {}; S.order = []; S.shown = 0;
+      S.day = Math.random() < 0.5; // a day mission or a night mission
       S.hint = { kind: R.pick(HINTS), at: R.range(9, MISSION - 9), on: -1, seen: [false, false, false, false] };
     },
     // ---------------------------------------------------------------- update
@@ -44,6 +45,11 @@
       if (ph === 'outcome') { if (S.t > 4.2) { S.phase = 'vote'; S.t = 0; } return; }
       if (ph === 'vote') return this.updVote(m, S, dt);
       if (ph === 'reveal') return this.updReveal(m, S, dt);
+      if (ph === 'coin') {
+        const k = Math.round(this.coinAng(S) / Math.PI); if (k !== S.coinK) { S.coinK = k; Sfx.tone(1200 + (k % 2) * 200, 0.03, 'triangle', 0.03); }
+        if (S.t > 4.6) { S.phase = 'banish'; S.t = 0; Sfx.drum(0); Sfx.drum(3); }
+        return;
+      }
       if (ph === 'banish') {
         if (S.t > 2.4 && !S.unmasked) { S.unmasked = true; if (S.banished === S.traitor) { Sfx.crowd('happy'); Sfx.star(); } else { Sfx.tone(220, 0.6, 'sine', 0.07, -80); Sfx.crowd('ooh'); } }
         if (S.t > 5.6) { S.phase = 'end'; S.t = 0; S.winner = S.banished === S.traitor ? 'faithful' : 'traitor'; if (S.winner === 'traitor') Sfx.thunder(); }
@@ -88,6 +94,8 @@
       }
       if (S.mT >= MISSION) { S.phase = 'outcome'; S.t = 0; Sfx.tone(660, 0.3, 'triangle', 0.06); }
     },
+    // the coin spins fast and slows down, landing face-up on the one who is ousted
+    coinAng(S) { const T = 3.4, q = Math.min(1, S.t / T); return S.coin.half * Math.PI * (1 - Math.pow(1 - q, 3)); },
     hintOn(S) { return S.phase === 'mission' && S.hint.on >= 0 && S.mT - S.hint.on < HINT_T; },
     // ---------------------------------------------------------------- the vote
     updVote(m, S, dt) {
@@ -116,7 +124,8 @@
         const tally = [0, 0, 0, 0]; for (const v of Object.values(S.vote)) tally[v]++;
         const max = Math.max(...tally), top = [0, 1, 2, 3].filter(j => tally[j] === max);
         S.tie = top.length > 1; S.tally = tally; S.banished = R.pick(top); S.unmasked = false;
-        S.phase = 'banish'; S.t = 0; Sfx.drum(0); Sfx.drum(3);
+        if (S.tie) { const n = top.length, idx = top.indexOf(S.banished); S.coin = { c: top, half: 14 + ((idx - 14 % n) + n) % n }; S.phase = 'coin'; S.t = 0; Sfx.tone(900, 0.1, 'triangle', 0.05); }
+        else { S.phase = 'banish'; S.t = 0; Sfx.drum(0); Sfx.drum(3); }
       }
     },
     // ---------------------------------------------------------------- bots: fill, pour, repeat (each at their own pace)
@@ -152,7 +161,7 @@
       if (ph === 'wave') return this.drawWave(m, S, g);
       if (ph === 'brief' || ph === 'mission' || ph === 'outcome') this.drawCourt(m, S, g); else this.drawHall(m, S, g);
       for (const s of S.sparks) { g.globalAlpha = 1 - s.t / s.life; g.fillStyle = s.c; g.beginPath(); g.arc(s.x, s.y, 4, 0, 7); g.fill(); } g.globalAlpha = 1;
-      if (ph === 'brief') this.banner(g, '🌙 THE MISSION', `Everyone must pour ${QUOTA} vials of moon-water into the cauldron in ${MISSION} s — only those who finish can share the prize. And somewhere among you… a Traitor.`, S.t);
+      if (ph === 'brief') this.banner(g, S.day ? '☀️ THE DAY MISSION' : '🌙 THE NIGHT MISSION', `Everyone must pour ${QUOTA} vials of ${S.day ? 'sun-warmed spring water' : 'moon-water'} into the cauldron in ${MISSION} s — only those who finish can share the prize. And somewhere among you… a Traitor.`, S.t);
       if (ph === 'outcome') this.drawOutcome(m, S, g);
     },
     banner(g, title, sub, t, col = '#ffe680') {
@@ -185,14 +194,25 @@
     },
     // the moonlit castle courtyard
     drawCourt(m, S, g) {
-      const t = m.t;
-      g.fillStyle = MGH.grad(g, 40, 720, ['#141a3a', '#1c2448', '#10142a']); g.fillRect(0, 40, 1280, 680);
-      for (let y = 60; y < 700; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(90,100,150,0.18)' : 'rgba(110,120,170,0.24)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); }
-      MGH.glow(g, 640, 380, 520, 'rgba(160,190,255,0.16)');
-      for (let k = 0; k < 6; k++) { const x = ((k * 260 + t * 14) % 1600) - 160, y = 120 + k * 95; g.fillStyle = 'rgba(200,210,255,0.06)'; g.beginPath(); g.ellipse(x, y, 220, 40, 0, 0, 7); g.fill(); }
-      g.fillStyle = MGH.grad(g, 40, 70, ['#2a2e4a', '#1a1e34']); g.fillRect(0, 40, 1280, 28);
-      for (let x = 0; x < 1280; x += 64) { g.fillStyle = '#2a2e4a'; g.fillRect(x, 32, 40, 14); }
-      for (const tx of [90, 450, 830, 1190]) { MGH.glow(g, tx, 60, 70, 'rgba(255,170,70,0.45)'); MGH.fireball(g, tx, 56, 9, t + tx, 0, -1); }
+      const t = m.t, day = S.day;
+      if (day) {
+        // the day mission: warm sandstone in bright sunshine, drifting pollen and sunbeams
+        g.fillStyle = MGH.grad(g, 40, 720, ['#d8c8a8', '#cbb894', '#b8a07a']); g.fillRect(0, 40, 1280, 680);
+        for (let y = 60; y < 700; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(255,250,235,0.28)' : 'rgba(140,110,70,0.16)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); }
+        g.save(); g.globalAlpha = 0.16; g.fillStyle = '#fff8d8'; for (let k = 0; k < 5; k++) { const bx = 120 + k * 300 + Math.sin(t * 0.2 + k) * 20; g.beginPath(); g.moveTo(bx, 40); g.lineTo(bx + 90, 40); g.lineTo(bx - 120, 720); g.lineTo(bx - 260, 720); g.fill(); } g.restore();
+        for (let k = 0; k < 24; k++) { const x = (k * 157 + t * 18) % 1280, y = 80 + (k * 97 + Math.sin(t + k) * 20) % 600; g.fillStyle = 'rgba(255,250,210,0.7)'; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill(); }
+        g.fillStyle = MGH.grad(g, 40, 70, ['#a88a62', '#8a6e4a']); g.fillRect(0, 40, 1280, 28);
+        for (let x = 0; x < 1280; x += 64) { g.fillStyle = '#a88a62'; g.fillRect(x, 32, 40, 14); }
+        for (const tx of [90, 450, 830, 1190]) { g.fillStyle = '#5a4a3a'; g.fillRect(tx - 4, 48, 8, 18); g.fillStyle = '#3a6a3a'; g.beginPath(); g.arc(tx, 46, 12, 0, 7); g.fill(); } // potted plants
+      } else {
+        g.fillStyle = MGH.grad(g, 40, 720, ['#141a3a', '#1c2448', '#10142a']); g.fillRect(0, 40, 1280, 680);
+        for (let y = 60; y < 700; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(90,100,150,0.18)' : 'rgba(110,120,170,0.24)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); }
+        MGH.glow(g, 640, 380, 520, 'rgba(160,190,255,0.16)');
+        for (let k = 0; k < 6; k++) { const x = ((k * 260 + t * 14) % 1600) - 160, y = 120 + k * 95; g.fillStyle = 'rgba(200,210,255,0.06)'; g.beginPath(); g.ellipse(x, y, 220, 40, 0, 0, 7); g.fill(); }
+        g.fillStyle = MGH.grad(g, 40, 70, ['#2a2e4a', '#1a1e34']); g.fillRect(0, 40, 1280, 28);
+        for (let x = 0; x < 1280; x += 64) { g.fillStyle = '#2a2e4a'; g.fillRect(x, 32, 40, 14); }
+        for (const tx of [90, 450, 830, 1190]) { MGH.glow(g, tx, 60, 70, 'rgba(255,170,70,0.45)'); MGH.fireball(g, tx, 56, 9, t + tx, 0, -1); }
+      }
       const hint = this.hintOn(S) ? S.hint.kind : null, T = S.P[S.traitor];
       WELLS.forEach((w, k) => {
         MGH.glow(g, w.x, w.y, 90, 'rgba(120,200,255,0.3)');
@@ -201,10 +221,10 @@
         const dark = hint === 'well' && Math.hypot(w.x - T.x, w.y - T.y) < 70;
         g.fillStyle = dark ? 'rgba(130,120,215,0.85)' : `rgba(120,210,255,${0.75 + 0.15 * Math.sin(t * 3 + k)})`; g.beginPath(); g.ellipse(w.x, w.y, 42, 17, 0, 0, 7); g.fill();
         g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.ellipse(w.x - 12, w.y - 4, 10 + 3 * Math.sin(t * 2 + k), 3, 0, 0, 7); g.fill();
-        MGH.text(g, '🌙', w.x, w.y - 36, 18, '#fff');
+        MGH.text(g, day ? '☀️' : '🌙', w.x, w.y - 36, 18, '#fff');
       });
       // the cauldron
-      MGH.glow(g, CAUL.x, CAUL.y - 30, 170, 'rgba(120,180,255,0.35)');
+      MGH.glow(g, CAUL.x, CAUL.y - 30, 170, day ? 'rgba(255,230,150,0.45)' : 'rgba(120,180,255,0.35)');
       g.fillStyle = '#2a2a34'; g.beginPath(); g.ellipse(CAUL.x, CAUL.y + 34, 92, 30, 0, 0, 7); g.fill();
       g.fillStyle = MGH.grad(g, CAUL.y - 50, CAUL.y + 50, ['#3a3a48', '#16161e']); g.beginPath(); g.moveTo(CAUL.x - 86, CAUL.y - 40); g.quadraticCurveTo(CAUL.x - 100, CAUL.y + 50, CAUL.x, CAUL.y + 56); g.quadraticCurveTo(CAUL.x + 100, CAUL.y + 50, CAUL.x + 86, CAUL.y - 40); g.closePath(); g.fill();
       g.fillStyle = '#7fd0ff'; g.beginPath(); g.ellipse(CAUL.x, CAUL.y - 40, 82, 22, 0, 0, 7); g.fill();
@@ -226,17 +246,18 @@
       MGH.av(g, m, i, P.x, P.y, 24, h === 'smirk' ? 'smug' : done ? 'happy' : P.carry ? 'determined' : 'happy', { look: h === 'glance' ? { x: 0, y: 0 } : P.face });
       if (h === 'tint') { g.fillStyle = MAUVE(0.24); g.beginPath(); g.ellipse(P.x, P.y - 14, 26, 38, 0, 0, 7); g.fill(); }
       const ex = P.x + (P.face.x >= 0 ? 8 : -8), ey = P.y - 34;
-      if (h === 'eye') { g.fillStyle = MAUVE(0.85); g.beginPath(); g.arc(ex, ey, 2.4, 0, 7); g.fill(); }
-      if (h === 'slit') { g.fillStyle = 'rgba(90,50,140,0.75)'; g.fillRect(ex - 0.8, ey - 3, 1.6, 6); }
+      if (h === 'eye') { g.fillStyle = MAUVE(0.9); g.beginPath(); g.arc(ex, ey, 3.6, 0, 7); g.fill(); }
+      if (h === 'slit') { g.fillStyle = 'rgba(110,50,150,0.85)'; g.fillRect(ex - 1.3, ey - 4.5, 2.6, 9); }
       if (h === 'horns') { g.fillStyle = 'rgba(110,60,150,0.75)'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(P.x + s * 12, P.y - 74); g.lineTo(P.x + s * 19, P.y - 90); g.lineTo(P.x + s * 22, P.y - 72); g.fill(); } }
       if (h === 'feather') { g.save(); g.translate(P.x + 30, P.y - 20); g.rotate(0.6); g.fillStyle = 'rgba(80,50,110,0.85)'; g.beginPath(); g.ellipse(0, 0, 3.5, 11, 0, 0, 7); g.fill(); g.restore(); }
       if (h === 'crow') { g.strokeStyle = 'rgba(70,40,100,0.8)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(P.x - 10, P.y - 92); g.quadraticCurveTo(P.x - 5, P.y - 98, P.x, P.y - 92); g.quadraticCurveTo(P.x + 5, P.y - 98, P.x + 10, P.y - 92); g.stroke(); }
       if (h === 'dagger') { g.save(); g.translate(P.x - 24, P.y - 4); g.rotate(-0.5); g.fillStyle = MAUVE(0.8); g.fillRect(-1.5, -10, 3, 12); g.fillRect(-4, 1, 8, 2); g.restore(); }
-      if (h === 'glint') { g.fillStyle = MAUVE(0.9); MGH.spark(g, P.x - 14, P.y + 6, 4, MAUVE(0.9)); }
+      if (h === 'glint') { MGH.spark(g, P.x - 14, P.y + 6, 7, MAUVE(0.95)); }
       if (P.carry) this.vial(g, P.x + 26, P.y - 46, h === 'vial', h === 'drop');
       else if (P.fill > 0) { g.strokeStyle = '#9fe8ff'; g.lineWidth = 4; g.beginPath(); g.arc(P.x, P.y - 74, 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * P.fill / FILL); g.stroke(); }
       // name and personal quota
-      MGH.text(g, m.players[i].name, P.x, P.y + 44, 13, h === 'name' ? '#a98ae0' : col, 'center', 'bold');
+      if (S.day) { g.fillStyle = 'rgba(30,20,40,0.55)'; MGH.rr(g, P.x - 32, P.y + 31, 64, 17, 8); g.fill(); }
+      MGH.text(g, m.players[i].name, P.x, P.y + 44, h === 'name' ? 14 : 13, h === 'name' ? '#b48cf0' : col, 'center', 'bold');
       const q = Math.min(1, P.pours / QUOTA);
       g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, P.x - 26, P.y + 50, 52, 8, 4); g.fill(); g.fillStyle = done ? '#7cf06a' : '#9fe8ff'; MGH.rr(g, P.x - 26, P.y + 50, 52 * q, 8, 4); g.fill();
       if (done) MGH.text(g, '✔', P.x + 34, P.y + 58, 13, '#7cf06a', 'center', 'bold');
@@ -252,7 +273,7 @@
       MGH.glow(g, x, y, 22, tell ? 'rgba(170,130,235,0.4)' : 'rgba(140,220,255,0.6)');
       g.fillStyle = tell ? '#9a8ae6' : '#7fd0ff'; g.beginPath(); g.arc(x, y + 4, 8, 0, 7); g.fill();
       g.fillStyle = tell ? 'rgba(225,215,255,0.75)' : 'rgba(255,255,255,0.7)'; g.fillRect(x - 3, y - 12, 6, 10); g.fillStyle = '#8a5a3a'; g.fillRect(x - 4, y - 15, 8, 4);
-      if (drop) { g.fillStyle = MAUVE(0.85); g.beginPath(); g.arc(x, y + 17, 2.6, 0, 7); g.fill(); }
+      if (drop) { g.fillStyle = MAUVE(0.9); g.beginPath(); g.arc(x, y + 18, 3.6, 0, 7); g.fill(); }
     },
     drawOutcome(m, S, g) {
       const k = Math.min(1, S.t / 0.4);
@@ -277,7 +298,7 @@
       g.fillStyle = MGH.grad(g, 350, 540, ['#8a5a32', '#5a3418']); g.beginPath(); g.ellipse(640, 440, 230, 96, 0, 0, 7); g.fill();
       g.strokeStyle = '#c89a5a'; g.lineWidth = 4; g.beginPath(); g.ellipse(640, 440, 206, 82, 0, 0, 7); g.stroke();
       for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + 0.3, cx = 640 + Math.cos(a) * 100, cy = 440 + Math.sin(a) * 36; g.fillStyle = '#f0e6d0'; g.fillRect(cx - 4, cy - 24, 8, 24); MGH.glow(g, cx, cy - 30, 24, 'rgba(255,190,90,0.6)'); g.fillStyle = '#ffcf5a'; g.beginPath(); g.ellipse(cx, cy - 30 + Math.sin(t * 9 + k), 4, 8, 0, 0, 7); g.fill(); }
-      if (ph !== 'end') S.P.forEach((P, i) => {
+      if (ph !== 'end' && ph !== 'coin') S.P.forEach((P, i) => {
         if (ph === 'banish' && S.banished === i) return;
         const s = SEATS[i];
         this.cloak(g, s.x, s.y - 4, 1.1, m.players[i].color, t + i);
@@ -288,6 +309,7 @@
       if (ph === 'vote') this.drawVote(m, S, g);
       if (ph === 'reveal') this.drawReveal(m, S, g);
       if (ph === 'banish') this.drawBanish(m, S, g);
+      if (ph === 'coin') this.drawCoin(m, S, g);
       if (ph === 'end') this.drawEnd(m, S, g);
     },
     // a gamepad face button with the matching arrow key
@@ -317,11 +339,26 @@
       });
       S.P.forEach((P, j) => { if (!tally[j]) return; const s = SEATS[j]; MGH.label(g, '✖'.repeat(tally[j]), s.x, s.y + 76, 22, '#ff8a8a'); });
     },
+    drawCoin(m, S, g) {
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 40, 1280, 680);
+      const c = S.coin, n = c.c.length, a = this.coinAng(S), face = c.c[Math.round(a / Math.PI) % n], sx = Math.max(0.06, Math.abs(Math.cos(a))), done = S.t > 3.4;
+      MGH.label(g, `${n === 2 ? 'A two–two' : 'A'} tie! The coin decides who is ousted…`, 640, 110, 30, '#ffe680');
+      const bob = done ? 0 : -Math.sin(Math.min(1, S.t / 3.4) * Math.PI) * 120;
+      g.save(); g.translate(640, 400 + bob);
+      MGH.glow(g, 0, 0, 200, done ? 'rgba(255,220,120,0.6)' : 'rgba(255,220,120,0.3)');
+      g.scale(sx, 1);
+      g.fillStyle = '#a8781a'; g.beginPath(); g.arc(0, 8, 120, 0, 7); g.fill();
+      g.fillStyle = MGH.grad(g, -120, 120, ['#ffe9a0', '#f0c040', '#c8901a']); g.beginPath(); g.arc(0, 0, 120, 0, 7); g.fill();
+      g.strokeStyle = '#a8781a'; g.lineWidth = 6; g.beginPath(); g.arc(0, 0, 104, 0, 7); g.stroke();
+      g.restore();
+      if (sx > 0.25) { g.save(); g.translate(640, 400 + bob); g.scale(sx, 1); const pp = m.players[face]; Char.draw(g, 0, 22, 62, pp.el.id, pp.color, { headOnly: true, noArms: true, noFeet: true, noShadow: true, mood: done ? 'sad' : 'nervous', seed: face }); g.restore(); }
+      c.c.forEach((j, k) => { const x = 640 + (k - (n - 1) / 2) * 180; MGH.text(g, m.players[j].name, x, 610, 24, m.players[j].color, 'center', 'bold'); if (done && j === S.banished) MGH.text(g, '⬆ ousted', x, 644, 20, '#ff9a9a', 'center', 'bold'); });
+    },
     drawBanish(m, S, g) {
       const i = S.banished, tr = i === S.traitor, k = S.t;
       g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(0, 40, 1280, 680);
       const sp = g.createRadialGradient(640, 420, 20, 640, 420, 260); sp.addColorStop(0, 'rgba(255,240,200,0.45)'); sp.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = sp; g.fillRect(0, 40, 1280, 680);
-      MGH.label(g, `${S.tie ? 'A tie — the Ankar decides! ' : ''}${m.players[i].name} is banished.`, 640, 110, 30, '#fff');
+      MGH.label(g, `${S.tie ? 'The coin has spoken — ' : ''}${m.players[i].name} is banished.`, 640, 110, 30, '#fff');
       this.cloak(g, 640, 420, 1.6, m.players[i].color, m.t);
       MGH.av(g, m, i, 640, 430, 46, S.unmasked ? (tr ? 'evil' : 'sad') : 'nervous');
       if (!S.unmasked) MGH.text(g, '"I am…"' + '.'.repeat(Math.floor(k * 2) % 4), 640, 600, 34, '#e0d0f0', 'center', 'bold');
