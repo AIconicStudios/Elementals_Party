@@ -48,6 +48,7 @@ Seats set to *Bot* are played by the AI. Pause any minigame with Esc, gamepad St
 
 ## Music and views
 
+- **Time of day:** the board's light moves from morning through midday and golden hour to nightfall over a game, and shadows swing with the sun. Each phase has one small rule: 🌅 Morning, blue spaces pay +1; ☀️ Midday, no rule; 🌇 Golden Hour, red spaces take 1 less; 🌙 Nightfall, blue +1 and red +1.
 - **Music:** original background tunes are generated live: a bouncy theme for the board and menu, and a faster one for minigames. Rhythm minigames (Moot Drums, Fourfold Tug) fade the music out so you can hear the beat. Toggle it with 🎵 Music on the board or the Music box on the menu.
 - **Close-up view:** press **V**, gamepad **LB** or **LT**, or the 🔍 button to switch between the whole board and a zoomed camera that follows the current player. In close-up, players who react pop in as portraits along the left edge, and a bar across the top shows everyone's stars and coins.
 

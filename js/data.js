@@ -156,3 +156,11 @@ function itemLabel(id) {
   const it = ITEM[id];
   return it.lore !== it.name ? `${it.lore} (${it.name})` : it.name;
 }
+
+// time of day over a game (see Game.tod): each phase has one small rule on the blue and red spaces
+const TOD = {
+  morning: { icon: '🌅', name: 'Morning', rule: 'Early bird — blue spaces pay +1 coin.' },
+  day: { icon: '☀️', name: 'Midday', rule: 'A calm, sunny day — no special rule.' },
+  golden: { icon: '🌇', name: 'Golden Hour', rule: 'Warm and mellow — red spaces take 1 coin less.' },
+  dusk: { icon: '🌙', name: 'Nightfall', rule: 'A wild night — blue spaces pay +1, but red spaces take +1.' },
+};

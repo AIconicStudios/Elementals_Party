@@ -242,6 +242,12 @@ class Game {
   }
 
   // ------------------------------------------------------------ main loop
+  // ---- time of day: the sky moves through four phases over a game, each with one small rule
+  tod() { if (!this.round) return 'morning'; const p = this.round / this.rounds; return p <= 0.25 ? 'morning' : p < 0.45 ? 'day' : p < 0.8 ? 'golden' : 'dusk'; }
+  todInfo(ph = this.tod()) { return TOD[ph]; }
+  todBlue() { return { morning: 1, dusk: 1 }[this.tod()] || 0; }
+  todRed() { return { golden: -1, dusk: 1 }[this.tod()] || 0; }
+  todNote(n, base) { return n !== base ? ` (${this.todInfo().icon} ${this.todInfo().name})` : ''; }
   async run() {
     try {
       UI.refresh();
@@ -252,6 +258,7 @@ class Game {
         if (r === 1) await this.firstOrder();
         await UI.banner(r === this.rounds ? `Final Round ${r}` : `Round ${r} / ${this.rounds}`,
           r === this.rounds ? '🔔 The final bell rings. This is everyone’s last turn!' : (r < this.raidRound ? `The Waygates are sealed — no raiding until round ${this.raidRound}.` : (r === this.raidRound && this.simple ? 'Raiding is open! Pass a rival’s Gate to sneak in.' : (!this.simple && r === Math.floor(this.rounds / 2) + 1 ? 'Second half: Rare and Legendary wares appear!' : ''))));
+        const ph = this.tod(); if (ph !== this.lastTod) { this.lastTod = ph; const T = TOD[ph]; this.log(`${T.icon} <b>${T.name}</b> — ${T.rule}`); UI.refresh(); await UI.banner(`${T.icon} ${T.name}`, T.rule); }
         for (const pid of this.order.slice()) {
           await this.takeTurn(this.P(pid));
         }
@@ -612,10 +619,10 @@ class Game {
   async resolveSpace(p, sp) {
     const t = p.trav;
     switch (sp) {
-      case 'blue': await Stage.space(p, t.pos, 'blue', 5); p.cash += 5; this.fx(p, '+5', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on a Boon: +5 coins.`); break;
+      case 'blue': { const n = 5 + this.todBlue(); await Stage.space(p, t.pos, 'blue', n); p.cash += n; this.fx(p, '+' + n, '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on a Boon: +${n} coins${this.todNote(n, 5)}.`); break; }
       case 'red':
         if (t.chain > 0) { this.log(`${this.name(p)}'s Chain Wallet shrugs off the Bane.`); break; }
-        { const l = Math.min(3, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on a Bane: −${l} coins.`); }
+        { const b = 3 + this.todRed(), l = Math.min(b, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on a Bane: −${l} coins${this.todNote(b, 3)}.`); }
         break;
       case 'summon': {
         this.ankar = t.pos;

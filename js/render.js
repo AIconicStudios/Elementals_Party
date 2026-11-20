@@ -312,8 +312,7 @@ const Render = {
   // and glowing lanterns for the final rounds (it eases smoothly from one to the next)
   timeOfDay(g, G, now) {
     if (Settings.fx === false) return;
-    const p = clamp((G.round || 0) / Math.max(1, G.rounds || 20), 0, 1);
-    const gold = clamp((p - 0.45) / 0.25, 0, 1) * (1 - clamp((p - 0.8) / 0.12, 0, 1)), duskT = clamp((p - 0.78) / 0.15, 0, 1), morn = 1 - clamp(p / 0.25, 0, 1);
+    const ph = G.tod ? G.tod() : 'day', gold = ph === 'golden' ? 1 : 0, duskT = ph === 'dusk' ? 1 : 0, morn = ph === 'morning' ? 1 : 0;
     const e = this.todSnap ? 1 : 0.02; this.gold = lerp(this.gold || 0, gold, e); this.dusk = lerp(this.dusk || 0, duskT, e); this.morn = lerp(this.morn === undefined ? morn : this.morn, morn, e);
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
     const sx = g.canvas.width / 1600, sy = g.canvas.height / 900; g.scale(sx, sy);
@@ -575,50 +574,31 @@ const Render = {
   // nudged away from the sun (top-left), and smaller and fainter the higher the piece hops
   drawTokenShadow(g, pl, kind, d, now) {
     const r = this.tokenR(pl, kind), lf = this.lifeState[kind + pl.id], up = Math.max(0, -d.hop) + Math.max(0, -((lf && lf.lastDy) || 0));
-    const k = clamp(1 - up / (r * 3), 0.45, 1), sx = d.x + r * 0.12, w = r * 1.02 * k, h = r * 0.34 * k;
+    const k = clamp(1 - up / (r * 3), 0.45, 1);
     if (kind === 'T' && this.game.current === pl) {
       // the current player's glowing ground ring
       g.save(); g.globalAlpha = 0.5 + 0.3 * Math.sin(now * 5); g.strokeStyle = pl.color; g.lineWidth = 4; g.beginPath(); g.ellipse(d.x, d.y, r * 1.2, r * 0.46, 0, 0, 7); g.stroke();
       g.globalAlpha *= 0.35; g.lineWidth = 10; g.stroke(); g.restore();
     }
-    const gr = g.createRadialGradient(sx, d.y, 0, sx, d.y, w);
-    gr.addColorStop(0, `rgba(25,15,35,${0.5 * k})`); gr.addColorStop(0.5, `rgba(25,15,35,${0.3 * k})`); gr.addColorStop(1, 'rgba(25,15,35,0)');
-    g.save(); g.translate(sx, d.y); g.scale(1, h / w); g.translate(-sx, -d.y); g.fillStyle = gr; g.beginPath(); g.arc(sx, d.y, w, 0, 7); g.fill(); g.restore();
+    // a long soft shadow cast by the sun: it swings and stretches as the day goes by
+    const sh = this.sunShadow(), len = Math.hypot(sh.x, sh.y), ang = Math.atan2(sh.y, sh.x);
+    if (len > 0.05) {
+      const cx = d.x + sh.x * r * 0.55 * k, cy = d.y + sh.y * r * 0.55 * k, w = r * (0.55 + len * 0.7) * k, h = r * 0.36 * k;
+      g.save(); g.translate(cx, cy); g.rotate(ang); g.scale(1, h / w);
+      const gr = g.createRadialGradient(0, 0, 0, 0, 0, w); gr.addColorStop(0, `rgba(30,25,45,${0.3 * sh.a * k})`); gr.addColorStop(0.6, `rgba(30,25,45,${0.16 * sh.a * k})`); gr.addColorStop(1, 'rgba(30,25,45,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, w, 0, 7); g.fill(); g.restore();
+    }
+    // a firm contact shadow right under the feet, so the piece sits on the board
+    const w = r * 0.78 * k, h = r * 0.26 * k;
+    g.save(); g.translate(d.x, d.y + 2); g.scale(1, h / w);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, w); gr.addColorStop(0, `rgba(20,14,30,${0.62 * k})`); gr.addColorStop(0.55, `rgba(20,14,30,${0.38 * k})`); gr.addColorStop(1, 'rgba(20,14,30,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, w, 0, 7); g.fill(); g.restore();
   },
-  // board pieces are drawn like stickers so they pop off the busy board: a crisp white rim, a thin dark
-  // outer line and a soft glow in the clan's colour (rendered offscreen at the current zoom, so it stays sharp)
-  _spr: {},
-  sticker(g, key, x, y, r, col, draw) {
-    if (Settings.test) { draw(g, x, y); return; }
-    const tr = g.getTransform(), k = Math.round(clamp(Math.hypot(tr.a, tr.b), 0.6, 2) * 4) / 4, S = Math.ceil(r * 5.4), W = Math.ceil(S * k), oy = 0.6;
-    const c = this._spr[key] || (this._spr[key] = [0, 1, 2, 3].map(() => document.createElement('canvas')));
-    // the outlined sprite is rebuilt every third frame (staggered per piece) and reused in between
-    this._sfr = (this._sfr || 0) + 1;
-    const fresh = c[0].width !== W || c.r !== r || ((this._sfr + (c.seed || (c.seed = 1 + Object.keys(this._spr).length))) % 3 === 0);
-    if (!fresh) { this.stickerOut(g, c[1], x, y, S, oy, col); return; }
-    c.r = r;
-    c.forEach(cv => { if (cv.width !== W) { cv.width = W; cv.height = W; } });
-    const [A, B, C, M] = c.map(cv => cv.getContext('2d', { willReadFrequently: cv === c[3] }));
-    A.setTransform(1, 0, 0, 1, 0, 0); A.clearRect(0, 0, W, W); A.setTransform(k, 0, 0, k, W / 2, W * oy); draw(A, 0, 0);
-    // the rim follows only the solid body (not soft glows, wind swirls or sparkles)
-    const im = A.getImageData(0, 0, W, W), px = im.data;
-    for (let n = 3; n < px.length; n += 4) px[n] = px[n] > 150 ? 255 : 0;
-    M.putImageData(im, 0, 0);
-    const ring = (G, w, fill) => {
-      G.setTransform(1, 0, 0, 1, 0, 0); G.globalCompositeOperation = 'source-over'; G.clearRect(0, 0, W, W);
-      for (let n = 0; n < 12; n++) { const a = n / 12 * Math.PI * 2; G.drawImage(M.canvas, Math.cos(a) * w, Math.sin(a) * w); }
-      G.globalCompositeOperation = 'source-in'; G.fillStyle = fill; G.fillRect(0, 0, W, W); G.globalCompositeOperation = 'source-over';
-    };
-    ring(B, 4.2 * k, 'rgba(30,16,50,0.6)');
-    ring(C, 2.6 * k, 'rgba(255,255,255,0.97)');
-    B.drawImage(C.canvas, 0, 0); B.drawImage(A.canvas, 0, 0);
-    this.stickerOut(g, B.canvas, x, y, S, oy, col);
-  },
-  stickerOut(g, cv, x, y, S, oy, col) {
-    g.save(); g.shadowColor = col; g.shadowBlur = 14; g.globalAlpha *= 0.55;
-    g.drawImage(cv, x - S / 2, y - S * oy, S, S);
-    g.restore();
-    g.drawImage(cv, x - S / 2, y - S * oy, S, S);
+  // where shadows fall right now: morning sun from the east, a short midday shadow, a long golden-hour
+  // shadow the other way, and a faint moonlit one at night (blended smoothly between phases)
+  sunShadow() {
+    const mo = this.morn || 0, go = this.gold || 0, du = this.dusk || 0, da = Math.max(0, 1 - mo - go - du);
+    return { x: mo * 1.5 + da * 0.25 - go * 1.8 + du * 0.3, y: mo * 0.45 + da * 0.4 + go * 0.55 + du * 0.35, a: 1 - du * 0.55 };
   },
   // board pieces are big and readable; a little smaller inside the Holds' rings, where tiles sit closer
   tokenR(pl, kind) { if (kind !== 'T') return 28; return pl.trav.loc === 'board' ? 42 : 32; },
@@ -665,7 +645,7 @@ const Render = {
       mood: an && an.mood ? an.mood : lf.mood && this.tokenMood(pl, kind) !== 'scared' ? lf.mood : this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
       hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop, noShadow: true, // the ground shadow is drawn separately (it stays put when they hop)
     };
-    this.sticker(g, kind + pl.id, d.x, cy, r, pl.color, (gg, x, y) => Char.draw(gg, x, y, r, pl.id, pl.color, opts));
+    Char.draw(g, d.x, cy, r, pl.id, pl.color, opts);
     Char._wave = false;
     g.restore();
   },

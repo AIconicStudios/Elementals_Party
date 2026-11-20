@@ -44,7 +44,7 @@ const UI = {
   refresh() {
     const G = this.game; if (!G || Settings.test) return;
     const ranks = G.standings().map(x => x.p);
-    const rp = document.getElementById('roundPill'); if (rp) rp.textContent = G.round ? `Round ${G.round} / ${G.rounds}` : 'Setup';
+    const rp = document.getElementById('roundPill'); if (rp) { const T = G.round && G.tod ? TOD[G.tod()] : null; rp.textContent = G.round ? `Round ${G.round} / ${G.rounds}${T ? ` · ${T.icon} ${T.name}` : ''}` : 'Setup'; rp.title = T ? `${T.name}: ${T.rule}` : ''; }
     G.players.forEach(p => {
       const t = p.trav;
       const st = [];
@@ -252,6 +252,7 @@ const UI = {
       <p><b>Counting Houses:</b> passing or landing lets you deposit what you carry, buy one star and one item per visit.</p>
       <p><b>Raiding (from round 4):</b> when you pass or land on a rival’s Waygate you may raid. The rest of your roll is discarded; next turn you start walking their Hold from tile 16. Hoards give up to 5 coins, the Starvault a star. Leave by passing tile 16 again.</p>
       <p><b>The Ankar:</b> summoned on an Ankar’s Altar (which then becomes a Boon or Bane). It follows the nearest Wayfarer and takes 5 coins on contact.</p>
+      <p><b>Time of day:</b> the sky moves from morning to night over a game, with one small rule each: ${Object.values(TOD).map(T => `${T.icon} <b>${T.name}</b> — ${T.rule}`).join(' ')}</p>
       <p><b>The Moot:</b> after each round but the last, a minigame. The halfway Moot is always a <b>Marathon</b> (several events back to back: The Elemental Games, Titan Trials, Turbo Stunt Rally or Tower of Trials), and the last Moot of every game is the <b>Grand Finale brawl</b> in one of four arenas — Fourfold Clash, Temple of Traps, Ledge Cage or Sand Colosseum — where A jumps and B is your clan power (hit an arena's switches to spring traps on your rivals). 1st place wins 3 coins, 2nd 2 coins, 3rd 1 coin (ties share the better place); the winners play first next round. The player with the fewest stars picks between two games.</p>
       </div>`;
     } else {

@@ -262,8 +262,8 @@ class SimpleGame extends Game {
       UI.refresh();
     }
     switch (sp) {
-      case 'blue': await Stage.space(p, t.pos, 'blue', 3); p.cash += 3; this.fx(p, '+3', '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on blue: +3 coins.`); break;
-      case 'red': if (this.guardOn(p, 'sshield')) { this.log(`🫧 ${this.name(p)}'s Bubble Shield laughs off the red space.`); this.react(p, 'smug', 'Bubble power~'); Sfx.item('sshield'); break; } { const l = Math.min(3, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on red: −${l} coins.`); break; }
+      case 'blue': { const n = 3 + this.todBlue(); await Stage.space(p, t.pos, 'blue', n); p.cash += n; this.fx(p, '+' + n, '#7fb0ff'); Sfx.coin(); this.emote(p, '😊'); this.log(`${this.name(p)} lands on blue: +${n} coins${this.todNote(n, 3)}.`); break; }
+      case 'red': if (this.guardOn(p, 'sshield')) { this.log(`🫧 ${this.name(p)}'s Bubble Shield laughs off the red space.`); this.react(p, 'smug', 'Bubble power~'); Sfx.item('sshield'); break; } { const b = 3 + this.todRed(), l = Math.min(b, p.cash); await Stage.space(p, t.pos, 'red', l); p.cash -= l; this.fx(p, `−${l}`, '#ff6b6b'); Sfx.bad(); this.emote(p, '😖'); this.log(`${this.name(p)} lands on red: −${l} coins${this.todNote(b, 3)}.`); break; }
       case 'lucky': {
         const v = await this.coinWheel(p, '🎡 Lucky Wheel');
         p.cash += v; this.fx(p, `+${v}`, '#5fe3b0'); Sfx.coin(); Render.coinBurst(p, Math.min(8, v));
