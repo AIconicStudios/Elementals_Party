@@ -202,9 +202,13 @@
   };
 
   // ---- floor 3: the golem
-  const FLOOR = 640, PLATS = [{ x0: 130, x1: 340, y: 470 }, { x0: 940, x1: 1150, y: 470 }];
+  const FLOOR = 640, PLATS = [
+    { x0: 60, x1: 250, y: 510 }, { x0: 1030, x1: 1220, y: 510 },
+    { x0: 290, x1: 450, y: 410 }, { x0: 830, x1: 990, y: 410 },
+    { x0: 90, x1: 260, y: 310 }, { x0: 1020, x1: 1190, y: 310 },
+  ];
   const golem = {
-    name: 'The Golem', icon: '🗿', how: 'A stone Golem guards the top floor! Run (LEFT/RIGHT) and jump (A) over its shockwaves and eye beam, dodge falling rocks, and when a hand slams down, punch the glowing crystal with B. Every crystal hit scores — getting hit costs a point.',
+    name: 'The Golem', icon: '🗿', how: 'A stone Golem guards the top floor! Run (LEFT/RIGHT), jump (A) up onto the ledges to dodge its shockwaves and eye beam (DOWN drops you through a ledge), and watch for falling rocks. When a hand slams down, punch its glowing crystal with B — every hit scores, and getting hit costs a point. B on another player just SHOVES them (no points lost) — great for knocking a rival off a ledge.',
     init(m, S, T) {
       T.p = [0, 1, 2, 3].map(i => ({ x: 260 + i * 250, y: FLOOR, vy: 0, on: true, face: 1, stun: 0, pts: 0, cd: 0, punch: 0, inv: 0 }));
       T.hands = [{ s: 'idle', x: 400, y: 520, home: 400, tt: 1, tx: 400 }, { s: 'idle', x: 880, y: 520, home: 880, tt: 2.2, tx: 880 }];
@@ -218,8 +222,8 @@
       T.next -= dt;
       if (T.next <= 0) {
         const r = Math.random();
-        if (r < 0.55) { const h = T.hands.find(h => h.s === 'idle'); if (h) { const live = T.p.filter(P => P.stun <= 0); const tg = live.length ? R.pick(live) : T.p[0]; h.s = 'raise'; h.tt = 0.95; h.tx = clamp(tg.x, 120, 1160); } }
-        else if (r < 0.8) { for (let k = 0; k < 7; k++) T.rocks.push({ x: R.range(100, 1180), y: -60 - k * 90, warn: 0.9 + k * 0.18, t: 0 }); Sfx.thunder(); }
+        if (r < 0.5) { const h = T.hands.find(h => h.s === 'idle'); if (h) { const live = T.p.filter(P => P.stun <= 0); const tg = live.length ? R.pick(live) : T.p[0]; h.s = 'raise'; h.tt = 0.95; h.tx = clamp(tg.x, 120, 1160); } }
+        else if (r < 0.8) { for (let k = 0; k < 7; k++) { const aim = k < 3 ? R.pick(T.p).x + R.range(-30, 30) : R.range(100, 1180); T.rocks.push({ x: clamp(aim, 80, 1200), y: -60 - k * 90, warn: 0.9 + k * 0.18, t: 0 }); } Sfx.thunder(); }
         else T.beam = { t: 0, warn: 1.0, life: 0.55, hit: new Set() };
         T.next = R.range(1.6, 2.6);
       }
@@ -233,7 +237,7 @@
       }
       for (const w of T.waves) { w.t += dt; w.x += w.d * 520 * dt; T.p.forEach((P, i) => { if (Math.abs(P.x - w.x) < 26 && P.y > FLOOR - 30 && w.t > 0.05) this.hurt(m, S, T, P, i, w.x - w.d * 40); }); }
       T.waves = T.waves.filter(w => w.x > 40 && w.x < 1240);
-      for (const r of T.rocks) { r.t += dt; if (r.t >= r.warn && !r.hit) { r.hit = true; T.p.forEach((P, i) => { if (Math.abs(P.x - r.x) < 44 && P.y > FLOOR - 140) this.hurt(m, S, T, P, i, r.x); }); MGH.burst(r.x, FLOOR - 10, ['#9a8466', '#6a5a46'], 10, { speed: 200, grav: 700 }); Sfx.thud(); } }
+      for (const r of T.rocks) { r.t += dt; if (r.t >= r.warn && !r.hit) { r.hit = true; T.p.forEach((P, i) => { if (Math.abs(P.x - r.x) < 40) this.hurt(m, S, T, P, i, r.x); }); MGH.burst(r.x, FLOOR - 10, ['#9a8466', '#6a5a46'], 10, { speed: 200, grav: 700 }); Sfx.thud(); } }
       T.rocks = T.rocks.filter(r => r.t < r.warn + 0.3);
       if (T.beam) { const b = T.beam; b.t += dt; if (b.t > b.warn && b.t < b.warn + b.life) T.p.forEach((P, i) => { if (!b.hit.has(i) && P.y > FLOOR - 50) { b.hit.add(i); this.hurt(m, S, T, P, i, 640); } }); if (b.t > b.warn + b.life) T.beam = null; else if (b.t > b.warn && b.t - dt <= b.warn) { Sfx.noise(0.6, 2000, 0.1, 'bandpass', 0, 800); MGH.shake(4); } }
       // players
@@ -241,9 +245,11 @@
         P.stun -= dt; P.inv -= dt; P.cd -= dt; P.punch -= dt;
         const ax = P.stun > 0 ? 0 : m.axis(i).x; if (ax) P.face = Math.sign(ax);
         P.x = clamp(P.x + (ax * 330 + (P.kx || 0)) * dt, 70, 1210); P.kx = (P.kx || 0) * Math.pow(0.02, dt);
-        if (P.stun <= 0 && m.pressed(i, 'a') && P.on) { P.vy = -820; P.on = false; }
+        if (P.stun <= 0 && m.pressed(i, 'a') && P.on) { P.vy = -830; P.on = false; }
+        if (P.stun <= 0 && P.on && P.on !== true && m.axis(i).y > 0.6) { P.on = false; P.drop = 0.2; P.vy = 60; } // drop through the ledge
+        P.drop = (P.drop || 0) - dt;
         const py = P.y;
-        if (!P.on) { P.vy += 2000 * dt; P.y += P.vy * dt; if (P.vy > 0) { if (P.y >= FLOOR) { P.y = FLOOR; P.vy = 0; P.on = true; } else for (const pl of PLATS) if (py <= pl.y && P.y >= pl.y && P.x > pl.x0 && P.x < pl.x1) { P.y = pl.y; P.vy = 0; P.on = pl; } } }
+        if (!P.on) { P.vy += 2000 * dt; P.y += P.vy * dt; if (P.vy > 0) { if (P.y >= FLOOR) { P.y = FLOOR; P.vy = 0; P.on = true; } else if (P.drop <= 0) for (const pl of PLATS) if (py <= pl.y && P.y >= pl.y && P.x > pl.x0 && P.x < pl.x1) { P.y = pl.y; P.vy = 0; P.on = pl; } } }
         else if (P.on !== true && (P.x < P.on.x0 || P.x > P.on.x1)) P.on = false;
         if (P.stun <= 0 && m.pressed(i, 'b') && P.cd <= 0) {
           P.cd = 0.28; P.punch = 0.14; Sfx.whoosh(false);
@@ -251,13 +257,19 @@
           for (const h of T.hands) if (h.s === 'down' && Math.abs(hx - h.x) < 84 && Math.abs(hy - (h.y - 30)) < 80) {
             T.hp--; P.pts++; h.flash = 0.15; T.flash = 0.1; say(T, i, '+1', '#7cf06a'); Sfx.tone(1200, 0.06, 'triangle', 0.06); MGH.burst(h.x, h.y - 30, ['#9ff8ff', '#ffffff', '#5fd8ff'], 10, { speed: 220, kind: 'spark', size: 2 });
             if (T.hp <= 0) { P.pts += 3; say(T, i, 'FINAL BLOW +3!', '#ffe680'); Sfx.boom(); Sfx.crowd('cheer'); MGH.shake(14); }
-            break;
+            P.hitC = true; break;
           }
+          // no crystal in reach: a shove for any rival in front of you (no points lost — but off a ledge they go)
+          if (!P.hitC) T.p.forEach((Q, j) => {
+            if (j === i || Q.inv > 0 || Math.abs(Q.x - hx) > 50 || Math.abs((Q.y - 40) - hy) > 60) return;
+            Q.kx = P.face * 620; Q.vy = -300; Q.on = false; Q.stun = Math.max(Q.stun, 0.3); say(T, j, 'SHOVED!', '#ffd0a0'); Sfx.punch(); MGH.burst(hx, hy, ['#fff', m.players[i].color], 10, { speed: 200, kind: 'spark', size: 2 });
+          });
+          P.hitC = false;
         }
       });
     },
     bot(m, S, T, i, dt) {
-      const P = T.p[i], v = m.vin[i]; v.a = v.b = false; v.ax = 0; if (P.stun > 0) return;
+      const P = T.p[i], v = m.vin[i]; v.a = v.b = false; v.ax = 0; v.ay = 0; v.down = false; if (P.stun > 0) return;
       // dodge first
       const wave = T.waves.find(w => Math.sign(P.x - w.x) === w.d && Math.abs(P.x - w.x) < 120);
       if (wave && P.on === true) v.a = !m.prev[i].a;
@@ -265,7 +277,10 @@
       const rock = T.rocks.find(r => !r.hit && Math.abs(r.x - P.x) < 60 && r.warn - r.t < 0.7);
       const raised = T.hands.find(h => h.s === 'raise' && Math.abs(h.tx - P.x) < 90);
       if (rock || raised) { const from = rock ? rock.x : raised.tx; v.ax = P.x < from ? -1 : 1; if (P.x < 120) v.ax = 1; if (P.x > 1160) v.ax = -1; return; }
+      const near = T.p.find((Q, j) => j !== i && Math.abs(Q.x - P.x) < 60 && Math.abs(Q.y - P.y) < 30 && Q.inv <= 0);
+      if (near && P.cd <= 0 && Math.random() < 0.04) { P.face = Math.sign(near.x - P.x) || 1; v.b = true; return; }
       const h = T.hands.find(h => h.s === 'down');
+      if (h && P.on && P.on !== true && h.x > P.on.x0 - 40 && h.x < P.on.x1 + 40) { v.ay = 1; v.down = true; return; } // drop down to the hand
       if (h) { const spot = h.x + [-62, 62, -34, 34][i], dx = spot - P.x; if (Math.abs(dx) > 14) v.ax = Math.sign(dx); else { v.ax = Math.sign(h.x - P.x) * 0.2; if (P.cd <= 0 && Math.random() < 0.5) v.b = true; } }
       else v.ax = Math.abs(640 - P.x) > 300 ? Math.sign(640 - P.x) : 0;
     },
@@ -315,7 +330,7 @@
       });
       T.p.forEach((P, i) => MGH.text(g, `${m.players[i].name} ${P.pts}`, 160 + i * 320, 706, 18, m.players[i].color, 'center', 'bold'));
       if (T.hp <= 0) MGH.label(g, '🗿 THE GOLEM CRUMBLES!', 640, 200, 36, '#ffe680');
-      if (T.flash > 0) { g.fillStyle = `rgba(255,255,255,${T.flash * 2})`; g.fillRect(0, 40, 1280, 680); }
+      if (T.flash > 0) MGH.softFlash(g, T.flash * 2, '255,214,120', 40, 680);
     },
   };
 

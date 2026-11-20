@@ -179,8 +179,8 @@ MGH.cursors = (m, g, moods) => {
 
 // 23 ---------------------------------------------------------------- Constellation Trace
 MG.def({
-  id: 'constellation', name: 'Constellation Trace', type: 'Memory', controls: 'Cursor', cursor: true,
-  how: 'A star pattern flashes for 3 seconds, then hides. Click the stars in order to redraw it — but the night sky slowly TURNS while you trace, so remember the shape, not the spot! Three patterns, each sky turns faster.',
+  id: 'constellation', name: 'Constellation Trace', type: 'Memory', controls: 'Move + A',
+  how: 'A star pattern flashes for 3 seconds, then hides. Your marker sits on a star: push a direction to hop to the next star that way, and press A to link the star you are on. Link them in order to redraw the pattern — but the night sky slowly TURNS while you trace, so remember the shape, not the spot! Three patterns, each sky turns faster.',
   wins: 'Most stars correct.',
   init(m, S) { S.pts = [0, 0, 0, 0]; S.time = [0, 0, 0, 0]; S.round = 0; this.next(S); },
   next(S) {
@@ -190,6 +190,21 @@ MG.def({
     S.prog = [0, 0, 0, 0]; S.out = [false, false, false, false]; S.phase = 'show'; S.t = 0;
     S.botMem = [0, 1, 2, 3].map(() => S.pat.map(k => Math.random() < 0.88 ? k : R.int(0, 13)));
     S.botWait = [0, 0, 0, 0];
+    // everyone's marker starts on the star nearest the middle
+    let c = 0, bd = 1e9; S.stars.forEach((s, k) => { const d = dist(s.x, s.y, 640, 375); if (d < bd) { bd = d; c = k; } });
+    S.on = [c, c, c, c]; S.hopT = [0, 0, 0, 0]; S.held = [false, false, false, false]; S.hopFx = [0, 0, 0, 0];
+  },
+  // the nearest star roughly in the pushed direction
+  hop(S, from, ax, ay) {
+    const a = Math.atan2(ay, ax), s0 = S.stars[from]; let best = -1, bs = 1e9;
+    S.stars.forEach((s, k) => { if (k === from) return; const dx = s.x - s0.x, dy = s.y - s0.y, d = Math.hypot(dx, dy); let da = Math.abs(Math.atan2(dy, dx) - a); if (da > Math.PI) da = Math.PI * 2 - da; if (da > 0.8) return; const sc = d * (1 + da * 1.6); if (sc < bs) { bs = sc; best = k; } });
+    return best;
+  },
+  steer(m, S, i, dt) {
+    S.hopT[i] -= dt; S.hopFx[i] = Math.max(0, S.hopFx[i] - dt * 5);
+    const a = m.axis(i), mag = Math.hypot(a.x, a.y);
+    if (mag < 0.35) { S.held[i] = false; return; }
+    if (mag > 0.55 && (!S.held[i] || S.hopT[i] <= 0)) { const k = this.hop(S, S.on[i], a.x, a.y); if (k >= 0) { S.on[i] = k; S.hopFx[i] = 1; if (!m.bot(i)) Sfx.tone(520, 0.04, 'triangle', 0.04); } S.hopT[i] = S.held[i] ? 0.22 : 0.4; S.held[i] = true; }
   },
   update(m, S, dt) {
     S.t += dt;
@@ -200,11 +215,11 @@ MG.def({
       const w = (0.05 + S.round * 0.03) * (S.round % 2 ? 1 : -1) * dt, cw = Math.cos(w), sw = Math.sin(w);
       for (const s of S.stars) { const dx = s.x - 640, dy = s.y - 375; s.x = 640 + dx * cw - dy * sw; s.y = 375 + dx * sw + dy * cw; }
       for (let i = 0; i < 4; i++) {
-        if (S.out[i] || S.prog[i] >= S.pat.length || !m.pressed(i, 'a')) continue;
-        const c = m.cur[i];
-        // forgiving: the nearest star within a generous radius counts
-        let k = -1, bd = 58; S.stars.forEach((s, j) => { const d = dist(s.x, s.y, c.x, c.y); if (d < bd) { bd = d; k = j; } });
-        if (k < 0) continue;
+        if (S.out[i] || S.prog[i] >= S.pat.length) continue;
+        this.steer(m, S, i, dt);
+        if (!m.pressed(i, 'a')) continue;
+        const k = S.on[i];
+        if (S.pat.slice(0, S.prog[i]).includes(k) && k !== S.pat[S.prog[i]]) continue; // already linked: no harm
         if (k === S.pat[S.prog[i]]) { S.prog[i]++; S.pts[i]++; MGH.burst(S.stars[k].x, S.stars[k].y, [m.players[i].color, '#fff'], 10, { speed: 160, kind: 'spark', size: 2 }); if (!m.bot(i)) Sfx.tone(700 + S.prog[i] * 80, 0.08, 'triangle', 0.05); if (S.prog[i] >= S.pat.length) S.time[i] += S.t; }
         else if (!S.pat.slice(0, S.prog[i]).includes(k)) { S.out[i] = true; S.time[i] += S.t; if (!m.bot(i)) Sfx.bad(); }
       }
@@ -216,8 +231,13 @@ MG.def({
   bot(m, S, i, dt) {
     const v = m.vin[i]; v.a = false;
     if (S.phase !== 'trace' || S.out[i] || S.prog[i] >= S.pat.length) return;
-    const s = S.stars[S.botMem[i][S.prog[i]]];
-    if (m.botCursor(i, s.x, s.y, 520)) { S.botWait[i] += dt; if (S.botWait[i] > 0.15) { v.a = true; S.botWait[i] = 0; } }
+    const tk = S.botMem[i][S.prog[i]], s = S.stars[tk], o = S.stars[S.on[i]];
+    v.ax = v.ay = 0; v.left = v.right = v.up = v.down = false;
+    S.botWait[i] += dt;
+    if (S.on[i] === tk) { if (S.botWait[i] > 0.3) { v.a = true; S.botWait[i] = 0; } return; }
+    // tap toward the target star, one hop at a time
+    if (S.hopFx[i] > 0.9) S.botWait[i] = 0; // just hopped: let go of the stick for a moment
+    else if (S.botWait[i] > 0.26) { const d = Math.hypot(s.x - o.x, s.y - o.y) || 1; v.ax = (s.x - o.x) / d; v.ay = (s.y - o.y) / d; }
   },
   score(m, S) { return S.pts.map((p, i) => p * 100 - S.time[i]); },
   fmt(s) { return `${Math.round(s / 100)} stars`; },
@@ -225,8 +245,8 @@ MG.def({
   draw(m, S, g) {
     MGH.scene(g, 'space', m.t);
     if (S.phase === 'show') MGH.phase(g, true, m.t, `Memorise the pattern — ${(3.6 - S.t).toFixed(1)}s`);
-    else if (S.phase === 'go') MGH.label(g, 'GO! Click the stars in order', 640, 100, 34, '#ffe680', 'rgba(120,70,0,0.85)');
-    else if (S.phase === 'trace') MGH.phase(g, false, m.t, `Pattern ${S.round}/3 — click the stars in order`);
+    else if (S.phase === 'go') MGH.label(g, 'GO! Hop with the stick, link with A', 640, 100, 34, '#ffe680', 'rgba(120,70,0,0.85)');
+    else if (S.phase === 'trace') MGH.phase(g, false, m.t, `Pattern ${S.round}/3 — hop to a star, press A to link it`);
     if (S.phase === 'show' || S.phase === 'reveal') {
       const n = S.phase === 'show' ? Math.min(S.pat.length, Math.floor(S.t / 0.35) + 1) : S.pat.length;
       g.strokeStyle = 'rgba(160,210,255,0.85)'; g.lineWidth = 4; g.shadowColor = '#8fd0ff'; g.shadowBlur = 12; g.beginPath();
@@ -240,7 +260,13 @@ MG.def({
       g.stroke(); g.globalAlpha = 1;
       MGH.text(g, `${m.players[i].name}: ${S.prog[i]}/${S.pat.length}${S.out[i] ? ' ✖' : ''}`, 160 + i * 320, 700, 20, m.players[i].color, 'center', 'bold');
     }
-    MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.out[i] ? 'hurt' : S.prog[i] >= S.pat.length ? 'cheer' : S.phase === 'show' ? 'neutral' : 'determined'));
+    // markers: a ring in each player's colour around the star they sit on (shared stars stack the rings)
+    if (S.phase === 'trace' || S.phase === 'go') for (let i = 0; i < 4; i++) {
+      if (S.out[i]) continue;
+      const s = S.stars[S.on[i]], same = [0, 1, 2, 3].filter(j => j < i && !S.out[j] && S.on[j] === S.on[i]).length, r = 22 + same * 7 + S.hopFx[i] * 8;
+      g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.beginPath(); g.arc(s.x, s.y, r, 0, 7); g.stroke();
+      const ang = -Math.PI / 2 + i * Math.PI / 2; MGH.av(g, m, i, s.x + Math.cos(ang) * (r + 18), s.y + Math.sin(ang) * (r + 18), 12, S.prog[i] >= S.pat.length ? 'cheer' : 'determined', { headOnly: true });
+    }
   },
 });
 

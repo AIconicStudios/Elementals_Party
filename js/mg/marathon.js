@@ -22,7 +22,7 @@ const MGM = {
   def(spec) {
     const stages = spec.stages;
     MG.def({
-      id: spec.id, name: spec.name, type: 'Marathon', long: true, controls: spec.controls || 'Move + A & B buttons',
+      id: spec.id, name: spec.name, type: 'Marathon', long: true, stages, controls: spec.controls || 'Move + A & B buttons',
       how: spec.how + ' Events: ' + stages.map((s, k) => `${k + 1}) ${s.name}`).join('  ') + '.', wins: 'Most medal points after every event (4 / 3 / 2 / 1 per event).',
       quietMusic: false,
       init(m, S) {

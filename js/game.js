@@ -1221,7 +1221,12 @@ class Game {
     if (!pool.length) { this.mgPlayed = this.mgPlayed.filter(x => !MG.list.some(g => g.id === x && elig(g))); pool = MG.list.filter(elig).map(g => g.id); }
     let id;
     if (this.mgForce) id = this.mgForce;
-    else if (finale) { id = 'brawl'; await UI.banner('🔥 Grand Finale 🔥', 'The last Moot is the Fourfold Clash — six lives, clan powers, last one standing!'); }
+    else if (finale) {
+      // one of the four brawl arenas, avoiding the one played in the last game if possible
+      const arenas = MG.list.filter(g => g.finale).map(g => g.id), fresh = arenas.filter(x => x !== Settings.lastFinale);
+      id = R.pick(fresh.length ? fresh : arenas); try { Settings.lastFinale = id; } catch (e) { /* ignore */ }
+      await UI.banner('🔥 Grand Finale 🔥', `The last Moot is a brawl in the ${MG.byId[id].name} — clan powers, last one standing!`);
+    }
     else {
       if (marathon) await UI.banner('🏟️ Marathon Moot', 'Halfway there — time for one of the big multi-event games!');
       const under = this.players.slice().sort((a, b) => a.vault - b.vault || (this.bank(a) + a.cash) - (this.bank(b) + b.cash))[0];

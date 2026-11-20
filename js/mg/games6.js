@@ -72,23 +72,23 @@ MG.def({
 
 // 52 ---------------------------------------------------------------- Whack-a-Wisp
 MG.def({
-  id: 'whack', name: 'Whack-a-Wisp', type: 'Reaction', controls: 'Left/Right + button', dur: 32,
-  how: 'Wisps pop out of three burrows. Bop them with LEFT, the button (middle) or RIGHT before they hide: +1 each, +3 for golden wisps. Never bop the Ankar\'s eye — that costs 3.',
+  id: 'whack', name: 'Whack-a-Wisp', type: 'Reaction', controls: 'Left/Right', dur: 32,
+  how: 'Wisps pop out of two burrows. Bop the left one with LEFT and the right one with RIGHT before they hide: +1 each, +3 for golden wisps. Never bop the Ankar\'s eye — that costs 3.',
   wins: 'Most points.',
   init(m, S) {
     S.pops = []; let t = 0.8;
-    while (t < 31) { const r = Math.random(); S.pops.push({ t, hole: R.int(0, 2), kind: r < 0.14 ? 'eye' : r < 0.24 ? 'gold' : 'wisp', up: R.range(0.55, 0.95) - Math.min(0.3, t * 0.008) }); t += R.range(0.28, 0.6); }
-    S.pts = [0, 0, 0, 0]; S.res = [new Set(), new Set(), new Set(), new Set()]; S.bonk = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    while (t < 31) { const r = Math.random(); S.pops.push({ t, hole: R.int(0, 1), kind: r < 0.14 ? 'eye' : r < 0.24 ? 'gold' : 'wisp', up: R.range(0.55, 0.95) - Math.min(0.3, t * 0.008) }); t += R.range(0.34, 0.66); }
+    S.pts = [0, 0, 0, 0]; S.res = [new Set(), new Set(), new Set(), new Set()]; S.bonk = [[0, 0], [0, 0], [0, 0], [0, 0]];
   },
-  keys: ['left', 'a', 'right'],
+  keys: ['left', 'right'],
   update(m, S, dt) {
     for (let i = 0; i < 4; i++) {
       S.bonk[i] = S.bonk[i].map(x => x - dt);
-      for (let h = 0; h < 3; h++) {
+      for (let h = 0; h < 2; h++) {
         if (!m.pressed(i, this.keys[h])) continue;
         S.bonk[i][h] = 0.15;
         const k = S.pops.findIndex((p, k) => p.hole === h && !S.res[i].has(k) && m.t >= p.t && m.t <= p.t + p.up);
-        const x = i * 320 + 60 + h * 100, y = 520;
+        const x = i * 320 + 85 + h * 150, y = 520;
         if (k >= 0) {
           S.res[i].add(k); const pp = S.pops[k];
           const v = pp.kind === 'eye' ? -3 : pp.kind === 'gold' ? 3 : 1; S.pts[i] += v;
@@ -100,7 +100,7 @@ MG.def({
     }
   },
   bot(m, S, i) {
-    const v = m.vin[i]; v.left = v.right = v.a = false;
+    const v = m.vin[i]; v.left = v.right = false;
     if (!S.bd) S.bd = [0, 1, 2, 3].map(() => new Map());
     S.pops.forEach((p, k) => {
       if (S.res[i].has(k) || m.t < p.t) return;
@@ -114,8 +114,8 @@ MG.def({
   draw(m, S, g) {
     MGH.scene(g, 'meadow', m.t); MGH.lanes(g, m);
     for (let i = 0; i < 4; i++) {
-      for (let h = 0; h < 3; h++) {
-        const x = i * 320 + 60 + h * 100, y = 540;
+      for (let h = 0; h < 2; h++) {
+        const x = i * 320 + 85 + h * 150, y = 540;
         g.fillStyle = '#6a4a2a'; g.beginPath(); g.ellipse(x, y + 4, 52, 22, 0, 0, 7); g.fill(); g.fillStyle = '#1a0e06'; g.beginPath(); g.ellipse(x, y, 42, 16, 0, 0, 7); g.fill();
         S.pops.forEach((p, k) => {
           if (p.hole !== h || m.t < p.t || m.t > p.t + p.up + 0.1) return;
@@ -129,7 +129,7 @@ MG.def({
         });
         g.fillStyle = '#4a3020'; g.beginPath(); g.ellipse(x, y + 4, 44, 12, 0, 0, Math.PI); g.fill();
         if (S.bonk[i][h] > 0) { MGH.hammer(g, x + 20, y - 46, 1, -1.2 + (1 - S.bonk[i][h] / 0.25) * 1.2); MGH.spark(g, x, y - 10, 18); }
-        MGH.text(g, ['◀', '●', '▶'][h], x, y + 50, 20, m.players[i].color, 'center', 'bold');
+        MGH.text(g, ['◀', '▶'][h], x, y + 50, 20, m.players[i].color, 'center', 'bold');
       }
       MGH.av(g, m, i, i * 320 + 160, 660, 22, 'determined', { look: { x: 0, y: -1 } });
     }
@@ -494,7 +494,7 @@ MG.def({
       if (m.pressed(i, 'a') && p.ground) { p.vy = 520; p.ground = false; }
       if (m.pressed(i, 'b') && p.cd <= 0) {
         p.cd = 1.2; p.shove = 0.3;
-        S.p.forEach((q, j) => { if (j === i || !q.alive || Math.abs(q.y - p.y) > 40) return; const dx = q.x - p.x; if (Math.abs(dx) < 70 && Math.sign(dx) === p.face) { q.kx += p.face * 720; q.vy = Math.max(q.vy, 260); q.ground = false; q.hurt = 0.7; S.fx.push({ x: (p.x + q.x) / 2, y: 480 - 30 - p.y, t: 0 }); MGH.shake(9); Sfx.punch(); Sfx.voice(m.players[j].el.id, 'ouch'); MGH.burst((p.x + q.x) / 2, 450 - p.y, ['#fff', '#ffd34d', m.players[i].color], 18, { speed: 280, kind: 'spark', size: 3 }); } });
+        S.p.forEach((q, j) => { if (j === i || !q.alive || Math.abs(q.y - p.y) > 40) return; const dx = q.x - p.x; if (Math.abs(dx) < 70 && Math.sign(dx) === p.face) { q.kx += p.face * 590; q.vy = Math.max(q.vy, 220); q.ground = false; q.hurt = 0.7; S.fx.push({ x: (p.x + q.x) / 2, y: 480 - 30 - p.y, t: 0 }); MGH.shake(9); Sfx.punch(); Sfx.voice(m.players[j].el.id, 'ouch'); MGH.burst((p.x + q.x) / 2, 450 - p.y, ['#fff', '#ffd34d', m.players[i].color], 18, { speed: 280, kind: 'spark', size: 3 }); } });
         if (!m.bot(i)) Sfx.whoosh(true);
       }
       p.vy -= 1500 * dt; p.y += p.vy * dt; p.x = clamp(p.x + p.vx * dt, 16, 1264);

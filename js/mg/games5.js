@@ -265,8 +265,9 @@ MG.def({
         const towards = i === 0 ? b.vy > 0 : i === 2 ? b.vy < 0 : i === 1 ? b.vx < 0 : b.vx > 0;
         if (hit && towards) {
           const off = q.hor ? (b.x - q.x) / half : (b.y - q.y) / half;
-          let sp = Math.hypot(b.vx, b.vy) * 1.04; if (S.pad[i].smash > 0) { sp *= 1.45; MGH.shake(5); MGH.burst(b.x, b.y, [m.players[i].color, '#fff'], 16, { speed: 260, kind: 'spark', size: 3 }); }
-          sp = Math.min(sp, 900);
+          // the rally speed creeps up slowly over the match; a smash only speeds up that one shot
+          let sp = Math.min(600, 270 + m.t * 5); if (S.pad[i].smash > 0) { sp *= 1.35; MGH.shake(5); MGH.burst(b.x, b.y, [m.players[i].color, '#fff'], 16, { speed: 260, kind: 'spark', size: 3 }); }
+          sp = Math.min(sp, 800);
           const ang = off * 1.0;
           if (i === 0) { b.vx = Math.sin(ang) * sp; b.vy = -Math.cos(ang) * sp; }
           if (i === 2) { b.vx = Math.sin(ang) * sp; b.vy = Math.cos(ang) * sp; }
@@ -346,92 +347,113 @@ MG.def({
 
 // 46 ---------------------------------------------------------------- Swing Across
 MG.def({
-  id: 'swing', name: 'Swing Across', type: 'Race', controls: 'Left/Right + button',
-  how: 'Cross the chasm on hanging vines. Press LEFT/RIGHT in time with your swing to pump higher, then press the button to let go and fly to the next vine — you grab it automatically. Fall and you climb back onto your last vine.',
+  id: 'swing', name: 'Swing Across', type: 'Race', controls: '1 button', mouseA: true,
+  how: 'Cross the chasm vine after vine. Every vine swings by itself — you ride it the moment you grab on. Your only job is WHEN to leap: press the button as your vine swings forward and fly to the next one (you catch it automatically if you reach it). The dotted line shows where you would fly. Miss and you splash down, then climb back onto your last vine.',
   wins: 'First across (else furthest).',
+  GR: 900,
   init(m, S) {
-    S.ropes = []; let x = 120;
-    for (let k = 0; k < 14; k++) { S.ropes.push({ x, L: R.range(150, 205) }); x += R.range(205, 255); }
+    S.ropes = []; let x = 140;
+    for (let k = 0; k < 13; k++) { const L = R.range(150, 195); S.ropes.push({ x, L, A: R.range(0.62, 0.82), w: Math.sqrt(this.GR / L), ph: R.range(0, 6.28) }); x += R.range(215, 255); }
     S.goal = S.ropes[S.ropes.length - 1].x;
-    S.p = [0, 1, 2, 3].map(() => ({ rope: 0, th: 0.3, w: 0, L: S.ropes[0].L, fly: false, x: 0, y: 0, vx: 0, vy: 0, fin: 0, fall: 0, best: 0, botRel: R.range(-0.2, 0.15) }));
+    S.p = [0, 1, 2, 3].map(() => ({ rope: 0, l: S.ropes[0].L, fly: false, x: 0, y: 0, vx: 0, vy: 0, fin: 0, fall: 0, best: 0, grabT: 0, botP: R.range(0.55, 0.9) }));
   },
-  pos(S, p) { if (p.fly || p.fall > 0) return { x: p.x, y: p.y }; const r = S.ropes[p.rope]; return { x: r.x + Math.sin(p.th) * p.L, y: 20 + Math.cos(p.th) * p.L }; },
+  // every vine is its own pendulum: angle and angular speed at time t
+  ang(r, t) { return r.A * Math.sin(r.w * t + r.ph); },
+  angV(r, t) { return r.A * r.w * Math.cos(r.w * t + r.ph); },
+  tip(r, l, t) { const a = this.ang(r, t); return { x: r.x + Math.sin(a) * l, y: 20 + Math.cos(a) * l }; },
+  pos(S, p, t) { if (p.fly || p.fall > 0) return { x: p.x, y: p.y }; return this.tip(S.ropes[p.rope], p.l, t); },
+  // leap velocity: the vine's own swing speed plus a little jump forward and up
+  leapV(S, p, t) { const r = S.ropes[p.rope], a = this.ang(r, t), av = this.angV(r, t); return { vx: Math.cos(a) * av * p.l + 140, vy: -Math.sin(a) * av * p.l - 280 }; },
+  // can a flyer at (x, y) grab vine r at time t? (anywhere on its lower two-thirds)
+  grab(r, x, y, t) {
+    const a = this.ang(r, t), sx = Math.sin(a), cy = Math.cos(a), dx = x - r.x, dy = y - 20;
+    const along = dx * sx + dy * cy, off = Math.abs(dx * cy - dy * sx);
+    return along > r.L * 0.35 && along < r.L + 18 && off < 30 ? Math.min(r.L, along) : 0;
+  },
   update(m, S, dt) {
+    const t = m.t;
     S.p.forEach((p, i) => {
       if (p.fin) return;
-      if (p.fall > 0) { p.fall -= dt; if (p.fall <= 0) { p.th = 0; p.w = 0; p.L = S.ropes[p.rope].L; } return; }
+      p.grabT -= dt;
+      if (p.fall > 0) { p.fall -= dt; if (p.fall <= 0) { p.l = S.ropes[p.rope].L; p.grabT = 0.5; } return; }
       if (!p.fly) {
-        const ax = m.axis(i).x;
-        p.w += (-(900 / p.L) * Math.sin(p.th)) * dt;
-        // pumping works best through the bottom of the swing, like a real swing
-        if (ax && Math.sign(ax) === Math.sign(p.w)) p.w += ax * 3.4 * Math.cos(p.th) * dt;
-        p.w *= 1 - 0.06 * dt;
-        p.th += p.w * dt; p.th = clamp(p.th, -1.45, 1.45);
-        if (m.pressed(i, 'a') && p.rope < S.ropes.length - 1) {
-          const q = this.pos(S, p);
-          p.fly = true; p.x = q.x; p.y = q.y; p.vx = Math.cos(p.th) * p.w * p.L; p.vy = -Math.sin(p.th) * p.w * p.L;
+        if (m.pressed(i, 'a') && p.grabT <= 0 && p.rope < S.ropes.length - 1) {
+          const q = this.pos(S, p, t), v = this.leapV(S, p, t);
+          p.fly = true; p.x = q.x; p.y = q.y; p.vx = v.vx; p.vy = v.vy; if (!m.bot(i)) Sfx.whoosh();
         }
       } else {
-        p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
-        for (let k = p.rope + 1; k < S.ropes.length; k++) {
-          const r = S.ropes[k];
-          if (Math.abs(p.x - r.x) < 26 && p.y > 40 && p.y < 20 + r.L + 14) {
-            p.fly = false; p.rope = k; p.L = Math.max(70, Math.hypot(p.x - r.x, p.y - 20)); p.th = Math.atan2(p.x - r.x, p.y - 20);
-            p.w = (p.vx * Math.cos(p.th) - p.vy * Math.sin(p.th)) / p.L; Sfx.tone(520, 0.08, 'triangle', 0.04);
-            if (S.cam) MGH.burst((i % 2) * 640 + p.x - S.cam[i], 40 + Math.floor(i / 2) * 340 + p.y * 0.85, ['#7ccf4a', '#c8e66b'], 8, { speed: 100 });
-            if (k === S.ropes.length - 1) p.fin = m.t;
+        p.vy += this.GR * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        for (let k = p.rope + 1; k < Math.min(S.ropes.length, p.rope + 3); k++) {
+          const l = this.grab(S.ropes[k], p.x, p.y, t);
+          if (l) {
+            p.fly = false; p.rope = k; p.l = l; p.grabT = 0.25; Sfx.tone(520 + k * 20, 0.08, 'triangle', 0.04);
+            if (k === S.ropes.length - 1) { p.fin = t; Sfx.star(); }
             break;
           }
         }
-        if (p.y > 360) { p.fly = false; p.fall = 0.9; }
+        if (p.y > 360) { p.fly = false; p.fall = 1; if (!m.bot(i)) Sfx.tone(200, 0.3, 'sine', 0.05, -100); }
       }
       p.best = Math.max(p.best, p.rope);
     });
     if (S.p.some(p => p.fin) || m.t > 70) m.finish(this.score(m, S));
   },
-  bot(m, S, i) {
-    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false;
-    if (p.fly || p.fin || p.fall > 0) return;
-    if (p.w > 0) v.right = true; else v.left = true;
-    const next = S.ropes[p.rope + 1]; if (!next) return;
-    const q = this.pos(S, p), vx = Math.cos(p.th) * p.w * p.L, vy = -Math.sin(p.th) * p.w * p.L;
-    if (vx <= 40) return;
-    // simulate the flight
-    let x = q.x, y = q.y, wx = vx, wy = vy;
-    for (let k = 0; k < 120; k++) { wy += 900 / 60; x += wx / 60; y += wy / 60; if (Math.abs(x - next.x) < 14 && y > 50 && y < 20 + next.L) { if (Math.random() < 0.6) v.a = true; return; } if (y > 360) break; }
+  // where a leap right now would land: the vine index caught, or -1
+  predict(S, p, t) {
+    const q = this.pos(S, p, t), v = this.leapV(S, p, t); let x = q.x, y = q.y, vx = v.vx, vy = v.vy, tt = t;
+    const pts = [];
+    for (let k = 0; k < 90; k++) {
+      vy += this.GR / 60; x += vx / 60; y += vy / 60; tt += 1 / 60; pts.push(x, y);
+      for (let j = p.rope + 1; j < Math.min(S.ropes.length, p.rope + 3); j++) if (this.grab(S.ropes[j], x, y, tt)) return { hit: j, pts };
+      if (y > 360) break;
+    }
+    return { hit: -1, pts };
   },
-  score(m, S) { return S.p.map(p => p.fin ? 1000 - p.fin : p.best + this.pos(S, p).x / 10000); },
+  bot(m, S, i) {
+    const p = S.p[i], v = m.vin[i]; v.a = false;
+    if (p.fly || p.fin || p.fall > 0 || p.grabT > 0) return;
+    if (this.predict(S, p, m.t).hit > p.rope && Math.random() < p.botP * 0.12) v.a = true;
+  },
+  score(m, S) { return S.p.map(p => p.fin ? 1000 - p.fin : p.best + this.pos(S, p, m.t).x / 10000); },
   fmt(s) { return s >= 100 ? 'Across!' : `vine ${Math.floor(s) + 1}`; },
   hud(m, S, i) { return `vine ${S.p[i].rope + 1}/${S.ropes.length}`; },
   draw(m, S, g) {
+    const t = m.t;
     for (let i = 0; i < 4; i++) {
       const ox = (i % 2) * 640, oy = 40 + Math.floor(i / 2) * 340, p = S.p[i];
-      const me = this.pos(S, p), cam = clamp(me.x - 240, 0, S.goal - 500);
-      if (!S.cam) S.cam = [0, 0, 0, 0]; S.cam[i] = cam;
+      const me = this.pos(S, p, t);
+      p.cam = lerp(p.cam === undefined ? 0 : p.cam, clamp(me.x - 220, 0, S.goal - 460), 0.12); const cam = p.cam;
       g.save(); g.beginPath(); g.rect(ox, oy, 640, 340); g.clip();
-      g.fillStyle = MGH.grad(g, oy, oy + 340, ['#9fe0c8', '#5fae7a', '#1f4a2a']); g.fillRect(ox, oy, 640, 340);
-      for (let k = 0; k < 10; k++) { const tx = ox + ((k * 120 - cam * 0.35) % 1200 + 1200) % 1200 - 100; g.fillStyle = 'rgba(40,110,60,0.6)'; g.beginPath(); g.moveTo(tx, oy + 300); g.lineTo(tx + 50, oy + 120 + (k % 3) * 30); g.lineTo(tx + 100, oy + 300); g.fill(); }
+      // jungle: warm sky, sun rays, layered hills and trees
+      g.fillStyle = MGH.grad(g, oy, oy + 340, ['#ffe6a8', '#9fe0c8', '#3f8a5a']); g.fillRect(ox, oy, 640, 340);
+      g.save(); g.globalAlpha = 0.18; g.fillStyle = '#fff8d0'; for (let k = 0; k < 4; k++) { const sx = ox + 120 + k * 150 - (cam * 0.05) % 150; g.beginPath(); g.moveTo(sx, oy); g.lineTo(sx + 40, oy); g.lineTo(sx - 60, oy + 340); g.lineTo(sx - 120, oy + 340); g.fill(); } g.restore();
+      for (let k = 0; k < 10; k++) { const tx = ox + ((k * 140 - cam * 0.25) % 1400 + 1400) % 1400 - 100; g.fillStyle = 'rgba(60,130,80,0.45)'; g.beginPath(); g.ellipse(tx + 60, oy + 250, 110, 70, 0, 0, 7); g.fill(); }
+      for (let k = 0; k < 8; k++) { const tx = ox + ((k * 170 - cam * 0.5) % 1360 + 1360) % 1360 - 100; g.fillStyle = '#3a6a3a'; g.fillRect(tx + 44, oy + 120, 14, 220); g.fillStyle = 'rgba(40,100,50,0.9)'; g.beginPath(); g.arc(tx + 50, oy + 120, 50, 0, 7); g.arc(tx + 20, oy + 140, 34, 0, 7); g.arc(tx + 82, oy + 140, 34, 0, 7); g.fill(); }
       g.translate(ox - cam, oy); g.scale(1, 0.85);
       // river far below
       g.fillStyle = MGH.grad(g, 330, 420, ['#2a8ad8', '#0a3a7a']); g.fillRect(cam, 340, 720, 100);
-      for (let x = Math.floor(cam / 40) * 40; x < cam + 720; x += 40) { g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.beginPath(); g.arc(x + (m.t * 30) % 40, 348, 8, Math.PI, 0); g.stroke(); }
+      for (let x = Math.floor(cam / 40) * 40; x < cam + 720; x += 40) { g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.beginPath(); g.arc(x + (t * 30) % 40, 348, 8, Math.PI, 0); g.stroke(); }
       // canopy branch
       g.fillStyle = MGH.grad(g, 0, 18, ['#7a5230', '#4a3020']); g.fillRect(cam - 10, 0, 720, 16);
       for (let x = Math.floor(cam / 30) * 30; x < cam + 720; x += 30) MGH.emoji(g, '🍃', x, 14 + (x % 60 ? 4 : -2), 18, x);
+      // start ledge
+      MGH.plat(g, -60, 230, 180, 20, 'grass');
       S.ropes.forEach((r, k) => {
-        const mine = !p.fly && p.fall <= 0 && p.rope === k;
-        const ex = mine ? me.x : r.x + Math.sin(Math.sin(m.t + k) * 0.08) * r.L, ey = mine ? me.y : 20 + r.L;
-        g.strokeStyle = k === S.ropes.length - 1 ? '#ffd34d' : '#4f9a3a'; g.lineWidth = 5; g.beginPath(); g.moveTo(r.x, 14); g.quadraticCurveTo((r.x + ex) / 2 + 6, (14 + ey) / 2, ex, ey); g.stroke();
-        for (let s = 0.25; s < 1; s += 0.25) MGH.emoji(g, '🌿', lerp(r.x, ex, s), lerp(14, ey, s), 12, k + s);
+        if (r.x < cam - 260 || r.x > cam + 900) return;
+        const e = this.tip(r, r.L, t), a = this.ang(r, t);
+        const last = k === S.ropes.length - 1;
+        g.strokeStyle = last ? '#ffd34d' : '#4f9a3a'; g.lineWidth = 6; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(r.x, 14); g.quadraticCurveTo((r.x + e.x) / 2 - Math.sin(a) * 12, (14 + e.y) / 2, e.x, e.y); g.stroke();
+        g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.beginPath(); g.moveTo(r.x + 2, 14); g.quadraticCurveTo((r.x + e.x) / 2 - Math.sin(a) * 12 + 2, (14 + e.y) / 2, e.x + 2, e.y); g.stroke();
+        for (let s = 0.3; s < 1; s += 0.22) MGH.emoji(g, '🌿', lerp(r.x, e.x, s), lerp(14, e.y, s), 12, k + s);
+        g.fillStyle = '#7a5230'; g.beginPath(); g.arc(r.x, 14, 7, 0, 7); g.fill();
       });
-      // where you'd fly if you let go now
+      // where you'd fly if you leapt now (green = you'd catch the next vine)
       if (!p.fly && p.fall <= 0 && !p.fin) {
-        let x = me.x, y = me.y, vx = Math.cos(p.th) * p.w * p.L, vy = -Math.sin(p.th) * p.w * p.L;
-        g.fillStyle = 'rgba(255,255,255,0.55)';
-        for (let k = 0; k < 40; k++) { vy += 900 / 30; x += vx / 30; y += vy / 30; if (y > 340) break; if (k % 2) { g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); } }
+        const pr = this.predict(S, p, t); g.fillStyle = pr.hit >= 0 ? 'rgba(140,255,140,0.85)' : 'rgba(255,255,255,0.5)';
+        for (let k = 0; k < pr.pts.length; k += 6) { g.beginPath(); g.arc(pr.pts[k], pr.pts[k + 1], 3, 0, 7); g.fill(); }
       }
-      const fx = S.ropes[S.ropes.length - 1].x; MGH.plat(g, fx + 20, 210, 180, 20, 'grass'); MGH.emoji(g, '🏁', fx + 80, 180, 34);
-      if (p.fall <= 0) MGH.av(g, m, i, me.x, me.y, 18, p.fin ? 'cheer' : p.fly ? 'cheer' : (Math.abs(p.w) > 1.5 ? 'determined' : 'happy'), { noFeet: true, look: { x: 1, y: 0 } });
+      const fx = S.ropes[S.ropes.length - 1].x; MGH.plat(g, fx + 40, 220, 200, 20, 'grass'); MGH.emoji(g, '🏁', fx + 110, 190, 34);
+      if (p.fall <= 0) MGH.av(g, m, i, me.x, me.y + 6, 18, p.fin ? 'cheer' : p.fly ? 'cheer' : 'determined', { noFeet: true, look: { x: 1, y: 0 } });
       g.restore();
       if (p.fall > 0) MGH.label(g, 'Splash! Climbing back…', ox + 320, oy + 170, 22, '#fff');
       g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.strokeRect(ox + 2, oy + 2, 636, 336);
@@ -619,8 +641,15 @@ MG.def({
           rails(cx, cx - 110, y, y - 160); rails(cx, cx + 110, y, y - 160);
           const sy = y + 70;
           if (sy < 760) {
-            g.fillStyle = '#3a2a1c'; MGH.rr(g, cx - 70, sy - 30, 140, 34, 6); g.fill();
-            MGH.text(g, e.safe === 'left' ? '✔ ◀   ▶ 💀' : '💀 ◀   ▶ ✔', cx, sy - 6, 18, '#fff', 'center', 'bold');
+            // a big lit signboard on two posts: green arrow = safe, red skull = crash
+            const L = e.safe === 'left';
+            MGH.glow(g, cx, sy - 20, 150, 'rgba(255,220,140,0.35)');
+            g.fillStyle = '#4a3420'; g.fillRect(cx - 118, sy - 6, 10, 46); g.fillRect(cx + 108, sy - 6, 10, 46);
+            g.fillStyle = '#2a1a0c'; MGH.rr(g, cx - 140, sy - 62, 280, 66, 12); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 4; g.stroke();
+            for (const [sd, ok] of [[-1, L], [1, !L]]) {
+              g.fillStyle = ok ? '#2fae4a' : '#b8322c'; MGH.rr(g, cx + (sd < 0 ? -132 : 4), sy - 55, 128, 52, 9); g.fill();
+              MGH.text(g, sd < 0 ? (ok ? '◀ ✔' : '◀ 💀') : (ok ? '✔ ▶' : '💀 ▶'), cx + sd * 68, sy - 18, 30, '#fff', 'center', 'bold');
+            }
           }
         } else { g.fillStyle = '#0a0603'; g.fillRect(cx - 40, y - 26, 80, 30); MGH.text(g, '⚠️', cx + 60, y - 4, 18, '#fff'); }
       });

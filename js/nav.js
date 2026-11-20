@@ -53,6 +53,8 @@ const Nav = {
     // on a board decision only the deciding player's own gamepad may act (help/map work from any pad)
     const owner = this.ownerOnly();
     pads.forEach((p, idx) => {
+      // right analog stick scrolls help, the map and any long menu page
+      const ry = p.axes[3] || 0; if (Math.abs(ry) > 0.25) this.stickScroll(Math.sign(ry) * (Math.abs(ry) - 0.2) * 22);
       const b = n => p.buttons[n] && p.buttons[n].pressed;
       const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
       const now = {};
@@ -126,6 +128,12 @@ const Nav = {
     }
     if (!best) { const i = list.indexOf(this.sel); best = list[(i + (k === 'up' || k === 'left' ? -1 : 1) + list.length) % list.length]; }
     this.sel = best; Sfx.tone(520, 0.03, 'triangle', 0.03); this.paint();
+  },
+  stickScroll(dy) {
+    if (Render.mapMode) { Render.mapScroll(dy); return; }
+    const c = UI.helpOpen() ? document.getElementById('helpOv') : this.container(); if (!c) return;
+    const all = [c, ...c.querySelectorAll('*')].filter(el => el.scrollHeight > el.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(el).overflowY));
+    if (all[0]) all[0].scrollTop += dy;
   },
   focusFirst(q) { const el = q && document.querySelector(q); this.sel = el || null; this.paint(); },
   paint() {

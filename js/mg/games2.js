@@ -292,7 +292,7 @@ MG.def({
         if (u.k === 'life') { b.hp = Math.min(5, b.hp + 1); MGH.pop('+♥', b.x, b.y - 50, '#ff8aa8'); }
         if (u.k === 'slow') { S.slow = { by: i, t: 5 }; MGH.pop('⏳ SLOW-TIME', b.x, b.y - 50, '#c8a8ff'); Sfx.tone(600, 0.8, 'sine', 0.06, -450); }
       }
-      if (m.pressed(i, 'a') && b.cd <= 0) { b.cd = 0.8; S.balls.push({ x: b.x + b.face.x * 30, y: b.y + b.face.y * 30, vx: b.face.x * 520, vy: b.face.y * 520, o: i, bounce: 1 }); Sfx.tone(420, 0.06, 'square', 0.04); }
+      if (m.pressed(i, 'a') && b.cd <= 0) { b.cd = 0.8; S.balls.push({ x: b.x + b.face.x * 30, y: b.y + b.face.y * 30, vx: b.face.x * 420, vy: b.face.y * 420, o: i, bounce: 1 }); Sfx.tone(420, 0.06, 'square', 0.04); }
     });
     MGH.collide(S.b, 0.5);
     for (const f of S.balls) {

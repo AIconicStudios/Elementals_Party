@@ -45,6 +45,7 @@ window.addEventListener('load', () => {
   q('viewBtn').onclick = () => Render.toggleZoom();
   q('mgPauseBtn').onclick = () => MG.onPauseClick && MG.onPauseClick();
   q('mgResume').onclick = () => { MG.paused = false; MG.pauseUI(false); };
+  q('mgSkipPr').onclick = () => MG.onSkipPractice && MG.onSkipPractice();
   q('mgQuit').onclick = () => MG.onQuitClick && MG.onQuitClick();
   q('helpBtn').onclick = () => UI.toggleHelp();
   Nav.init();

@@ -97,11 +97,15 @@ MG.def({
   update(m, S, dt) {
     S.et -= dt;
     if (S.et <= 0) {
-      if (S.eye === 'closed') { S.eye = 'tell'; S.et = 0.5; }
+      // mild tricks: the warning twitch is sometimes a bit shorter or longer, and now and then the eye
+      // only twitches and dozes off again. It never opens without a twitch first.
+      if (S.eye === 'closed') { const r = Math.random(); S.eye = 'tell'; S.et = r < 0.25 ? 0.36 : r < 0.5 ? 0.75 : 0.5; S.fake = m.t > 4 && Math.random() < 0.18; }
+      else if (S.eye === 'tell' && S.fake) { S.eye = 'closed'; S.et = R.range(0.7, 1.6); S.zzz = 1.4; }
       else if (S.eye === 'tell') { S.eye = 'open'; S.et = R.range(1, 2.2); S.grace = 0.1; Sfx.tone(160, 0.3, 'sawtooth', 0.05); }
       else { S.eye = 'closed'; S.et = R.range(0.8, 3.2); }
     }
     if (S.grace > 0) S.grace -= dt;
+    if (S.zzz > 0) S.zzz -= dt;
     for (let i = 0; i < 4; i++) {
       if (S.fin[i]) continue;
       const run = m.held(i, 'a');
@@ -136,6 +140,7 @@ MG.def({
     g.fillStyle = '#f3e0ff'; g.beginPath(); g.ellipse(0, 0, 70, 46 * open, 0, 0, 7); g.fill();
     if (open > 0.2) { g.fillStyle = S.eye === 'open' ? '#ff2a5a' : '#8a3ad0'; g.beginPath(); g.arc(-10 + Math.sin(m.t * 2) * 10, 0, 26 * open, 0, 7); g.fill(); g.fillStyle = '#12051f'; g.beginPath(); g.ellipse(-10 + Math.sin(m.t * 2) * 10, 0, 6, 22 * open, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(-22, -10, 6 * open, 0, 7); g.fill(); }
     g.strokeStyle = '#12051f'; g.lineWidth = 5; g.beginPath(); g.ellipse(0, 0, 72, 48 * Math.max(open, 0.08), 0, 0, 7); g.stroke();
+    if (S.zzz > 0) { g.globalAlpha = Math.min(1, S.zzz); MGH.text(g, 'z z z', 60, -60 - (1.4 - S.zzz) * 30, 30, '#d8c8ff', 'center', 'bold'); g.globalAlpha = 1; }
     g.restore();
     if (S.eye === 'open') { g.save(); g.globalAlpha = 0.18 + 0.06 * Math.sin(m.t * 20); g.fillStyle = '#ff2a5a'; g.beginPath(); g.moveTo(1150, 140); g.lineTo(80, 180); g.lineTo(80, 700); g.closePath(); g.fill(); g.restore(); }
     for (let i = 0; i < 4; i++) {
@@ -200,7 +205,7 @@ MG.def({
       g.strokeStyle = `rgba(220,230,255,${0.7 * a})`; g.lineWidth = 2; S.path.forEach(([x, y], k) => { if (k % 2 || k === 0) return; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (k % 4 ? 40 : -40), y + 30); g.lineTo(x + (k % 4 ? 30 : -50), y + 60); g.stroke(); });
       MGH.label(g, '⚡ STRIKE! ⚡', 640, 230, 54, '#ffe680');
     } else if (!S.bolt) MGH.label(g, 'Wait for it…', 640, 230, 40, '#aab4ff');
-    if (flash) { g.fillStyle = 'rgba(255,255,255,0.75)'; g.fillRect(0, 0, 1280, 720); }
+    if (flash) MGH.softFlash(g, 0.8, '200,220,255');
     MGH.label(g, `Round ${S.round} / 5`, 640, 90, 22, '#dde');
     for (let i = 0; i < 4; i++) {
       const x = 190 + i * 300, p = m.players[i], cx = i < 2 ? x - 60 : x + 60;

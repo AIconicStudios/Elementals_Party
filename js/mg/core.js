@@ -108,16 +108,20 @@ const MG = {
       this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
       // restart: fresh round straight into the countdown
       this.onRestartClick = () => { m = this.makeCtx(game, players); S = {}; game.init(m, S); phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0; this.paused = false; this.pauseUI(false); if (quiet) Music.setDuck(0, 0.5); };
+      // from the pause menu during practice: everyone is ready, start the real round
+      this.onSkipPractice = () => { if (phase === 'practice') skip.fill(true); this.paused = false; this.pauseUI(false); };
       this.onQuitClick = () => { this.paused = false; finishWith({ winners: [], winner: null, scores: null, quit: true }); };
       this.paused = false;
       const frame = nowT => {
         const dt = Math.min(0.05, (nowT - last) / 1000); last = nowT;
         // pause toggle: Esc, any gamepad Start, or the on-screen button
         const pin = this.pauseInput();
+        document.getElementById('mgSkipPr').classList.toggle('hidden', phase !== 'practice');
         if (pin.toggle && phase !== 'result') { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); }
         if (this.paused) {
-          if (pin.up || pin.down) { this.pauseSel = ((this.pauseSel || 0) + (pin.up ? 2 : 1)) % 3; this.pauseUI(true); }
-          if (pin.a) { if (this.pauseSel === 0) { this.paused = false; this.pauseUI(false); } else if (this.pauseSel === 1) { this.onRestartClick(); } else { this.onQuitClick(); return; } }
+          const btns = this.pauseBtns(), n = btns.length;
+          if (pin.up || pin.down) { this.pauseSel = ((this.pauseSel || 0) + (pin.up ? n - 1 : 1)) % n; this.pauseUI(true); }
+          if (pin.a) { const id = btns[this.pauseSel || 0].id; if (id === 'mgResume') { this.paused = false; this.pauseUI(false); } else if (id === 'mgSkipPr') this.onSkipPractice(); else if (id === 'mgRestart') { this.onRestartClick(); } else { this.onQuitClick(); return; } }
           if (!layer.classList.contains('hidden')) requestAnimationFrame(frame);
           return;
         }
@@ -137,6 +141,8 @@ const MG = {
             Sfx.tone(520, 0.15, 'triangle', 0.07);
           } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
         } else if (phase === 'practice') {
+          // X / Y on a gamepad that isn't tied to a seat readies the first human still practising
+          Input.pads().forEach((pd, k) => { const on = !!((pd.buttons[2] && pd.buttons[2].pressed) || (pd.buttons[3] && pd.buttons[3].pressed)); this._xyPrev = this._xyPrev || []; if (on && !this._xyPrev[k] && Input.seatForPad(k) === null) { const i = m.players.findIndex((p, j) => p.human && !skip[j]); if (i >= 0) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } } this._xyPrev[k] = on; });
           m.players.forEach((p, i) => { const k = p.human && Input.state(i).skip; if (k && !skipPrev[i] && !skip[i]) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } skipPrev[i] = k; });
           for (let i = 0; i < 4; i++) if (pm.bot(i) && game.bot) game.bot(pm, pS, i, dt);
           if (!pm.done) { pm.t += dt; game.update(pm, pS, dt); if (game.dur && pm.t >= game.dur && !pm.done) pm.finish(game.score(pm, pS)); }
@@ -241,7 +247,7 @@ const MG = {
     MGH.text(g, 'PRACTICE ROUND — no timer', 640, 652, 24, '#ffe680', 'center', 'bold');
     MGH.text(g, "Just for fun — this doesn't count", 640, 676, 15, '#d8d0f0');
     const hum = m.players.filter(p => p.human);
-    MGH.text(g, 'Ready for the real thing? Press Gamepad X / Y  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
+    MGH.text(g, 'Ready for the real thing? Gamepad X / Y (or Start ▸ End practice)  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
     hum.forEach((p, k) => { const x = 640 + (k - (hum.length - 1) / 2) * 120; g.fillStyle = p.color; g.globalAlpha = skip[p.i] ? 1 : 0.35; MGH.rr(g, x - 54, 600, 108, 24, 12); g.fill(); g.globalAlpha = 1; MGH.text(g, skip[p.i] ? `P${p.i + 1} ✔ ready` : `P${p.i + 1} practising`, x, 617, 13, '#fff', 'center', 'bold'); });
     g.restore();
   },
@@ -261,10 +267,11 @@ const MG = {
     const e = k => now[k] && !pv[k];
     return { toggle: escTap || e('start') || (this.paused && e('b')), up: e('up'), down: e('down'), a: e('a') };
   },
+  pauseBtns() { return [...document.querySelectorAll('#mgPause button')].filter(b => !b.classList.contains('hidden')); },
   pauseUI(on) {
     const el = document.getElementById('mgPause'); if (!el) return;
     el.classList.toggle('hidden', !on);
-    el.querySelectorAll('button').forEach((b, k) => b.classList.toggle('navsel', k === (this.pauseSel || 0)));
+    this.pauseBtns().forEach((b, k) => b.classList.toggle('navsel', k === (this.pauseSel || 0)));
   },
 
   drawGame(g, game, m, S, dt, frozen) {

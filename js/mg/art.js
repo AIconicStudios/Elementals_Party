@@ -5,6 +5,13 @@ Object.assign(MGH, {
   // deterministic noise for stable shapes
   hash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); },
   grad(g, y0, y1, stops) { const gr = g.createLinearGradient(0, y0, 0, y1); stops.forEach((c, k) => gr.addColorStop(k / (stops.length - 1), c)); return gr; },
+  // an eye-friendly impact flash: a soft coloured glow around the screen edges (centre stays clear), never a full white frame
+  softFlash(g, a, rgb = '255,214,120', y0 = 0, h = 720) {
+    if (a <= 0) return; a = Math.min(1, a);
+    const gr = g.createRadialGradient(640, y0 + h / 2, h * 0.3, 640, y0 + h / 2, 800);
+    gr.addColorStop(0, `rgba(${rgb},0)`); gr.addColorStop(1, `rgba(${rgb},${0.3 * a})`);
+    g.save(); g.fillStyle = gr; g.fillRect(0, y0, 1280, h); g.restore();
+  },
   glow(g, x, y, r, col, a = 1) { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.save(); g.globalAlpha *= a; g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); g.restore(); },
   ridge(g, y, amp, col, seed, t = 0, speed = 0, step = 40) {
     g.fillStyle = col; g.beginPath(); g.moveTo(0, 720);

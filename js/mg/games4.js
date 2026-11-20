@@ -57,71 +57,131 @@ MG.def({
   },
 });
 
-// 35 ---------------------------------------------------------------- Tower of Tokens
+// 35 ---------------------------------------------------------------- Tower of Tokens (a fall down a crystal well)
 MG.def({
-  id: 'tower', name: 'Tower of Tokens', type: 'Skill', controls: '1 button', dur: 40, mouseA: true,
-  how: 'A crane swings a block. Press to drop it. Overhanging parts break off, and a block that misses is lost.',
-  wins: 'Tallest stable tower.',
+  id: 'tokens', name: 'Tower of Tokens', type: 'Arcade', controls: 'Left/Right + A', dur: 40,
+  how: 'Everyone is falling down the glowing crystal well! Steer LEFT/RIGHT to drop through the gaps in the ledges and grab gems on the way (gold tokens are worth 5). Don\'t ride a ledge up into the spiky ceiling — that spills 3 of your gems for others to grab. A = a quick sideways dash that bumps other fallers. Cracked ledges crumble when you stand on them.',
+  wins: 'Most gems.',
   init(m, S) {
-    S.t = [0, 1, 2, 3].map(() => ({ stack: [{ x: 160, w: 150 }], crane: 0, fall: null, ph: R.range(0, 6), cd: 0, miss: 0, debris: [] }));
+    S.cy = 0; S.next = 420; S.L = []; S.G = []; S.dust = [];
+    S.p = [0, 1, 2, 3].map(i => ({ x: 280 + i * 240, y: 140, vx: 0, vy: 0, on: null, gems: 0, inv: 0, dash: 0, cd: 0, face: 1, mood: 0, hurt: 0 }));
+    while (S.next < 1400) this.spawn(S);
+    for (let k = 0; k < 40; k++) S.dust.push({ x: R.range(0, 1280), y: R.range(0, 720), s: R.range(1, 3), v: R.range(0.2, 0.7) });
   },
+  // a crystal ledge across the well with one or two gaps, plus gems to collect around it
+  spawn(S) {
+    const y = S.next, two = Math.random() < 0.4, gaps = [];
+    if (two) { gaps.push({ x: R.range(140, 560), w: R.range(110, 150) }); gaps.push({ x: R.range(720, 1140), w: R.range(110, 150) }); }
+    else gaps.push({ x: R.range(140, 1140), w: R.range(130, 175) });
+    const kind = Math.random() < 0.22 ? 'crack' : 'solid';
+    S.L.push({ y, gaps, kind, crumble: -1 });
+    // a trail of gems falling through one gap, and a few sitting on the ledge
+    const gp = R.pick(gaps);
+    for (let k = 1; k <= 3; k++) S.G.push({ x: gp.x + R.range(-20, 20), y: y + k * 46, v: 1 });
+    for (let k = 0; k < (Math.random() < 0.6 ? 2 : 1); k++) { let x = R.range(70, 1210); if (!gaps.some(g => Math.abs(x - g.x) < g.w / 2 + 30)) S.G.push({ x, y: y - 30, v: 1 }); }
+    if (Math.random() < 0.18) S.G.push({ x: R.range(100, 1180), y: y + 100, v: 5 });
+    S.next += R.range(170, 230);
+  },
+  inGap(L, x, r) { return L.kind === 'gone' || L.gaps.some(g => Math.abs(x - g.x) < g.w / 2 - r * 0.45); },
   update(m, S, dt) {
-    S.t.forEach((T, i) => {
-      T.ph += dt * (1.8 + T.stack.length * 0.08);
-      T.crane = 160 + Math.sin(T.ph) * 120;
-      T.cd -= dt;
-      const top = T.stack[T.stack.length - 1];
-      if (!T.fall && T.cd <= 0 && m.pressed(i, 'a')) T.fall = { x: T.crane, w: top.w, y: 0 };
-      if (T.fall) {
-        T.fall.y += 900 * dt;
-        if (T.fall.y >= 1) {
-          const l = Math.max(T.fall.x - T.fall.w / 2, top.x - top.w / 2), r = Math.min(T.fall.x + T.fall.w / 2, top.x + top.w / 2);
-          const scroll = Math.max(0, (T.stack.length - 14) * 26), ly = 690 - T.stack.length * 26 + scroll;
-          const drop = (x0, x1, all) => { if (x1 - x0 > 1) T.debris.push({ x: (x0 + x1) / 2, w: x1 - x0, y: ly - 26, vx: all ? R.range(-40, 40) : ((x0 + x1) / 2 < top.x ? -90 : 90), vy: all ? 60 : -60, rot: 0, vr: all ? R.range(-3, 3) : ((x0 + x1) / 2 < top.x ? -4 : 4), t: 0 }); };
-          if (r - l >= 12) { drop(T.fall.x - T.fall.w / 2, l); drop(r, T.fall.x + T.fall.w / 2); }
-          else drop(T.fall.x - T.fall.w / 2, T.fall.x + T.fall.w / 2, true);
-          if (r - l >= 12) { MGH.burst(i * 320 + (l + r) / 2, 690 - T.stack.length * 26 + Math.max(0, (T.stack.length - 14) * 26), ['#d9c7a8', '#fff'], 10, { speed: 160 }); T.stack.push({ x: (l + r) / 2, w: r - l }); if (!m.bot(i)) Sfx.tone(400 + T.stack.length * 30, 0.08, 'triangle', 0.05); }
-          else { T.miss = 0.6; if (!m.bot(i)) Sfx.bad(); }
-          T.fall = null; T.cd = 0.25;
-        }
+    const V = Math.min(310, 150 + m.t * 4.2); // the well scrolls faster and faster
+    S.cy += V * dt;
+    while (S.next < S.cy + 1300) this.spawn(S);
+    S.L = S.L.filter(L => L.y > S.cy - 60); S.G = S.G.filter(g => g.y > S.cy - 40 && !g.got);
+    for (const d of S.dust) { d.y -= V * d.v * dt; if (d.y < 40) { d.y = 720; d.x = R.range(0, 1280); } }
+    const R0 = 24;
+    S.p.forEach((P, i) => {
+      P.inv -= dt; P.cd -= dt; P.dash -= dt; P.hurt -= dt;
+      const ax = m.axis(i).x; if (Math.abs(ax) > 0.2) P.face = Math.sign(ax);
+      if (m.pressed(i, 'a') && P.cd <= 0) { P.dash = 0.18; P.cd = 0.9; P.vx = P.face * 900; if (!m.bot(i)) Sfx.whoosh(); }
+      if (P.dash <= 0) P.vx += (ax * 380 - P.vx) * Math.min(1, dt * 12);
+      P.x = clamp(P.x + P.vx * dt, 50, 1230);
+      // standing on a ledge: carried upward with it until you walk off into a gap
+      if (P.on && (P.on.kind === 'gone' || this.inGap(P.on, P.x, R0))) P.on = null;
+      if (P.on) {
+        P.y = P.on.y - R0; P.vy = 0;
+        if (P.on.kind === 'crack' && P.on.crumble < 0) P.on.crumble = 0.6;
+      } else {
+        const py = P.y; P.vy = Math.min(720, P.vy + 1500 * dt); P.y += P.vy * dt;
+        for (const L of S.L) if (py + R0 <= L.y + 2 && P.y + R0 >= L.y && !this.inGap(L, P.x, R0)) { P.y = L.y - R0; P.vy = 0; P.on = L; break; }
       }
-      T.miss -= dt;
-      T.debris.forEach(d => { d.t += dt; d.vy += 1400 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt; });
-      T.debris = T.debris.filter(d => d.y < 800);
+      // can't fall out of the bottom of the screen
+      if (P.y - S.cy > 690) { P.y = S.cy + 690; P.vy = Math.min(P.vy, V); }
+      // the spiky ceiling
+      if (P.y - R0 - S.cy < 66 && P.inv <= 0) {
+        const lose = Math.min(3, P.gems); P.gems -= lose; P.inv = 1.6; P.hurt = 0.8;
+        for (let k = 0; k < lose; k++) S.G.push({ x: clamp(P.x + R.range(-110, 110), 70, 1210), y: P.y + R.range(160, 260), v: 1, spill: true });
+        if (P.on) { P.y = P.on.y + 30; P.on = null; P.vy = 200; }
+        MGH.burst(P.x, P.y - S.cy, ['#ff6b8a', '#fff', m.players[i].color], 18, { speed: 260 }); MGH.pop(lose ? `-${lose} 💎` : 'ouch!', P.x, P.y - S.cy - 40, '#ff6b6b', 28); if (!m.bot(i)) { Sfx.bad(); MGH.shake(5); }
+      }
+      // gems
+      for (const gm of S.G) if (!gm.got && Math.abs(gm.x - P.x) < R0 + 14 && Math.abs(gm.y - P.y) < R0 + 14) { gm.got = true; P.gems += gm.v; P.mood = 0.5; MGH.pop(`+${gm.v}`, gm.x, gm.y - S.cy - 20, gm.v > 1 ? '#ffd34d' : '#9fe8ff', gm.v > 1 ? 32 : 22); if (!m.bot(i)) Sfx.tone(gm.v > 1 ? 1100 : 880 + P.gems * 6, 0.06, 'triangle', 0.05); }
+      P.mood -= dt;
     });
+    // ledges crumble
+    for (const L of S.L) if (L.crumble > 0) { L.crumble -= dt; if (L.crumble <= 0) { L.kind = 'gone'; MGH.burst(640, L.y - S.cy, ['#8fa8c8', '#c8d8f0'], 20, { speed: 200 }); } }
+    // fallers bump each other sideways
+    for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) {
+      const A = S.p[a], B = S.p[b], dx = B.x - A.x, dy = B.y - A.y;
+      if (Math.abs(dx) < 46 && Math.abs(dy) < 44) { const push = (46 - Math.abs(dx)) / 2 * (Math.sign(dx) || 1); A.x -= push; B.x += push; if (A.dash > 0) B.vx += A.face * 500; if (B.dash > 0) A.vx += B.face * 500; }
+    }
   },
-  bot(m, S, i) {
-    const T = S.t[i], v = m.vin[i]; v.a = false;
-    if (T.fall || T.cd > 0) return;
-    const top = T.stack[T.stack.length - 1];
-    if (Math.abs(T.crane - top.x) < R.range(2, 14) && Math.random() < 0.7) v.a = true;
+  bot(m, S, i, dt) {
+    const P = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false; v.ax = 0;
+    P.bt = (P.bt || 0) - dt;
+    // the next ledge below: aim for its nearest gap; detour for a close gem
+    const below = S.L.find(L => L.y > P.y + 30 && L.kind !== 'gone');
+    let tx = P.x;
+    if (P.on) { const g = P.on.gaps.reduce((a, b) => Math.abs(b.x - P.x) < Math.abs(a.x - P.x) ? b : a); tx = g.x; }
+    else if (below) { const g = below.gaps.reduce((a, b) => Math.abs(b.x - P.x) < Math.abs(a.x - P.x) ? b : a); tx = g.x; }
+    const gem = S.G.filter(gm => gm.y > P.y - 20 && gm.y < P.y + 220 && Math.abs(gm.x - P.x) < 260).sort((a, b) => b.v - a.v || Math.abs(a.x - P.x) - Math.abs(b.x - P.x))[0];
+    if (gem && !P.on) tx = gem.x;
+    if (P.bt <= 0) { P.aimErr = R.range(-30, 30); P.bt = R.range(0.3, 0.7); }
+    const d = tx + (P.on ? 0 : P.aimErr || 0) - P.x;
+    v.ax = Math.abs(d) > 8 ? clamp(d / 60, -1, 1) * 0.92 : 0;
+    if (P.on && P.y - S.cy < 220 && Math.abs(d) > 120 && P.cd <= 0 && Math.random() < 0.05) { P.face = Math.sign(d); v.a = true; }
   },
-  score(m, S) { return S.t.map(T => T.stack.length - 1 + T.stack[T.stack.length - 1].w / 1000); },
-  fmt(s) { return `${Math.floor(s)} blocks`; },
-  hud(m, S, i) { return S.t[i].stack.length - 1; },
+  score(m, S) { return S.p.map(P => P.gems); },
+  fmt(s) { return `${s} gems`; },
+  hud(m, S, i) { return `💎 ${S.p[i].gems}`; },
   draw(m, S, g) {
-    MGH.scene(g, 'sky', m.t);
-    S.t.forEach((T, i) => {
-      const ox = i * 320, bh = 26, n = T.stack.length, col = m.players[i].color;
-      const scroll = Math.max(0, (n - 14) * bh);
-      g.save(); g.beginPath(); g.rect(ox, 40, 320, 680); g.clip();
-      MGH.plat(g, ox + 20, 690 + scroll, 280, 40, 'grass');
-      const blk = (x, y, w, c, a = 1) => { g.globalAlpha = a; g.fillStyle = MGH.grad(g, y - bh, y, [Char.shade(c, 0.35), Char.shade(c, -0.2)]); MGH.rr(g, x - w / 2, y - bh, w, bh - 2, 5); g.fill(); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x - w / 2 + 3, y - bh + 2, Math.max(0, w - 6), 4); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.5; MGH.rr(g, x - w / 2, y - bh, w, bh - 2, 5); g.stroke(); g.globalAlpha = 1; };
-      T.stack.forEach((b, k) => blk(ox + b.x, 690 - k * bh + scroll, b.w, k === 0 ? '#8a7a66' : col));
-      // crane
-      g.strokeStyle = '#4a4a5a'; g.lineWidth = 6; g.beginPath(); g.moveTo(ox + 10, 70); g.lineTo(ox + 310, 70); g.stroke();
-      g.strokeStyle = '#aaa'; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + T.crane, 70); g.lineTo(ox + T.crane, 110); g.stroke();
-      g.fillStyle = '#ffd34d'; g.fillRect(ox + T.crane - 10, 64, 20, 12);
-      const top = T.stack[n - 1];
-      if (!T.fall) { blk(ox + T.crane, 110 + bh, top.w, col, 0.9); g.strokeStyle = 'rgba(255,255,255,0.25)'; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(ox + T.crane, 136); g.lineTo(ox + T.crane, 690 - n * bh + scroll); g.stroke(); g.setLineDash([]); }
-      else { const y = lerp(110, 690 - n * bh + scroll, Math.min(1, T.fall.y)); blk(ox + T.fall.x, y + bh, T.fall.w, col); }
-      // pieces breaking off and tumbling away
-      for (const d of T.debris) { g.save(); g.translate(ox + d.x, d.y); g.rotate(d.rot); blk(0, bh / 2, d.w, col, 0.9); g.restore(); }
-      if (T.miss > 0) MGH.label(g, 'missed!', ox + 160, 200, 24, '#ff8a8a');
-      g.restore();
-      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(ox + 318, 40, 4, 680);
-      MGH.av(g, m, i, ox + 38, 686, 18, T.miss > 0 ? 'hurt' : T.cd > 0 ? 'cheer' : 'determined', { look: { x: 0.6, y: -1 } });
+    // deep crystal well: dark violet-teal rock, glowing crystal veins drifting past
+    g.fillStyle = MGH.grad(g, 40, 720, ['#120a2a', '#0e2a3a', '#08121e']); g.fillRect(0, 40, 1280, 680);
+    for (let k = 0; k < 9; k++) {
+      const y = ((k * 157 - S.cy * 0.45) % 900 + 900) % 900 - 90, x = k % 2 ? 1230 : 50, c = ['#5fd8ff', '#c86aff', '#7cf0c0'][k % 3];
+      MGH.glow(g, x, y, 90, c + '55'); g.fillStyle = c; g.globalAlpha = 0.7;
+      for (let j = 0; j < 3; j++) { const ox = x + (k % 2 ? -1 : 1) * j * 16, h = 40 + j * 14; g.beginPath(); g.moveTo(ox - 8, y + 20); g.lineTo(ox + (k % 2 ? -10 : 10), y - h); g.lineTo(ox + 9, y + 20); g.fill(); }
+      g.globalAlpha = 1;
+    }
+    g.fillStyle = 'rgba(30,20,50,0.85)'; g.fillRect(0, 40, 26, 680); g.fillRect(1254, 40, 26, 680);
+    for (const d of S.dust) { g.fillStyle = `rgba(190,230,255,${0.25 + d.v * 0.4})`; g.fillRect(d.x, d.y, d.s, d.s * 3); }
+    // ledges
+    for (const L of S.L) {
+      if (L.kind === 'gone') continue;
+      const y = L.y - S.cy; if (y < 20 || y > 760) continue;
+      const shake = L.crumble > 0 ? Math.sin(m.t * 60) * 3 : 0;
+      const xs = [0]; L.gaps.slice().sort((a, b) => a.x - b.x).forEach(gp => { xs.push(gp.x - gp.w / 2, gp.x + gp.w / 2); }); xs.push(1280);
+      for (let k = 0; k < xs.length; k += 2) {
+        const x0 = xs[k] + shake, w = xs[k + 1] - xs[k]; if (w < 4) continue;
+        g.fillStyle = L.kind === 'crack' ? MGH.grad(g, y, y + 22, ['#a89ab8', '#6a5a7a']) : MGH.grad(g, y, y + 22, ['#7ab0d8', '#3a5a8a']);
+        MGH.rr(g, x0, y, w, 22, 8); g.fill();
+        g.fillStyle = L.kind === 'crack' ? 'rgba(255,220,180,0.5)' : 'rgba(180,240,255,0.8)'; g.fillRect(x0 + 6, y + 2, Math.max(0, w - 12), 3);
+        if (L.kind === 'crack') { g.strokeStyle = 'rgba(40,20,40,0.7)'; g.lineWidth = 2; for (let c = x0 + 30; c < x0 + w - 20; c += 70) { g.beginPath(); g.moveTo(c, y + 2); g.lineTo(c + 8, y + 11); g.lineTo(c - 4, y + 20); g.stroke(); } }
+      }
+    }
+    // gems
+    for (const gm of S.G) { const y = gm.y - S.cy; if (y < 50 || y > 740) continue; if (gm.v > 1) { MGH.glow(g, gm.x, y, 40, 'rgba(255,210,80,0.6)'); MGH.coin(g, gm.x, y, 15, m.t); } else MGH.gem(g, gm.x, y, 10, gm.spill ? '#ff9ad8' : '#5fd8ff', m.t); }
+    // fallers
+    S.p.forEach((P, i) => {
+      const y = P.y - S.cy; if (P.inv > 0 && Math.sin(m.t * 30) > 0.3) return;
+      if (P.dash > 0) { g.globalAlpha = 0.35; MGH.av(g, m, i, P.x - P.face * 26, y, 22, 'determined'); g.globalAlpha = 1; }
+      MGH.av(g, m, i, P.x, y, 22, P.hurt > 0 ? 'hurt' : P.mood > 0 ? 'cheer' : P.on ? 'nervous' : 'happy', { look: { x: P.face, y: 0.6 } });
+      MGH.text(g, String(P.gems), P.x, y - 58, 16, m.players[i].color, 'center', 'bold');
     });
+    // spiky ceiling
+    g.fillStyle = MGH.grad(g, 40, 70, ['#3a0a1a', '#7a1a3a']); g.fillRect(0, 40, 1280, 18);
+    for (let x = 0; x < 1280; x += 32) { g.fillStyle = '#ff6b8a'; g.beginPath(); g.moveTo(x, 56); g.lineTo(x + 16, 80); g.lineTo(x + 32, 56); g.fill(); g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.moveTo(x + 10, 56); g.lineTo(x + 16, 72); g.lineTo(x + 18, 56); g.fill(); }
+    MGH.glow(g, 640, 60, 400, 'rgba(255,60,110,0.15)');
   },
 });
 
