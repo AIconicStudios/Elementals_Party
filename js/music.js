@@ -227,7 +227,7 @@ const Music = (() => {
       this.metalBuf = mb;
     },
 
-    level() { return (Settings.music ? 0.8 : 0) * this.duck; },
+    level() { return (Settings.music ? 0.62 : 0) * this.duck; },
     isMini(n) { return n === 'mini' || n === 'mini2'; },
     // minigames take turns between the two minigame themes
     nextMini() { this.miniTurn++; return this.miniTurn % 2 ? 'mini' : 'mini2'; },

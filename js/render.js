@@ -61,11 +61,11 @@ const Render = {
       if (t.loc === 'board') {
         const b = this.trackPos(t.pos), here = this.game.players.filter(q => !q.gone && q.trav.loc === 'board' && q.trav.pos === t.pos), n = here.length, k = here.indexOf(p);
         if (n <= 1) return { x: b.x, y: b.y };
-        const off = [[-16, -8], [16, -8], [16, 10], [-16, 10]][k] || [0, 0];
+        const off = [[-26, -10], [26, -10], [26, 12], [-26, 12]][k] || [0, 0];
         return { x: b.x + off[0], y: b.y + off[1] };
       }
       const b = this.ringPos(t.ring, t.pos);
-      return { x: b.x + (p.id % 2 ? 8 : -8), y: b.y };
+      return { x: b.x + (p.id % 2 ? 14 : -14), y: b.y };
     }
     const b = this.ringPos(p.id, p.def.pos);
     return { x: b.x, y: b.y };
@@ -522,7 +522,8 @@ const Render = {
     if (!this.reactionOf(pl.id)) { const lf = this.life('H' + pl.id, now, false, false); g.save(); if (lf.rot) { g.translate(c.x, c.y); g.rotate(lf.rot); g.translate(-c.x, -c.y); } Char.draw(g, c.x, c.y - 34 + (lf.dy || 0), 28, pl.id, pl.color, { mood: raided ? 'scared' : (lf.mood || (G.current === pl ? 'cheer' : 'happy')), seed: pl.id * 5, look: { x: lf.lookX !== undefined ? lf.lookX : Math.sin(now * 0.7 + pl.id), y: 0.2 } }); g.restore(); }
     g.textAlign = 'center';
     this.outlined(g, pl.el.hold, c.x, c.y + 22, 'bold 17px Georgia', '#fff', 5);
-    if (G.simple) { const guards = ['sdog', 'speel', 'slock', 'sbell', 'sshield'].filter(x => pl.items.includes(x)); guards.forEach((x, k) => { g.font = '24px "Segoe UI Emoji"'; g.textBaseline = 'middle'; g.fillText(ITEM[x].icon, c.x - 40 + k * 40, c.y - 96 + Math.sin(now * 3 + k) * 3); g.textBaseline = 'alphabetic'; }); }
+    if (G.simple && pl.shade) { g.save(); g.globalAlpha = 0.55 + 0.1 * Math.sin(now * 1.5); const sg = g.createRadialGradient(c.x, c.y - 40, 10, c.x, c.y - 40, 110); sg.addColorStop(0, 'rgba(60,40,90,0.75)'); sg.addColorStop(1, 'rgba(30,20,50,0)'); g.fillStyle = sg; g.beginPath(); g.arc(c.x, c.y - 40, 110, 0, 7); g.fill(); g.restore(); g.font = '26px "Segoe UI Emoji"'; g.textBaseline = 'middle'; g.fillText('🌫️', c.x, c.y - 100 + Math.sin(now * 2) * 3); g.textBaseline = 'alphabetic'; }
+    if (G.simple && !pl.shade) { const guards = (pl.guards || []).map(gd => gd.id); guards.forEach((x, k) => { g.font = '24px "Segoe UI Emoji"'; g.textBaseline = 'middle'; g.fillText(ITEM[x].icon, c.x - 40 + k * 40, c.y - 96 + Math.sin(now * 3 + k) * 3); g.textBaseline = 'alphabetic'; }); }
     if (pl.hollow) this.outlined(g, 'Famished Earth', c.x, c.y + 42, '12px Georgia', '#9fe07a', 4);
   },
   tokenMood(pl, kind) {
@@ -537,10 +538,12 @@ const Render = {
     return G.current === pl ? 'happy' : 'neutral';
   },
   drawTokenShadow(g, pl, kind, d, now) {
-    const r = kind === 'T' ? 21 : 16, k = 1 + d.hop / 120;
-    g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(d.x, d.y, r * 1.1 * k, r * 0.9 * k, 0, 0, 7); g.fill();
-    if (kind === 'T' && this.game.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6 + 0.3 * Math.sin(now * 5); g.beginPath(); g.arc(d.x, d.y, r * 1.6, 0, 7); g.stroke(); g.globalAlpha = 1; }
+    const r = this.tokenR(pl, kind), k = 1 + d.hop / 120;
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(d.x, d.y, r * 0.8 * k, r * 0.6 * k, 0, 0, 7); g.fill();
+    if (kind === 'T' && this.game.current === pl) { g.strokeStyle = pl.color; g.lineWidth = 4; g.globalAlpha = 0.6 + 0.3 * Math.sin(now * 5); g.beginPath(); g.ellipse(d.x, d.y, r * 1.15, r * 0.95, 0, 0, 7); g.stroke(); g.globalAlpha = 1; }
   },
+  // board pieces are big and readable; a little smaller inside the Holds' rings, where tiles sit closer
+  tokenR(pl, kind) { if (kind !== 'T') return 28; return pl.trav.loc === 'board' ? 42 : 32; },
   // little idle "life" for characters standing around: waves, hops, dances, yawns, stretches, spins
   lifeState: {}, attention: null,
   life(key, now, busy, isCur) {
@@ -568,7 +571,7 @@ const Render = {
     if (!moving) { const cur = this.game.current, cd = cur && this.disp['T' + cur.id]; const tgt = this.attention && now - this.attention.t < 1.8 ? this.attention : cd && cur !== pl ? cd : null; if (tgt) look.x = clamp((tgt.x - d.x) / 80, -1, 1); }
     const lf = kind === 'T' ? this.life(kind + pl.id, now, moving || !!this.anim[pl.id] || !!this.reactionOf(pl.id) || (this.die && this.die.who === pl.id), this.game.current === pl) : {};
     if (lf.lookX !== undefined) look.x = lf.lookX; if (lf.lookY !== undefined) look.y = lf.lookY;
-    const r = kind === 'T' ? 21 : 16, cy = d.y + d.hop - r * 1.28 + (lf.dy || 0);
+    const r = this.tokenR(pl, kind), cy = d.y + d.hop - r * 1.28 + (lf.dy || 0);
     const t = pl.trav;
     let prop = null;
     if (kind === 'T') { if (t.prison) prop = '⛓️'; else if (t.armor) prop = '🛡️'; else if (this.game.hotCoins(pl) + this.game.hotStars(pl) > 0) prop = '💰'; }

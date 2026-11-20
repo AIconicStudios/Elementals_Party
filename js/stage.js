@@ -286,10 +286,11 @@ const Stage = {
         g.restore();
       }
       if (t > 0.75 && t < 1.7) { for (let i = 0; i < 3; i++) { const an = t * 7 + i * 2.1; this.icon(g, '⭐', at.x + Math.cos(an) * 14, at.y - 28 + Math.sin(an) * 5, 8); } }
-      if (stole && t > 1.0 && t < 1.8) { // a coin arcs from victim to attacker
-        const k = this.E.inout((t - 1.0) / 0.7), x = lerp(at.x, a0.x, k), y = lerp(at.y - 20, a0.y - 20, k) - Math.sin(k * Math.PI) * 40;
+      if (stole && t > 0.9 && t < 2.3) { g.globalAlpha = clamp((2.3 - t) / 0.3, 0, 1); this.word(g, '−1 🪙', at.x + Math.sin(t * 50) * (t < 1.3 ? 3 : 0), at.y - 74, 30, '#ff6b6b'); g.globalAlpha = 1; }
+      if (stole && t > 1.0 && t < 2.4) { // a coin arcs from victim to attacker
+        const k = this.E.inout(Math.min(1, (t - 1.0) / 0.7)), x = lerp(at.x, a0.x, k), y = lerp(at.y - 20, a0.y - 20, k) - Math.sin(k * Math.PI) * 40;
         this.coin(g, x, y, 6, t * 14);
-        if (t > 1.6) { g.globalAlpha = clamp((1.8 - t) / 0.2, 0, 1); this.word(g, '+1', a0.x, a0.y - 40, 14, '#ffe680'); g.globalAlpha = 1; }
+        if (t > 1.6) { g.globalAlpha = clamp((2.4 - t) / 0.3, 0, 1); this.word(g, '+1 🪙', a0.x, a0.y - 70, 30, '#7cf06a'); g.globalAlpha = 1; }
       }
     } }, true);
   },
@@ -359,12 +360,33 @@ const Stage = {
     } }, true);
   },
   // coins flying between a player and somewhere (shop counter, another player)
-  coinsTo(from, to, n = 5) {
+  // coins fly from A to B; with labels, the loser gets a bold red −n and the gainer a bold green +n
+  coinsTo(from, to, n = 5, lab) {
     if (this.off()) return Promise.resolve();
+    if (lab && n > 0) this.lossGain(from, to, n, lab);
     return this.play({ len: 0.9 + n * 0.05, draw: (g, t) => {
       const A = typeof from === 'function' ? from() : from, B = typeof to === 'function' ? to() : to;
       for (let i = 0; i < n; i++) { const k = clamp((t - i * 0.05) / 0.75, 0, 1); if (k <= 0 || k >= 1) continue; this.coin(g, lerp(A.x, B.x, this.E.inout(k)), lerp(A.y, B.y, this.E.inout(k)) - Math.sin(k * Math.PI) * 60, 9, t * 12 + i); }
     } });
+  },
+
+  lossGain(from, to, n, lab) {
+    Sfx.bad();
+    const len = 2.6 + n * 0.05;
+    this.play({ len, draw: (g, t) => {
+      const A = typeof from === 'function' ? from() : from, B = typeof to === 'function' ? to() : to;
+      const tag = (P, txt, sub, col, delay, dir) => {
+        const k = t - delay; if (k < 0) return;
+        const pop = k < 0.2 ? 0.4 + this.E.back(k / 0.2) * 0.6 : 1, a = clamp((len - t) / 0.4, 0, 1), shake = dir < 0 && k < 0.5 ? Math.sin(k * 60) * 4 : 0;
+        g.save(); g.globalAlpha = a; g.translate(P.x + shake, P.y - 70 - Math.min(1, k) * 18 * dir); g.scale(pop, pop);
+        g.fillStyle = dir < 0 ? 'rgba(90,10,20,0.85)' : 'rgba(10,60,20,0.85)'; this.rrect(g, -78, -40, 156, 66, 18); g.fill();
+        g.strokeStyle = col; g.lineWidth = 4; g.stroke();
+        this.word(g, txt, 0, 6, 38, col); this.word(g, sub, 0, 22, 14, '#fff');
+        g.restore();
+      };
+      tag(A, `−${n} 🪙`, lab.lose ? `${lab.lose} loses` : 'lost', '#ff6b6b', 0, -1);
+      tag(B, `+${n} 🪙`, lab.gain ? `${lab.gain} gains` : 'gained', '#7cf06a', 0.75, 1);
+    } }, true);
   },
 
   // ---------------------------------------------------------- minigame podium: 1st +3, 2nd +2, 3rd +1

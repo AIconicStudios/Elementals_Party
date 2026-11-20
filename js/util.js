@@ -27,7 +27,7 @@ const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 const sum = a => a.reduce((s, x) => s + x, 0);
 
 function sleep(ms) {
-  const t = ms * Settings.speed;
+  const t = ms * Settings.speed * 1.15; // board pacing: a touch calmer than raw timings
   if (t <= 0 && !Settings.paused) return Promise.resolve();
   // while the board is paused, timers hold still
   return new Promise(r => { const go = () => (Settings.paused ? setTimeout(go, 120) : r()); setTimeout(go, t > 0 ? t : 0); });
@@ -40,9 +40,18 @@ const Sfx = {
     if (this.ctx) return;
     try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ctx = null; return; }
     const c = this.ctx;
-    const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3;
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
-    this.bus = c.createGain(); this.bus.gain.value = 1; this.bus.connect(lp); lp.connect(comp); comp.connect(c.destination);
+    // mix chain: bus -> clean lows -> soft top -> glue comp -> limiter, plus a short room reverb send
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.18;
+    const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 55;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9500;
+    const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 4000; air.gain.value = 2.5;
+    this.bus = c.createGain(); this.bus.gain.value = 1.1;
+    this.bus.connect(hp); hp.connect(lp); lp.connect(air); air.connect(comp); comp.connect(lim); lim.connect(c.destination);
+    const rl = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, rl, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let k = 0; k < rl; k++) d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / rl, 3.2); }
+    const rev = c.createConvolver(); rev.buffer = ir; const send = c.createGain(); send.gain.value = 0.16; const ret = c.createGain(); ret.gain.value = 0.7;
+    this.bus.connect(send); send.connect(rev); rev.connect(ret); ret.connect(comp);
     const len = c.sampleRate, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0); for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1; this.nbuf = b;
   },
   ok() { if (!Settings.sound || Settings.test || this.suppress) return null; this.init(); const c = this.ctx; if (!c) return null; if (c.state === 'suspended') c.resume(); return c; },
@@ -53,7 +62,12 @@ const Sfx = {
     if (slide) o.frequency.linearRampToValueAtTime(Math.max(20, freq + slide), t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + dur + 0.02);
+    // buzzy waves get a filter that tracks their pitch (rounder, less beepy); every sound sits slightly left or right
+    let node = o;
+    if (type === 'square' || type === 'sawtooth') { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.8; f.frequency.setValueAtTime(Math.min(9000, freq * 5 + 600), t); f.frequency.exponentialRampToValueAtTime(Math.min(9000, freq * 2 + 300), t + dur); o.connect(f); node = f; }
+    node.connect(g);
+    if (c.createStereoPanner) { const pn = c.createStereoPanner(); pn.pan.value = (Math.random() - 0.5) * 0.5; g.connect(pn); pn.connect(this.bus); } else g.connect(this.bus);
+    o.start(t); o.stop(t + dur + 0.02);
   },
   noise(dur = 0.1, freq = 2000, vol = 0.08, type = 'bandpass', delay = 0, sweep = 0, q = 1) {
     const c = this.ok(); if (!c) return;

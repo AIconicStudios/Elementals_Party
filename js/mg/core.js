@@ -97,7 +97,7 @@ const MG = {
     this.fx = []; this.shakeAmt = 0;
     game.init(m, S);
     const g = this.g;
-    let phase = 'card', phaseT = 0, last = performance.now();
+    let phase = 'card', phaseT = 0, last = performance.now(); this.openT = 0;
     let ranking = null, winners = null;
     const ready = m.players.map(p => !p.human);
     const demo = this.makeDemo(game, players);
@@ -127,11 +127,12 @@ const MG = {
         if (phase === 'card') {
           m.players.forEach((p, i) => { if (p.human && !ready[i] && m.pressed(i, 'a')) { ready[i] = true; Sfx.tone(660 + i * 110, 0.12, 'triangle', 0.07); } });
           this.drawCard(g, game, m, phaseT, ready, demo, dt);
+          if (this.openT === undefined) this.openT = 0; this.openT += dt; if (this.openT < 0.7) this.iris(g, this.openT / 0.7);
           const humans = m.players.some(p => p.human);
           if (humans && ready.every(r => r)) {
             // a short practice round so everyone gets the hang of it before it counts
             phase = 'practice'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
-            pm = this.makeCtx(game, players); pS = {}; game.init(pm, pS);
+            pm = this.makeCtx(game, players); pm.practice = true; pS = {}; game.init(pm, pS);
             if (quiet) Music.setDuck(0, 1.2);
             Sfx.tone(520, 0.15, 'triangle', 0.07);
           } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
@@ -141,7 +142,7 @@ const MG = {
           if (!pm.done) { pm.t += dt; game.update(pm, pS, dt); if (game.dur && pm.t >= game.dur && !pm.done) pm.finish(game.score(pm, pS)); }
           this.drawGame(g, game, pm, pS, dt);
           // no timer: practise as long as you like; a finished practice game simply starts again
-          if (pm.done) { pm = this.makeCtx(game, players); pS = {}; game.init(pm, pS); MGH.pop('Again!', 640, 300, '#ffe680', 40); }
+          if (pm.done) { pm = this.makeCtx(game, players); pm.practice = true; pS = {}; game.init(pm, pS); MGH.pop('Again!', 640, 300, '#ffe680', 40); }
           this.drawPractice(g, m, 0, skip, false);
           if (skip.every(v => v)) {
             // fresh start for the real thing
@@ -157,7 +158,7 @@ const MG = {
             this.bigText(g, n > 0 ? String(n) : 'GO!', n === 3 ? '#ff6b6b' : n === 2 ? '#ffd34d' : n === 1 ? '#7cf06a' : '#ffffff', q % 0.6, n > 0 ? 170 : 190);
             if (Math.floor(q / 0.6) !== Math.floor((q - dt) / 0.6) || q - dt <= 0) { if (n > 0) Sfx.tone(440, 0.14, 'triangle', 0.07); else { Sfx.tone(880, 0.3, 'square', 0.06); Sfx.tone(1320, 0.4, 'triangle', 0.06, 0, 0.05); } }
           }
-          if (phaseT > 3.2) { phase = 'play'; phaseT = 0; }
+          if (phaseT > 3.2) { phase = 'play'; phaseT = 0; this.replay = { frames: [], n: 0 }; }
         } else if (phase === 'play') {
           for (let i = 0; i < 4; i++) if (m.bot(i) && game.bot) game.bot(m, S, i, dt);
           m.t += dt;
@@ -165,6 +166,7 @@ const MG = {
           if (game.dur && m.t >= game.dur && !m.done) m.finish(game.score(m, S));
           if (game.dur) { const left = game.dur - m.t; if (left > 0 && left <= 5 && Math.ceil(left) !== Math.ceil(left + dt)) Sfx.tick(); }
           this.drawGame(g, game, m, S, dt);
+          this.capture(g);
           if (m.done) {
             Sfx.whistle(); setTimeout(() => Sfx.crowd('cheer'), 500);
             ranking = this.rank(m.scores, order); winners = this.winnersOf(ranking);
@@ -172,15 +174,22 @@ const MG = {
             for (let k = 0; k < 6; k++) MGH.burst(R.range(200, 1080), R.range(150, 400), R.pick(['#ffe680', '#8fe0ff', '#ff6a3d', '#7ccf4a']), 24, { speed: 380, life: 1.6, grav: 300 });
           }
         } else if (phase === 'result') {
-          this.drawGame(g, game, m, S, dt, true);
-          if (phaseT < 1.1) this.bigText(g, 'FINISH!', '#ffd34d', phaseT, 150);
-          else this.drawResult(g, game, m, ranking, winners, phaseT - 1.1);
+          // the last moments replay in slow motion behind FINISHED!, then the results
+          const RP = this.replay && this.replay.frames.length >= 12 ? 2.8 : 1.1;
+          if (phaseT < RP && RP > 2) this.drawReplay(g, phaseT / RP);
+          else this.drawGame(g, game, m, S, dt, true);
+          if (phaseT < RP) { this.bigText(g, 'FINISHED!', '#ffd34d', Math.min(phaseT, 1.2), 130); if (phaseT - dt <= 0) Sfx.boom(); }
+          else this.drawResult(g, game, m, ranking, winners, phaseT - RP);
           // any player's A, or any gamepad's A / B / Start, moves on from the results
           const anyPad = this.anyPadTap();
-          if (phaseT > 6.5 || (phaseT > 2.6 && (anyPad || m.players.some(p => p.human && m.pressed(p.i, 'a'))))) {
-            finishWith({ winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores });
-            return;
+          if (phaseT > RP + 5.4 || (phaseT > RP + 1.5 && (anyPad || m.players.some(p => p.human && m.pressed(p.i, 'a'))))) {
+            phase = 'exit'; phaseT = 0; this.exitRes = { winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores };
           }
+        } else if (phase === 'exit') {
+          // iris closes on the results, then back to the board
+          this.drawGame(g, game, m, S, dt, true); this.drawResult(g, game, m, ranking, winners, 9);
+          this.iris(g, 1 - phaseT / 0.55);
+          if (phaseT > 0.6) { finishWith(this.exitRes); return; }
         }
         requestAnimationFrame(frame);
       };
@@ -188,6 +197,35 @@ const MG = {
     });
   },
 
+  // ring buffer of small snapshots of the last ~1.6 seconds of play, for the finish replay
+  capture(g) {
+    const R = this.replay; if (!R || Settings.test) return;
+    R.n++; if (R.n % 2) return;
+    let c = R.frames.length >= 48 ? R.frames.shift() : null;
+    if (!c) { c = document.createElement('canvas'); c.width = 800; c.height = 450; }
+    c.getContext('2d').drawImage(g.canvas, 0, 0, 800, 450);
+    R.frames.push(c);
+  },
+  drawReplay(g, k) {
+    const F = this.replay.frames, i = Math.min(F.length - 1, Math.floor(k * 0.999 * F.length));
+    const z = 1 + k * 0.08; // a slow push-in
+    g.save(); g.fillStyle = '#000'; g.fillRect(0, 0, 1280, 720);
+    g.translate(640, 360); g.scale(z, z); g.translate(-640, -360);
+    g.filter = 'saturate(1.25) contrast(1.05)'; g.drawImage(F[i], 0, 0, 1280, 720); g.filter = 'none';
+    g.restore();
+    // cinematic letterbox + replay tag
+    const bar = 56 * Math.min(1, k * 6);
+    g.fillStyle = '#000'; g.fillRect(0, 0, 1280, bar); g.fillRect(0, 720 - bar, 1280, bar);
+    if (Math.floor(k * 14) % 2 === 0) { g.fillStyle = '#ff4d4d'; g.beginPath(); g.arc(40, 28, 7, 0, 7); g.fill(); }
+    MGH.text(g, 'REPLAY  ×½', 58, 34, 18, '#fff', 'left', 'bold');
+  },
+  // circular iris: k = 0 closed (black), 1 fully open
+  iris(g, k) {
+    k = clamp(k, 0, 1); if (k >= 1) return;
+    const r = 760 * (k * k * (3 - 2 * k));
+    g.save(); g.fillStyle = '#07040f'; g.beginPath(); g.rect(0, 0, 1280, 720); g.arc(640, 360, Math.max(0.1, r), 0, Math.PI * 2, true); g.fill('evenodd');
+    g.strokeStyle = 'rgba(255,230,128,0.8)'; g.lineWidth = 6; g.beginPath(); g.arc(640, 360, Math.max(0.1, r), 0, 7); g.stroke(); g.restore();
+  },
   // a fresh A / B / Start press on any connected gamepad
   anyPadTap() {
     const pads = Input.pads(), now = pads.map(p => !!((p.buttons[0] && p.buttons[0].pressed) || (p.buttons[1] && p.buttons[1].pressed) || (p.buttons[9] && p.buttons[9].pressed)));

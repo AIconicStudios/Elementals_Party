@@ -56,7 +56,8 @@ const UI = {
       if (p.vaultProt) st.push(`🔏${p.vaultProt}`); if (p.fakeStars) st.push(`✴️×${p.fakeStars}`);
       if (p.gone) st.push('💀No Wayfarer'); else if (!p.def && !G.simple) st.push('No Warden');
       const loc = p.gone ? '—' : t.loc === 'board' ? `On the Crossing: ${SPACE[G.board[t.pos]].lore}` : (t.ring === p.id ? `Guarding own Hold, tile ${t.pos}` : `⚔️ Raiding ${G.P(t.ring).el.hold}, tile ${t.pos}`);
-      const items = p.items.map(id => `<span class="it" title="${esc(itemLabel(id) + ': ' + ITEM[id].desc)}">${ITEM[id].icon}</span>`).join('') || '<span class="dim">no items</span>';
+      const guardsOn = G.simple ? (p.shade ? '<span class="it" title="Shade: guards and items are hidden">🌫️</span><span class="dim">hidden</span>' : (p.guards || []).map(gd => `<span class="it inst" title="Installed: ${esc(ITEM[gd.id].name)}">🛠️${ITEM[gd.id].icon}</span>`).join('')) : '';
+      const items = p.shade && G.simple ? guardsOn : guardsOn + p.items.map(id => `<span class="it" title="${esc(itemLabel(id) + ': ' + ITEM[id].desc)}">${ITEM[id].icon}</span>`).join('') || '<span class="dim">no items</span>';
       const el = $('#pc' + p.id);
       el.className = 'pc' + (G.current === p ? ' cur' : '');
       el.style.setProperty('--c', p.color);

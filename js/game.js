@@ -199,7 +199,6 @@ class Game {
     if (p.items.length < HAND_LIMIT) {
       if (fx) await Stage.gain(p, ITEM[id].icon);
       p.items.push(id);
-      if (ITEM[id].guard) (p.guardExp = p.guardExp || []).push({ id, exp: Math.max(1, this.round) + 1 });
       this.log(`${this.name(p)} gets ${ITEM[id].icon} ${itemLabel(id)}.`);
       UI.refresh();
       return true;
@@ -1082,6 +1081,7 @@ class Game {
       case 'robin': {
         const rich = this.players.filter(q => q !== p).sort((a, b) => b.vault - a.vault || this.bank(b) - this.bank(a))[0];
         let n = Math.min(3, rich.cash); rich.cash -= n; if (n < 3) n += this.bankTake(rich, 3 - n);
+        if (n) Stage.lossGain(() => Stage.scr(Stage.tokPt(rich)), () => Stage.scr(Stage.tokPt(p)), n, { lose: rich.name, gain: p.name });
         p.cash += n; this.log(`${this.name(p)} takes ${n} coins from ${this.name(rich)}.`); this.react(p, 'smug', 'For the poor! (me)'); this.react(rich, 'angry', undefined, 0.3);
         break;
       }
@@ -1178,6 +1178,7 @@ class Game {
       for (const k of Object.keys(p.traps || {})) if (p.traps[k].exp !== undefined && R0 >= p.traps[k].exp) { gone.push([ITEM[p.traps[k].id].icon, +k]); delete p.traps[k]; }
       for (const pile of p.piles || []) { if (pile.protExp !== undefined && R0 >= pile.protExp) { pile.prot = 0; pile.protExp = undefined; gone.push(['🛡️', pile.tile]); } if (pile.mimicExp !== undefined && R0 >= pile.mimicExp) { pile.mimic = false; pile.mimicExp = undefined; gone.push(['🧰', pile.tile]); } }
       if (p.grace && p.graceExp !== undefined && R0 >= p.graceExp) { p.grace = null; }
+      if (p.guards && p.guards.length) { p.guards = p.guards.filter(gd => { if (R0 < gd.exp) return true; gone.push([ITEM[gd.id].icon, null]); return false; }); }
       if (p.guardExp) { p.guardExp = p.guardExp.filter(gd => { if (R0 < gd.exp) return true; const i = p.items.indexOf(gd.id); if (i >= 0) { p.items.splice(i, 1); gone.push([ITEM[gd.id].icon, null]); } return false; }); }
       if (gone.length) {
         this.log(`💨 ${this.name(p)}'s ${gone.map(g => g[0]).join(' ')} wore off after two rounds.`);

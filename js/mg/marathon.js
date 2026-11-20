@@ -32,7 +32,7 @@ const MGM = {
       update(m, S, dt) {
         S.pt += dt;
         const st = stages[S.si];
-        if (S.phase === 'intro') { if (st.idle) st.idle(m, S, S.T, dt); if (S.pt > 2.8) { S.phase = 'play'; S.pt = 0; S.stageT = 0; Sfx.whistle(); } return; }
+        if (S.phase === 'intro') { if (st.idle) st.idle(m, S, S.T, dt); if (S.pt > 5.5) { S.phase = 'play'; S.pt = 0; S.stageT = 0; Sfx.whistle(); } return; }
         if (S.phase === 'play') {
           S.stageT += dt;
           st.update(m, S, S.T, dt, S.stageT);
@@ -67,12 +67,14 @@ const MGM = {
         // event progress pips (top right)
         stages.forEach((s, k) => { const x = 1270 - (stages.length - k) * 34, y = 58; g.fillStyle = k < S.si ? '#ffd34d' : k === S.si ? '#ffffff' : 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill(); MGH.text(g, s.icon, x, y + 6, 15, '#000', 'center'); });
         if (S.phase === 'intro') MGM.drawIntro(g, m, S, st, S.pt);
+        // the event's controls stay on screen early on (and all through the practice round)
+        if (S.phase === 'play' && (m.practice || S.stageT < 9)) MGM.drawHow(g, st, m.practice ? 1 : clamp((9 - S.stageT) / 1.2, 0, 1), m.practice ? 46 : 640);
         if (S.phase === 'results') MGM.drawResults(g, m, S, S.pt);
       },
     });
   },
   drawIntro(g, m, S, st, t) {
-    const k = Math.min(1, t / 0.35), out = t > 2.4 ? (t - 2.4) / 0.4 : 0;
+    const k = Math.min(1, t / 0.35), out = t > 5.1 ? (t - 5.1) / 0.4 : 0;
     g.save(); g.globalAlpha = 1 - out;
     g.fillStyle = 'rgba(8,4,24,0.72)'; g.fillRect(0, 40, 1280, 680);
     g.translate(640, 330); g.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
@@ -82,6 +84,14 @@ const MGM = {
     g.save(); g.globalAlpha = 1 - out;
     g.font = 'bold 54px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#1a0f3a'; g.strokeText(st.name, 640, 400); g.fillStyle = '#fff'; g.fillText(st.name, 640, 400);
     MGH.wrap(g, st.how, 640, 446, 860, 28, '#e8e0ff', 21);
+    g.restore();
+  },
+  drawHow(g, st, a, y0 = 640) {
+    if (a <= 0) return;
+    g.save(); g.globalAlpha = a;
+    g.fillStyle = 'rgba(8,4,24,0.82)'; MGH.rr(g, 130, y0, 1000, 72, 16); g.fill(); g.strokeStyle = 'rgba(255,230,128,0.7)'; g.lineWidth = 2; g.stroke();
+    MGH.text(g, `${st.icon} ${st.name}`, 215, y0 + 42, 18, '#ffe680', 'center', 'bold');
+    MGH.wrap(g, st.how, 700, y0 + 24, 820, 20, '#fff', 15);
     g.restore();
   },
   drawResults(g, m, S, t) {
