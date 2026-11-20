@@ -655,12 +655,12 @@ const Char = {
 
   // chubby cartoon fist: puffy palm, three knuckle bumps, a hugging thumb and a flared rolled cuff.
   // Local space: knuckles point to -x, cuff (wrist) to +x, thumb on the -y side.
-  mitt(g, r, C, hx, hy, rot, front, mood) {
+  mitt(g, r, C, hx, hy, rot, front, mood, flip = false) {
     const s = r * 0.27, hi = r > 10, lw = Math.max(0.8, r * 0.034);
     const L = this.shade(C.glove, front ? 0.5 : 0.22), M = front ? this.shade(C.glove, 0) : this.shade(C.glove, -0.16), D = this.shade(C.glove, front ? -0.38 : -0.5);
     const ink = this.shade(C.glove, -0.65);
     const open = mood === 'cheer' || mood === 'shock' || mood === 'starry' || this._wave; // open, waving hand
-    g.save(); g.translate(hx, hy); g.rotate(rot);
+    g.save(); g.translate(hx, hy); g.rotate(rot); if (flip) g.scale(1, -1); // flip puts the thumb on the other side
     if (hi && front) { g.fillStyle = 'rgba(40,15,10,0.16)'; g.beginPath(); g.ellipse(s * 0.2, s * 0.3, s * 1.05, s * 0.85, 0, 0, 7); g.fill(); }
     const parts = open ? [
       ['e', 0, 0, s * 0.88, s * 0.8, 0],
