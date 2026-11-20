@@ -415,64 +415,6 @@ MG.def({
   },
 });
 
-// 57 ---------------------------------------------------------------- Ice Stones (curling)
-MG.def({
-  id: 'curling', name: 'Ice Stones', type: 'Skill', controls: 'Left/Right + button',
-  how: 'Press the button to stop the swinging power meter and launch your stone up the ice. While it slides, hold LEFT/RIGHT to curl it and tap the button to sweep (it slides further). Three stones — your closest to the centre counts.',
-  wins: 'Closest stone to the centre.',
-  init(m, S) {
-    S.cx = 160; S.cy = 160;
-    S.p = [0, 1, 2, 3].map(() => ({ n: 0, best: 1e9, st: 'power', ph: R.range(0, 6), stone: null, stones: [], bt: 0, want: R.range(0.3, 0.42) }));
-  },
-  update(m, S, dt) {
-    S.p.forEach((p, i) => {
-      if (p.st === 'done') return;
-      if (p.st === 'power') {
-        p.ph += dt * 2.6;
-        if (m.pressed(i, 'a')) { const pw = (1 - Math.cos(p.ph)) / 2; p.stone = { x: 160, y: 640, v: 220 + pw * 360, cx: 0 }; p.st = 'slide'; }
-      } else if (p.st === 'slide') {
-        const s = p.stone;
-        s.cx += m.axis(i).x * 40 * dt;
-        let fr = 140; if (m.pressed(i, 'a')) { s.sweep = 0.25; MGH.burst(i * 320 + s.x, s.y - 30, 'rgba(255,255,255,0.8)', 4, { speed: 80, life: 0.3 }); }
-        s.sweep = (s.sweep || 0) - dt; if (s.sweep > 0) fr = 70;
-        s.v = Math.max(0, s.v - fr * dt); s.y -= s.v * dt; s.x = clamp(s.x + s.cx * dt * (s.v / 100), 40, 280);
-        if (s.y < 40 || s.v <= 0) {
-          const d = s.y < 40 ? 999 : dist(s.x, s.y, S.cx, S.cy);
-          p.stones.push({ x: s.x, y: Math.max(40, s.y) }); p.best = Math.min(p.best, d); p.n++;
-          if (d < 25) MGH.burst(i * 320 + s.x, s.y, ['#ffe680', '#fff'], 18, { speed: 180, kind: 'spark', size: 2 });
-          p.stone = null; p.st = p.n >= 3 ? 'done' : 'power';
-        }
-      }
-    });
-    if (S.p.every(p => p.st === 'done')) { S.w = (S.w || 0) + dt; if (S.w > 1.2) m.finish(this.score(m, S)); }
-  },
-  bot(m, S, i, dt) {
-    const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false;
-    if (p.st === 'power') { const pw = (1 - Math.cos(p.ph)) / 2; if (Math.abs(pw - p.want) < 0.03 && Math.sin(p.ph) > 0) { v.a = true; p.want = R.range(0.3, 0.44); } }
-    else if (p.st === 'slide') {
-      const s = p.stone; if (s.x < S.cx - 8) v.right = true; else if (s.x > S.cx + 8) v.left = true;
-      const stopAt = s.y - s.v * s.v / (2 * 140);
-      p.bt -= dt; if (stopAt > S.cy + 15 && p.bt <= 0) { v.a = true; p.bt = 0.25; }
-    }
-  },
-  score(m, S) { return S.p.map(p => -p.best); },
-  fmt(s) { return -s >= 900 ? 'no stone in play' : `${Math.round(-s)} cm from centre`; },
-  hud(m, S, i) { const b = S.p[i].best; return `${S.p[i].n}/3 · ${b > 900 ? '-' : Math.round(b) + 'cm'}`; },
-  draw(m, S, g) {
-    MGH.scene(g, 'ice', m.t); MGH.lanes(g, m);
-    for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(220,240,255,0.75)'; g.fillRect(i * 320 + 30, 60, 260, 650); g.strokeStyle = 'rgba(120,170,220,0.6)'; g.lineWidth = 2; g.strokeRect(i * 320 + 30, 60, 260, 650); }
-    S.p.forEach((p, i) => {
-      const ox = i * 320;
-      [[90, '#3b6fd8'], [64, '#ffffff'], [40, '#d83b3b'], [14, '#ffffff']].forEach(([r, c]) => { g.fillStyle = c; g.beginPath(); g.arc(ox + S.cx, S.cy, r, 0, 7); g.fill(); });
-      const stone = (x, y, a = 1) => { g.globalAlpha = a; g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(ox + x + 3, y + 5, 16, 14, 0, 0, 7); g.fill(); const gr = g.createRadialGradient(ox + x - 5, y - 6, 2, ox + x, y, 16); gr.addColorStop(0, '#c8c8d0'); gr.addColorStop(1, '#5a5a66'); g.fillStyle = gr; g.beginPath(); g.arc(ox + x, y, 16, 0, 7); g.fill(); g.fillStyle = m.players[i].color; MGH.rr(g, ox + x - 9, y - 4, 18, 8, 4); g.fill(); g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.ellipse(ox + x - 5, y - 8, 5, 3, -0.4, 0, 7); g.fill(); g.globalAlpha = 1; };
-      p.stones.forEach(s => stone(s.x, s.y, 0.8));
-      if (p.stone) stone(p.stone.x, p.stone.y);
-      if (p.st === 'power') { const pw = (1 - Math.cos(p.ph)) / 2; g.fillStyle = '#234'; g.fillRect(ox + 290, 360, 14, 260); g.fillStyle = m.players[i].color; g.fillRect(ox + 290, 620 - pw * 260, 14, pw * 260); stone(160, 640); }
-      MGH.av(g, m, i, ox + (p.stone ? p.stone.x : 160), (p.stone ? p.stone.y : 640) + 44, 18, p.st === 'done' ? (p.best < 30 ? 'cheer' : p.best < 90 ? 'happy' : 'hurt') : p.stone && p.stone.sweep > 0 ? 'determined' : 'happy', { look: { x: 0, y: -1 }, walk: p.stone ? 1 : 0, prop: p.stone ? '🧹' : null });
-    });
-  },
-});
-
 // 58 ---------------------------------------------------------------- Meteor Juggle
 MG.def({
   id: 'juggle', name: 'Meteor Juggle', type: 'Arcade', controls: 'Left/Right + button', dur: 40,

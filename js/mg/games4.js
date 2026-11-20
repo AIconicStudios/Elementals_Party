@@ -4,8 +4,8 @@
 // 31 ---------------------------------------------------------------- Hot Streak
 MG.def({
   id: 'streak', name: 'Hot Streak', type: 'Luck', controls: '1 button', dur: 45, mouseA: true,
-  how: 'Hold to spin the meter and add to your pot. A skull wipes it. Release to bank the pot.',
-  wins: 'First to bank 15.',
+  how: 'Hold to spin and grow your pot. Let go to bank it. The bigger your pot, the likelier the SKULL — it wipes the pot! First to bank 30 wins.',
+  wins: 'First to bank 30.',
   init(m, S) { S.bank = [0, 0, 0, 0]; S.pot = [0, 0, 0, 0]; S.tick = [0, 0, 0, 0]; S.cool = [0, 0, 0, 0]; S.last = ['', '', '', '']; S.fin = [0, 0, 0, 0]; S.aim = [0, 1, 2, 3].map(() => R.int(4, 8)); },
   update(m, S, dt) {
     for (let i = 0; i < 4; i++) {
@@ -13,27 +13,27 @@ MG.def({
       if (S.cool[i] > 0) { S.cool[i] -= dt; continue; }
       if (m.held(i, 'a')) {
         S.tick[i] += dt;
-        if (S.tick[i] >= 0.45) {
+        if (S.tick[i] >= 0.6) {
           S.tick[i] = 0;
-          if (Math.random() < 0.16) { MGH.burst(160 + i * 320, 300, ['#3a1a5c', '#b46bff', '#222'], 30, { speed: 320 }); MGH.shake(5); S.pot[i] = 0; S.last[i] = '💀'; S.cool[i] = 0.9; if (!m.bot(i)) Sfx.bad(); }
+          if (Math.random() < 0.06 + S.pot[i] * 0.022) { MGH.burst(160 + i * 320, 300, ['#3a1a5c', '#b46bff', '#222'], 30, { speed: 320 }); MGH.shake(5); S.pot[i] = 0; S.last[i] = '💀'; S.cool[i] = 0.9; if (!m.bot(i)) Sfx.bad(); }
           else { const v = R.int(1, 3); S.pot[i] += v; S.last[i] = '+' + v; if (!m.bot(i)) Sfx.tone(500 + S.pot[i] * 30, 0.05, 'square', 0.04); }
         }
       } else if (m.released(i, 'a') || (S.pot[i] > 0 && !m.held(i, 'a'))) {
         if (S.pot[i] > 0) { MGH.burst(160 + i * 320, 570, ['#ffe680', '#fff'], 20, { speed: 240, up: 120, grav: 500 }); S.bank[i] += S.pot[i]; S.pot[i] = 0; S.last[i] = 'banked'; if (!m.bot(i)) Sfx.coin(); }
         S.tick[i] = 0;
-        if (S.bank[i] >= 15) S.fin[i] = m.t;
+        if (S.bank[i] >= 30) S.fin[i] = m.t;
       }
     }
     if (S.fin.some(f => f)) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
-    const need = 15 - S.bank[i];
+    const need = 30 - S.bank[i];
     const target = Math.min(need, S.aim[i]);
     m.vin[i].a = S.cool[i] <= 0 && S.pot[i] < target;
     if (!m.vin[i].a) S.aim[i] = R.int(4, 8);
   },
   score(m, S) { return S.bank.map((b, i) => S.fin[i] ? 1000 - S.fin[i] : b); },
-  fmt(s) { return s >= 100 ? 'Banked 15!' : `${s} banked`; },
+  fmt(s) { return s >= 100 ? 'Banked 30!' : `${s} banked`; },
   hud(m, S, i) { return `${S.bank[i]} (+${S.pot[i]})`; },
   draw(m, S, g) {
     MGH.scene(g, 'stage', m.t);
@@ -51,125 +51,8 @@ MG.def({
       MGH.av(g, m, i, x - 112, 470, 24, S.fin[i] ? 'cheer' : S.last[i] === '💀' && S.cool[i] > 0 ? 'hurt' : S.last[i] === 'banked' ? 'cheer' : spin ? (S.pot[i] >= 6 ? 'scared' : 'determined') : 'happy', { look: { x: 1, y: -0.5 } });
       if (S.last[i]) MGH.label(g, S.last[i], x + 30, 455, 24, '#fff');
       MGH.coin(g, x + 10, 505, 12, m.t); MGH.text(g, `pot ${S.pot[i]}`, x + 60, 512, 22, '#ffe680', 'center', 'bold');
-      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 110, 560, 220, 20, 10); g.fill(); g.fillStyle = MGH.grad(g, 560, 580, [Char.shade(p.color, 0.3), p.color]); MGH.rr(g, x - 110, 560, 220 * Math.min(1, S.bank[i] / 15), 20, 10); g.fill();
-      MGH.text(g, `${p.name}: ${S.bank[i]} / 15`, x, 620, 20, p.color, 'center', 'bold');
-    }
-  },
-});
-
-// 32 ---------------------------------------------------------------- Hit or Stand 9
-MG.def({
-  id: 'nine', name: 'Hit or Stand 9', type: 'Luck', controls: 'Pick',
-  how: 'Draw a number from 1 to 6. You may draw one more. Going over 9 is a bust. Three hands.',
-  wins: 'Closest to 9 without busting (a point per hand).',
-  init(m, S) { S.pts = [0, 0, 0, 0]; S.round = 1; this.deal(S); },
-  deal(S) { S.c1 = [0, 1, 2, 3].map(() => R.d6()); S.c2 = [0, 0, 0, 0]; PickR.start(S, 2, 6, 1); },
-  update(m, S, dt) {
-    if (S.phase === 'pick') {
-      if (PickR.update(m, S, dt, 2, i => S.c1[i] <= 4 ? 0 : 1)) {
-        S.tot = S.c1.map((c, i) => { if (S.P[i].idx === 0) { S.c2[i] = R.d6(); } return c + S.c2[i]; });
-        const valid = S.tot.map(t => t <= 9 ? t : -1); const best = Math.max(...valid);
-        S.win = best > 0 ? valid.map((v, i) => v === best ? i : -1).filter(i => i >= 0) : [];
-        S.win.forEach(i => S.pts[i]++);
-        S.phase = 'reveal'; S.t = 0;
-      }
-    } else { S.t += dt; if (S.t > 2.8) { if (S.round >= 3) m.finish(S.pts.slice()); else { S.round++; this.deal(S); } } }
-  },
-  score(m, S) { return S.pts.slice(); },
-  hud(m, S, i) { return S.pts[i]; },
-  draw(m, S, g) {
-    MGH.scene(g, 'forest', m.t);
-    g.fillStyle = MGH.grad(g, 140, 460, ['#1f6a3a', '#0f4024']); MGH.rr(g, 40, 140, 1200, 320, 60); g.fill(); g.strokeStyle = '#8a5a30'; g.lineWidth = 14; g.stroke();
-    MGH.label(g, `Hand ${S.round} / 3 — get close to 9, don't go over`, 640, 492, 22, '#fff');
-    const card = (x, y, v, show) => { g.fillStyle = 'rgba(0,0,0,0.3)'; MGH.rr(g, x + 4, y + 6, 80, 110, 10); g.fill(); g.fillStyle = show ? '#fffaf0' : '#7a2a3a'; MGH.rr(g, x, y, 80, 110, 10); g.fill(); g.strokeStyle = show ? '#c9a36b' : '#ffd34d'; g.lineWidth = 3; g.stroke(); if (show) { MGH.text(g, String(v), x + 40, y + 72, 46, '#222', 'center', 'bold'); MGH.text(g, '♦', x + 14, y + 22, 16, '#d22'); } else MGH.emoji(g, '⭐', x + 40, y + 55, 34); };
-    for (let i = 0; i < 4; i++) {
-      const x = 160 + i * 320, p = m.players[i], mine = MGH.peek(m, i) || S.phase === 'reveal';
-      card(x - 90, 170, S.c1[i], mine);
-      if (S.phase === 'reveal' && S.c2[i]) card(x + 10, 170, S.c2[i], true);
-      MGH.av(g, m, i, x + 128, 225, 24, S.phase === 'reveal' ? (S.win.includes(i) ? 'cheer' : S.tot[i] > 9 ? 'hurt' : 'neutral') : (S.P[i].locked ? 'happy' : 'determined'), { look: { x: -1, y: 0 } });
-      MGH.text(g, p.name, x, 320, 22, p.color, 'center', 'bold');
-      if (S.phase === 'pick' && !m.bot(i)) ['🃏 Draw', '✋ Stand'].forEach((l, k) => { const sel = S.P[i].idx === k && MGH.peek(m, i); g.fillStyle = sel ? p.color : 'rgba(0,0,0,0.45)'; MGH.rr(g, x - 110 + k * 115, 360, 105, 50, 10); g.fill(); MGH.text(g, l, x - 57 + k * 115, 392, 18, sel ? '#000' : '#fff', 'center', 'bold'); });
-      if (S.phase === 'reveal') MGH.label(g, S.tot[i] > 9 ? `${S.tot[i]} BUST` : `${S.tot[i]}${S.win.includes(i) ? ' ★' : ''}`, x, 400, 30, S.tot[i] > 9 ? '#f66' : '#ffe680');
-    }
-    if (S.phase === 'pick') PickR.drawStatus(m, S, g);
-  },
-});
-
-// 33 ---------------------------------------------------------------- Staircase
-MG.def({
-  id: 'stairs', name: 'Staircase', type: 'Luck', controls: '1 button', dur: 60, mouseA: true,
-  how: 'Tap to roll. A roll only counts if it is the next number on the staircase, 1 to 6 in order.',
-  wins: 'First to the top step.',
-  init(m, S) { S.step = [0, 0, 0, 0]; S.roll = [0, 0, 0, 0]; S.anim = [0, 0, 0, 0]; S.fin = [0, 0, 0, 0]; S.bt = [0, 0, 0, 0]; },
-  update(m, S, dt) {
-    for (let i = 0; i < 4; i++) {
-      if (S.fin[i]) continue;
-      if (S.anim[i] > 0) { S.anim[i] -= dt; if (S.anim[i] <= 0) { if (S.roll[i] === S.step[i] + 1) { S.step[i]++; MGH.burst(30 + i * 320 + (S.step[i] - 1) * 42 + 21, 620 - (S.step[i] - 1) * 70, [m.players[i].color, '#fff'], 14, { speed: 200, up: 100, grav: 400 }); if (!m.bot(i)) Sfx.coin(); if (S.step[i] >= 6) S.fin[i] = m.t; } } continue; }
-      if (m.pressed(i, 'a')) { S.roll[i] = R.d6(); S.anim[i] = 0.3; if (!m.bot(i)) Sfx.dice(); }
-    }
-    if (S.fin.some(f => f)) m.finish(this.score(m, S));
-  },
-  bot(m, S, i, dt) { const v = m.vin[i]; v.a = false; S.bt[i] -= dt; if (S.anim[i] <= 0 && S.bt[i] <= 0) { v.a = true; S.bt[i] = R.range(0.05, 0.2); } },
-  score(m, S) { return S.step.map((s, i) => S.fin[i] ? 1000 - S.fin[i] : s); },
-  fmt(s) { return s >= 100 ? 'Reached the top!' : `step ${s}`; },
-  hud(m, S, i) { return `step ${S.step[i]}`; },
-  draw(m, S, g) {
-    MGH.scene(g, 'sunset', m.t);
-    for (let i = 0; i < 4; i++) {
-      const x0 = 30 + i * 320, p = m.players[i];
-      for (let k = 0; k < 6; k++) { const done = k < S.step[i]; MGH.plat(g, x0 + k * 42, 620 - k * 70, 42, 70 + k * 70, done ? 'gold' : 'stone'); MGH.text(g, String(k + 1), x0 + 21 + k * 42, 650, 18, '#222', 'center', 'bold'); }
-      MGH.star(g, x0 + 5 * 42 + 21, 620 - 5 * 70 - 40, 14, '#ffd34d', m.t);
-      const sx = x0 + Math.max(0, S.step[i] - 1) * 42 + 21, sy = S.step[i] ? 620 - (S.step[i] - 1) * 70 - 20 : 680;
-      MGH.av(g, m, i, sx, sy - 6, 15, S.fin[i] ? 'cheer' : (S.anim[i] <= 0 && S.roll[i] && S.roll[i] !== S.step[i] + 0 && S.roll[i] !== S.step[i] ? 'hurt' : 'determined'), { look: { x: 0.6, y: -0.6 } });
-      // die
-      const rolling = S.anim[i] > 0, v = rolling ? R.d6() : S.roll[i];
-      g.save(); g.translate(x0 + 240, 160); g.rotate(rolling ? Math.sin(m.t * 30) * 0.4 : 0);
-      g.fillStyle = 'rgba(0,0,0,0.3)'; MGH.rr(g, -36, -32, 80, 80, 14); g.fill();
-      g.fillStyle = MGH.grad(g, -40, 40, ['#ffffff', '#dcd4ea']); MGH.rr(g, -40, -40, 80, 80, 14); g.fill(); g.strokeStyle = p.color; g.lineWidth = 4; g.stroke();
-      const P = { 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]] }[v] || [];
-      g.fillStyle = !rolling && S.roll[i] === S.step[i] && S.roll[i] ? '#0a0' : '#222'; P.forEach(([a, b]) => { g.beginPath(); g.arc(a * 20, b * 20, 7, 0, 7); g.fill(); });
-      g.restore();
-      MGH.label(g, `${p.name} needs ${Math.min(6, S.step[i] + 1)}`, x0 + 140, 90, 18, p.color);
-    }
-  },
-});
-
-// 34 ---------------------------------------------------------------- Higher or Lower
-MG.def({
-  id: 'higher', name: 'Higher or Lower', type: 'Luck', controls: 'Pick',
-  how: 'A number from 1 to 10 is shown. Bet whether the next one is higher or lower. A wrong bet is out.',
-  wins: 'Last one alive.',
-  init(m, S) { S.alive = [true, true, true, true]; S.outR = [0, 0, 0, 0]; S.round = 0; S.cur = R.int(3, 8); this.start(S); },
-  start(S) { S.round++; PickR.start(S, 2, 5, 0); },
-  update(m, S, dt) {
-    if (S.phase === 'pick') {
-      for (let i = 0; i < 4; i++) if (!S.alive[i]) S.P[i].locked = true;
-      if (PickR.update(m, S, dt, 2, () => Math.random() < 0.88 ? (S.cur <= 5 ? 0 : 1) : R.int(0, 1))) {
-        let nx; do { nx = R.int(1, 10); } while (nx === S.cur);
-        S.next = nx;
-        const right = S.P.map((P, i) => S.alive[i] && P.locked && ((P.idx === 0 && nx > S.cur) || (P.idx === 1 && nx < S.cur)));
-        const alive = S.alive.map((a, i) => a && right[i]);
-        if (alive.some(a => a)) S.alive.forEach((a, i) => { if (a && !alive[i]) { S.alive[i] = false; S.outR[i] = S.round; } });
-        S.phase = 'reveal'; S.t = 0;
-      }
-    } else {
-      S.t += dt;
-      if (S.t > 2.4) { S.cur = S.next; if (S.alive.filter(a => a).length <= 1 || S.round >= 12) m.finish(this.score(m, S)); else this.start(S); }
-    }
-  },
-  score(m, S) { return S.alive.map((a, i) => a ? 100 : S.outR[i]); },
-  fmt(s) { return s >= 100 ? 'Survived' : `out in round ${s}`; },
-  hud(m, S, i) { return S.alive[i] ? 'in' : 'out'; },
-  draw(m, S, g) {
-    MGH.scene(g, 'stage', m.t);
-    const card = (x, y, txt, col, w = 200, h = 250) => { g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, x - w / 2 + 6, y - h / 2 + 8, w, h, 18); g.fill(); g.fillStyle = MGH.grad(g, y - h / 2, y + h / 2, ['#fffaf0', '#e8dcc0']); MGH.rr(g, x - w / 2, y - h / 2, w, h, 18); g.fill(); g.strokeStyle = '#c9a36b'; g.lineWidth = 4; g.stroke(); MGH.text(g, txt, x, y + 46, 130, col, 'center', 'bold'); };
-    card(480, 270, String(S.cur), '#222');
-    if (S.phase === 'reveal') card(800, 270, String(S.next), S.next > S.cur ? '#1a8a3a' : '#c22');
-    else { g.fillStyle = MGH.grad(g, 145, 395, ['#7a2a3a', '#4a1020']); MGH.rr(g, 700, 145, 200, 250, 18); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 4; g.stroke(); MGH.emoji(g, '❓', 800, 270, 90); }
-    PickR.drawOptions(m, S, g, ['▲ Higher', '▼ Lower'], 390, 420, 240, 100, 2, S.phase !== 'pick');
-    for (let i = 0; i < 4; i++) {
-      MGH.av(g, m, i, 160 + i * 320 - 116, 662, 20, !S.alive[i] ? 'out' : S.phase === 'reveal' ? 'cheer' : (S.P[i].locked ? 'happy' : 'nervous'));
-      MGH.text(g, `${m.players[i].name}: ${S.alive[i] ? (S.P[i].locked ? '🔒' : '…') : '✖ out'}`, 160 + i * 320 + 28, 680, 18, m.players[i].color, 'center', 'bold');
+      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 110, 560, 220, 20, 10); g.fill(); g.fillStyle = MGH.grad(g, 560, 580, [Char.shade(p.color, 0.3), p.color]); MGH.rr(g, x - 110, 560, 220 * Math.min(1, S.bank[i] / 30), 20, 10); g.fill();
+      MGH.text(g, `${p.name}: ${S.bank[i]} / 30`, x, 620, 20, p.color, 'center', 'bold');
     }
   },
 });
@@ -363,61 +246,6 @@ MG.def({
     for (const s of S.stones) { const x = lerp(s.sx, s.tx, s.t), y = lerp(s.sy, s.ty, s.t) - Math.sin(s.t * Math.PI) * 60; MGH.rock(g, x, y, 7 + (1 - s.t) * 4, 3, '#9a9a9a', s.t * 10); }
     S.hits.forEach(h => MGH.label(g, h.p ? '+' + h.p : 'miss', h.x, h.y - h.t * 40, 22, h.p ? m.players[h.i].color : '#ccc'));
     MGH.cursors(m, g);
-  },
-});
-
-// 38 ---------------------------------------------------------------- Flick Off
-MG.def({
-  id: 'flick', name: 'Flick Off', type: 'Skill', controls: '1 button (hold & release)', mouseA: true,
-  how: 'Hold to charge the power meter and release to flick a coin toward the far edge. Closer to the edge is better, but falling off scores zero. Three flicks.',
-  wins: 'Best single flick.',
-  init(m, S) { S.p = [0, 1, 2, 3].map(() => ({ n: 0, best: 0, last: null, charge: 0, chg: false, coin: null, aim: R.range(0.6, 0.9) })); S.L = 560; },
-  update(m, S, dt) {
-    S.p.forEach((p, i) => {
-      if (p.coin) {
-        const c = p.coin; c.y += c.v * dt; c.v -= 520 * dt;
-        if (c.y >= S.L) { MGH.burst(i * 320 + 160, 680 - S.L - 10, ['#e8b923', '#fff'], 18, { speed: 260, up: 150, grav: 700 }); p.last = 0; p.coin = null; p.n++; if (!m.bot(i)) Sfx.bad(); }
-        else if (c.v <= 0) { const sc = Math.round(c.y / S.L * 100); p.last = sc; p.best = Math.max(p.best, sc); p.coin = null; p.n++; if (!m.bot(i)) Sfx.coin(); }
-        return;
-      }
-      if (p.n >= 3) return;
-      if (m.held(i, 'a')) { p.chg = true; p.charge += dt; }
-      else if (p.chg) {
-        p.chg = false;
-        const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
-        p.coin = { y: 0, v: Math.sqrt(2 * 520 * S.L * 1.15) * pw }; p.charge = 0;
-      }
-    });
-    if (S.p.every(p => p.n >= 3 && !p.coin)) m.finish(S.p.map(p => p.best));
-  },
-  bot(m, S, i) {
-    const p = S.p[i], v = m.vin[i];
-    if (p.coin || p.n >= 3) { v.a = false; return; }
-    const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
-    const want = Math.sqrt(p.aim / 1.15) + (p.noise || 0);
-    if (!v.a && !p.chg) v.a = true;
-    else if (v.a && pw >= want && Math.sin(p.charge * Math.PI / 0.9) > 0) { v.a = false; p.aim = R.range(0.6, 0.92); p.noise = R.range(-0.06, 0.06); }
-  },
-  score(m, S) { return S.p.map(p => p.best); },
-  fmt(s) { return `${s}% of the table`; },
-  hud(m, S, i) { return `best ${S.p[i].best}%`; },
-  draw(m, S, g) {
-    MGH.scene(g, 'night', m.t);
-    S.p.forEach((p, i) => {
-      const cx = i * 320 + 160, base = 680;
-      // the ledge: a tall stone pillar with a golden lip
-      g.fillStyle = MGH.grad(g, base - S.L - 10, base, ['#8a7a66', '#4a3e30']); g.fillRect(cx - 70, base - S.L - 10, 140, S.L + 10);
-      g.fillStyle = MGH.grad(g, base - S.L - 14, base - S.L, ['#ffe680', '#c98a1a']); MGH.rr(g, cx - 74, base - S.L - 14, 148, 10, 4); g.fill();
-      MGH.glow(g, cx, base - S.L - 10, 60, 'rgba(255,230,120,0.25)');
-      const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
-      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, cx + 80, 200, 20, 400, 10); g.fill();
-      g.fillStyle = MGH.grad(g, 200, 600, ['#ff4d6d', '#ffd34d', '#6fdc8c']); MGH.rr(g, cx + 80, 600 - 400 * pw, 20, 400 * pw, 10); g.fill();
-      const y = p.coin ? base - p.coin.y : base - 14;
-      if (p.coin) for (let s = 1; s < 4; s++) { g.globalAlpha = 0.2; MGH.coin(g, cx, y + s * 12, 16, m.t * 10); } g.globalAlpha = 1;
-      MGH.coin(g, cx, y, 18, p.coin ? m.t * 12 : 0);
-      MGH.av(g, m, i, cx - 108, 664, 20, p.coin ? 'nervous' : p.chg ? 'determined' : p.last === null ? 'happy' : p.last === 0 ? 'hurt' : p.last >= 85 ? 'cheer' : 'happy', { look: { x: 0.4, y: -1 } });
-      MGH.label(g, `${p.n}/3 · last ${p.last === null ? '-' : p.last + '%'}`, cx, 110, 16, '#fff');
-    });
   },
 });
 

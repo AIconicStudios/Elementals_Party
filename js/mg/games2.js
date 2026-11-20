@@ -1,76 +1,6 @@
 'use strict';
 // Moot minigames 11-20
 
-// 11 ---------------------------------------------------------------- Rockfall Run
-MG.def({
-  id: 'rockfall', name: 'Rockfall Run', type: 'Survival', controls: 'Left/Right', dur: 45,
-  how: 'Dodge boulders falling in a narrow canyon. They speed up over time.',
-  wins: 'Last one alive.',
-  init(m, S) {
-    S.rocks = [];
-    let t = 0.8;
-    while (t < 46) { S.rocks.push({ t, x: R.range(30, 290), r: R.range(16, 26), v: 260 + t * 7 }); t += Math.max(0.24, 0.6 - t * 0.008); }
-    S.x = [160, 160, 160, 160]; S.alive = [true, true, true, true]; S.outT = [0, 0, 0, 0];
-  },
-  y(r, t) { return 40 + (t - r.t) * r.v; },
-  update(m, S, dt) {
-    for (let i = 0; i < 4; i++) {
-      if (!S.alive[i]) continue;
-      S.x[i] = clamp(S.x[i] + m.axis(i).x * 400 * dt, 20, 300);
-      for (const r of S.rocks) {
-        const y = this.y(r, m.t);
-        if (y > 610 && y < 690 && dist(S.x[i], 650, r.x, y) < r.r + 16) { S.alive[i] = false; S.outT[i] = m.t; MGH.burst(i * 320 + S.x[i], 650, ['#8a7765', '#d9c7a8', '#5a4a3a'], 30, { speed: 320, up: 100, grav: 600 }); MGH.shake(9); if (!m.bot(i)) Sfx.boom(); break; }
-      }
-    }
-    if (S.alive.filter(a => a).length <= 1) m.finish(this.score(m, S));
-  },
-  bot(m, S, i) {
-    if (!S.alive[i]) return;
-    if (!S.slack) S.slack = [0, 1, 2, 3].map(() => R.range(0.6, 1.4));
-    const cur = S.x[i];
-    let best = cur, bs = -1e9;
-    for (let x = 20; x <= 300; x += 10) {
-      let s = -Math.abs(x - cur) * 0.5;
-      for (const r of S.rocks) {
-        const y = this.y(r, m.t); if (y < 300 || y > 700) continue;
-        const tArr = (650 - y) / r.v;
-        // can't dodge in time if the path crosses this rock just before it arrives
-        const lo = Math.min(x, cur), hi = Math.max(x, cur);
-        const blocks = r.x + r.r + 18 > lo && r.x - r.r - 18 < hi;
-        if (blocks && Math.abs(x - cur) / 400 > tArr) s -= 3000 * (1 - clamp(tArr, 0, 1));
-        if (Math.abs(x - r.x) < r.r + 20) s -= 2000 * (1.2 - clamp(tArr, 0, 1));
-      }
-      if (s > bs) { bs = s; best = x; }
-    }
-    if (Math.random() < 0.05 * S.slack[i] * (m.t / 30)) best = cur + R.range(-40, 40);
-    const d = best - cur; MGH.setLR(m, i, Math.abs(d) < 5 ? 0 : Math.sign(d));
-  },
-  score(m, S) { return S.alive.map((a, i) => a ? 1000 : S.outT[i]); },
-  fmt(s) { return s >= 1000 ? 'Survived' : `out at ${s.toFixed(1)}s`; },
-  hud(m, S, i) { return S.alive[i] ? 'alive' : 'out'; },
-  draw(m, S, g) {
-    MGH.scene(g, 'desert', m.t);
-    for (let i = 0; i < 4; i++) {
-      const ox = i * 320;
-      // canyon walls
-      g.fillStyle = MGH.grad(g, 40, 720, ['#a85a2a', '#6a3418']); g.beginPath(); g.moveTo(ox, 40); g.lineTo(ox + 18, 40); for (let y = 40; y <= 720; y += 40) g.lineTo(ox + 12 + MGH.hash(y + i) * 14, y); g.lineTo(ox, 720); g.fill();
-      g.beginPath(); g.moveTo(ox + 320, 40); g.lineTo(ox + 302, 40); for (let y = 40; y <= 720; y += 40) g.lineTo(ox + 308 - MGH.hash(y + i + 50) * 14, y); g.lineTo(ox + 320, 720); g.fill();
-      g.fillStyle = 'rgba(120,70,30,0.25)'; g.fillRect(ox + 18, 670, 284, 50);
-      for (const [k, r] of S.rocks.entries()) {
-        const y = this.y(r, m.t); if (y < 0 || y > 740) continue;
-        if (y > 420 && y < 650) { g.fillStyle = `rgba(0,0,0,${0.12 + (y - 420) / 1200})`; g.beginPath(); g.ellipse(ox + r.x, 668, r.r * (0.4 + (y - 420) / 400), r.r * 0.2, 0, 0, 7); g.fill(); }
-        g.globalAlpha = 0.25; g.fillStyle = '#d9b48a'; for (let s = 1; s < 4; s++) { g.beginPath(); g.arc(ox + r.x + Math.sin(k + s) * 4, y - s * 14, r.r * (0.5 - s * 0.1), 0, 7); g.fill(); } g.globalAlpha = 1;
-        MGH.rock(g, ox + r.x, y, r.r, k, '#9a7a5a', (m.t - r.t) * 3 + k);
-      }
-      const near = S.rocks.some(r => { const y = this.y(r, m.t); return y > 470 && y < 660 && Math.abs(r.x - S.x[i]) < 60; });
-      const mv = m.axis(i).x;
-      if (S.alive[i]) MGH.shadow(g, ox + S.x[i], 670, 18, 0.3);
-      MGH.av(g, m, i, ox + S.x[i], 648, 18, S.alive[i] ? (near ? 'scared' : 'determined') : 'out', { walk: S.alive[i] ? Math.abs(mv) : 0, look: { x: mv, y: -0.8 } });
-      if (!S.alive[i]) MGH.label(g, '💥 OUT', ox + 160, 600, 26, '#fff');
-    }
-  },
-});
-
 // 12 ---------------------------------------------------------------- Ankar's Chase
 MG.def({
   id: 'chase', name: "Ankar's Chase", type: 'Survival', controls: 'Move', dur: 40,
@@ -403,63 +333,6 @@ MG.def({
   },
 });
 
-// 17 ---------------------------------------------------------------- Current Surf
-MG.def({
-  id: 'surf', name: 'Current Surf', type: 'Race', controls: 'Left/Right', dur: 40,
-  how: 'Ride a river current. Steer through rings for speed boosts. Rocks slow you.',
-  wins: 'Furthest distance.',
-  init(m, S) {
-    S.obj = []; for (let d = 600; d < 20000; d += R.range(160, 300)) S.obj.push({ d, x: R.range(40, 280), ring: Math.random() < 0.45 });
-    S.p = [0, 1, 2, 3].map(() => ({ x: 160, d: 0, boost: 0, slow: 0, hit: new Set() }));
-  },
-  update(m, S, dt) {
-    for (let i = 0; i < 4; i++) {
-      const p = S.p[i];
-      p.x = clamp(p.x + m.axis(i).x * 330 * dt, 20, 300);
-      p.boost -= dt; p.slow -= dt;
-      const v = p.slow > 0 ? 130 : 300 + (p.boost > 0 ? 220 : 0);
-      p.d += v * dt;
-      S.obj.forEach((o, k) => {
-        if (p.hit.has(k)) return;
-        if (Math.abs(o.d - p.d) < 18 && Math.abs(o.x - p.x) < (o.ring ? 34 : 30)) { p.hit.add(k); if (o.ring) { MGH.burst(i * 320 + p.x, 570, ['#ffe680', '#ffffff'], 14, { speed: 220 }); p.boost = 1; if (!m.bot(i)) Sfx.coin(); } else { MGH.burst(i * 320 + p.x, 570, ['#ffffff', '#9fd8ff'], 14, { speed: 240, up: 120, grav: 500 }); p.slow = 1; if (!m.bot(i)) Sfx.bad(); } }
-      });
-    }
-  },
-  bot(m, S, i) {
-    const p = S.p[i];
-    const next = S.obj.filter((o, k) => o.d > p.d + 10 && o.d < p.d + 500 && !p.hit.has(k));
-    let tx = 160;
-    const ring = next.find(o => o.ring); if (ring) tx = ring.x;
-    const rock = next.find(o => !o.ring && o.d < (ring ? ring.d : 1e9) && Math.abs(o.x - p.x) < 50);
-    if (rock) tx = rock.x > 160 ? rock.x - 90 : rock.x + 90;
-    if (Math.random() < 0.15) tx += R.range(-60, 60);
-    const d = tx - p.x; MGH.setLR(m, i, Math.abs(d) < 8 ? 0 : Math.sign(d));
-  },
-  score(m, S) { return S.p.map(p => p.d); },
-  fmt(s) { return Math.round(s / 10) + ' m'; },
-  hud(m, S, i) { return Math.round(S.p[i].d / 10) + 'm'; },
-  draw(m, S, g) {
-    for (let i = 0; i < 4; i++) {
-      const p = S.p[i], ox = i * 320;
-      g.save(); g.beginPath(); g.rect(ox, 40, 320, 680); g.clip();
-      g.fillStyle = MGH.grad(g, 40, 720, ['#38b6ff', '#1f7fd0', '#0a4a8a']); g.fillRect(ox, 40, 320, 680);
-      for (let k = 0; k < 18; k++) { const y = ((k * 50 + p.d * 0.9) % 720) + 30, x = ox + 20 + (k * 53) % 280; g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 12, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
-      S.obj.forEach((o, k) => {
-        const y = 580 - (o.d - p.d); if (y < 20 || y > 740) return;
-        if (o.ring) { const got = p.hit.has(k); MGH.glow(g, ox + o.x, y, 40, got ? 'rgba(255,255,255,0.1)' : 'rgba(255,230,120,0.45)'); g.strokeStyle = got ? 'rgba(255,230,128,0.3)' : '#ffe680'; g.lineWidth = 6; g.beginPath(); g.ellipse(ox + o.x, y, 32, 12, 0, 0, 7); g.stroke(); }
-        else { g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.ellipse(ox + o.x, y + 10, 30, 8, 0, 0, 7); g.fill(); MGH.rock(g, ox + o.x, y, 22, k, '#6a6258'); }
-      });
-      // board + wake
-      for (let s = 1; s < 6; s++) { g.fillStyle = `rgba(255,255,255,${0.35 - s * 0.05})`; g.beginPath(); g.ellipse(ox + p.x, 600 + s * 16, 14 + s * 4, 6, 0, 0, 7); g.fill(); }
-      g.fillStyle = MGH.grad(g, 562, 622, ['#fff6d0', '#f4c37a']); g.beginPath(); g.ellipse(ox + p.x, 592, 14, 32, 0, 0, 7); g.fill(); g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.stroke();
-      MGH.av(g, m, i, ox + p.x, 572, 17, p.slow > 0 ? 'hurt' : p.boost > 0 ? 'cheer' : 'determined', { noFeet: true, look: { x: m.axis(i).x * 0.7, y: -1 } });
-      if (p.boost > 0) MGH.emoji(g, '💨', ox + p.x, 650, 26);
-      g.restore();
-      g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(ox + 318, 40, 4, 680);
-    }
-  },
-});
-
 // 18 ---------------------------------------------------------------- Burrow Dash
 MG.def({
   id: 'burrow', name: 'Burrow Dash', type: 'Race', controls: 'Left/Right + mash',
@@ -509,55 +382,6 @@ MG.def({
       MGH.av(g, m, i, ox + p.x, 196, 19, p.fin ? 'cheer' : p.stun > 0 ? 'dizzy' : 'determined', { look: { x: 0, y: 1 }, walk: p.v > 60 ? 1 : 0, prop: '⛏️' });
       g.restore();
       g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(ox + 318, 40, 4, 680);
-    }
-  },
-});
-
-// 19 ---------------------------------------------------------------- Unicorn Sprint
-MG.def({
-  id: 'unicorn', name: 'Unicorn Sprint', type: 'Race', controls: '1 button', mouseA: true,
-  how: 'Mash to gallop. The heat meter fills as you mash, and in the red zone you stumble for 1 second. Pace yourself.',
-  wins: 'First across the line.',
-  init(m, S) { S.goal = 2400; S.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, heat: 0, stum: 0, fin: 0, tap: 0 })); },
-  update(m, S, dt) {
-    for (let i = 0; i < 4; i++) {
-      const p = S.p[i]; if (p.fin) continue;
-      p.heat = Math.max(0, p.heat - 0.32 * dt);
-      if (p.stum > 0) { p.stum -= dt; p.v *= 0.9; }
-      else if (m.pressed(i, 'a')) { p.v = Math.min(480, p.v + 45); p.heat += 0.075; if (p.heat >= 1) { p.stum = 1; p.heat = 0.55; if (!m.bot(i)) Sfx.bad(); } }
-      p.v = Math.max(0, p.v - 160 * dt);
-      p.d += p.v * dt;
-      if (p.v > 200 && Math.random() < 0.4) MGH.burst(80 + p.d / S.goal * 1080 - 26, 160 + i * 145, ['#ff6b6b', '#ffd34d', '#7cf27c', '#6bb0ff', '#c58bff'], 1, { speed: 40, life: 0.6, size: 4 });
-      if (p.d >= S.goal) p.fin = m.t;
-    }
-    if (S.p.some(p => p.fin) || m.t > 60) m.finish(this.score(m, S));
-  },
-  bot(m, S, i, dt) {
-    const p = S.p[i], v = m.vin[i]; v.a = false; p.tap -= dt;
-    const limit = 0.78 + (i % 2) * 0.08;
-    if (p.tap <= 0 && p.heat < limit) { v.a = true; p.tap = R.range(0.1, 0.18); }
-  },
-  score(m, S) { return S.p.map(p => p.fin ? 1e5 - p.fin : p.d); },
-  fmt(s) { return s >= 1e4 ? 'Crossed the line!' : Math.round(s / 24) + '%'; },
-  hud(m, S, i) { return Math.min(100, Math.round(S.p[i].d / S.goal * 100)) + '%'; },
-  draw(m, S, g) {
-    MGH.scene(g, 'meadow', m.t);
-    for (let i = 0; i < 4; i++) {
-      const y = 150 + i * 140, p = S.p[i], x = 80 + p.d / S.goal * 1080;
-      g.fillStyle = 'rgba(80,140,50,0.55)'; MGH.rr(g, 60, y - 30, 1140, 70, 20); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.5)'; g.setLineDash([16, 14]); g.lineDashOffset = 0; g.lineWidth = 2; g.beginPath(); g.moveTo(60, y + 30); g.lineTo(1200, y + 30); g.stroke(); g.setLineDash([]);
-      for (let k = 0; k < 8; k++) MGH.emoji(g, '🌼', 100 + k * 140 + (i % 2) * 60, y - 20, 14);
-      for (let y2 = y - 40; y2 < y + 40; y2 += 16) { g.fillStyle = (Math.floor(y2 / 16) % 2) ? '#fff' : '#222'; g.fillRect(1160, y2, 8, 16); }
-      // rainbow trail
-      ['#ff4d6d', '#ffb347', '#ffe14d', '#6fdc8c', '#5fb8ff', '#b46bff'].forEach((c, k) => { g.fillStyle = c; g.globalAlpha = 0.7; g.fillRect(Math.max(60, x - 260), y - 2 + k * 4 - 12, Math.min(260, x - 60), 4); }); g.globalAlpha = 1;
-      const bob = p.stum > 0 ? 0 : -Math.abs(Math.sin(m.t * 14 + i)) * 6;
-      MGH.av(g, m, i, x - 2, y - 34 + bob, 16, p.fin ? 'cheer' : p.stum > 0 ? 'dizzy' : p.heat > 0.8 ? 'scared' : 'determined', { noFeet: true, look: { x: 1, y: 0 } });
-      g.save(); g.translate(x, y + 14 + bob); g.scale(-1, 1); MGH.emoji(g, '🦄', 0, 0, 54); g.restore();
-      if (p.heat > 0.8) { g.globalAlpha = 0.6; MGH.emoji(g, '💦', x + 30, y - 40, 20); g.globalAlpha = 1; }
-      g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, 60, y + 44, 200, 12, 6); g.fill();
-      g.fillStyle = p.heat > 0.8 ? '#ff4d4d' : '#ffb347'; MGH.rr(g, 60, y + 44, 200 * Math.min(1, p.heat), 12, 6); g.fill();
-      g.fillStyle = 'rgba(255,0,0,0.4)'; g.fillRect(220, y + 44, 40, 12);
-      MGH.text(g, m.players[i].name + (p.stum > 0 ? ' — stumbled!' : ''), 280, y + 56, 16, m.players[i].color, 'left', 'bold');
     }
   },
 });

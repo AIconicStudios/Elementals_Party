@@ -52,6 +52,9 @@ const MG = {
       } else if (i === 0 && Input.mouse.down && m.game.mouseA) s.a = true;
       m.now[i] = s;
     }
+    // B toggles the secret peek / how-to on and off (one press shows, the next hides)
+    if (!m.peekOn) m.peekOn = m.players.map(() => false);
+    for (let i = 0; i < m.players.length; i++) if (!m.bot(i) && m.now[i].b && !m.prev[i].b) m.peekOn[i] = !m.peekOn[i];
   },
 
   rank(scores, order) {
@@ -293,12 +296,12 @@ const MG = {
     g.font = '64px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillText('🏆', 0, 0); g.textBaseline = 'alphabetic'; g.restore();
     MGH.wrap(g, game.wins, 1150, 318, 200, 22, '#8fe0ff', 18);
     // how-to lives behind B
-    const peek = m.players.some((p, i) => p.human && m.held(i, 'b'));
+    const peek = m.players.some((p, i) => p.human && m.peekOn && m.peekOn[i]);
     if (peek) {
       g.fillStyle = 'rgba(8,4,24,0.9)'; MGH.rr(g, dx, dy, dw, dh, 12); g.fill();
       MGH.text(g, 'How to play', 640, dy + 60, 30, '#ffe680', 'center', 'bold');
       MGH.wrap(g, game.how, 640, dy + 110, dw - 80, 30, '#fff', 22);
-    } else { g.globalAlpha = 0.75; MGH.text(g, 'hold  Ⓑ  for how to play', 640, 560, 15, '#b6a9e0'); g.globalAlpha = 1; }
+    } else { g.globalAlpha = 0.75; MGH.text(g, 'press  Ⓑ  for how to play', 640, 560, 15, '#b6a9e0'); g.globalAlpha = 1; }
     m.players.forEach((p, i) => {
       const x = 160 + i * 320, y0 = 585, w = 296, h = 118;
       g.fillStyle = p.color; MGH.rr(g, x - w / 2, y0, w, h, 14); g.globalAlpha = ready[i] && p.human ? 0.32 : 0.14; g.fill(); g.globalAlpha = 1;
@@ -418,8 +421,8 @@ const MGH = {
   },
   ring(x, y, color, size = 10, grow = 70, life = 0.5) { if (!Settings.test) MG.fx.push({ x, y, vx: 0, vy: 0, t: 0, life, size, grow, color, kind: 'ring' }); },
   pop(text, x, y, color = '#fff', size = 30) { if (!Settings.test) MG.fx.push({ x, y, vx: 0, vy: -70, t: 0, life: 0.9, size, text, color, kind: 'text' }); },
-  peek(m, i) { return !m.bot(i) && m.held(i, 'b'); },
-  secretHint(g, y = 640) { MGH.text(g, '🤫 Picks are secret — hold your ALT button (B) to peek at your own choice', 640, y, 16, '#bdb4e0'); },
+  peek(m, i) { return !m.bot(i) && !!(m.peekOn && m.peekOn[i]); },
+  secretHint(g, y = 640) { MGH.text(g, '🤫 Picks are secret — press B to show / hide your own choice', 640, y, 16, '#bdb4e0'); },
   shake(a = 8) { MG.shakeAmt = Math.max(MG.shakeAmt, a); },
   text(g, s, x, y, size, color, align = 'center', weight = '') {
     g.font = `${weight} ${size}px Georgia, "Segoe UI Emoji", serif`; g.textAlign = align; g.fillStyle = color; g.fillText(s, x, y);
