@@ -1,6 +1,81 @@
 'use strict';
 // Moot minigames 11-20
 
+// 11 ---------------------------------------------------------------- Rockfall Run
+MG.def({
+  id: 'rockfall', name: 'Rockfall Run', type: 'Survival', controls: 'Left/Right', dur: 45,
+  how: 'Dodge boulders falling in a narrow canyon. They speed up over time. Catch a glowing CRYSTAL for a shield that takes one hit for you!',
+  wins: 'Last one alive.',
+  init(m, S) {
+    S.rocks = [];
+    let t = 0.8;
+    while (t < 46) { S.rocks.push({ t, x: R.range(30, 290), r: R.range(16, 26), v: 260 + t * 7 }); t += Math.max(0.17, 0.6 - t * 0.011); }
+    S.x = [160, 160, 160, 160]; S.alive = [true, true, true, true]; S.outT = [0, 0, 0, 0]; S.shield = [0, 0, 0, 0]; S.gemN = [0, 0, 0, 0];
+    S.gems = []; for (let gt = 6; gt < 40; gt += R.range(8, 12)) S.gems.push({ t: gt, x: R.range(40, 280), v: 220 + gt * 4, got: [false, false, false, false] });
+  },
+  y(r, t) { return 40 + (t - r.t) * r.v; },
+  update(m, S, dt) {
+    for (let i = 0; i < 4; i++) {
+      if (!S.alive[i]) continue;
+      S.x[i] = clamp(S.x[i] + m.axis(i).x * 400 * dt, 20, 300);
+      for (const r of S.rocks) {
+        const y = this.y(r, m.t);
+        if (y > 610 && y < 690 && dist(S.x[i], 650, r.x, y) < r.r + 16 && !(r.hit && r.hit[i])) {
+          if (S.shield[i]) { S.shield[i] = 0; r.hit = r.hit || []; r.hit[i] = true; MGH.burst(i * 320 + S.x[i], 640, ['#bff4ff', '#5fd8ff', '#fff'], 24, { speed: 260 }); MGH.pop('SHIELD!', i * 320 + S.x[i], 600, '#9fe0ff', 26); Sfx.tone(1200, 0.15, 'triangle', 0.06, -400); continue; } S.alive[i] = false; S.outT[i] = m.t; MGH.burst(i * 320 + S.x[i], 650, ['#8a7765', '#d9c7a8', '#5a4a3a'], 30, { speed: 320, up: 100, grav: 600 }); MGH.shake(9); if (!m.bot(i)) Sfx.boom(); break; }
+      }
+    }
+    for (const gm of S.gems) { const y = 40 + (m.t - gm.t) * gm.v; if (y < 610 || y > 690) continue; for (let i = 0; i < 4; i++) if (S.alive[i] && !gm.got[i] && Math.abs(S.x[i] - gm.x) < 30) { gm.got[i] = true; S.shield[i] = 1; S.gemN[i]++; MGH.pop('💎', i * 320 + gm.x, 610, '#9fe0ff', 26); Sfx.coin(); } }
+    if (S.alive.filter(a => a).length <= 1) m.finish(this.score(m, S));
+  },
+  bot(m, S, i) {
+    if (!S.alive[i]) return;
+    if (!S.slack) S.slack = [0, 1, 2, 3].map(() => R.range(0.6, 1.4));
+    const cur = S.x[i];
+    let best = cur, bs = -1e9;
+    for (let x = 20; x <= 300; x += 10) {
+      let s = -Math.abs(x - cur) * 0.5;
+      for (const r of S.rocks) {
+        const y = this.y(r, m.t); if (y < 300 || y > 700) continue;
+        const tArr = (650 - y) / r.v;
+        // can't dodge in time if the path crosses this rock just before it arrives
+        const lo = Math.min(x, cur), hi = Math.max(x, cur);
+        const blocks = r.x + r.r + 18 > lo && r.x - r.r - 18 < hi;
+        if (blocks && Math.abs(x - cur) / 400 > tArr) s -= 3000 * (1 - clamp(tArr, 0, 1));
+        if (Math.abs(x - r.x) < r.r + 20) s -= 2000 * (1.2 - clamp(tArr, 0, 1));
+      }
+      if (s > bs) { bs = s; best = x; }
+    }
+    if (Math.random() < 0.05 * S.slack[i] * (m.t / 30)) best = cur + R.range(-40, 40);
+    const d = best - cur; MGH.setLR(m, i, Math.abs(d) < 5 ? 0 : Math.sign(d));
+  },
+  score(m, S) { return S.alive.map((a, i) => a ? 1000 + S.gemN[i] : S.outT[i]); },
+  fmt(s) { return s >= 1000 ? `Survived · 💎${Math.round(s - 1000)}` : `out at ${s.toFixed(1)}s`; },
+  hud(m, S, i) { return S.alive[i] ? 'alive' : 'out'; },
+  draw(m, S, g) {
+    MGH.scene(g, 'desert', m.t);
+    for (let i = 0; i < 4; i++) {
+      const ox = i * 320;
+      // canyon walls
+      g.fillStyle = MGH.grad(g, 40, 720, ['#a85a2a', '#6a3418']); g.beginPath(); g.moveTo(ox, 40); g.lineTo(ox + 18, 40); for (let y = 40; y <= 720; y += 40) g.lineTo(ox + 12 + MGH.hash(y + i) * 14, y); g.lineTo(ox, 720); g.fill();
+      g.beginPath(); g.moveTo(ox + 320, 40); g.lineTo(ox + 302, 40); for (let y = 40; y <= 720; y += 40) g.lineTo(ox + 308 - MGH.hash(y + i + 50) * 14, y); g.lineTo(ox + 320, 720); g.fill();
+      g.fillStyle = 'rgba(120,70,30,0.25)'; g.fillRect(ox + 18, 670, 284, 50);
+      for (const gm of S.gems) { if (gm.got[i]) continue; const y = 40 + (m.t - gm.t) * gm.v; if (y < 0 || y > 740) continue; MGH.gem(g, ox + gm.x, y, 13, '#7ff0ff', m.t); }
+      if (S.shield[i] && S.alive[i]) { MGH.glow(g, ox + S.x[i], 640, 50, 'rgba(120,220,255,0.55)'); g.strokeStyle = 'rgba(190,240,255,0.9)'; g.lineWidth = 3; g.beginPath(); g.arc(ox + S.x[i], 636, 34, 0, 7); g.stroke(); }
+      for (const [k, r] of S.rocks.entries()) {
+        const y = this.y(r, m.t); if (y < 0 || y > 740) continue;
+        if (y > 420 && y < 650) { g.fillStyle = `rgba(0,0,0,${0.12 + (y - 420) / 1200})`; g.beginPath(); g.ellipse(ox + r.x, 668, r.r * (0.4 + (y - 420) / 400), r.r * 0.2, 0, 0, 7); g.fill(); }
+        g.globalAlpha = 0.25; g.fillStyle = '#d9b48a'; for (let s = 1; s < 4; s++) { g.beginPath(); g.arc(ox + r.x + Math.sin(k + s) * 4, y - s * 14, r.r * (0.5 - s * 0.1), 0, 7); g.fill(); } g.globalAlpha = 1;
+        MGH.rock(g, ox + r.x, y, r.r, k, '#9a7a5a', (m.t - r.t) * 3 + k);
+      }
+      const near = S.rocks.some(r => { const y = this.y(r, m.t); return y > 470 && y < 660 && Math.abs(r.x - S.x[i]) < 60; });
+      const mv = m.axis(i).x;
+      if (S.alive[i]) MGH.shadow(g, ox + S.x[i], 670, 18, 0.3);
+      MGH.av(g, m, i, ox + S.x[i], 648, 18, S.alive[i] ? (near ? 'scared' : 'determined') : 'out', { walk: S.alive[i] ? Math.abs(mv) : 0, look: { x: mv, y: -0.8 } });
+      if (!S.alive[i]) MGH.label(g, '💥 OUT', ox + 160, 600, 26, '#fff');
+    }
+  },
+});
+
 // 12 ---------------------------------------------------------------- Ankar's Chase
 MG.def({
   id: 'chase', name: "Ankar's Chase", type: 'Survival', controls: 'Move', dur: 40,

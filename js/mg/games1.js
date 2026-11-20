@@ -270,6 +270,126 @@ MG.def({
   },
 });
 
+// 5 ---------------------------------------------------------------- Metronome Monk
+MG.def({
+  id: 'metronome', name: 'Metronome Monk', type: 'Rhythm', controls: '1 button', dur: 18, mouseA: true,
+  how: 'A beat plays for 8 seconds, then goes silent. Keep tapping in time. Halfway through the silence the Monk holds up HALF-TIME — from then on tap only every OTHER beat! Only taps in the silent 10 seconds count.',
+  wins: 'Lowest average timing error.',
+  init(m, S) { S.beat = R.range(0.5, 0.7); S.taps = [[], [], [], []]; S.lastBeat = -1; S.drift = [0, 0, 0, 0].map(() => R.range(-0.03, 0.03)); S.nextBot = [0, 1, 2, 3].map(() => 8 + R.range(0, 0.1)); },
+  update(m, S, dt) {
+    const k = Math.floor(m.t / S.beat);
+    if (k !== S.lastBeat) { S.lastBeat = k; if (m.t < 8) Sfx.tone(1000, 0.05, 'square', 0.06); S.pulse = 0.15; }
+    if (S.pulse > 0) S.pulse -= dt;
+    for (let i = 0; i < 4; i++) if (m.pressed(i, 'a') && m.t >= 8) { S.taps[i].push(m.t); MGH.ring(190 + i * 300, 560, m.players[i].color, 30, 50, 0.4); }
+  },
+  bot(m, S, i, dt) {
+    const v = m.vin[i]; v.a = false;
+    if (m.t < 8) return;
+    if (!S.botStart) { S.botStart = true; for (let j = 0; j < 4; j++) S.nextBot[j] = Math.ceil(8 / S.beat) * S.beat + R.range(-0.04, 0.04); }
+    if (m.t >= S.nextBot[i]) { v.a = true; S.nextBot[i] += S.beat * (m.t >= this.halfAt(S) - 0.05 && Math.random() < 0.9 ? 2 : 1) * (1 + S.drift[i]) + R.range(-0.04, 0.04); }
+  },
+  score(m, S) {
+    return S.taps.map(ts => {
+      let e = 0;
+      const h = this.halfAt(S);
+      for (const t of ts) { if (t < h) { const ph = t / S.beat; e += Math.abs(ph - Math.round(ph)) * S.beat; } else { const ph = (t - h) / (S.beat * 2); e += Math.abs(ph - Math.round(ph)) * S.beat * 2; } }
+      const expected = (h - 8) / S.beat + (18 - h) / (S.beat * 2);
+      const missing = Math.max(0, expected * 0.8 - ts.length) + Math.max(0, ts.length - expected * 1.2);
+      return -((e + missing * S.beat * 0.5) / expected);
+    });
+  },
+  // the half-time switch lands on a beat about 5 seconds into the silence
+  halfAt(S) { return Math.ceil(13 / S.beat) * S.beat; },
+  fmt(s) { return `avg error ${(-s * 1000).toFixed(0)} ms`; },
+  hud(m, S, i) { return S.taps[i].length + ' taps'; },
+  draw(m, S, g) {
+    MGH.scene(g, 'dojo', m.t);
+    const silent = m.t >= 8, ph = (m.t / S.beat) % 1, beatN = Math.floor(m.t / S.beat);
+    // the monk and his metronome
+    const sw = Math.sin((m.t / S.beat) * Math.PI) * (silent ? 0.15 : 0.9);
+    g.save(); g.translate(640, 330);
+    g.fillStyle = '#5a3820'; g.beginPath(); g.moveTo(-60, 90); g.lineTo(60, 90); g.lineTo(30, -110); g.lineTo(-30, -110); g.closePath(); g.fill();
+    g.strokeStyle = '#ffd34d'; g.lineWidth = 5; g.beginPath(); g.moveTo(0, 70); g.lineTo(Math.sin(sw) * 150, 70 - Math.cos(sw) * 150); g.stroke();
+    g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(Math.sin(sw) * 110, 70 - Math.cos(sw) * 110, 12, 0, 7); g.fill();
+    g.restore();
+    if (!silent && ph < 0.2) MGH.glow(g, 640, 300, 160, 'rgba(255,220,120,0.4)');
+    Char.draw(g, 760, 400 + (silent ? 0 : Math.abs(Math.sin(ph * Math.PI)) * -6), 46, -1, '#d98a3a', { mood: silent ? 'sleepy' : 'happy', seed: 4, look: { x: -0.6, y: 0 } });
+    const half = m.t >= this.halfAt(S);
+    MGH.label(g, half ? '🐢 HALF-TIME — every other beat!' : silent ? '🤫 SILENCE — keep the beat!' : '🎵 Listen & groove…', 640, 110, 34, half ? '#9fe0ff' : silent ? '#ffd34d' : '#fff');
+    if (half && m.t - this.halfAt(S) < 0.6) MGH.glow(g, 640, 300, 220, 'rgba(140,220,255,0.35)');
+    for (let k = 0; k < 4; k++) { const q = (m.t * 0.6 + k / 4) % 1; g.globalAlpha = 1 - q; MGH.emoji(g, k % 2 ? '🎵' : '🎶', 520 + k * 80 + Math.sin(q * 8 + k) * 18, 470 - q * 260, 26); } g.globalAlpha = 1;
+    for (let i = 0; i < 4; i++) {
+      const x = 190 + i * 300, p = m.players[i];
+      const lt = S.taps[i].length ? S.taps[i][S.taps[i].length - 1] : -9, since = m.t - lt;
+      // dancing: bounce + sway on the beat while listening, on your own taps in the silence
+      const k = silent ? Math.max(0, 1 - since / 0.3) : Math.max(0, 1 - ph / 0.35);
+      const bob = -k * 18, lean = Math.sin(beatN * Math.PI / 2 + i) * (silent ? k * 0.25 : 0.2);
+      MGH.shadow(g, x, 612, 46 - k * 10, 0.35);
+      g.save(); g.translate(x, 560 + bob); g.rotate(lean); g.scale(1 + k * 0.08, 1 - k * 0.08);
+      MGH.av(g, m, i, 0, 0, 40, since < 0.2 ? 'cheer' : (silent ? 'determined' : 'happy'));
+      g.restore();
+      if (since < 0.25) MGH.ring(x, 540, p.color, 20, 50, 0.3);
+      MGH.text(g, p.name, x, 650, 22, p.color, 'center', 'bold');
+    }
+  },
+});
+
+// 6 ---------------------------------------------------------------- Bellringer
+MG.def({
+  id: 'bell', name: 'Bellringer', type: 'Timing', controls: '1 button', mouseA: true,
+  how: 'A pendulum swings across the screen. Press to ring the bell as it passes the centre — but only while it swings the way the ARROW points! The arrow flips after every ring. Wrong way is a miss. Five rings, each faster.',
+  wins: 'Lowest total distance from centre.',
+  init(m, S) { S.n = [0, 0, 0, 0]; S.tot = [0, 0, 0, 0]; S.ph = [0, 0, 0, 0].map(() => R.range(0, 6.28)); S.cool = [0, 0, 0, 0]; S.timer = [0, 0, 0, 0]; S.last = [null, null, null, null]; S.bp = [0, 0, 0, 0]; },
+  speed(n) { return 2.2 + n * 0.8; },
+  x(S, i) { return Math.sin(S.ph[i]); },
+  update(m, S, dt) {
+    for (let i = 0; i < 4; i++) {
+      if (S.n[i] >= 5) continue;
+      S.ph[i] += this.speed(S.n[i]) * dt;
+      if (S.cool[i] > 0) { S.cool[i] -= dt; continue; }
+      S.timer[i] += dt;
+      if (m.pressed(i, 'a') || S.timer[i] > 6) {
+        const dir = Math.sign(Math.cos(S.ph[i])) || 1, want = i % 2 ? (S.n[i] % 2 ? 1 : -1) : (S.n[i] % 2 ? -1 : 1);
+        const d = S.timer[i] > 6 || dir !== want ? 1 : Math.abs(this.x(S, i));
+        S.tot[i] += d; S.last[i] = d; S.n[i]++; S.cool[i] = 0.5; S.timer[i] = 0;
+        MGH.ring(i * 320 + 160, 630, d < 0.1 ? '#ffe680' : '#fff', 14, d < 0.1 ? 120 : 60, 0.6);
+        if (!m.bot(i)) Sfx.tone(900 - d * 500, 0.3, 'triangle', 0.07);
+      }
+    }
+    if (S.n.every(n => n >= 5)) m.finish(S.tot.map(t => -t));
+  },
+  bot(m, S, i, dt) {
+    const v = m.vin[i]; v.a = false;
+    if (S.cool[i] > 0 || S.n[i] >= 5) return;
+    const x = this.x(S, i), vel = Math.cos(S.ph[i]) * this.speed(S.n[i]);
+    const tCross = Math.abs(x / (vel || 0.001));
+    const want = i % 2 ? (S.n[i] % 2 ? 1 : -1) : (S.n[i] % 2 ? -1 : 1);
+    if (Math.sign(vel) === want && Math.sign(-x) === Math.sign(vel) && tCross < 0.02 + R.range(0, 0.06) && S.timer[i] > 0.3) v.a = true;
+  },
+  score(m, S) { return S.tot.map(t => -t); },
+  fmt(s) { return 'distance ' + (-s).toFixed(3); },
+  hud(m, S, i) { return `${S.n[i]}/5 · ${S.tot[i].toFixed(2)}`; },
+  draw(m, S, g) {
+    MGH.scene(g, 'night', m.t);
+    for (let i = 0; i < 4; i++) {
+      const cx = i * 320 + 160, p = m.players[i];
+      // belfry arch
+      g.fillStyle = '#2a2448'; MGH.rr(g, cx - 120, 70, 240, 600, 30); g.fill(); g.fillStyle = '#14112a'; MGH.rr(g, cx - 96, 96, 192, 560, 22); g.fill();
+      g.fillStyle = 'rgba(255,230,140,0.2)'; g.fillRect(cx - 3, 120, 6, 470);
+      g.fillStyle = MGH.grad(g, 560, 680, ['#6a6a88', '#3a3a50']); MGH.rr(g, cx - 70, 640, 140, 20, 6); g.fill();
+      MGH.bell(g, cx, 600, 1.15, '#ffd34d', Math.sin(m.t * 3 + i) * 0.12 + (S.last[i] !== null && S.last[i] < 0.08 ? Math.sin(m.t * 25) * 0.15 : 0));
+      const a = this.x(S, i) * 0.9, bx = cx + Math.sin(a) * 300, by = 100 + Math.cos(a) * 300;
+      g.strokeStyle = '#c9b48a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, 100); g.lineTo(bx, by); g.stroke();
+      MGH.glow(g, bx, by, 50, 'rgba(255,240,180,0.35)');
+      g.fillStyle = MGH.grad(g, by - 26, by + 26, [Char.shade(p.color, 0.4), Char.shade(p.color, -0.3)]); g.beginPath(); g.arc(bx, by, 26, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+      const l = S.last[i];
+      MGH.av(g, m, i, cx - 92, 630, 22, l === null ? 'determined' : l < 0.08 ? 'cheer' : l < 0.25 ? 'happy' : 'hurt', { look: { x: 1, y: -0.5 } });
+      if (l !== null) MGH.label(g, l < 0.08 ? 'PERFECT' : l >= 1 ? 'MISS' : l.toFixed(2), cx, 690, 20, l < 0.08 ? '#ffe680' : '#fff');
+      if (S.n[i] < 5) { const want = i % 2 ? (S.n[i] % 2 ? 1 : -1) : (S.n[i] % 2 ? -1 : 1), ok = Math.sign(Math.cos(S.ph[i])) === want; MGH.label(g, want > 0 ? 'ring ➡' : '⬅ ring', cx, 140, 24, ok ? '#7cf06a' : '#888'); }
+    }
+  },
+});
+
 // 7 ---------------------------------------------------------------- Forge Strike
 MG.def({
   id: 'forge', name: 'Forge Strike', type: 'Timing', controls: '1 button', mouseA: true,

@@ -249,6 +249,64 @@ MG.def({
   },
 });
 
+// 38 ---------------------------------------------------------------- Flick Off
+MG.def({
+  id: 'flick', name: 'Flick Off', type: 'Skill', controls: '1 button (hold & release)', mouseA: true,
+  how: 'Hold to charge the power meter and release to flick a coin toward the far edge. Closer to the edge is better, but falling off scores zero. Watch the WIND flag — it pushes or slows each flick — and land in the GOLD ZONE near the edge for +15. Three flicks.',
+  wins: 'Best single flick.',
+  init(m, S) { S.p = [0, 1, 2, 3].map(() => ({ n: 0, best: 0, last: null, charge: 0, chg: false, coin: null, aim: R.range(0.6, 0.9), wind: Math.round(R.range(-0.12, 0.12) * 100) / 100 })); S.L = 560; },
+  update(m, S, dt) {
+    S.p.forEach((p, i) => {
+      if (p.coin) {
+        const c = p.coin; c.y += c.v * dt; c.v -= 520 * dt;
+        if (c.y >= S.L) { MGH.burst(i * 320 + 160, 680 - S.L - 10, ['#e8b923', '#fff'], 18, { speed: 260, up: 150, grav: 700 }); p.last = 0; p.coin = null; p.n++; p.wind = Math.round(R.range(-0.12, 0.12) * 100) / 100; if (!m.bot(i)) Sfx.bad(); }
+        else if (c.v <= 0) { let sc = Math.round(c.y / S.L * 100); if (sc >= 88) { sc += 15; MGH.pop('GOLD +15', i * 320 + 160, 680 - c.y - 30, '#ffe680', 26); } p.last = sc; p.best = Math.max(p.best, sc); p.coin = null; p.n++; p.wind = Math.round(R.range(-0.12, 0.12) * 100) / 100; if (!m.bot(i)) Sfx.coin(); }
+        return;
+      }
+      if (p.n >= 3) return;
+      if (m.held(i, 'a')) { p.chg = true; p.charge += dt; }
+      else if (p.chg) {
+        p.chg = false;
+        const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
+        p.coin = { y: 0, v: Math.sqrt(2 * 520 * S.L * 1.15) * pw * (1 + p.wind) }; p.charge = 0;
+      }
+    });
+    if (S.p.every(p => p.n >= 3 && !p.coin)) m.finish(S.p.map(p => p.best));
+  },
+  bot(m, S, i) {
+    const p = S.p[i], v = m.vin[i];
+    if (p.coin || p.n >= 3) { v.a = false; return; }
+    const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
+    const want = Math.min(0.97, Math.sqrt(p.aim / 1.15) / (1 + p.wind * 0.8) + (p.noise || 0));
+    if (!v.a && !p.chg) v.a = true;
+    else if (v.a && pw >= want && Math.sin(p.charge * Math.PI / 0.9) > 0) { v.a = false; p.aim = R.range(0.8, 0.95); p.noise = R.range(-0.1, 0.08); }
+  },
+  score(m, S) { return S.p.map(p => p.best); },
+  fmt(s) { return s > 100 ? `${s - 15}% + gold` : `${s}% of the table`; },
+  hud(m, S, i) { return `best ${S.p[i].best}%`; },
+  draw(m, S, g) {
+    MGH.scene(g, 'night', m.t);
+    S.p.forEach((p, i) => {
+      const cx = i * 320 + 160, base = 680;
+      // the ledge: a tall stone pillar with a golden lip
+      g.fillStyle = MGH.grad(g, base - S.L - 10, base, ['#8a7a66', '#4a3e30']); g.fillRect(cx - 70, base - S.L - 10, 140, S.L + 10);
+      g.fillStyle = MGH.grad(g, base - S.L - 14, base - S.L, ['#ffe680', '#c98a1a']); MGH.rr(g, cx - 74, base - S.L - 14, 148, 10, 4); g.fill();
+      MGH.glow(g, cx, base - S.L - 10, 60, 'rgba(255,230,120,0.25)');
+      // gold zone near the edge and this flick's wind flag
+      g.fillStyle = 'rgba(255,215,80,0.35)'; g.fillRect(cx - 70, base - S.L, 140, S.L * 0.12); MGH.text(g, 'GOLD +15', cx, base - S.L * 0.94, 13, '#ffe680', 'center', 'bold');
+      if (p.n < 3) { const wx = cx - 100, wy = 150, wl = 12 + Math.abs(p.wind) * 220, wd = p.wind >= 0 ? -1 : 1; g.strokeStyle = '#ddd'; g.lineWidth = 3; g.beginPath(); g.moveTo(wx, wy); g.lineTo(wx, wy + 50); g.stroke(); g.fillStyle = p.wind >= 0 ? '#7cf06a' : '#ff6b6b'; g.beginPath(); g.moveTo(wx, wy); g.lineTo(wx + 8 + Math.sin(m.t * 8) * 3, wy + wd * wl * 0.2 - wd * 0); g.lineTo(wx + 16, wy + 12); g.fill(); MGH.text(g, p.wind >= 0 ? `tailwind +${Math.round(p.wind * 100)}%` : `headwind ${Math.round(p.wind * 100)}%`, wx, wy - 8, 12, '#fff'); }
+      const pw = (1 - Math.cos(p.charge * Math.PI / 0.9)) / 2;
+      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, cx + 80, 200, 20, 400, 10); g.fill();
+      g.fillStyle = MGH.grad(g, 200, 600, ['#ff4d6d', '#ffd34d', '#6fdc8c']); MGH.rr(g, cx + 80, 600 - 400 * pw, 20, 400 * pw, 10); g.fill();
+      const y = p.coin ? base - p.coin.y : base - 14;
+      if (p.coin) for (let s = 1; s < 4; s++) { g.globalAlpha = 0.2; MGH.coin(g, cx, y + s * 12, 16, m.t * 10); } g.globalAlpha = 1;
+      MGH.coin(g, cx, y, 18, p.coin ? m.t * 12 : 0);
+      MGH.av(g, m, i, cx - 108, 664, 20, p.coin ? 'nervous' : p.chg ? 'determined' : p.last === null ? 'happy' : p.last === 0 ? 'hurt' : p.last >= 85 ? 'cheer' : 'happy', { look: { x: 0.4, y: -1 } });
+      MGH.label(g, `${p.n}/3 · last ${p.last === null ? '-' : p.last + '%'}`, cx, 110, 16, '#fff');
+    });
+  },
+});
+
 // 39 ---------------------------------------------------------------- Dig Site
 MG.def({
   id: 'dig', name: 'Dig Site', type: 'Strategy', controls: 'Move + dig', dur: 55,

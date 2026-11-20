@@ -177,6 +177,73 @@ MGH.cursors = (m, g, moods) => {
   });
 };
 
+// 23 ---------------------------------------------------------------- Constellation Trace
+MG.def({
+  id: 'constellation', name: 'Constellation Trace', type: 'Memory', controls: 'Cursor', cursor: true,
+  how: 'A star pattern flashes for 3 seconds, then hides. Click the stars in order to redraw it — but the night sky slowly TURNS while you trace, so remember the shape, not the spot! Three patterns, each sky turns faster.',
+  wins: 'Most stars correct.',
+  init(m, S) { S.pts = [0, 0, 0, 0]; S.time = [0, 0, 0, 0]; S.round = 0; this.next(S); },
+  next(S) {
+    S.round++; S.stars = [];
+    while (S.stars.length < 14) { const s = { x: R.range(160, 1120), y: R.range(130, 620) }; if (S.stars.every(o => dist(o.x, o.y, s.x, s.y) > 95)) S.stars.push(s); }
+    S.pat = R.shuffle([...S.stars.keys()]).slice(0, 4 + S.round);
+    S.prog = [0, 0, 0, 0]; S.out = [false, false, false, false]; S.phase = 'show'; S.t = 0;
+    S.botMem = [0, 1, 2, 3].map(() => S.pat.map(k => Math.random() < 0.88 ? k : R.int(0, 13)));
+    S.botWait = [0, 0, 0, 0];
+  },
+  update(m, S, dt) {
+    S.t += dt;
+    if (S.phase === 'show') { if (S.t > 3.6) { S.phase = 'go'; S.t = 0; Sfx.tone(880, 0.1, 'square', 0.05); Sfx.tone(1320, 0.2, 'square', 0.05, 0, 0.1); } return; }
+    if (S.phase === 'go') { if (S.t > 0.7) { S.phase = 'trace'; S.t = 0; } return; }
+    if (S.phase === 'trace') {
+      // the sky wheels around its centre (direction alternates each pattern)
+      const w = (0.05 + S.round * 0.03) * (S.round % 2 ? 1 : -1) * dt, cw = Math.cos(w), sw = Math.sin(w);
+      for (const s of S.stars) { const dx = s.x - 640, dy = s.y - 375; s.x = 640 + dx * cw - dy * sw; s.y = 375 + dx * sw + dy * cw; }
+      for (let i = 0; i < 4; i++) {
+        if (S.out[i] || S.prog[i] >= S.pat.length || !m.pressed(i, 'a')) continue;
+        const c = m.cur[i];
+        // forgiving: the nearest star within a generous radius counts
+        let k = -1, bd = 58; S.stars.forEach((s, j) => { const d = dist(s.x, s.y, c.x, c.y); if (d < bd) { bd = d; k = j; } });
+        if (k < 0) continue;
+        if (k === S.pat[S.prog[i]]) { S.prog[i]++; S.pts[i]++; MGH.burst(S.stars[k].x, S.stars[k].y, [m.players[i].color, '#fff'], 10, { speed: 160, kind: 'spark', size: 2 }); if (!m.bot(i)) Sfx.tone(700 + S.prog[i] * 80, 0.08, 'triangle', 0.05); if (S.prog[i] >= S.pat.length) S.time[i] += S.t; }
+        else if (!S.pat.slice(0, S.prog[i]).includes(k)) { S.out[i] = true; S.time[i] += S.t; if (!m.bot(i)) Sfx.bad(); }
+      }
+      if (S.t > 28 || S.prog.every((p, i) => S.out[i] || p >= S.pat.length)) { S.phase = 'reveal'; S.t = 0; }
+      return;
+    }
+    if (S.phase === 'reveal' && S.t > 1.8) { if (S.round >= 3) m.finish(this.score(m, S)); else this.next(S); }
+  },
+  bot(m, S, i, dt) {
+    const v = m.vin[i]; v.a = false;
+    if (S.phase !== 'trace' || S.out[i] || S.prog[i] >= S.pat.length) return;
+    const s = S.stars[S.botMem[i][S.prog[i]]];
+    if (m.botCursor(i, s.x, s.y, 520)) { S.botWait[i] += dt; if (S.botWait[i] > 0.15) { v.a = true; S.botWait[i] = 0; } }
+  },
+  score(m, S) { return S.pts.map((p, i) => p * 100 - S.time[i]); },
+  fmt(s) { return `${Math.round(s / 100)} stars`; },
+  hud(m, S, i) { return S.pts[i]; },
+  draw(m, S, g) {
+    MGH.scene(g, 'space', m.t);
+    if (S.phase === 'show') MGH.phase(g, true, m.t, `Memorise the pattern — ${(3.6 - S.t).toFixed(1)}s`);
+    else if (S.phase === 'go') MGH.label(g, 'GO! Click the stars in order', 640, 100, 34, '#ffe680', 'rgba(120,70,0,0.85)');
+    else if (S.phase === 'trace') MGH.phase(g, false, m.t, `Pattern ${S.round}/3 — click the stars in order`);
+    if (S.phase === 'show' || S.phase === 'reveal') {
+      const n = S.phase === 'show' ? Math.min(S.pat.length, Math.floor(S.t / 0.35) + 1) : S.pat.length;
+      g.strokeStyle = 'rgba(160,210,255,0.85)'; g.lineWidth = 4; g.shadowColor = '#8fd0ff'; g.shadowBlur = 12; g.beginPath();
+      S.pat.slice(0, n).forEach((k, j) => { const s = S.stars[k]; if (j) g.lineTo(s.x, s.y); else g.moveTo(s.x, s.y); }); g.stroke(); g.shadowBlur = 0;
+      S.pat.slice(0, n).forEach((k, j) => MGH.label(g, String(j + 1), S.stars[k].x + 22, S.stars[k].y - 18, 16, '#9fd8ff'));
+    }
+    S.stars.forEach((s, k) => { MGH.glow(g, s.x, s.y, 40, 'rgba(200,230,255,0.35)'); g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1.5; g.beginPath(); g.arc(s.x, s.y, 46, 0, 7); g.stroke(); MGH.star(g, s.x, s.y, 11 + Math.sin(m.t * 3 + k) * 1.5, '#ffffff', m.t * 0.5 + k, false); });
+    if (S.phase === 'trace' || S.phase === 'go') for (let i = 0; i < 4; i++) {
+      g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.globalAlpha = 0.75; g.beginPath();
+      for (let j = 0; j < S.prog[i]; j++) { const s = S.stars[S.pat[j]]; if (j) g.lineTo(s.x + i * 2, s.y + i * 2); else g.moveTo(s.x + i * 2, s.y + i * 2); }
+      g.stroke(); g.globalAlpha = 1;
+      MGH.text(g, `${m.players[i].name}: ${S.prog[i]}/${S.pat.length}${S.out[i] ? ' ✖' : ''}`, 160 + i * 320, 700, 20, m.players[i].color, 'center', 'bold');
+    }
+    MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.out[i] ? 'hurt' : S.prog[i] >= S.pat.length ? 'cheer' : S.phase === 'show' ? 'neutral' : 'determined'));
+  },
+});
+
 // 25 ---------------------------------------------------------------- Lowest Unique
 MG.def({
   id: 'lowest', name: 'Lowest Unique', type: 'Bluff', controls: 'Pick',
