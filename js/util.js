@@ -1,3 +1,11 @@
+// Canvas safety net: a tiny negative radius (from easing overshoot) throws IndexSizeError and would stop a frame.
+(() => { if (typeof CanvasRenderingContext2D === 'undefined') return; const P = CanvasRenderingContext2D.prototype, nz = v => (v > 0 ? v : 0);
+  const rg = P.createRadialGradient; P.createRadialGradient = function (x0, y0, r0, x1, y1, r1) { return rg.call(this, x0, y0, nz(r0), x1, y1, nz(r1)); };
+  const arc = P.arc; P.arc = function (x, y, r, a0, a1, ccw) { return arc.call(this, x, y, nz(r), a0, a1, ccw); };
+  const el = P.ellipse; if (el) P.ellipse = function (x, y, rx, ry, rot, a0, a1, ccw) { return el.call(this, x, y, nz(rx), nz(ry), rot, a0, a1, ccw); };
+  const ac = P.arcTo; P.arcTo = function (x1, y1, x2, y2, r) { return ac.call(this, x1, y1, x2, y2, nz(r)); };
+  if (typeof OffscreenCanvasRenderingContext2D !== 'undefined') { const O = OffscreenCanvasRenderingContext2D.prototype; for (const k of ['createRadialGradient', 'arc', 'ellipse', 'arcTo']) O[k] = P[k]; }
+})();
 'use strict';
 // Shared helpers
 const Settings = {
