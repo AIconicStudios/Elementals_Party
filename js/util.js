@@ -27,7 +27,7 @@ const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 const sum = a => a.reduce((s, x) => s + x, 0);
 
 function sleep(ms) {
-  const t = ms * Settings.speed * 1.15; // board pacing: a touch calmer than raw timings
+  const t = ms * Settings.speed * 1.06; // board pacing: a touch calmer than raw timings
   if (t <= 0 && !Settings.paused) return Promise.resolve();
   // while the board is paused, timers hold still
   return new Promise(r => { const go = () => (Settings.paused ? setTimeout(go, 120) : r()); setTimeout(go, t > 0 ? t : 0); });

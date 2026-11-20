@@ -23,7 +23,7 @@
         seg(l, q => base - Math.pow(q, 1.7) * h, 'ramp');
         const gapL = th.pit ? R.range(240, 420) * big : 0;
         if (gapL) seg(gapL, () => base + 700, th.pit);
-        else seg(R.range(60, 140), () => base + 120, 'dip');
+        else seg(R.range(140, 200), q => base + Math.sin(q * Math.PI) * 18, 'dip');
         seg(R.range(400, 520), q => base - h * 0.55 * (1 - q), 'land');
         seg(220, () => base);
       }
@@ -45,7 +45,7 @@
   function race(name, icon, theme, len) {
     return {
       name, icon,
-      how: 'HOLD A for throttle, B for TURBO. In the air, LEFT/RIGHT spins the bike — flip it all the way round for a stunt and land with the wheels matching the slope! Clean landings and flips fill your turbo. Land badly, or drop into a pit, and you crash.',
+      how: 'The bike rides by itself — just do the stunts! B = TURBO. In the air, hold LEFT/RIGHT to spin the bike; let go and it lines itself up for the landing. Full flips and clean landings fill your turbo. Only a really bad landing wipes you out, and if you drop toward a pit an updraft bounces you over (it costs some turbo).',
       init(m, S, T) {
         T.tr = makeTrack(theme, len);
         T.p = [0, 1, 2, 3].map(i => ({ x: 120, y: 0, v: 0, vx: 0, vy: 0, ang: 0, air: false, rot: 0, boost: 0.25, turbo: false, crash: 0, fin: 0, wheelie: 0, camY: 0, flips: 0, stunts: 0, bpad: 0, skill: R.range(0.6, 1), flipGo: false, trail: [] }));
@@ -59,7 +59,7 @@
         const tr = T.tr;
         T.p.forEach((P, i) => {
           if (P.fin) { P.v *= Math.exp(-1.5 * dt); P.x += P.v * dt; P.y = G(tr, P.x); return; }
-          const ax = m.axis(i).x, thr = m.held(i, 'a'), tb = m.held(i, 'b') && P.boost > 0.02;
+          const ax = m.axis(i).x, thr = true, tb = m.held(i, 'b') && P.boost > 0.02;
           if (P.crash > 0) {
             P.crash -= dt;
             if (P.crash <= 0) { let x = P.x; while (['lava', 'void', 'dip'].includes(K(tr, x)) || K(tr, x) === 'ramp') x += STEP; P.x = x + 20; P.y = G(tr, P.x); P.air = false; P.v = 180; P.ang = slope(tr, P.x); P.rot = 0; }
@@ -76,31 +76,43 @@
             if (kind === 'water') { P.v *= Math.exp(-0.9 * dt); if (Math.random() < 0.5) this.puff(T, P.x, P.y, 2, ['#bfe6ff', '#ffffff'], { lane: i, v: 160, grav: 600 }); }
             if (kind === 'mud' && Math.random() < 0.4) this.puff(T, P.x - 20, P.y, 1, ['#6a4a2a', '#8a6a3a'], { lane: i, v: 90, grav: 500 });
             if (kind === 'boost' && P.bpad <= 0) { P.bpad = 0.7; P.v = Math.max(P.v, 1150); say(T, i, 'BOOST!', '#7cf0ff'); Sfx.whoosh(true); }
-            P.v = Math.max(0, P.v);
+            P.v = Math.max(160, P.v); // the bike never stalls
             // lean on the ground: pull a wheelie (a little faster) — but too far and you loop out
-            P.wheelie = clamp(P.wheelie + (-ax * 2.4 - P.wheelie * 2) * dt, -0.9, 0.25);
-            if (P.wheelie < -0.85 && thr) { this.crashP(T, P, i, 'LOOPED OUT!'); return; }
+            P.wheelie = clamp(P.wheelie + (-ax * 2.4 - P.wheelie * 2) * dt, -0.55, 0.2);
             if (P.wheelie < -0.3) P.v += 40 * dt;
             const nx = P.x + P.v * Math.cos(a) * dt, ny = G(tr, nx);
             const fall = ny - P.y, ball = P.v * Math.sin(a) * dt + 0.5 * GR * dt * dt;
-            if (fall > ball + 3) { P.air = true; P.vx = P.v * Math.cos(a); P.vy = P.v * Math.sin(a); P.rot = 0; P.flipGo = false; P.x = nx; }
+            if (fall > ball + 3) { const sp = K(tr, P.x) === 'ramp' ? this.launchSpeed(tr, P.x, P.y, a, P.v) : P.v; P.air = true; P.vx = sp * Math.cos(a); P.vy = sp * Math.sin(a); P.rot = 0; P.flipGo = false; P.x = nx; }
             else { P.x = nx; P.y = ny; }
             P.ang = a + P.wheelie;
             if (P.v > 300 && Math.random() < 0.35) this.puff(T, P.x - 30, P.y, 1, kind === 'water' ? '#bfe6ff' : 'rgba(230,210,170,0.8)', { lane: i, v: 50, back: P.v * 0.2, grav: -20 });
           } else {
             P.vy += GR * dt; P.x += P.vx * dt; P.y += P.vy * dt;
-            const da = ax * 4.6 * dt; P.ang += da; P.rot += da;
+            // spin with LEFT/RIGHT; let go and the bike lines itself up with the ground it's about to land on
+            let da = ax * 4.6 * dt;
+            if (Math.abs(ax) < 0.2) {
+              const tgt = slope(tr, P.x + P.vx * 0.3); let rem = wrap(tgt - P.ang);
+              if (Math.abs(P.rot) > Math.PI) { const d = Math.sign(P.rot); if (Math.sign(rem) !== d && Math.abs(rem) > 0.05) rem += d * Math.PI * 2; da = Math.sign(rem) * Math.min(Math.abs(rem), 6 * dt); } // finish the flip you started
+              else da = Math.sign(rem) * Math.min(Math.abs(rem), 3.4 * dt);
+            }
+            P.ang += da; P.rot += da;
             if (tb) P.vx += 260 * dt;
             const gy = G(tr, P.x), kind = K(tr, P.x);
-            if ((kind === 'lava' || kind === 'void') && P.y > gy - 640) { this.crashP(T, P, i, kind === 'lava' ? 'INTO THE LAVA!' : 'FELL!'); return; }
+            if ((kind === 'lava' || kind === 'void') && P.y > gy - 640 && P.vy > 0) {
+              // rescue updraft: bounced across the pit (costs some turbo) instead of a crash
+              const a2 = -0.75, sp = this.launchSpeed(tr, P.x, P.y, a2, 600);
+              P.vx = sp * Math.cos(a2); P.vy = sp * Math.sin(a2); P.boost = Math.max(0, P.boost - 0.2); P.rot = 0;
+              say(T, i, kind === 'lava' ? 'HOT! RESCUE BOUNCE!' : 'UPDRAFT SAVE!', '#ff9a6b'); Sfx.tone(300, 0.25, 'sine', 0.07, 600);
+              this.puff(T, P.x, P.y, 14, kind === 'lava' ? ['#ffb03a', '#ff5a1f'] : ['#ffffff', '#dff0ff'], { lane: i, v: 200, grav: 300 });
+            }
             if (P.y >= gy) {
               const a = slope(tr, P.x), diff = Math.abs(wrap(P.ang - a));
-              if (diff < 0.62) {
+              if (diff < 1.05) {
                 P.air = false; P.y = gy; P.v = Math.max(120, P.vx * Math.cos(a) + P.vy * Math.sin(a)); P.ang = a; P.wheelie = 0;
                 const flips = Math.floor(Math.abs(P.rot) / (Math.PI * 2) + 0.18);
                 let gain = 0;
                 if (flips > 0) { gain += 0.32 * flips; P.flips += flips; P.stunts += flips; say(T, i, `${flips > 1 ? flips + 'x ' : ''}${P.rot < 0 ? 'BACKFLIP' : 'FRONTFLIP'}!`, '#ffe680'); Sfx.star(); }
-                if (diff < 0.2) { gain += 0.12; if (!flips) say(T, i, 'PERFECT LANDING', '#7cf06a'); P.v += 120; }
+                if (diff < 0.3) { gain += 0.12; if (!flips) say(T, i, 'PERFECT LANDING', '#7cf06a'); P.v += 120; }
                 P.boost = Math.min(1, P.boost + gain);
                 this.puff(T, P.x, P.y, 8, ['#e8dcc4', '#ffffff'], { lane: i, v: 160, grav: 400 });
                 Sfx.thud();
@@ -111,6 +123,15 @@
           // camera follows each rider's height
           P.camY += (P.y - 40 - P.camY) * Math.min(1, dt * 3);
         });
+      },
+      // ramps always give enough speed to clear the gap after them (stunts stay the fun part)
+      launchSpeed(tr, x, y, a, v) {
+        for (let sp = Math.max(v, 500); sp < 2200; sp += 60) {
+          let px = x, py = y, vx = sp * Math.cos(a), vy = sp * Math.sin(a), ok = false;
+          for (let k = 0; k < 300; k++) { vy += GR / 60; px += vx / 60; py += vy / 60; const gy = G(tr, px); if (py >= gy) { const kd = K(tr, px); ok = kd !== 'lava' && kd !== 'void' && K(tr, px + 40) !== 'lava' && K(tr, px + 40) !== 'void'; break; } const kd = K(tr, px); if ((kd === 'lava' || kd === 'void') && py > gy - 640) break; }
+          if (ok) return sp + 40;
+        }
+        return v;
       },
       crashP(T, P, i, text) { P.crash = 1.4; P.air = false; P.v = 0; P.vx = P.vy = 0; say(T, i, text, '#ff6b6b'); Sfx.boom(); this.puff(T, P.x, P.y - 20, 18, ['#ffe680', '#ff8a3d', '#5a5a5a'], { lane: i, v: 220, grav: 500 }); },
       bot(m, S, T, i, dt) {
@@ -188,7 +209,7 @@
       },
       // the dirt bike with its rider
       bike(g, m, i, X, Y, P, sc, tumble) {
-        const p = m.players[i], col = p.color, s = SC * sc;
+        const p = m.players[i], col = p.color, s = SC * sc * 1.45;
         g.save(); g.translate(X, Y); g.rotate(tumble ? 0 : P.ang); g.scale(s, s);
         const wr = 26, spin = P.x * 0.08;
         for (const wx of [-44, 44]) {
@@ -211,5 +232,5 @@
       },
     };
   }
-  MGM.def({ id: 'rally', name: 'Turbo Stunt Rally', controls: 'Left/Right + A & B buttons', how: 'A three-race motocross cup with ramps, pits, flips and turbo.', stages: [race('Canyon Run', '🏜️', 'canyon', 22000), race('Volcano Leap', '🌋', 'volcano', 24000), race('Sky Circuit', '☁️', 'sky', 26000)] });
+  MGM.def({ id: 'rally', name: 'Turbo Stunt Rally', controls: 'Left/Right + B button', how: 'A three-race motocross cup with ramps, pits, flips and turbo.', stages: [race('Canyon Run', '🏜️', 'canyon', 22000), race('Volcano Leap', '🌋', 'volcano', 24000), race('Sky Circuit', '☁️', 'sky', 26000)] });
 })();
