@@ -153,3 +153,9 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 .seat .hold { color: #bbb; font-weight: normal; }
 .seat:hover .mport { transform: scale(1.08); transition: transform .2s; }
 .seat .mname { font-size: 20px; letter-spacing: 0.5px; }
+
+/* special Moots in the practice list */
+.mglist button.finale { border-color: #ff8a3d; background: linear-gradient(135deg, rgba(255,106,61,0.28), rgba(255,211,77,0.12)); }
+.mglist button.marathon { border-color: #8fe0ff; background: linear-gradient(135deg, rgba(79,141,255,0.25), rgba(143,224,255,0.1)); }
+.mglist .tag { font-size: 10px; padding: 1px 6px; border-radius: 6px; background: #ffd34d; color: #3a2a00; margin-left: 4px; vertical-align: middle; }
+.mglist button.marathon .tag { background: #8fe0ff; color: #0a2a3a; }

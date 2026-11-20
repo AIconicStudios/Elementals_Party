@@ -331,7 +331,7 @@ const UI = {
 
   showPractice(seats) {
     $('#overlay').innerHTML = `<div class="panel practice"><h2>Moot practice</h2><p class="sub">Play any of the 60 minigames. Seats set to Human use their keys; the rest are bots.</p>
-      <div class="mglist">${MG.list.map((g, i) => `<button data-id="${g.id}"><b>${i + 1}. ${esc(g.name)}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
+      <div class="mglist">${MG.list.map((g, i) => `<button data-id="${g.id}" class="${g.finale ? 'finale' : g.long ? 'marathon' : ''}"><b>${i + 1}. ${esc(g.name)}${g.finale ? ' <span class="tag">FINALE</span>' : g.long ? ' <span class="tag">MARATHON</span>' : ''}</b><small>${esc(g.type)} · ${esc(g.controls)}</small></button>`).join('')}</div>
       <div class="row btns"><button id="backBtn" data-back="1">← Back</button></div></div>`;
     $('#backBtn').onclick = () => this.showMenu();
     document.querySelectorAll('.mglist button').forEach(b => b.onclick = async () => {

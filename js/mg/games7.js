@@ -103,7 +103,7 @@
       this.pushPart(S, hx, hy, 8 + Math.min(18, kb / 90), { col: ['#ffffff', '#fff1a8', col], v: 260 + kb * 0.35, life: 0.35, kind: 'spark', size: 3, a: dir > 0 ? 0 : Math.PI, spread: 1.4 });
       this.pushPart(S, hx, hy, 1, { col: '#ffffff', v: 0, life: 0.16, kind: 'flash', size: 26 + Math.min(60, kb / 30) });
       S.shake = Math.max(S.shake, Math.min(22, kb / 130));
-      if (kb > 1350) { S.flash = 0.12; this.say(S, 'SMASH!', t.x, t.y - 120, '#ffe680', 40); Sfx.boom(); Sfx.crowd('ooh'); }
+      if (kb > 1350) { S.flash = 0.12; S.punch = { x: t.x, y: t.y - 40, t: 0.35 }; this.say(S, 'SMASH!', t.x, t.y - 120, '#ffe680', 40); Sfx.boom(); Sfx.crowd('ooh'); }
       else if (dmg >= 9) Sfx.punch(); else { Sfx.punch(); }
       this.say(S, Math.round(dmg) + '%', t.x + R.range(-12, 12), t.y - 90, '#fff', 20);
       return true;
@@ -486,7 +486,7 @@
       this.pushPart(S, ex, ey, 40, { col: [m.players[f.i].color, '#ffffff', '#ffe680'], v: 700, life: 0.9, a: ang, spread: 0.9, kind: 'spark', size: 4 });
       S.shake = 22; S.flash = 0.18; Sfx.boom(); Sfx.boom(); Sfx.crowd(f.lives > 0 ? 'ooh' : 'cheer');
       if (f.lives <= 0) { f.place = 4 - S.elimOrder; S.elimOrder++; f.elimT = m.t; S.banner = { text: `${m.players[f.i].name} is OUT!`, t: 0 }; }
-      else S.banner = { text: by >= 0 ? `${m.players[by].name} KOs ${m.players[f.i].name}!` : `${m.players[f.i].name} fell!`, t: 0 };
+      else S.banner = { text: f.lives === 1 ? `⚠ ${m.players[f.i].name}: LAST LIFE!` : by >= 0 ? `${m.players[by].name} KOs ${m.players[f.i].name}!` : `${m.players[f.i].name} fell!`, t: 0 };
     },
     camera(S, dt) {
       const pts = S.f.filter(f => f.lives > 0 && f.state !== 'dead');
@@ -496,6 +496,8 @@
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 + 20;
       const k = 1 - Math.exp(-4 * dt);
       S.cam.x += (cx - S.cam.x) * k; S.cam.y += (cy - S.cam.y) * k; S.cam.z += (z - S.cam.z) * k;
+      // a quick zoom toward a smash
+      if (S.punch && S.punch.t > 0) { S.punch.t -= dt; const q = Math.sin(S.punch.t / 0.35 * Math.PI) * 0.12; S.cam.x += (S.punch.x - S.cam.x) * q * 0.5; S.cam.y += (S.punch.y - S.cam.y) * q * 0.5; S.cam.z *= 1 + q * 0.5; }
     },
     score(m, S) {
       return S.f.map(f => f.lives > 0 ? 100000 + f.lives * 1000 + (999 - Math.min(999, Math.round(f.pct))) : (f.elimT || 0));
@@ -813,6 +815,7 @@
         g.fillStyle = 'rgba(10,6,30,0.7)'; MGH.rr(g, -300, -34, 600, 54, 16); g.fill();
         this.outlined(g, b.text, 0, 6, 30, '#ffe680'); g.restore();
       }
+      if (S.endT >= 0) { const k = S.endT; g.save(); g.globalAlpha = Math.min(1, k * 3); g.translate(640, 330); const sc = k < 0.25 ? 2.2 - k / 0.25 * 1.2 : 1; g.scale(sc, sc); this.outlined(g, 'GAME!', 0, 0, 110, '#ffe680'); g.restore(); }
       // the clock gets dramatic at the end
       if (m.game.dur) { const left = m.game.dur - m.t; if (left < 30 && left > 0) this.outlined(g, `${Math.ceil(left)}`, 640, 168, 40 + (left < 10 ? 10 * (1 - (left % 1)) : 0), left < 10 ? '#ff6b6b' : '#ffe680'); }
     },
