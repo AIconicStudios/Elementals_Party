@@ -12,11 +12,11 @@
 (() => {
   const CAUL = { x: 640, y: 372 };
   const WELLS = [{ x: 170, y: 175 }, { x: 1110, y: 175 }, { x: 170, y: 585 }, { x: 1110, y: 585 }];
-  const MISSION = 50, FILL = 0.7, QUOTA = 9, HINT_T = 0.25;
+  const MISSION = 50, FILL = 0.7, QUOTA = 9, HINT_T = 1.0;
   // round table seats, laid out like a gamepad's face buttons (and the arrow keys)
   const SEATS = [{ x: 640, y: 290, btn: 'y', key: 'up', lab: 'Y', arrow: '▲', col: '#ffd34d' }, { x: 900, y: 440, btn: 'b', key: 'right', lab: 'B', arrow: '▶', col: '#ff5a5a' },
     { x: 640, y: 590, btn: 'a', key: 'down', lab: 'A', arrow: '▼', col: '#5fd85f' }, { x: 380, y: 440, btn: 'x', key: 'left', lab: 'X', arrow: '◀', col: '#4f9dff' }];
-  const MAUVE = a => `rgba(150,105,215,${a})`; // the hint colour: blue with a tint of red
+  const MAUVE = a => `rgba(160,95,215,${Math.min(1, a * 1.25)})`; // the hint colour: blue with a tint of red
   // twenty tiny tells; exactly one happens per game
   const HINTS = ['vial', 'eye', 'smirk', 'cloak', 'shadow', 'name', 'glance', 'horns', 'smoke', 'feather',
     'aura', 'footprint', 'well', 'drop', 'glint', 'crow', 'hem', 'dagger', 'slit', 'tint'];

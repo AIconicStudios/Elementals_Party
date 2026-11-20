@@ -72,7 +72,7 @@ const UI = {
 
   note(text) { if (!Settings.test) $('#actText').textContent = text; },
 
-  waitDieStop(p) {
+  waitDieStop(p, canBack) {
     this.askPlayer = p.id;
     return new Promise(resolve => {
       const box = $('#action'); box.style.setProperty('--c', p.color);
@@ -83,6 +83,11 @@ const UI = {
       opts.appendChild(b);
       const done = () => { this.askPlayer = null; if (!Render.die) return resolve(); Render.die.onStop = null; Render.die.waiting = false; this.pending = null; opts.innerHTML = ''; $('#actTitle').innerHTML = `${p.el.glyph} ${esc(p.name)}`; $('#actText').textContent = ''; resolve(); };
       b.onclick = done;
+      // changed your mind? go back to the turn menu before the die is stopped
+      if (canBack) {
+        const bk = document.createElement('button'); bk.innerHTML = '← Back (choose again)'; bk.dataset.back = '1'; opts.appendChild(bk);
+        bk.onclick = () => { this.askPlayer = null; if (Render.die) { Render.die.onStop = null; Render.die.waiting = false; } this.pending = null; opts.innerHTML = ''; resolve('back'); };
+      }
       Render.die.onStop = done; Render.die.waiting = true;
       this.pending = done;
     });
@@ -138,6 +143,7 @@ const UI = {
         b.innerHTML = `${o.disabled ? '' : `<span class="k">${n <= 9 ? n : ''}</span>`}${esc(o.label)}`; if (o.desc) b.title = o.desc;
         b.disabled = !!o.disabled;
         if (o.item) b.classList.add('itemBtn');
+        if (o.back || /^(←\s*)?(Cancel|Back)\b/.test(o.label)) b.dataset.back = '1'; // the gamepad's B picks this
         b.onclick = () => done(o.value);
         opts.appendChild(b);
         if (o.tile) tiles.push(o.tile);
@@ -265,7 +271,7 @@ const UI = {
       <p><b>Secret picks:</b> in bluffing games nobody’s cursor is shown. Hold your alt button (B) to peek at your own choice.</p>
       </div>`;
     }
-    $('#helpOv').innerHTML = `<h2>❓ Help</h2><button class="hclose" data-back="1">✖ Close (B / Esc)</button>
+    $('#helpOv').innerHTML = `<h2>❓ Help <small class="hpad">🎮 ◀ ▶ change page · ▲ ▼ scroll · Ⓑ close</small></h2><button class="hclose" data-back="1">✖ Close (B / Esc)</button>
       <div class="htabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div class="hbody ${one ? 'one' : ''}">${body}</div>`;
     $('#helpOv').querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => { this.renderHelp(b.dataset.tab); Nav.focusFirst('[data-tab="' + b.dataset.tab + '"]'); }; });

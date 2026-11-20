@@ -87,6 +87,16 @@ const Nav = {
     if (k === 'v') { if (UI.game) Render.toggleZoom(); return; }
     if (k === 'y') { if (UI.game) UI.toggleMap(); return; }
     if (k === 'x') { UI.toggleHelp(); return; }
+    // help: LEFT / RIGHT flip between the tabs, UP / DOWN scroll the page, A or B closes
+    if (UI.helpOpen() && k !== 'b') {
+      if (k === 'left' || k === 'right') {
+        const tabs = [...document.querySelectorAll('#helpOv [data-tab]')], cur = tabs.findIndex(t => t.classList.contains('on'));
+        const nx = tabs[(Math.max(0, cur) + (k === 'left' ? tabs.length - 1 : 1)) % tabs.length]; if (nx) { nx.click(); Sfx.tone(520, 0.03, 'triangle', 0.03); }
+        this.active = true; this.sel = document.querySelector('#helpOv [data-tab].on'); this.paint();
+      } else if (k === 'up' || k === 'down') this.stickScroll(k === 'up' ? -90 : 90);
+      else if (k === 'a') UI.toggleHelp(false);
+      return;
+    }
     if (k === 'b') {
       if (UI.helpOpen()) return UI.toggleHelp(false);
       if (Render.mapMode) return UI.toggleMap(false);
@@ -113,6 +123,11 @@ const Nav = {
       this.sel = null;
       setTimeout(() => { if (this.active) { const l = this.items(); this.sel = l.find(x => x.classList.contains('on')) || l[0] || null; this.paint(); } }, 30);
       return;
+    }
+    // in a plain vertical list (turn menu, shop, item picks) UP / DOWN simply step to the previous / next entry
+    if ((k === 'up' || k === 'down') && this.sel.parentElement && this.sel.parentElement.id === 'actOpts') {
+      const i = list.indexOf(this.sel), j = i + (k === 'up' ? -1 : 1);
+      if (j >= 0 && j < list.length) { this.sel = list[j]; Sfx.tone(520, 0.03, 'triangle', 0.03); this.paint(); return; }
     }
     // spatial move
     const r0 = this.sel.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;

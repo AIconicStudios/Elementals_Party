@@ -139,8 +139,8 @@ const SIMPLE_ITEMS = [
   { id: 'sice', name: 'Ice Block', lore: 'Ice Block', price: 5, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🧊', desc: 'Freeze a player: they skip their next move.' },
   { id: 'smirror', name: 'Mirror Swap', lore: 'Mirror Swap', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🪞', desc: 'Swap places with any player on the Crossing.' },
   { id: 'swarp', name: 'Warp Stone', lore: 'Warp Stone', price: 3, cat: 'simple', simple: true, use: 'play', icon: '🌀', desc: 'Whoosh to a random space and land there.' },
-  { id: 'sreverse', name: 'Reverse Dice', lore: 'Reverse Dice', price: 3, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🔄', desc: "Pick a player: their next roll walks them backwards." },
-  { id: 'sthief', name: 'Pickpocket', lore: 'Pickpocket', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🦹', desc: 'Sneak 3 coins out of a player\'s pocket.' },
+  { id: 'sreverse', name: 'Reverse Dice', lore: 'Reverse Dice', price: 3, cat: 'simple', simple: true, use: 'play', target: 'selfOrEnemy', icon: '🔄', desc: "Pick a player — or yourself: that next roll walks backwards (handy to get back to a shop)." },
+  { id: 'sthief', name: 'Pickpocket', lore: 'Pickpocket', price: 4, cat: 'simple', simple: true, use: 'play', target: 'enemy', icon: '🦹', desc: 'Sneak up to 5 coins out of a player\'s pocket.' },
   { id: 'sshade', name: 'Shade', lore: 'Shade', price: 14, cat: 'simple', simple: true, use: 'install', icon: '🌫️', desc: 'Install it on your Hold whenever you like: a permanent shadowy veil. Rivals can no longer see which guards (dog, alarm, peel…) or items you have — they sneak in blind!' },
   { id: 'sbox', name: 'Lucky Star Box', lore: 'Lucky Star Box', price: 6, cat: 'simple', simple: true, use: 'play', icon: '🎁', desc: 'Open it: 1 in 3 chance of a free star, otherwise 3 coins.' },
 ];

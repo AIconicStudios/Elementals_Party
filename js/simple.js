@@ -6,7 +6,8 @@
 const SIMPLE_HALF = ['gate', 'blue', 'lucky', 'blue', 'red', 'bank', 'blue', 'item', 'red', 'blue',
                      'gate', 'blue', 'swirl', 'red', 'blue', 'bank', 'party', 'blue', 'red', 'item'];
 // one Ankar's Altar on the first half; it turns blue once the Ankar is set loose
-const SIMPLE_BOARD = SIMPLE_HALF.map((x, i) => i === 6 ? 'summon' : x).concat(SIMPLE_HALF);
+// only one Whirlwind (swap) space on the whole board: its twin on the far side is a plain blue space
+const SIMPLE_BOARD = SIMPLE_HALF.map((x, i) => i === 6 ? 'summon' : x).concat(SIMPLE_HALF.map(x => x === 'swirl' ? 'blue' : x));
 const SIMPLE_STAR_PRICE = 15;
 
 class SimpleGame extends Game {
@@ -44,6 +45,8 @@ class SimpleGame extends Game {
     UI.refresh(); UI.turnStart(p);
     this.log(`<hr>— ${this.name(p)}'s turn —`);
     await Stage.turn(p);
+    let rolled = null;
+    for (let back = 0; back < 20 && !rolled; back++) {
     for (let guard = 0; guard < 8; guard++) {
       const options = [{ label: '🎲 Roll the dice!', value: 'roll', key: 'roll' }];
       for (const id of [...new Set(p.items)]) {
@@ -57,6 +60,9 @@ class SimpleGame extends Game {
       await this.useSimpleItem(p, v);
       UI.refresh();
     }
+    if (p.trav.sfrozen) break;
+    rolled = await this.roll(p, true); // null = went back to the menu before stopping the die
+    }
     if (p.trav.sfrozen) {
       p.trav.sfrozen = false;
       this.log(`🧊 ${this.name(p)} is frozen solid and can't move this turn!`);
@@ -65,7 +71,7 @@ class SimpleGame extends Game {
       await sleep(1400);
       this.dice = null; Render.die = null; UI.refresh(); return;
     }
-    const { v, dir } = await this.roll(p);
+    const { v, dir } = rolled;
     await this.moveSimple(p, v, dir);
     await sleep(700);
     this.dice = null; Render.die = null;
@@ -90,7 +96,7 @@ class SimpleGame extends Game {
     for (const gid of ['sdog', 'sbell', 'speel', 'slock', 'sshield']) if (has(gid) && !this.guardOn(p, gid)) return 'install:' + gid;
     const richest = this.players.filter(q => q !== p).sort((a, b) => b.cash - a.cash)[0];
     if (has('smagnet') && richest.cash >= 3) return 'smagnet';
-    if (has('sthief') && richest.cash >= 3) return 'sthief';
+    if (has('sthief') && richest.cash >= 5) return 'sthief';
     if (has('sice') && Math.random() < 0.6) return 'sice';
     if (has('sreverse') && Math.random() < 0.5) return 'sreverse';
     if (has('smirror') && Math.random() < 0.35) return 'smirror';
@@ -106,9 +112,10 @@ class SimpleGame extends Game {
   async useSimpleItem(p, id) {
     const it = ITEM[id], t = p.trav;
     let target = null;
-    if (it.target === 'enemy') {
-      const cands = this.players.filter(q => q !== p);
-      const tid = await this.choose(p, { title: `${it.icon} ${it.name}`, text: 'Pick a player.', options: cands.map(q => ({ label: `${q.el.glyph} ${q.name}`, value: q.id })).concat([{ label: 'Cancel', value: -1 }]) },
+    if (it.target === 'enemy' || it.target === 'selfOrEnemy') {
+      const cands = this.players.filter(q => q !== p), self = it.target === 'selfOrEnemy';
+      const opts = (self ? [{ label: `${p.el.glyph} Yourself`, value: p.id }] : []).concat(cands.map(q => ({ label: `${q.el.glyph} ${q.name}`, value: q.id })));
+      const tid = await this.choose(p, { title: `${it.icon} ${it.name}`, text: self ? 'Pick a player — or yourself.' : 'Pick a player.', options: opts.concat([{ label: '← Cancel', value: -1, back: true }]) },
         () => cands.sort((a, b) => b.vault - a.vault || b.cash - a.cash)[0].id);
       if (tid === -1 || tid === null) return;
       target = this.P(tid);
@@ -132,9 +139,9 @@ class SimpleGame extends Game {
         break;
       }
       case 'sice': target.trav.sfrozen = true; this.react(target, 'shock', 'Hey! I’m an ice cube!', 0.2); this.react(p, 'smug', 'Chill out~'); break;
-      case 'sreverse': target.trav.mods.reverse = true; this.react(target, 'angry', 'Backwards?! Rude!', 0.2); this.react(p, 'evil', 'Moonwalk time!'); break;
+      case 'sreverse': target.trav.mods.reverse = true; if (target === p) this.react(p, 'smug', 'Backwards on purpose~'); else { this.react(target, 'angry', 'Backwards?! Rude!', 0.2); this.react(p, 'evil', 'Moonwalk time!'); } break;
       case 'sthief': {
-        const n = Math.min(3, target.cash);
+        const n = Math.min(5, target.cash);
         await Stage.coinsTo(() => Stage.scr(Stage.tokPt(target)), () => Stage.scr(Stage.tokPt(p)), Math.max(1, n), { lose: target.name, gain: p.name });
         target.cash -= n; p.cash += n; this.log(`🦹 ${this.name(p)} pickpockets ${n} coins from ${this.name(target)}!`);
         this.react(p, 'evil', R.pick(['Mine now~', 'Finders keepers!'])); this.react(target, 'angry', 'My pocket!!', 0.3);
@@ -311,7 +318,9 @@ class SimpleGame extends Game {
     if (p.cash >= SIMPLE_STAR_PRICE) {
       const yes = await this.choose(p, { title: '🏛️ Counting House', text: '', options: [
         { label: `⭐ Yes! Buy a star (${SIMPLE_STAR_PRICE})`, value: true }, { label: 'Not now', value: false }] }, () => true);
-      if (yes) {
+      let buy = yes;
+      if (!yes && p.human && !Settings.test) buy = await this.choose(p, { title: '⭐ Are you sure?', text: `You can afford a star right now (${SIMPLE_STAR_PRICE} coins). Leave without it?`, options: [{ label: '⭐ No — buy the star!', value: true }, { label: 'Yes, I\'m sure', value: false }] }, () => false);
+      if (buy) {
         await Stage.buy(0);
         p.cash -= SIMPLE_STAR_PRICE; p.vault++;
         this.log(`⭐ ${this.name(p)} buys a star!`, 'good'); Sfx.star(); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680');

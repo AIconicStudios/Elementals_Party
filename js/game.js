@@ -346,6 +346,7 @@ class Game {
     }
 
     let act;
+    for (let back = 0; back < 20; back++) {
     for (let guard = 0; ; guard++) {
       act = await this.chooseAction(p);
       if (act && act.type === 'item') {
@@ -358,10 +359,13 @@ class Game {
       break;
     }
     if (!act) act = { type: 'pass' };
-    if (act.type === 'trav') await this.doTravellerMove(p);
-    else if (act.type === 'def') await this.doDefenderMove(p);
+    let res;
+    if (act.type === 'trav') res = await this.doTravellerMove(p);
+    else if (act.type === 'def') res = await this.doDefenderMove(p);
     else if (act.type === 'fortify') await this.doFortify(p);
     else this.log(`${this.name(p)} rests.`);
+    if (res !== 'back') break;
+    }
 
     // end-of-turn ticks
     if (t.prison > 0 && act.type !== 'trav') {
@@ -466,17 +470,17 @@ class Game {
   }
 
   // ------------------------------------------------------------ dice
-  async throwDie(p, faces) {
+  async throwDie(p, faces, canBack) {
     Render.startRoll(p.id, faces);
     UI.refresh();
-    if (p.human && !Settings.test) await UI.waitDieStop(p);
+    if (p.human && !Settings.test) { if (await UI.waitDieStop(p, canBack) === 'back') { Render.die = null; UI.refresh(); return null; } }
     else await sleep(R.range(450, 850));
     const v = R.pick(faces);
     await Render.stopRoll(v);
     return v;
   }
 
-  async roll(p) {
+  async roll(p, canBack) {
     const m = p.trav.mods; p.trav.mods = {};
     let v;
     if (m.custom) {
@@ -484,7 +488,8 @@ class Game {
       Render.die = { who: p.id, faces: [v], state: 'landed', face: v, rot: 0, hop: 1, spin: 0, note: '', total: null, t: 0, land: 0.0001 };
     } else {
       const faces = m.cursed ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
-      v = await this.throwDie(p, faces);
+      v = await this.throwDie(p, faces, canBack);
+      if (v === null) { p.trav.mods = m; return null; } // went back to the turn menu
       if (m.adv) {
         await sleep(500);
         const v2 = await this.throwDie(p, faces);
@@ -510,7 +515,8 @@ class Game {
 
   // ------------------------------------------------------------ traveller movement
   async doTravellerMove(p) {
-    const { v, dir } = await this.roll(p);
+    const rr = await this.roll(p, true); if (!rr) return 'back';
+    const { v, dir } = rr;
     const t = p.trav;
     if (t.loc === 'board') {
       p.cash += 3; this.fx(p, '+3 wage', '#ffe680'); Render.coinBurst(p, 3);
@@ -906,7 +912,8 @@ class Game {
 
   // ------------------------------------------------------------ warden
   async doDefenderMove(p) {
-    const { v } = await this.roll(p);
+    const rr = await this.roll(p, true); if (!rr) return 'back';
+    const { v } = rr;
     await this.moveWarden(p, v, false);
   }
   async moveWarden(p, v, free) {
@@ -1124,7 +1131,7 @@ class Game {
         { label: 'Deposit', value: true }, { label: 'Keep it on hand', value: false }] }, () => AI.wantDeposit(this, p));
       if (yes) await this.deposit(p, 'the Counting House');
     }
-    let price = R.pick([15, 20, 25]);
+    let price = 20; // a fixed, predictable star price (it used to vary 15–25 per visit, which was confusing)
     const offers = [];
     while (offers.length < 3) { const id = this.randomHandItem(); if (!offers.includes(id)) offers.push(id); }
     const ult = ITEM[p.el.ult];
@@ -1149,9 +1156,16 @@ class Game {
       opts.push({ label: 'Leave the Counting House', value: 'done' });
       wares[0].price = sp;
       wares.forEach((w, k) => { if (w.state === 'sold' || w.state === 'gone') return; const o = opts.find(x => x.value === (k === 0 ? 'star' : w.ult ? 'ult' : 'i' + (k - 1))); w.state = o && !o.disabled ? 'ok' : 'no'; if (half && w.id) w.price = Math.ceil(ITEM[w.id].price / 2); });
-      const v = await this.choose(p, { title: '🏛️ Counting House', text: '', options: opts, shop: true },
+      let v = await this.choose(p, { title: '🏛️ Counting House', text: '', options: opts, shop: true },
         () => AI.shop(this, p, opts, { sp, offers, half, sold }));
-      if (!v || v === 'done') break;
+      if (!v || v === 'done') {
+        // leaving without a star you could afford? make sure
+        if (p.human && stars === 0 && this.afford(p, sp) && !Settings.test) {
+          const sure = await this.choose(p, { title: '⭐ Leave without a star?', text: `You can afford a star right now (${sp} coins). Are you sure you want to leave without one?`, options: [{ label: '⭐ No — buy the star!', value: 'star' }, { label: 'Yes, leave without it', value: 'leave', back: true }] }, () => 'leave');
+          if (sure !== 'star') break;
+          v = 'star';
+        } else break;
+      }
       if (v === 'star') {
         wares[0].keep = bulk; await Stage.buy(0);
         this.pay(p, sp); p.vault++; stars++;
@@ -1259,7 +1273,10 @@ class Game {
     await Stage.podium(places);
     this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and win' : 'wins'} the Moot <b>${MG.byId[id].name}</b> (+3)${places.filter(r => r.place > 1 && r.coins).map(r => `, ${this.name(r.p)} +${r.coins}`).join('')}.`, 'good');
     this.players.forEach((q, k) => this.react(q, winners.includes(q.id) ? R.pick(['proud', 'laugh']) : R.pick(['sad', 'angry', 'cry']), winners.includes(q.id) ? R.pick(['Victory!', 'Too easy!', 'Champion!']) : undefined, k * 0.15));
-    this.order = winners.concat(this.order.filter(x => !winners.includes(x)));
+    // next round's turn order follows the Moot result: 1st, 2nd, 3rd, 4th (ties keep the old order)
+    const prev = this.order.slice(), pl = id => places.find(r => r.p.id === id).place;
+    this.order = prev.slice().sort((a, b) => pl(a) - pl(b) || prev.indexOf(a) - prev.indexOf(b));
+    this.log(`Next round's order: ${this.order.map(x => this.name(this.P(x))).join(' → ')}`);
     UI.refresh();
   }
 

@@ -354,6 +354,15 @@ MG.def({
   init(m, S) {
     S.ropes = []; let x = 140;
     for (let k = 0; k < 13; k++) { const L = R.range(150, 195); S.ropes.push({ x, L, A: R.range(0.62, 0.82), w: Math.sqrt(this.GR / L), ph: R.range(0, 6.28) }); x += R.range(215, 255); }
+    // every gap must be catchable: pull the next vine closer until a comfortable timing window exists
+    for (let k = 0; k < S.ropes.length - 1; k++) {
+      for (let tries = 0; tries < 12; tries++) {
+        const P = { rope: k, l: S.ropes[k].L * 0.88, fly: false, fall: 0 }; let ok = 0, n = 0;
+        for (let t = 0; t < 6; t += 0.05) { n++; if (this.predict(S, P, t).hit > k) ok++; }
+        if (ok / n >= 0.14) break;
+        for (let j = k + 1; j < S.ropes.length; j++) S.ropes[j].x -= 14;
+      }
+    }
     S.goal = S.ropes[S.ropes.length - 1].x;
     S.p = [0, 1, 2, 3].map(() => ({ rope: 0, l: S.ropes[0].L, fly: false, x: 0, y: 0, vx: 0, vy: 0, fin: 0, fall: 0, best: 0, grabT: 0, botP: R.range(0.55, 0.9) }));
   },
@@ -386,7 +395,7 @@ MG.def({
         for (let k = p.rope + 1; k < Math.min(S.ropes.length, p.rope + 3); k++) {
           const l = this.grab(S.ropes[k], p.x, p.y, t);
           if (l) {
-            p.fly = false; p.rope = k; p.l = l; p.grabT = 0.25; Sfx.tone(520 + k * 20, 0.08, 'triangle', 0.04);
+            p.fly = false; p.rope = k; p.l = Math.max(l, S.ropes[k].L * 0.88); p.grabT = 0.25; // slide down near the end of the vine Sfx.tone(520 + k * 20, 0.08, 'triangle', 0.04);
             if (k === S.ropes.length - 1) { p.fin = t; Sfx.star(); }
             break;
           }
@@ -668,64 +677,3 @@ MG.def({
   },
 });
 
-// 50 ---------------------------------------------------------------- Fourfold Tug
-MG.def({
-  id: 'tug', name: 'Fourfold Tug', type: 'Rhythm', controls: '1 button', dur: 40, mouseA: true,
-  how: 'Four ropes, one knot. A drum beats steadily — press the button exactly on the beat for a mighty pull (near the beat is a small pull, off-beat makes you slip). Drag the knot into your own circle.',
-  wins: 'Knot in your circle, else closest.',
-  init(m, S) {
-    S.k = { x: 640, y: 385, vx: 0, vy: 0 };
-    S.anchor = [[640, 690], [140, 385], [640, 80], [1140, 385]];
-    S.beat = 0.62; S.slip = [0, 0, 0, 0]; S.flash = [0, 0, 0, 0]; S.lastBeat = -1; S.tag = ['', '', '', ''];
-    S.bt = [0, 0, 0, 0].map(() => R.range(0.02, 0.07));
-  },
-  update(m, S, dt) {
-    const k = Math.round(m.t / S.beat);
-    if (Math.floor(m.t / S.beat) !== S.lastBeat) { S.lastBeat = Math.floor(m.t / S.beat); Sfx.tone(120, 0.12, 'sine', 0.12); S.pulse = 0.15; }
-    S.pulse -= dt;
-    for (let i = 0; i < 4; i++) {
-      S.slip[i] -= dt; S.flash[i] -= dt;
-      if (!m.pressed(i, 'a') || S.slip[i] > 0) continue;
-      const off = Math.abs(m.t - k * S.beat);
-      const a = S.anchor[i], dx = a[0] - S.k.x, dy = a[1] - S.k.y, d = Math.hypot(dx, dy) || 1;
-      let f = 0;
-      if (off < 0.06) { f = 95; S.tag[i] = 'PERFECT'; MGH.burst(S.k.x, S.k.y, [m.players[i].color, '#fff'], 10, { speed: 160 }); }
-      else if (off < 0.13) { f = 35; S.tag[i] = 'good'; }
-      else { S.slip[i] = 0.45; S.tag[i] = 'slip!'; }
-      S.flash[i] = 0.35;
-      S.k.vx += dx / d * f; S.k.vy += dy / d * f;
-    }
-    S.k.x += S.k.vx * dt; S.k.y += S.k.vy * dt; S.k.vx *= 1 - 2.5 * dt; S.k.vy *= 1 - 2.5 * dt;
-    S.k.x = clamp(S.k.x, 160, 1120); S.k.y = clamp(S.k.y, 100, 670);
-    for (let i = 0; i < 4; i++) if (dist(S.k.x, S.k.y, S.anchor[i][0], S.anchor[i][1]) < 120) { MGH.burst(S.k.x, S.k.y, [m.players[i].color, '#ffe680'], 50, { speed: 400 }); m.finish(this.score(m, S)); break; }
-  },
-  bot(m, S, i) {
-    const v = m.vin[i]; v.a = false;
-    if (!S.err) S.err = [0, 0, 0, 0];
-    const kb = Math.round(m.t / S.beat) * S.beat;
-    if (Math.abs(m.t - (kb + S.err[i])) < 0.017 && S.slip[i] <= 0) { v.a = !m.prev[i].a; S.err[i] = Math.random() < 0.15 ? R.range(-0.16, 0.16) : R.range(-0.07, 0.07); }
-  },
-  score(m, S) { return S.anchor.map(a => -dist(S.k.x, S.k.y, a[0], a[1])); },
-  fmt(s) { return -s < 125 ? 'Pulled it home!' : `${Math.round(-s)} px away`; },
-  hud(m, S, i) { return S.tag[i]; },
-  draw(m, S, g) {
-    MGH.scene(g, 'meadow', m.t); MGH.crowd(g, m.t, 64, 30, ['#6a8ac8', '#8a6ab8', '#c87a6a', '#6ab88a']);
-    g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(646, 395, 335, 335, 0, 0, 7); g.fill();
-    { const gr = g.createRadialGradient(600, 340, 40, 640, 385, 330); gr.addColorStop(0, '#d9b47a'); gr.addColorStop(1, '#a8804a'); g.fillStyle = gr; g.beginPath(); g.arc(640, 385, 330, 0, 7); g.fill(); }
-    for (let k = 0; k < 60; k++) { const a = MGH.hash(k) * 7, d = Math.sqrt(MGH.hash(k + 9)) * 310; g.fillStyle = 'rgba(120,80,40,0.35)'; g.beginPath(); g.arc(640 + Math.cos(a) * d, 385 + Math.sin(a) * d, 2 + MGH.hash(k + 3) * 3, 0, 7); g.fill(); }
-    g.strokeStyle = '#c9a36b'; g.lineWidth = 10; g.beginPath(); g.arc(640, 385, 330, 0, 7); g.stroke(); g.strokeStyle = '#8a6a3a'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath(); g.arc(640, 385, 330, 0, 7); g.stroke(); g.setLineDash([]);
-    g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 4; g.setLineDash([12, 10]); g.beginPath(); g.arc(640, 385, 120, 0, 7); g.stroke(); g.setLineDash([]);
-    MGH.glow(g, 640, 385, 80 + Math.max(0, S.pulse || 0) * 300, 'rgba(255,230,128,0.35)');
-    for (let i = 0; i < 4; i++) {
-      const a = S.anchor[i], p = m.players[i];
-      g.strokeStyle = p.color; g.lineWidth = 3; g.globalAlpha = 0.6; g.beginPath(); g.arc(a[0], a[1], 120, 0, 7); g.stroke(); g.globalAlpha = 1;
-      g.strokeStyle = '#d9c7a8'; g.lineWidth = 7; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(S.k.x, S.k.y); g.stroke();
-      const lean = S.flash[i] > 0 ? 10 : 0, dx = a[0] - S.k.x, dy = a[1] - S.k.y, d = Math.hypot(dx, dy) || 1;
-      MGH.av(g, m, i, a[0] + dx / d * lean, a[1] + dy / d * lean, 30, S.slip[i] > 0 ? 'dizzy' : S.flash[i] > 0 ? 'determined' : 'happy', { look: { x: -dx / d, y: -dy / d } });
-      if (S.flash[i] > 0) MGH.text(g, S.tag[i], a[0], a[1] - 50, 20, S.tag[i] === 'PERFECT' ? '#ffe680' : S.tag[i] === 'good' ? '#9fd8ff' : '#ff6b6b', 'center', 'bold');
-    }
-    MGH.glow(g, S.k.x, S.k.y, 50, 'rgba(255,220,90,0.6)'); MGH.star(g, S.k.x, S.k.y, 24, '#ffd34d', m.t);
-    const ph = (m.t % S.beat) / S.beat;
-    g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(540, 700, 200, 12); g.fillStyle = ph < 0.1 || ph > 0.9 ? '#ffe680' : '#888'; g.fillRect(540 + ph * 200 - 4, 696, 8, 20);
-  },
-});

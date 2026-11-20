@@ -24,7 +24,7 @@
 
   // ---- 1) 100m dash
   const dash = {
-    name: '100m Dash', icon: '🏃', how: 'Wait for GO — a false start freezes you! Then press A and B ALTERNATELY as fast as you can. Pressing the same button twice barely helps.',
+    name: '100m Dash', icon: '🏃', how: 'Wait for GO — a false start freezes you! Then run in RHYTHM: press A each time the marker on your stride bar crosses the green zone (gold = perfect). The faster you go, the faster the beat. No mashing!',
     init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, fin: 0, pen: 0, lastKey: null, fs: false })); T.go = 2.4; T.rate = [0, 1, 2, 3].map(() => R.range(6.8, 8.6)); },
     update(m, S, T, dt, t) {
       tickMsgs(T, dt);
@@ -32,13 +32,13 @@
         if (P.fin) return;
         if (t < T.go) { if ((m.pressed(i, 'a') || m.pressed(i, 'b')) && !P.fs) { P.fs = true; P.pen = 1.1; say(T, i, 'FALSE START!', '#ff6b6b'); Sfx.bad(); } return; }
         if (P.pen > 0 && t > T.go) { P.pen -= dt; return; }
-        const s = MGM.stride(m, i, P); if (s) P.v = Math.min(12.4, P.v + s * Math.max(0.1, 1.28 - P.v * 0.056));
-        P.v *= Math.exp(-0.9 * dt); P.d += P.v * dt;
+        const s = MGM.rhythm(m, i, P, dt, 1.25 + 0.8 * P.v / 12.4); if (s) P.v = Math.min(12.4, P.v + s * Math.max(0.6, 4.6 - P.v * 0.24));
+        P.v *= Math.exp(-0.5 * dt); P.d += P.v * dt;
         if (P.d >= 100) { P.fin = t - T.go; say(T, i, `${P.fin.toFixed(2)}s`, '#ffffff'); MGH.burst(1190, ln(i).mid, ['#ffe680', m.players[i].color, '#fff'], 18, { speed: 220 }); Sfx.coin(); }
       });
     },
-    bot(m, S, T, i, dt) { const t = S.stageT, v = m.vin[i]; v.a = v.b = false; if (t < T.go) { if (t > T.go - 0.05 && Math.random() < 0.004) v.a = true; return; } MGM.botStride(m, i, T.p[i], T.rate[i], dt); },
-    done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 24; },
+    bot(m, S, T, i, dt) { const t = S.stageT, v = m.vin[i]; v.a = v.b = false; if (t < T.go) { if (t > T.go - 0.05 && Math.random() < 0.004) v.a = true; return; } MGM.botRhythm(m, i, T.p[i]); },
+    done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 60; },
     result(m, S, T) { return T.p.map(P => P.fin ? -P.fin : -(60 + (100 - P.d))); },
     fmt: v => v > -60 ? `${(-v).toFixed(2)}s` : 'DNF',
     draw(m, S, T, g) {
@@ -53,10 +53,10 @@
         MGH.shadow(g, x, L.y1 - 6, 22, 0.25);
         runner(g, m, i, x, L.y1 - 8, 34, P.fin ? 'cheer' : P.pen > 0 && P.fs ? 'hurt' : P.v > 9 ? 'effort' : 'determined', P.v > 1 && !P.fin ? 1 : 0, { t: m.t * (0.5 + P.v * 0.08) });
         if (P.v > 6 && !P.fin) for (let k = 1; k < 4; k++) { g.fillStyle = `rgba(255,255,255,${0.2 - k * 0.05})`; g.fillRect(x - 30 - k * 18, L.y1 - 60 + k * 8, 14, 3); }
-        MGH.text(g, `${P.v.toFixed(1)} m/s`, 80, L.y1 - 14, 13, '#fff', 'center');
+        MGH.text(g, `${P.v.toFixed(1)} m/s`, 56, L.y1 - 14, 13, '#fff', 'center'); if (!P.fin) MGM.drawRhythm(g, 56, L.y0 + 34, P, 92);
       }
       drawMsgs(g, T, i => 110 + Math.min(100, T.p[i].d) * 10.8);
-      if (S.phase === 'play') { countdown(g, t, T.go); if (t > T.go && t < T.go + 4) MGH.label(g, 'A  B  A  B  A  B !', 640, 150, 22, '#fff'); }
+      if (S.phase === 'play') { countdown(g, t, T.go); if (t > T.go && t < T.go + 4) MGH.label(g, 'Press A on the beat — in the green!', 640, 150, 22, '#fff'); }
     },
   };
 
@@ -89,7 +89,7 @@
       if (next !== undefined && P.air <= 0 && next - P.d <= ideal && next - P.d > ideal - 0.6) { v.a = true; P.err = R.range(-0.3, 0.3); }
       if (P.d > 57.2 && !P.dip && Math.random() < 0.3) v.b = true;
     },
-    done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 20; },
+    done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 60; },
     result(m, S, T) { return T.p.map(P => P.fin ? -P.fin : -(60 + (60 - P.d))); },
     fmt: v => v > -60 ? `${(-v).toFixed(2)}s` : 'DNF',
     draw(m, S, T, g) {
@@ -118,7 +118,7 @@
   // ---- 3) long jump (two attempts)
   const RUNW = 30, BX = 640, RPX = (BX - 70) / RUNW, PPX = 62; // runway & pit scale
   const longjump = {
-    name: 'Long Jump', icon: '🦘', how: 'Press A and B ALTERNATELY to sprint down the runway. Hold UP to swing the angle meter and let go to jump — before the white board, or it’s a foul! About 40° is ideal. Two attempts, best one counts.',
+    name: 'Long Jump', icon: '🦘', how: 'Sprint down the runway in RHYTHM: press A as the marker crosses the green zone of your stride bar. Hold UP to swing the angle meter and let go to jump — before the white board, or it’s a foul! About 40° is ideal. Two attempts, best one counts.',
     init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ att: 0, st: 'ready', tt: 0, d: 0, v: 0, ang: 10, ad: 1, best: 0, marks: [], lastKey: null, jx: 0, dist: 0, foul: false, aimAt: R.range(27.5, 29.4), angT: R.range(34, 44), rate: R.range(7, 8.6) })); },
     update(m, S, T, dt, t) {
       tickMsgs(T, dt);
@@ -126,8 +126,8 @@
         P.tt += dt;
         if (P.st === 'ready') { if (P.tt > 0.9) { P.st = 'run'; P.tt = 0; P.d = 0; P.v = 0; } return; }
         if (P.st === 'run' || P.st === 'aim') {
-          const s = MGM.stride(m, i, P); if (s && P.st === 'run') P.v = Math.min(11.6, P.v + s * Math.max(0.1, 1.3 - P.v * 0.06));
-          P.v *= Math.exp(-0.75 * dt); P.d += P.v * dt;
+          const s = MGM.rhythm(m, i, P, dt, 1.25 + 0.8 * P.v / 11.6); if (s && P.st === 'run') P.v = Math.min(11.6, P.v + s * Math.max(0.6, 4.6 - P.v * 0.26));
+          P.v *= Math.exp(-0.5 * dt); P.d += P.v * dt;
           const up = m.axis(i).y < -0.5 || m.held(i, 'up');
           if (P.st === 'run' && up && P.d > 4) { P.st = 'aim'; P.tt = 0; P.ang = 10; P.ad = 1; }
           if (P.st === 'aim') { P.ang += P.ad * 105 * dt; if (P.ang > 70) { P.ang = 70; P.ad = -1; } if (P.ang < 10) { P.ang = 10; P.ad = 1; } if (!up || P.tt > 1.1) this.takeoff(m, T, P, i); }
@@ -147,13 +147,13 @@
     bot(m, S, T, i, dt) {
       const P = T.p[i], v = m.vin[i]; v.a = v.b = false;
       if (P.st === 'run' || P.st === 'aim') {
-        MGM.botStride(m, i, P, P.rate, dt);
+        MGM.botRhythm(m, i, P);
         const hold = P.st === 'aim' ? !(P.ang >= P.angT - 3 && P.ad > 0) : P.d >= P.aimAt - P.v * 0.3;
         v.ay = hold ? -1 : 0;
         if (P.st === 'aim' && !hold) { P.aimAt = R.range(27.6, 29.5); P.angT = R.range(33, 46); }
       } else v.ay = 0;
     },
-    done(m, S, T, t) { return T.p.every(P => P.st === 'done') || t > 60; },
+    done(m, S, T, t) { return T.p.every(P => P.st === 'done') || t > 180; },
     result(m, S, T) { return T.p.map(P => P.best); },
     fmt: v => v > 0 ? `${v.toFixed(2)} m` : 'no mark',
     draw(m, S, T, g) {
@@ -174,6 +174,7 @@
         // angle meter
         if (P.st === 'aim') { const cx = x + 40, cy = L.y1 - 70; g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, 40, -Math.PI / 2, 0); g.stroke(); g.strokeStyle = '#7cf06a'; g.lineWidth = 6; g.beginPath(); g.arc(cx, cy, 40, -45 * Math.PI / 180, -35 * Math.PI / 180); g.stroke(); const a = -P.ang * Math.PI / 180; g.strokeStyle = '#ffe680'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * 46, cy + Math.sin(a) * 46); g.stroke(); MGH.text(g, `${Math.round(P.ang)}°`, cx + 58, cy - 8, 15, '#fff'); }
         MGH.text(g, `attempt ${Math.min(2, P.att + 1)}/2 · best ${P.best ? P.best.toFixed(2) + ' m' : '—'}`, 260, L.y0 + 24, 14, '#fff');
+        if (P.st === 'run') MGM.drawRhythm(g, 56, L.y0 + 34, P, 92);
       }
       drawMsgs(g, T, i => 900);
     },
@@ -210,7 +211,7 @@
       if (P.st === 'charge') v.a = P.tt < P.holdT;
       if (P.st === 'angle') { if (!P.angT) P.angT = 42 + P.wind * 2.2 + R.range(-7, 7); v.a = Math.abs(P.ang - P.angT) < 2.5 && !m.prev[i].a; }
     },
-    done(m, S, T, t) { return T.p.every(P => P.st === 'done') || t > 60; },
+    done(m, S, T, t) { return T.p.every(P => P.st === 'done') || t > 180; },
     result(m, S, T) { return T.p.map(P => P.best); },
     fmt: v => `${v.toFixed(1)} m`,
     draw(m, S, T, g) {
@@ -246,9 +247,9 @@
   };
 
   // ---- 5) 50m swim
-  const BEAT = 0.5;
+  const BEAT = 0.75;
   const swim = {
-    name: '50m Swim', icon: '🏊', how: 'Stroke on the beat: press A and B ALTERNATELY when the shrinking ring meets the circle. Perfect timing = big speed, off-beat = a splash. Watch your air — press UP to take a breath before it runs out!',
+    name: '50m Swim', icon: '🏊', how: 'Stroke on the beat: press A when the shrinking ring meets the circle. Perfect timing = big speed, off-beat = a splash. Watch your air — press B (or UP) to take a breath before it runs out!',
     init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, ph: 0, lastKey: null, air: 1, breathe: 0, fin: 0, combo: 0, stroke: 0, err: R.range(0.03, 0.1) })); T.go = 2.4; },
     update(m, S, T, dt, t) {
       tickMsgs(T, dt);
@@ -257,13 +258,12 @@
         P.ph = (P.ph + dt / BEAT) % 1; P.stroke = Math.max(0, P.stroke - dt);
         if (P.breathe > 0) { P.breathe -= dt; P.v *= Math.exp(-0.8 * dt); }
         else {
-          if (m.pressed(i, 'up') || (m.axis(i).y < -0.6 && !(P.upPrev))) { P.breathe = 0.45; P.air = 1; say(T, i, 'breath', '#9fe0ff'); }
-          const a = m.pressed(i, 'a'), b = m.pressed(i, 'b');
-          if (a || b) {
-            const k = a ? 'a' : 'b', alt = P.lastKey !== k; P.lastKey = k; P.stroke = 0.3;
+          if (m.pressed(i, 'b') || m.pressed(i, 'up') || (m.axis(i).y < -0.6 && !(P.upPrev))) { P.breathe = 0.45; P.air = 1; say(T, i, 'breath', '#9fe0ff'); }
+          else if (m.pressed(i, 'a') && P.stroke <= 0) {
+            P.stroke = 0.25;
             const off = Math.min(P.ph, 1 - P.ph) * BEAT;
-            if (off < 0.07) { P.v += alt ? 0.75 : 0.3; P.combo++; if (P.combo % 4 === 0) say(T, i, `PERFECT x${P.combo}`, '#7cf06a'); }
-            else if (off < 0.14) { P.v += alt ? 0.45 : 0.2; P.combo = 0; }
+            if (off < 0.08) { P.v += 1.1; P.combo++; if (P.combo % 4 === 0) say(T, i, `PERFECT x${P.combo}`, '#7cf06a'); }
+            else if (off < 0.16) { P.v += 0.65; P.combo = 0; }
             else { P.v *= 0.65; P.combo = 0; say(T, i, 'splash!', '#ff9a6b'); }
           }
         }
@@ -277,11 +277,11 @@
     bot(m, S, T, i, dt) {
       const P = T.p[i], v = m.vin[i]; v.a = v.b = false; v.ay = 0;
       if (S.stageT < T.go || P.fin || P.breathe > 0) return;
-      if (P.air < 0.22 && !m.prev[i].up) { v.ay = -1; return; }
+      if (P.air < 0.22 && !m.prev[i].b) { v.b = true; return; }
       const off = Math.min(P.ph, 1 - P.ph) * BEAT;
-      if (off < P.err && P.stroke <= 0 && P.ph > 0.9 - P.err) { const k = P.lastKey === 'a' ? 'b' : 'a'; v[k] = !m.prev[i][k]; P.err = R.range(0.03, 0.11); }
+      if (off < P.err && P.stroke <= 0 && P.ph > 0.9 - P.err) { v.a = !m.prev[i].a; P.err = R.range(0.03, 0.12); }
     },
-    done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 30; },
+    done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 60; },
     result(m, S, T) { return T.p.map(P => P.fin ? -P.fin : -(60 + (50 - P.d))); },
     fmt: v => v > -60 ? `${(-v).toFixed(2)}s` : 'DNF',
     draw(m, S, T, g) {

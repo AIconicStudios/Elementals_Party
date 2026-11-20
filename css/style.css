@@ -190,3 +190,4 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 .btns button.big { background: linear-gradient(180deg, #ffd34d, #ff8a3d); color: #3a1a00; border-color: #fff0b0; font-weight: bold; box-shadow: 0 5px 0 #8a3a10, 0 0 26px rgba(255,170,60,0.6); animation: startPulse 2s ease-in-out infinite; }
 @keyframes startPulse { 50% { box-shadow: 0 5px 0 #8a3a10, 0 0 40px rgba(255,190,80,0.9); } }
 .panel.menu .row label { color: #f0e8ff; }
+.hpad { font-size: 13px; letter-spacing: 0; color: #a99ad8; margin-left: 14px; font-weight: normal; }

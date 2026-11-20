@@ -86,7 +86,7 @@ MG.def({
     const skill = 1 - m.t / 120;
     MGH.setLR(m, i, Math.abs(est) < 0.04 ? 0 : (Math.random() < skill ? -Math.sign(est) : Math.sign(est)));
   },
-  score(m, S) { return S.p.map(p => p.alive ? 1000 - Math.abs(p.a) : p.outT); },
+  score(m, S) { return S.p.map(p => p.alive ? 1000 : p.outT); },
   fmt(s) { return s >= 999 ? 'Still standing' : `fell at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].alive ? 'balanced' : 'fell'; },
   draw(m, S, g) {

@@ -7,10 +7,14 @@ const Settings = {
   test: false,       // headless test mode (minigames simulated instantly)
 };
 
+// true randomness from the system's cryptographic generator for dice, picks and shuffles
+// (falls back to Math.random where that isn't available, e.g. during automated tests)
+const _rbuf = new Uint32Array(64); let _rk = 64;
+const trueRand = () => { if (Settings.test || !(typeof crypto !== 'undefined' && crypto.getRandomValues)) return Math.random(); if (_rk >= 64) { crypto.getRandomValues(_rbuf); _rk = 0; } return _rbuf[_rk++] / 4294967296; };
 const R = {
-  int(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); },
-  pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; },
-  shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; },
+  int(a, b) { return a + Math.floor(trueRand() * (b - a + 1)); },
+  pick(arr) { return arr[Math.floor(trueRand() * arr.length)]; },
+  shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(trueRand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; },
   d6() { return R.int(1, 6); },
   chance(p) { return Math.random() < p; },
   range(a, b) { return a + Math.random() * (b - a); },
@@ -128,6 +132,13 @@ const Sfx = {
   thunder() {
     this.noise(0.06, 5000, 0.18, 'highpass'); [0.02, 0.07, 0.13].forEach(d => this.noise(0.05, 3000, 0.1, 'bandpass', d, 0, 2));
     this.noise(1.4, 300, 0.22, 'lowpass', 0.05, -220); this.tone(55, 1.1, 'sine', 0.12, -20, 0.05);
+  },
+  // a huge, close thunderclap: a split-second crack, then a long rolling rumble with a deep sub boom
+  bigThunder() {
+    this.noise(0.09, 6000, 0.4, 'highpass'); this.noise(0.12, 2500, 0.35, 'bandpass', 0.02, 0, 1.5);
+    [0.05, 0.11, 0.2].forEach((d, k) => this.noise(0.07, 3500 - k * 600, 0.28, 'bandpass', d, 0, 2));
+    this.noise(2.8, 420, 0.5, 'lowpass', 0.06, -330); this.noise(2.2, 180, 0.45, 'lowpass', 0.5, -100);
+    this.tone(48, 2.2, 'sine', 0.32, -18, 0.04); this.tone(36, 2.6, 'sine', 0.25, -10, 0.3);
   },
   // drum kit for rhythm games: 0 kick, 1 snare, 2 tom, 3 cymbal
   drum(k, vol = 1) {

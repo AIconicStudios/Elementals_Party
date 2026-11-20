@@ -19,6 +19,34 @@ const MGM = {
     P.bt = (P.bt || 0) + dt; const v = m.vin[i]; v.a = v.b = false;
     if (P.bt >= 1 / rate) { P.bt = Math.min(P.bt - 1 / rate, 0.5 / rate); P.bk = P.bk === 'a' ? 'b' : 'a'; v[P.bk] = true; }
   },
+  // the rhythm stride (instead of button mashing): a marker sweeps across a small bar; press A (or B) as
+  // it crosses the green zone. Perfect = 1.35, good = 1, off-beat = 0.2. One press per sweep counts.
+  rhythm(m, i, P, dt, tempo) {
+    P.rp = (P.rp || 0) + dt * tempo; P.rpFx = Math.max(0, (P.rpFx || 0) - dt);
+    if (P.rp >= 1) { P.rp -= 1; P.rpUsed = false; }
+    if (!(m.pressed(i, 'a') || m.pressed(i, 'b')) || P.rpUsed) return 0;
+    const off = Math.abs(P.rp - 0.5); P.rpUsed = true; P.rpFx = 0.35;
+    const r = off < 0.05 ? 1.35 : off < 0.13 ? 1 : 0.2; P.rpRes = r;
+    if (!m.bot(i)) Sfx.tone(r > 1 ? 1180 : r >= 1 ? 880 : 300, 0.05, 'triangle', 0.04);
+    return r;
+  },
+  botRhythm(m, i, P) {
+    const v = m.vin[i];
+    // aim for a point near the zone's centre (a bit off, like a person) and press on the first frame past it
+    // (a bot's press lands one frame later, so it aims a touch early)
+    const lead = 0.07, aim = () => 0.5 - lead + R.range(-0.08, 0.08) * (Math.random() < 0.15 ? 1.8 : 1);
+    if (P.bTgt === undefined) P.bTgt = aim();
+    const rp = P.rp || 0;
+    if (!P.rpUsed && rp >= P.bTgt && rp < P.bTgt + 0.3) { v.a = !m.prev[i].a; if (v.a) P.bTgt = aim(); }
+  },
+  drawRhythm(g, x, y, P, w = 96) {
+    g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, x - w / 2 - 4, y - 9, w + 8, 18, 9); g.fill();
+    g.fillStyle = 'rgba(120,230,120,0.75)'; g.fillRect(x - w * 0.13, y - 6, w * 0.26, 12);
+    g.fillStyle = '#ffe680'; g.fillRect(x - w * 0.05, y - 6, w * 0.1, 12);
+    const mx = x - w / 2 + (P.rp || 0) * w;
+    g.fillStyle = P.rpUsed ? 'rgba(255,255,255,0.4)' : '#fff'; g.fillRect(mx - 2.5, y - 10, 5, 20);
+    if (P.rpFx > 0) { g.globalAlpha = P.rpFx / 0.35; MGH.text(g, P.rpRes > 1 ? 'PERFECT' : P.rpRes >= 1 ? 'good' : 'off-beat', x, y - 14, 12, P.rpRes > 1 ? '#ffe680' : P.rpRes >= 1 ? '#9fffa0' : '#ff9a9a', 'center', 'bold'); g.globalAlpha = 1; }
+  },
   def(spec) {
     const stages = spec.stages;
     MG.def({
@@ -32,13 +60,15 @@ const MGM = {
       update(m, S, dt) {
         S.pt += dt;
         const st = stages[S.si];
-        if (S.phase === 'intro') { if (st.idle) st.idle(m, S, S.T, dt); if (S.pt > 5.5) { S.phase = 'play'; S.pt = 0; S.stageT = 0; Sfx.whistle(); } return; }
+        // the intro waits for a human to press A (so there's time to read it); bots-only games move on by themselves
+        const humans = m.players.some((p, i) => !m.bot(i)), tap = m.players.some((p, i) => !m.bot(i) && (m.pressed(i, 'a') || m.pressed(i, 'start')));
+        if (S.phase === 'intro') { if (st.idle) st.idle(m, S, S.T, dt); if (humans ? (S.pt > 1.5 && tap) || S.pt > 30 : S.pt > 5.5) { S.phase = 'play'; S.pt = 0; S.stageT = 0; Sfx.whistle(); } return; }
         if (S.phase === 'play') {
           S.stageT += dt;
           st.update(m, S, S.T, dt, S.stageT);
           if (st.done(m, S, S.T, S.stageT)) {
             const raw = st.result(m, S, S.T), pts = MGM.rankPts(raw);
-            S.hist.push({ name: st.name, icon: st.icon, raw, pts, fmt: st.fmt });
+            S.hist.push({ name: st.name, icon: st.icon, raw, pts, fmt: st.fmt, dur: S.stageT });
             pts.forEach((p, i) => { S.pts[i] += p; });
             S.phase = 'results'; S.pt = 0; Sfx.crowd('cheer');
           }
@@ -46,7 +76,7 @@ const MGM = {
         }
         if (S.phase === 'results') {
           if (st.idle) st.idle(m, S, S.T, dt);
-          if (S.pt > 4.2) {
+          if (humans ? (S.pt > 1.2 && tap) || S.pt > 20 : S.pt > 4.2) {
             S.si++;
             if (S.si >= stages.length) { m.finish(this.score(m, S)); return; }
             S.T = {}; MGM.clearIn(m); stages[S.si].init(m, S, S.T); S.phase = 'intro'; S.pt = 0;
@@ -74,7 +104,7 @@ const MGM = {
     });
   },
   drawIntro(g, m, S, st, t) {
-    const k = Math.min(1, t / 0.35), out = t > 5.1 ? (t - 5.1) / 0.4 : 0;
+    const k = Math.min(1, t / 0.35), out = 0;
     g.save(); g.globalAlpha = 1 - out;
     g.fillStyle = 'rgba(8,4,24,0.72)'; g.fillRect(0, 40, 1280, 680);
     g.translate(640, 330); g.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
@@ -84,6 +114,7 @@ const MGM = {
     g.save(); g.globalAlpha = 1 - out;
     g.font = 'bold 54px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#1a0f3a'; g.strokeText(st.name, 640, 400); g.fillStyle = '#fff'; g.fillText(st.name, 640, 400);
     MGH.wrap(g, st.how, 640, 446, 860, 28, '#e8e0ff', 21);
+    if (t > 1.5 && m.players.some((p, i) => !m.bot(i))) { g.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5); MGH.text(g, 'Press  A  when you\'re ready', 640, 600, 22, '#ffe680', 'center', 'bold'); }
     g.restore();
   },
   drawHow(g, st, a, y0 = 640) {
@@ -100,6 +131,7 @@ const MGM = {
     g.save(); g.globalAlpha = k;
     g.fillStyle = 'rgba(8,4,24,0.82)'; MGH.rr(g, 290, 110, 700, 520, 24); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.stroke();
     MGH.text(g, `${h.icon} ${h.name} — results`, 640, 160, 30, '#ffe680', 'center', 'bold');
+    if (t > 1.2 && m.players.some((p, i) => !m.bot(i))) MGH.text(g, 'Press  A  to continue', 640, 618, 17, '#ffe680', 'center', 'bold');
     const order = [0, 1, 2, 3].sort((a, b) => S.pts[b] - S.pts[a]);
     MGH.text(g, 'event', 700, 200, 15, '#bbb'); MGH.text(g, 'medal', 820, 200, 15, '#bbb'); MGH.text(g, 'total', 925, 200, 15, '#bbb');
     order.forEach((i, r) => {

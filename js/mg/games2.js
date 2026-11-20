@@ -410,11 +410,11 @@ MG.def({
 
 // 18 ---------------------------------------------------------------- Burrow Dash
 MG.def({
-  id: 'burrow', name: 'Burrow Dash', type: 'Race', controls: 'Left/Right + mash',
-  how: 'Tunnel down by tapping to dig. Steer around boulders, which stop you for a second.',
+  id: 'burrow', name: 'Burrow Dash', type: 'Race', controls: 'Left/Right + button',
+  how: 'Dig in RHYTHM: press A as the marker on your dig bar crosses the green zone (gold = a big perfect dig). Steer around boulders with LEFT/RIGHT — they stop you for a second.',
   wins: 'First to the bottom.',
   init(m, S) {
-    S.goal = 2600;
+    S.goal = 3600;
     S.rocks = []; for (let d = 250; d < S.goal - 50; d += R.range(90, 170)) S.rocks.push({ d, x: R.range(40, 280) });
     S.p = [0, 1, 2, 3].map(() => ({ x: 160, d: 0, v: 0, stun: 0, fin: 0, hit: new Set(), tap: 0 }));
   },
@@ -423,8 +423,9 @@ MG.def({
       const p = S.p[i]; if (p.fin) continue;
       p.x = clamp(p.x + m.axis(i).x * 260 * dt, 20, 300);
       if (p.stun > 0) { p.stun -= dt; p.v = 0; continue; }
-      if (m.pressed(i, 'a')) { p.v = Math.min(420, p.v + 55); if (Math.random() < 0.5) MGH.burst(i * 320 + p.x, 214, ['#7a5230', '#5a3d22', '#a07040'], 3, { speed: 140, grav: 400, life: 0.5 }); }
-      p.v = Math.max(0, p.v - 240 * dt);
+      const dig = MGM.rhythm(m, i, p, dt, 1.7 + 0.7 * p.v / 420);
+      if (dig) { p.v = Math.min(420, p.v + dig * 120); if (dig >= 1) MGH.burst(i * 320 + p.x, 214, ['#7a5230', '#5a3d22', '#a07040'], 3, { speed: 140, grav: 400, life: 0.5 }); }
+      p.v = Math.max(0, p.v - 150 * dt);
       p.d += p.v * dt;
       S.rocks.forEach((r, k) => { if (!p.hit.has(k) && Math.abs(r.d - p.d) < 20 && Math.abs(r.x - p.x) < 40) { p.hit.add(k); p.stun = 1; MGH.burst(i * 320 + p.x, 210, ['#aaa', '#777'], 18, { speed: 260 }); if (!m.bot(i)) Sfx.bad(); } });
       if (p.d >= S.goal) p.fin = m.t;
@@ -433,15 +434,14 @@ MG.def({
   },
   bot(m, S, i, dt) {
     const p = S.p[i], v = m.vin[i];
-    p.tap -= dt; v.a = false;
-    if (p.tap <= 0) { v.a = true; p.tap = R.range(0.11, 0.17); }
+    v.a = false; if (!p.fin && p.stun <= 0) MGM.botRhythm(m, i, p);
     const r = S.rocks.find((r, k) => !p.hit.has(k) && r.d > p.d && r.d < p.d + 140);
     let tx = p.x;
     if (r && Math.abs(r.x - p.x) < 60) tx = r.x > 160 ? r.x - 80 : r.x + 80;
     const d = tx - p.x; MGH.setLR(m, i, Math.abs(d) < 6 ? 0 : Math.sign(d));
   },
   score(m, S) { return S.p.map(p => p.fin ? 1e5 - p.fin : p.d); },
-  fmt(s) { return s >= 1e4 ? 'Reached the bottom!' : Math.round(s / 26) + '%'; },
+  fmt(s) { return s >= 1e4 ? 'Reached the bottom!' : Math.round(s / 36) + '%'; },
   hud(m, S, i) { return Math.min(100, Math.round(S.p[i].d / S.goal * 100)) + '%'; },
   draw(m, S, g) {
     for (let i = 0; i < 4; i++) {
@@ -456,6 +456,7 @@ MG.def({
       if (p.v > 60 && Math.random() < 0.4) MGH.burst(ox + p.x, 214, ['#8a5a30', '#c9a36b'], 2, { speed: 120, life: 0.4, grav: 300 });
       MGH.av(g, m, i, ox + p.x, 196, 19, p.fin ? 'cheer' : p.stun > 0 ? 'dizzy' : 'determined', { look: { x: 0, y: 1 }, walk: p.v > 60 ? 1 : 0, prop: '⛏️' });
       g.restore();
+      if (!p.fin) MGM.drawRhythm(g, ox + 160, 76, p, 130);
       g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(ox + 318, 40, 4, 680);
     }
   },

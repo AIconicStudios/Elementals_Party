@@ -84,7 +84,7 @@
   // ---- 2) the climb
   const ROWS = 36;
   const climb = {
-    name: 'The Climb', icon: '🧗', how: 'Press A and B ALTERNATELY to climb hand over hand. LEFT/RIGHT moves across the wall. Cracked holds crumble — keep moving! A Titan climbs after you: if it catches you, it pulls you down.',
+    name: 'The Climb', icon: '🧗', how: 'Climb in RHYTHM: press A as the marker crosses the green zone of your bar — each good reach climbs a hold, a perfect one climbs two. LEFT/RIGHT moves across the wall. Cracked holds crumble — keep moving! A Titan climbs after you: if it catches you, it pulls you down.',
     init(m, S, T) {
       T.crack = new Set(); for (let r = 4; r < ROWS - 1; r++) for (let c = 0; c < 3; c++) if (Math.random() < 0.16) T.crack.add(r * 3 + c);
       T.p = [0, 1, 2, 3].map(() => ({ row: 0, col: 1, lastKey: null, slip: 0, fin: 0, stand: 0, tr: -5, tc: 1, tpause: 0, stun: 0, shift: 0, falls: 0, rate: R.range(4.6, 6.2), bt: 0 }));
@@ -97,14 +97,14 @@
         if (P.stun <= 0) {
           const ax = m.axis(i).x;
           if (P.shift <= 0 && Math.abs(ax) > 0.5) { const nc = clamp(P.col + Math.sign(ax), 0, 2); if (nc !== P.col) { P.col = nc; P.shift = 0.18; P.stand = 0; } }
-          const a = m.pressed(i, 'a'), b = m.pressed(i, 'b');
-          if (a || b) { const k = a ? 'a' : 'b'; if (P.lastKey !== k) { P.row++; P.stand = 0; Sfx.tone(500 + P.row * 8, 0.03, 'triangle', 0.03); } P.lastKey = k; }
+          const st = MGM.rhythm(m, i, P, dt, 2.1);
+          if (st >= 1) { P.row += st > 1 ? 2 : 1; P.stand = 0; P.lastKey = P.lastKey === 'a' ? 'b' : 'a'; }
         }
         P.stand += dt;
         if (T.crack.has(P.row * 3 + P.col) && P.stand > 0.6) { T.crack.delete(P.row * 3 + P.col); P.row = Math.max(0, P.row - 3); P.stun = 0.5; P.falls++; say(T, i, 'CRUMBLE!', '#ff9a6b'); Sfx.thud(); }
         // the titan gives chase after three seconds
         if (t > 3 && P.tpause <= 0) {
-          const sp = 2.0 + Math.min(1.6, t * 0.05);
+          const sp = 1.15 + Math.min(0.8, t * 0.02);
           P.tr += sp * dt; if (P.tc !== P.col && Math.random() < dt * 1.6) P.tc += Math.sign(P.col - P.tc);
           if (P.tr >= P.row - 0.3 && P.tc === P.col && P.stun <= 0) { P.row = Math.max(0, P.row - 4); P.stun = 0.7; P.tpause = 1.2; P.tr = P.row - 3; P.falls++; say(T, i, 'GRABBED!', '#ff6b6b'); Sfx.punch(); }
           if (P.tr > P.row + 2) P.tr = P.row - 2;
@@ -117,9 +117,9 @@
       // dodge the titan or a cracked hold ahead
       const danger = (P.tc === P.col && P.tr > P.row - 1.6) || T.crack.has((P.row + 1) * 3 + P.col);
       if (danger && P.shift <= 0) { const opts = [P.col - 1, P.col + 1].filter(c => c >= 0 && c <= 2 && !T.crack.has((P.row + 1) * 3 + c)); if (opts.length) v.ax = Math.sign(R.pick(opts) - P.col); }
-      MGM.botStride(m, i, P, P.rate, dt);
+      MGM.botRhythm(m, i, P);
     },
-    done(m, S, T, t) { return T.p.every(P => P.fin) || t > 45; },
+    done(m, S, T, t) { return T.p.every(P => P.fin) || t > 90; },
     result(m, S, T) { return T.p.map(P => P.fin ? 100 + (45 - P.fin) : P.row); },
     fmt: v => v >= 100 ? `top in ${(145 - v).toFixed(1)}s` : `${Math.round(v)}/${ROWS} holds`,
     draw(m, S, T, g) {
@@ -142,6 +142,7 @@
         const p = m.players[i], up = P.lastKey === 'a';
         Char.draw(g, X(P.col), Y(Math.min(P.row, ROWS)) + 8, 28, p.el.id, p.color, { mood: P.fin ? 'cheer' : P.stun > 0 ? 'scared' : 'effort', seed: i, look: { x: 0.3, y: -1 }, noShadow: true, hands: { n: { x: -0.85, y: up ? -1.6 : -0.9, d: -95, o: true, m: true }, f: { x: 0.85, y: up ? -0.9 : -1.6, d: -85, o: true, m: false } }, feet: [{ x: -0.3, lift: up ? 0.3 : 0, tip: 0.3 }, { x: 0.3, lift: up ? 0 : 0.3, tip: 0.3 }] });
         g.restore();
+        if (!P.fin) MGM.drawRhythm(g, ox + 160, 700, P, 120);
         colLane(g, i, m);
         g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(ox + 300, 60, 10, 620); g.fillStyle = p.color; g.fillRect(ox + 300, 680 - 620 * Math.min(1, P.row / ROWS), 10, 620 * Math.min(1, P.row / ROWS));
         msgAt(g, T, i, ox + 160, 300);
@@ -223,7 +224,7 @@
   const SEC = [{ to: 20, k: 'sprint', name: 'Sprint' }, { to: 34, k: 'beam', name: 'Balance beam' }, { to: 48, k: 'net', name: 'Cargo net' }, { to: 66, k: 'zip', name: 'Zipline' }, { to: 82, k: 'tires', name: 'Tire hop' }, { to: 100, k: 'tread', name: 'Treadmill' }];
   const TIRES = [69, 72.5, 76, 79.5];
   const elim = {
-    name: 'The Eliminator', icon: '🏁', how: 'The final obstacle course — the points leader starts first! SPRINT (A/B alternately) · BALANCE (LEFT/RIGHT to stay centred) · NET (mash A) · ZIPLINE (hold A, don’t let go) · TIRES (B to hop) · TREADMILL (A/B alternately, fast!). First across the line wins.',
+    name: 'The Eliminator', icon: '🏁', how: 'The final obstacle course — the points leader starts first! SPRINT (A on the beat) · BALANCE (LEFT/RIGHT to stay centred) · NET (A on the beat to climb) · ZIPLINE (hold A, don’t let go) · TIRES (B to hop) · TREADMILL (A on the beat). First across the line wins.',
     init(m, S, T) {
       const lead = Math.max(...S.pts);
       T.p = [0, 1, 2, 3].map(i => ({ x: 0, v: 0, delay: (lead - S.pts[i]) * 0.5, bal: 0, bv: 0, fall: 0, hop: 0, fin: 0, lastKey: null, rate: R.range(6.5, 8.2), msgK: '' }));
@@ -236,14 +237,14 @@
         if (P.fall > 0) { P.fall -= dt; return; }
         const s = this.sec(P);
         if (s.k !== P.msgK) { P.msgK = s.k; say(T, i, s.name.toUpperCase(), '#9fe0ff'); }
-        const st = MGM.stride(m, i, P);
-        if (s.k === 'sprint') { if (st) P.v = Math.min(9, P.v + st * 1.1); P.v *= Math.exp(-0.9 * dt); P.x += P.v * dt * 0.9; }
+        const st = s.k === 'sprint' || s.k === 'tread' || s.k === 'net' ? MGM.rhythm(m, i, P, dt, 1.6 + (s.k === 'net' ? 0.4 : P.v / 9 * 0.6)) : 0;
+        if (s.k === 'sprint') { if (st) P.v = Math.min(9, P.v + st * Math.max(0.6, 3.4 - P.v * 0.25)); P.v *= Math.exp(-0.5 * dt); P.x += P.v * dt * 0.9; }
         if (s.k === 'beam') {
           P.bv += (R.range(-1, 1) * 5 + P.bal * 3.2) * dt; P.bv -= m.axis(i).x * 7 * dt; P.bal += P.bv * dt; P.bv *= Math.exp(-1.5 * dt);
           P.x += 2.4 * dt;
           if (Math.abs(P.bal) > 1) { P.fall = 1.0; P.x = 20; P.bal = 0; P.bv = 0; say(T, i, 'SPLASH! back to start', '#ff6b6b'); Sfx.noise(0.4, 800, 0.1, 'lowpass'); }
         }
-        if (s.k === 'net') { if (m.pressed(i, 'a')) P.x += 0.62; }
+        if (s.k === 'net') { if (st >= 1) P.x += st > 1 ? 1.9 : 1.4; }
         if (s.k === 'zip') {
           if (m.held(i, 'a')) { P.v = Math.min(11, Math.max(P.v, 3) + 6 * dt); P.x += P.v * dt; }
           else if (P.x > 49) { P.fall = 0.9; P.x = 48; P.v = 0; say(T, i, 'LET GO! back up', '#ff6b6b'); Sfx.thud(); }
@@ -255,20 +256,19 @@
           P.x += P.v * dt;
           for (const tx of TIRES) if (px < tx && P.x >= tx && P.hop <= 0) { P.fall = 0.5; P.x = tx - 0.6; say(T, i, 'TRIP!', '#ff9a6b'); Sfx.thud(); }
         }
-        if (s.k === 'tread') { if (st) P.v = Math.min(9, P.v + st * 1.0); P.v *= Math.exp(-1.1 * dt); P.x += (P.v - 3.0) * dt; P.x = Math.max(82, P.x); }
+        if (s.k === 'tread') { if (st) P.v = Math.min(9, P.v + st * Math.max(0.6, 3.6 - P.v * 0.25)); P.v *= Math.exp(-0.6 * dt); P.x += (P.v - 2.6) * dt; P.x = Math.max(82, P.x); }
         if (P.x >= 100) { P.fin = t; say(T, i, `FINISH ${t.toFixed(1)}s`, '#ffe680'); Sfx.coin(); MGH.burst(1200, MGM.lane(i, 110, 150).mid, ['#ffe680', m.players[i].color, '#fff'], 24, { speed: 240 }); }
       });
     },
     bot(m, S, T, i, dt) {
       const P = T.p[i], v = m.vin[i]; v.a = v.b = false; v.ax = 0; if (P.fin || S.stageT < P.delay || P.fall > 0) return;
       const s = this.sec(P);
-      if (s.k === 'sprint' || s.k === 'tread') MGM.botStride(m, i, P, P.rate, dt);
+      if (s.k === 'sprint' || s.k === 'tread' || s.k === 'net') MGM.botRhythm(m, i, P);
       if (s.k === 'beam') v.ax = clamp((P.bal * 1.6 + P.bv * 0.5) + R.range(-0.25, 0.25), -1, 1);
-      if (s.k === 'net') { P.bt = (P.bt || 0) + dt; if (P.bt > 1 / P.rate) { P.bt = 0; v.a = true; } }
       if (s.k === 'zip') v.a = Math.random() > 0.004;
       if (s.k === 'tires') { const nx = TIRES.find(tx => tx > P.x); if (nx !== undefined && nx - P.x < 1.1 + R.range(-0.2, 0.3) && P.hop <= 0) v.b = true; }
     },
-    done(m, S, T, t) { return T.p.every(P => P.fin) || t > 70; },
+    done(m, S, T, t) { return T.p.every(P => P.fin) || t > 150; },
     result(m, S, T) { return T.p.map(P => P.fin ? -P.fin : -(200 - P.x)); },
     fmt: v => v > -100 ? `${(-v).toFixed(1)}s` : 'DNF',
     draw(m, S, T, g) {
@@ -288,6 +288,7 @@
         for (let k = 0; k < 8; k++) { g.fillStyle = k % 2 ? '#fff' : '#222'; g.fillRect(X(100), L.y0 + 10 + k * 15, 8, 15); }
         g.fillStyle = p.color; MGH.rr(g, 8, L.y0 + 8, 30, 22, 6); g.fill(); MGH.text(g, String(i + 1), 23, L.y0 + 25, 16, '#fff', 'center', 'bold');
         if (P.delay > 0) MGH.text(g, S.phase === 'play' && S.stageT < P.delay ? `starts in ${(P.delay - S.stageT).toFixed(1)}s` : `+${P.delay.toFixed(1)}s`, 110, L.y0 + 24, 13, '#ffe680', 'left');
+        { const sk = this.sec(P).k; if (!P.fin && (sk === 'sprint' || sk === 'tread' || sk === 'net')) MGM.drawRhythm(g, 1180, L.y0 + 26, P, 110); }
         // the runner
         const s = this.sec(P), x = X(Math.min(100, P.x));
         let y = floor, mood = 'determined', walk = 0, hands, rot = 0;

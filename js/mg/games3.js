@@ -108,14 +108,28 @@ MG.def({
 
 // 22 ---------------------------------------------------------------- Spot the Counterfeit
 MG.def({
-  id: 'counterfeit', name: 'Spot the Counterfeit', type: 'Search', controls: 'Cursor', cursor: true,
-  how: 'A grid of coins with one subtle fake. The first to click it scores. A wrong click costs a point. Five rounds.',
+  id: 'counterfeit', name: 'Spot the Counterfeit', type: 'Search', controls: 'Move + A',
+  how: 'A grid of coins with one subtle fake. Hop your marker from coin to coin with the stick / arrows and press A on the fake. The first to find it scores; a wrong pick costs a point. Five rounds.',
   wins: 'Most points.',
   init(m, S) { S.pts = [0, 0, 0, 0]; S.round = 0; this.next(S); },
   next(S) {
     S.round++; S.cols = 9; S.rows = 5; S.fake = R.int(0, 44); S.t = 0; S.lock = [0, 0, 0, 0]; S.found = -1; S.pause = 0;
     S.kind = R.int(0, 2); S.delta = 0.14 - S.round * 0.012;
     S.botT = [0, 1, 2, 3].map(() => R.range(2, 7)); S.botTarget = [0, 1, 2, 3].map(() => Math.random() < 0.8 ? S.fake : R.int(0, 44));
+    // each player's marker starts in a different corner of the grid
+    if (!S.sel) S.sel = [0, 8, 36, 44]; S.rep = [0, 0, 0, 0]; S.held = [false, false, false, false];
+  },
+  // move a marker one coin in the pushed direction (holding repeats)
+  hop(m, S, i, dt) {
+    const a = m.axis(i), mag = Math.max(Math.abs(a.x), Math.abs(a.y));
+    S.rep[i] -= dt;
+    if (mag < 0.4) { S.held[i] = false; return; }
+    if (S.held[i] && S.rep[i] > 0) return;
+    const c = S.sel[i] % S.cols, rw = Math.floor(S.sel[i] / S.cols);
+    let nc = c, nr = rw;
+    if (Math.abs(a.x) >= Math.abs(a.y)) nc = clamp(c + Math.sign(a.x), 0, S.cols - 1); else nr = clamp(rw + Math.sign(a.y), 0, S.rows - 1);
+    S.sel[i] = nr * S.cols + nc; S.rep[i] = S.held[i] ? 0.11 : 0.3; S.held[i] = true;
+    if (!m.bot(i)) Sfx.tone(560, 0.02, 'triangle', 0.02);
   },
   cell(S, k) { return { x: 200 + (k % S.cols) * 110, y: 170 + Math.floor(k / S.cols) * 100 }; },
   update(m, S, dt) {
@@ -123,11 +137,11 @@ MG.def({
     S.t += dt;
     for (let i = 0; i < 4; i++) {
       S.lock[i] -= dt;
+      this.hop(m, S, i, dt);
       if (S.lock[i] > 0 || !m.pressed(i, 'a')) continue;
-      const c = m.cur[i];
       for (let k = 0; k < 45; k++) {
         const p = this.cell(S, k);
-        if (dist(c.x, c.y, p.x, p.y) < 40) {
+        if (k === S.sel[i]) {
           if (k === S.fake) { S.pts[i]++; S.found = i; S.pause = 1.5; Sfx.coin(); MGH.burst(p.x, p.y, ['#ffe680', '#fff', m.players[i].color], 30, { speed: 300, kind: 'spark', size: 3 }); MGH.ring(p.x, p.y, '#ffe680', 30, 90); }
           else { S.pts[i]--; S.lock[i] = 1; MGH.pop('−1', p.x, p.y - 20, '#ff6b6b', 26); if (!m.bot(i)) Sfx.bad(); }
           break;
@@ -135,13 +149,15 @@ MG.def({
       }
       if (S.pause > 0) break;
     }
-    if (S.t > 12 && S.pause <= 0) { S.pause = 1.2; }
+    if (S.t > 25 && S.pause <= 0) { S.pause = 1.2; }
   },
   bot(m, S, i, dt) {
     const v = m.vin[i]; v.a = false;
     if (S.pause > 0 || S.t < S.botT[i] - 1.2) return;
-    const p = this.cell(S, S.botTarget[i]);
-    if (m.botCursor(i, p.x, p.y, 500) && S.t >= S.botT[i] && S.lock[i] <= 0) { v.a = true; S.botT[i] = S.t + R.range(1.5, 3); S.botTarget[i] = Math.random() < 0.7 ? S.fake : R.int(0, 44); }
+    v.ax = v.ay = 0;
+    const tg = S.botTarget[i], dc = tg % S.cols - S.sel[i] % S.cols, dr = Math.floor(tg / S.cols) - Math.floor(S.sel[i] / S.cols);
+    if (dc || dr) { if (!S.held[i]) { if (dc) v.ax = Math.sign(dc); else v.ay = Math.sign(dr); } return; }
+    if (S.t >= S.botT[i] && S.lock[i] <= 0) { v.a = true; S.botT[i] = S.t + R.range(1.5, 3); S.botTarget[i] = Math.random() < 0.7 ? S.fake : R.int(0, 44); }
   },
   score(m, S) { return S.pts.slice(); },
   hud(m, S, i) { return S.pts[i]; },
@@ -163,7 +179,13 @@ MG.def({
       if ((m.t * 0.7 + k * 0.13) % 3 < 0.1) MGH.glow(g, p.x - 10, p.y - 10, 20, 'rgba(255,255,255,0.8)');
       if (S.pause > 0 && f) { g.strokeStyle = '#fff'; g.lineWidth = 6; g.beginPath(); g.arc(p.x, p.y, 44 + Math.sin(m.t * 10) * 3, 0, 7); g.stroke(); }
     }
-    MGH.cursors(m, g, [0, 1, 2, 3].map(i => S.pause > 0 && S.found === i ? 'cheer' : S.lock[i] > 0 ? 'hurt' : 'determined'));
+    // markers: a ring in each player's colour (stacked when several sit on the same coin)
+    for (let i = 0; i < 4; i++) {
+      const p = this.cell(S, S.sel[i]), same = [0, 1, 2, 3].filter(j => j < i && S.sel[j] === S.sel[i]).length, rr = 40 + same * 6;
+      g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 7; g.beginPath(); g.arc(p.x, p.y, rr, 0, 7); g.stroke();
+      g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.beginPath(); g.arc(p.x, p.y, rr, 0, 7); g.stroke();
+      const ang = -Math.PI * 0.75 + i * Math.PI / 2; MGH.av(g, m, i, p.x + Math.cos(ang) * (rr + 8), p.y + Math.sin(ang) * (rr + 8), 11, S.pause > 0 && S.found === i ? 'cheer' : S.lock[i] > 0 ? 'hurt' : 'determined', { headOnly: true });
+    }
     if (S.found >= 0 && S.pause > 0) MGH.label(g, `${m.players[S.found].name} found it!`, 640, 700, 28, m.players[S.found].color);
   },
 });

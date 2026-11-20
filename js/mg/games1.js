@@ -170,7 +170,7 @@ MG.def({
   boltPath() { const pts = [[640 + R.range(-200, 200), 40]]; let x = pts[0][0]; for (let y = 80; y <= 300; y += R.range(25, 45)) { x += R.range(-50, 50) + (640 - x) * 0.25; pts.push([x, y]); } pts.push([640, 318]); return pts; },
   update(m, S, dt) {
     if (S.pause > 0) { S.pause -= dt; if (S.pause <= 0) { if (S.round >= 5) m.finish(S.pts.slice()); else this.newRound(S); } return; }
-    if (!S.bolt) { S.wait -= dt; if (S.wait <= 0) { S.bolt = true; S.bt = 0; Sfx.thunder(); S.path = this.boltPath(); MGH.shake(16); MGH.burst(620, 450, ['#ffe680', '#fff', '#9fd8ff'], 50, { speed: 600, kind: 'spark', size: 4 }); } }
+    if (!S.bolt) { S.wait -= dt; if (S.wait <= 0) { S.bolt = true; S.bt = 0; Sfx.bigThunder(); S.path = this.boltPath(); MGH.shake(16); MGH.burst(620, 450, ['#ffe680', '#fff', '#9fd8ff'], 50, { speed: 600, kind: 'spark', size: 4 }); } }
     else S.bt += dt;
     for (let i = 0; i < 4; i++) {
       if (S.lock[i] || !m.pressed(i, 'a')) continue;
@@ -342,7 +342,7 @@ MG.def({
 // 6 ---------------------------------------------------------------- Bellringer
 MG.def({
   id: 'bell', name: 'Bellringer', type: 'Timing', controls: '1 button', mouseA: true,
-  how: 'A pendulum swings across the screen. Press to ring the bell as it passes the centre — but only while it swings the way the ARROW points! The arrow flips after every ring. Wrong way is a miss. Five rings, each faster.',
+  how: 'A pendulum swings across the screen. Press to ring the bell as it passes the centre — but only while it swings the way the ARROW points! The arrow flips after every ring. Pressing while it swings the wrong way just buzzes (it does not count). Five rings, each faster.',
   wins: 'Lowest total distance from centre.',
   init(m, S) { S.n = [0, 0, 0, 0]; S.tot = [0, 0, 0, 0]; S.ph = [0, 0, 0, 0].map(() => R.range(0, 6.28)); S.cool = [0, 0, 0, 0]; S.timer = [0, 0, 0, 0]; S.last = [null, null, null, null]; S.bp = [0, 0, 0, 0]; },
   speed(n) { return 2.2 + n * 0.8; },
@@ -353,9 +353,12 @@ MG.def({
       S.ph[i] += this.speed(S.n[i]) * dt;
       if (S.cool[i] > 0) { S.cool[i] -= dt; continue; }
       S.timer[i] += dt;
-      if (m.pressed(i, 'a') || S.timer[i] > 6) {
-        const dir = Math.sign(Math.cos(S.ph[i])) || 1, want = i % 2 ? (S.n[i] % 2 ? 1 : -1) : (S.n[i] % 2 ? -1 : 1);
-        const d = S.timer[i] > 6 || dir !== want ? 1 : Math.abs(this.x(S, i));
+      S.wrong = S.wrong || [0, 0, 0, 0]; S.wrong[i] = Math.max(0, S.wrong[i] - dt);
+      const dir = Math.sign(Math.cos(S.ph[i])) || 1, want = i % 2 ? (S.n[i] % 2 ? 1 : -1) : (S.n[i] % 2 ? -1 : 1);
+      // pressing while it swings the wrong way doesn't use up a ring — it just buzzes
+      if (m.pressed(i, 'a') && dir !== want && S.timer[i] <= 12) { S.wrong[i] = 0.6; if (!m.bot(i)) Sfx.tone(160, 0.12, 'square', 0.04); continue; }
+      if (m.pressed(i, 'a') || S.timer[i] > 12) {
+        const d = S.timer[i] > 12 ? 1 : Math.abs(this.x(S, i));
         S.tot[i] += d; S.last[i] = d; S.n[i]++; S.cool[i] = 0.5; S.timer[i] = 0;
         MGH.ring(i * 320 + 160, 630, d < 0.1 ? '#ffe680' : '#fff', 14, d < 0.1 ? 120 : 60, 0.6);
         if (!m.bot(i)) Sfx.tone(900 - d * 500, 0.3, 'triangle', 0.07);
@@ -390,6 +393,7 @@ MG.def({
       const l = S.last[i];
       MGH.av(g, m, i, cx - 92, 630, 22, l === null ? 'determined' : l < 0.08 ? 'cheer' : l < 0.25 ? 'happy' : 'hurt', { look: { x: 1, y: -0.5 } });
       if (l !== null) MGH.label(g, l < 0.08 ? 'PERFECT' : l >= 1 ? 'MISS' : l.toFixed(2), cx, 690, 20, l < 0.08 ? '#ffe680' : '#fff');
+      if (S.wrong && S.wrong[i] > 0) MGH.label(g, '✖ wrong way — wait for the arrow', cx, 180, 15, '#ff9a9a');
       if (S.n[i] < 5) { const want = i % 2 ? (S.n[i] % 2 ? 1 : -1) : (S.n[i] % 2 ? -1 : 1), ok = Math.sign(Math.cos(S.ph[i])) === want; MGH.label(g, want > 0 ? 'ring ➡' : '⬅ ring', cx, 140, 24, ok ? '#7cf06a' : '#888'); }
     }
   },
@@ -515,7 +519,7 @@ MG.def({
     if (b.ground && Math.abs(dx) < reach && (onBad || b.goal.y < b.y - 5 || Math.abs(dx) > b.goal.w / 2)) v.a = !m.prev[i].a;
     if (b.on === b.goal) b.goal = null;
   },
-  score(m, S) { return S.b.map(b => b.alive ? 1000 + (740 - b.y) : b.outT); },
+  score(m, S) { return S.b.map(b => b.alive ? 1000 : b.outT); },
   fmt(s) { return s >= 1000 ? 'Survived' : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.b[i].alive ? 'alive' : 'out'; },
   draw(m, S, g) {
@@ -654,7 +658,7 @@ MG.def({
     MGH.aim(m, i, t.x + (t.x - S.cx) * 0.2, t.y + (t.y - S.cy) * 0.2, b);
     if (dist(b.x, b.y, t.x, t.y) < 150 && b.cd <= 0 && Math.random() < 0.08) v.a = true;
   },
-  score(m, S) { return S.b.map(b => b.alive ? 1000 - dist(b.x, b.y, S.cx, S.cy) / 1000 : b.outT); },
+  score(m, S) { return S.b.map(b => b.alive ? 1000 : b.outT); },
   fmt(s) { return s >= 999 ? 'Last standing' : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.b[i].alive ? (S.b[i].cd > 0 ? 'recharging' : 'dash ready') : 'out'; },
   draw(m, S, g) {

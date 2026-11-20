@@ -562,7 +562,7 @@ MG.def({
   how: 'You guard a goal against a ghostly striker. Watch the run-up — the striker glances where it means to shoot (but sometimes bluffs!). Shuffle with LEFT/RIGHT and press the button to dive in the direction you are moving. Ten shots.',
   wins: 'Most saves.',
   init(m, S) {
-    S.shots = []; for (let k = 0; k < 10; k++) { const tgt = R.pick([-1, 0, 1]); S.shots.push({ tgt, x: tgt * R.range(80, 118) + R.range(-12, 12), look: Math.random() < 0.72 ? tgt : R.pick([-1, 0, 1]), sp: R.range(0.45, 0.7) - k * 0.015 }); }
+    S.shots = []; for (let k = 0; k < 10; k++) { const tgt = Math.random() < 0.14 ? 0 : R.pick([-1, 1]); S.shots.push({ tgt, x: tgt ? tgt * R.range(80, 118) + R.range(-12, 12) : R.pick([-1, 1]) * R.range(34, 52), look: Math.random() < 0.72 ? tgt : R.pick([-1, 0, 1]), sp: R.range(0.45, 0.7) - k * 0.015 }); }
     S.k = 0; S.ph = 'wind'; S.t = 0;
     S.p = [0, 1, 2, 3].map(() => ({ x: 0, dive: 0, dv: 0, saves: 0, res: '', guess: null }));
   },
@@ -576,7 +576,7 @@ MG.def({
     if (S.ph === 'wind' && S.t > 1.4) { S.ph = 'shot'; S.t = 0; Sfx.tone(200, 0.1, 'square', 0.05); }
     else if (S.ph === 'shot' && S.t > sh.sp) {
       S.p.forEach((p, i) => {
-        const reach = p.dive > 0 ? 58 : 30;
+        const reach = p.dive > 0 ? 58 : 24; // standing still in the middle no longer saves anything
         if (Math.abs(p.x - sh.x) < reach) { p.saves++; p.res = 'SAVE!'; MGH.burst(i * 320 + 160 + sh.x, 600, ['#fff', m.players[i].color], 16, { speed: 220 }); }
         else { p.res = 'goal'; MGH.burst(i * 320 + 160 + sh.x, 640, ['#ff6b6b'], 8, { speed: 140 }); }
       });
