@@ -1,6 +1,6 @@
 # The Fourfold (PC)
 
-A four-player board game for PC, built from *The Fourfold Rulebook, Draft 1*. Four elemental Holds (Air, Water, Fire, Earth) walk the Crossing, bank coins, buy stars and raid each other's Holds over 20 rounds. After every round there is a Moot, picked from **56 four-player minigames**: 48 quick Moots, four multi-event Marathons (played at the halfway Moot) and four Grand Finale brawl arenas (Fourfold Clash, Temple of Traps, Ledge Cage and Sand Colosseum; one of them is always the last Moot).
+A four-player board game for PC, built from *The Fourfold Rulebook, Draft 1*. Four elemental Holds (Air, Water, Fire, Earth) walk the Crossing, bank coins, buy stars and raid each other's Holds over 20 rounds. After every round there is a Moot, picked from **60 four-player minigames**: 47 quick Moots (5 of them coin games), four multi-event Marathons (played at the halfway Moot) and four Grand Finale brawl arenas (Fourfold Clash, Temple of Traps, Ledge Cage and Sand Colosseum; one of them is always the last Moot).
 
 The game is HTML5 canvas and JavaScript with no dependencies. An Electron shell turns it into a desktop app for Windows, macOS and Linux.
 
@@ -44,7 +44,7 @@ In the desktop app, F11 toggles fullscreen.
 | 3 (Fire) | I J K L | U | O |
 | 4 (Earth) | Arrow keys | Enter | Right Shift |
 
-Seats set to *Bot* are played by the AI. Pause any minigame with Esc, gamepad Start or the ⏸ button; from there you can resume or quit (quitting a Moot gives no reward). Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — press your alt button (B) to show or hide your own choice — it's a toggle. The menu's **Moot practice** mode lets you play any of the 56 minigames directly, picked from a grid of live game pictures.
+Seats set to *Bot* are played by the AI. Pause any minigame with Esc, gamepad Start or the ⏸ button; from there you can resume or quit (quitting a Moot gives no reward). Before each minigame an intro card plays a live demo; it starts when every human presses their action button. In secret-pick games nobody's cursor is shown — press your alt button (B) to show or hide your own choice — it's a toggle. The menu's **Moot practice** mode lets you play any of the 60 minigames directly, picked from a grid of live game pictures.
 
 ## Music and views
 

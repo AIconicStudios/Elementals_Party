@@ -481,7 +481,8 @@ const MG = {
       Char.draw(g, 385, y + 4, 24, p.el.id, p.color, { mood: win ? 'cheer' : place === 4 ? 'sad' : 'happy', seed: r.i * 1.7 });
       MGH.text(g, `${medal[place - 1] || place + '.'} ${p.name}`, 430, y + 10, 28, p.color, 'left', 'bold');
       MGH.text(g, game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100), 760, y + 10, 22, '#fff', 'center');
-      if (coins[place]) { MGH.coin(g, 880, y + 2, 14, t * 3 + k); MGH.text(g, '+' + coins[place], 915, y + 11, 24, '#ffe680', 'center', 'bold'); }
+      const cn = game.coinGame ? clamp(Math.round(r.s), 0, 20) : coins[place];
+      if (cn) { MGH.coin(g, 880, y + 2, 14, t * 3 + k); MGH.text(g, '+' + cn, 915, y + 11, 24, '#ffe680', 'center', 'bold'); }
       g.restore();
     });
   },

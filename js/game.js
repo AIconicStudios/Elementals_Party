@@ -1268,10 +1268,13 @@ class Game {
     const sc = res.scores, prize = { 1: 3, 2: 2, 3: 1 };
     const place = q => winners.includes(q.id) ? 1 : (sc && typeof sc[q.id] === 'number' ? 1 + this.players.filter(o => sc[o.id] > sc[q.id] + 1e-9).length : 4);
     const places = this.players.map(q => ({ p: q, place: place(q) }));
-    places.forEach(r => { r.coins = prize[r.place] || 0; if (r.coins) this.bankAdd(r.p, r.coins); });
+    // coin minigames: everyone keeps the coins they collected (at most 20); other Moots pay 3 / 2 / 1
+    const coinGame = MG.byId[id].coinGame;
+    places.forEach(r => { r.coins = coinGame ? clamp(Math.round((sc && sc[r.p.id]) || 0), 0, 20) : prize[r.place] || 0; if (r.coins) this.bankAdd(r.p, r.coins); });
     winners.forEach(x => this.P(x).mgWins++);
     await Stage.podium(places);
-    this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and win' : 'wins'} the Moot <b>${MG.byId[id].name}</b> (+3)${places.filter(r => r.place > 1 && r.coins).map(r => `, ${this.name(r.p)} +${r.coins}`).join('')}.`, 'good');
+    if (coinGame) this.log(`🪙 Coin Moot <b>${MG.byId[id].name}</b>: ${places.map(r => `${this.name(r.p)} +${r.coins}`).join(', ')}.`, 'good');
+    else this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and win' : 'wins'} the Moot <b>${MG.byId[id].name}</b> (+3)${places.filter(r => r.place > 1 && r.coins).map(r => `, ${this.name(r.p)} +${r.coins}`).join('')}.`, 'good');
     this.players.forEach((q, k) => this.react(q, winners.includes(q.id) ? R.pick(['proud', 'laugh']) : R.pick(['sad', 'angry', 'cry']), winners.includes(q.id) ? R.pick(['Victory!', 'Too easy!', 'Champion!']) : undefined, k * 0.15));
     // next round's turn order follows the Moot result: 1st, 2nd, 3rd, 4th (ties keep the old order)
     const prev = this.order.slice(), pl = id => places.find(r => r.p.id === id).place;
