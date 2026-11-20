@@ -294,8 +294,10 @@ const Render = {
       g.restore();
     }
     g.globalAlpha = 1;
+    if (this.dusk > 0.05) this.fireflies(g, now, this.dusk);
     g.restore();
     World.light(g, now);
+    this.timeOfDay(g, G, now);
     this.bloom(g, 1600, 900, 0.14);
     // the die floats above whoever is rolling
     if (this.die) {
@@ -305,6 +307,38 @@ const Render = {
     }
     if (this.zoom) this.drawZoomHud(g, now);
     Stage.drawScreen(g);
+  },
+  // the day passes over a game: fresh morning light, a golden afternoon, then a warm dusk with fireflies
+  // and glowing lanterns for the final rounds (it eases smoothly from one to the next)
+  timeOfDay(g, G, now) {
+    if (Settings.fx === false) return;
+    const p = clamp((G.round || 0) / Math.max(1, G.rounds || 20), 0, 1);
+    const gold = clamp((p - 0.45) / 0.25, 0, 1) * (1 - clamp((p - 0.8) / 0.12, 0, 1)), duskT = clamp((p - 0.78) / 0.15, 0, 1), morn = 1 - clamp(p / 0.25, 0, 1);
+    const e = this.todSnap ? 1 : 0.02; this.gold = lerp(this.gold || 0, gold, e); this.dusk = lerp(this.dusk || 0, duskT, e); this.morn = lerp(this.morn === undefined ? morn : this.morn, morn, e);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    const sx = g.canvas.width / 1600, sy = g.canvas.height / 900; g.scale(sx, sy);
+    if (this.morn > 0.02) { g.globalCompositeOperation = 'soft-light'; g.fillStyle = `rgba(190,225,255,${0.35 * this.morn})`; g.fillRect(0, 0, 1600, 900); }
+    if (this.gold > 0.02) {
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgb(255,${Math.round(255 - 40 * this.gold)},${Math.round(255 - 85 * this.gold)})`; g.fillRect(0, 0, 1600, 900);
+      g.globalCompositeOperation = 'soft-light'; g.fillStyle = `rgba(255,150,60,${0.35 * this.gold})`; g.fillRect(0, 0, 1600, 900);
+      g.globalCompositeOperation = 'screen'; const sun = g.createRadialGradient(1450, 60, 20, 1450, 60, 900); sun.addColorStop(0, `rgba(255,170,90,${0.22 * this.gold})`); sun.addColorStop(1, 'rgba(255,150,80,0)'); g.fillStyle = sun; g.fillRect(0, 0, 1600, 900);
+    }
+    if (this.dusk > 0.02) {
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgb(${Math.round(255 - 110 * this.dusk)},${Math.round(255 - 105 * this.dusk)},${Math.round(255 - 25 * this.dusk)})`; g.fillRect(0, 0, 1600, 900);
+      g.globalCompositeOperation = 'screen'; const hz = g.createLinearGradient(0, 0, 0, 900); hz.addColorStop(0, `rgba(255,130,120,${0.1 * this.dusk})`); hz.addColorStop(0.5, 'rgba(255,120,150,0)'); g.fillStyle = hz; g.fillRect(0, 0, 1600, 900);
+      // the Holds light their lanterns
+      g.globalCompositeOperation = 'lighter';
+      for (let el = 0; el < 4; el++) { const c = this.toScreen(this.homeCenter(el).x, this.homeCenter(el).y), f = 0.85 + 0.15 * Math.sin(now * 3 + el * 2); const lg = g.createRadialGradient(c.x, c.y, 10, c.x, c.y, 260 * this.cam.s); lg.addColorStop(0, `rgba(255,170,80,${0.18 * this.dusk * f})`); lg.addColorStop(1, 'rgba(255,170,90,0)'); g.fillStyle = lg; g.fillRect(0, 0, 1600, 900); }
+    }
+    g.restore();
+  },
+  fireflies(g, now, a) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 40; k++) {
+      const x = 260 + ((k * 337) % 1080) + Math.sin(now * 0.4 + k * 1.3) * 40, y = 140 + ((k * 211) % 620) + Math.cos(now * 0.5 + k) * 30, tw = Math.max(0, Math.sin(now * 2 + k * 2.7));
+      const r = 14 * tw + 2, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(230,255,140,${0.9 * a * tw})`); gr.addColorStop(1, 'rgba(200,255,120,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    g.restore();
   },
   // tiny live portraits on the player cards
   portraits() {
@@ -551,6 +585,41 @@ const Render = {
     gr.addColorStop(0, `rgba(25,15,35,${0.5 * k})`); gr.addColorStop(0.5, `rgba(25,15,35,${0.3 * k})`); gr.addColorStop(1, 'rgba(25,15,35,0)');
     g.save(); g.translate(sx, d.y); g.scale(1, h / w); g.translate(-sx, -d.y); g.fillStyle = gr; g.beginPath(); g.arc(sx, d.y, w, 0, 7); g.fill(); g.restore();
   },
+  // board pieces are drawn like stickers so they pop off the busy board: a crisp white rim, a thin dark
+  // outer line and a soft glow in the clan's colour (rendered offscreen at the current zoom, so it stays sharp)
+  _spr: {},
+  sticker(g, key, x, y, r, col, draw) {
+    if (Settings.test) { draw(g, x, y); return; }
+    const tr = g.getTransform(), k = Math.round(clamp(Math.hypot(tr.a, tr.b), 0.6, 2) * 4) / 4, S = Math.ceil(r * 5.4), W = Math.ceil(S * k), oy = 0.6;
+    const c = this._spr[key] || (this._spr[key] = [0, 1, 2, 3].map(() => document.createElement('canvas')));
+    // the outlined sprite is rebuilt every third frame (staggered per piece) and reused in between
+    this._sfr = (this._sfr || 0) + 1;
+    const fresh = c[0].width !== W || c.r !== r || ((this._sfr + (c.seed || (c.seed = 1 + Object.keys(this._spr).length))) % 3 === 0);
+    if (!fresh) { this.stickerOut(g, c[1], x, y, S, oy, col); return; }
+    c.r = r;
+    c.forEach(cv => { if (cv.width !== W) { cv.width = W; cv.height = W; } });
+    const [A, B, C, M] = c.map(cv => cv.getContext('2d', { willReadFrequently: cv === c[3] }));
+    A.setTransform(1, 0, 0, 1, 0, 0); A.clearRect(0, 0, W, W); A.setTransform(k, 0, 0, k, W / 2, W * oy); draw(A, 0, 0);
+    // the rim follows only the solid body (not soft glows, wind swirls or sparkles)
+    const im = A.getImageData(0, 0, W, W), px = im.data;
+    for (let n = 3; n < px.length; n += 4) px[n] = px[n] > 150 ? 255 : 0;
+    M.putImageData(im, 0, 0);
+    const ring = (G, w, fill) => {
+      G.setTransform(1, 0, 0, 1, 0, 0); G.globalCompositeOperation = 'source-over'; G.clearRect(0, 0, W, W);
+      for (let n = 0; n < 12; n++) { const a = n / 12 * Math.PI * 2; G.drawImage(M.canvas, Math.cos(a) * w, Math.sin(a) * w); }
+      G.globalCompositeOperation = 'source-in'; G.fillStyle = fill; G.fillRect(0, 0, W, W); G.globalCompositeOperation = 'source-over';
+    };
+    ring(B, 4.2 * k, 'rgba(30,16,50,0.6)');
+    ring(C, 2.6 * k, 'rgba(255,255,255,0.97)');
+    B.drawImage(C.canvas, 0, 0); B.drawImage(A.canvas, 0, 0);
+    this.stickerOut(g, B.canvas, x, y, S, oy, col);
+  },
+  stickerOut(g, cv, x, y, S, oy, col) {
+    g.save(); g.shadowColor = col; g.shadowBlur = 14; g.globalAlpha *= 0.55;
+    g.drawImage(cv, x - S / 2, y - S * oy, S, S);
+    g.restore();
+    g.drawImage(cv, x - S / 2, y - S * oy, S, S);
+  },
   // board pieces are big and readable; a little smaller inside the Holds' rings, where tiles sit closer
   tokenR(pl, kind) { if (kind !== 'T') return 28; return pl.trav.loc === 'board' ? 42 : 32; },
   // little idle "life" for characters standing around: waves, hops, dances, yawns, stretches, spins
@@ -592,10 +661,11 @@ const Render = {
     if (lf.sq) { g.translate(d.x, cy + r * 1.3); g.scale(1 + lf.sq, 1 - lf.sq); g.translate(-d.x, -cy - r * 1.3); }
     if (lf.flip !== undefined) { g.translate(d.x, 0); g.scale(Math.abs(lf.flip) < 0.15 ? 0.15 * Math.sign(lf.flip || 1) : lf.flip, 1); g.translate(-d.x, 0); }
     Char._wave = !!lf.wave;
-    Char.draw(g, d.x, cy, r, pl.id, pl.color, {
+    const opts = {
       mood: an && an.mood ? an.mood : lf.mood && this.tokenMood(pl, kind) !== 'scared' ? lf.mood : this.tokenMood(pl, kind), look, walk: moving ? 1 : 0, seed: pl.id * 3 + (kind === 'D' ? 1 : 0),
       hat: kind === 'D' ? 'helmet' : null, alpha: kind === 'T' && t.camo ? 0.55 : 1, prop, noShadow: true, // the ground shadow is drawn separately (it stays put when they hop)
-    });
+    };
+    this.sticker(g, kind + pl.id, d.x, cy, r, pl.color, (gg, x, y) => Char.draw(gg, x, y, r, pl.id, pl.color, opts));
     Char._wave = false;
     g.restore();
   },

@@ -98,7 +98,6 @@ The draft left some points open, so these defaults were chosen:
 - **Armor, Camouflage, Ghost Walk and Locked Bag:** you equip them by playing them.
 - **Locked Bag:** it fills automatically, up to 1 star and 5 coins, at the end of each of your turns. A bank visit empties it into your bank.
 - **Hollow Ground:** raiders pay up to 5 coins per Loot or Vault landing. A Vault landing also costs them a star.
-- **Tower of Tokens:** uses overhang trimming instead of full physics.
 - **Play mode:** this is a local shared-screen game for 1–4 humans, with bots filling the other seats. Online play is not implemented.
 
 ## Project layout
@@ -116,6 +115,7 @@ js/mg/core.js       minigame framework (cards, countdown, results, bots, simulat
 js/mg/games1-6.js   the quick Moots
 js/mg/games7.js     Fourfold Clash, the Grand Finale brawl engine (arenas, switches, traps)
 js/mg/games12.js    the other brawl arenas: Temple of Traps, Ledge Cage, Sand Colosseum
+js/mg/games13.js    The Traitors, a hidden-role deduction game (envelopes, poison missions, the Round Table)
 js/mg/marathon.js   the marathon framework (events back to back, medal points)
 js/mg/games8-11.js  The Elemental Games, Titan Trials, Turbo Stunt Rally, Tower of Trials
 electron/main.js    desktop window
