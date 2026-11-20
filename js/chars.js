@@ -20,6 +20,7 @@ const Char = {
   T() { return performance.now() / 1000; },
 
   draw(g, x, y, r, el, color, o = {}) {
+    if (!(r > 0.5)) r = 0.5; // never let an animation shrink a character to zero or below (canvas gradients throw on negative sizes)
     const t = o.t !== undefined ? o.t : this.T();
     const seed = o.seed || 0;
     let mood = o.mood || 'happy';

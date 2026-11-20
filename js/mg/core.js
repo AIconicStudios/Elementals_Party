@@ -492,7 +492,7 @@ const MG = {
     for (let k = 0; k < 16; k++) { g.rotate(Math.PI / 8); g.fillStyle = k % 2 ? 'rgba(255,230,128,0.08)' : 'rgba(255,255,255,0.04)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-70, -800); g.lineTo(70, -800); g.fill(); }
     g.restore();
     MGH.glow(g, 640, 160, 220, 'rgba(255,230,140,0.35)');
-    const W = winners.map(i => m.players[i]), e = Math.min(1, t / 0.4), bounce = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2);
+    const W = winners.map(i => m.players[i]), e = Math.min(1, t / 0.4), bounce = Math.max(0.05, 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2));
     W.forEach((w, k) => { const x = 640 + (k - (W.length - 1) / 2) * 150; g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, 214, 60, 14, 0, 0, 7); g.fill(); Char.draw(g, x, 150 - Math.abs(Math.sin(t * 5 + k)) * 18, 56 * bounce, w.el.id, w.color, { mood: 'cheer', seed: k }); });
     if (Math.random() < 0.5) MGH.burst(R.range(200, 1080), -10, ['#ff6a8a', '#5fb8ff', '#ffd34d', '#6fdc8c'], 2, { speed: 60, grav: 260, life: 2.2, size: 4 });
     MGH.label(g, '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!'), 640, 268, W.length > 2 ? 36 : 46, W[0].color, 'rgba(0,0,0,0.55)');
