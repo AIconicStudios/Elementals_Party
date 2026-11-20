@@ -142,8 +142,9 @@ const MG = {
           } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
         } else if (phase === 'practice') {
           // X / Y on a gamepad that isn't tied to a seat readies the first human still practising
-          Input.pads().forEach((pd, k) => { const on = !!((pd.buttons[2] && pd.buttons[2].pressed) || (pd.buttons[3] && pd.buttons[3].pressed)); this._xyPrev = this._xyPrev || []; if (on && !this._xyPrev[k] && Input.seatForPad(k) === null) { const i = m.players.findIndex((p, j) => p.human && !skip[j]); if (i >= 0) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } } this._xyPrev[k] = on; });
-          m.players.forEach((p, i) => { const k = p.human && Input.state(i).skip; if (k && !skipPrev[i] && !skip[i]) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } skipPrev[i] = k; });
+          if (!game.noPadSkip) Input.pads().forEach((pd, k) => { const on = !!((pd.buttons[2] && pd.buttons[2].pressed) || (pd.buttons[3] && pd.buttons[3].pressed)); this._xyPrev = this._xyPrev || []; if (on && !this._xyPrev[k] && Input.seatForPad(k) === null) { const i = m.players.findIndex((p, j) => p.human && !skip[j]); if (i >= 0) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } } this._xyPrev[k] = on; });
+          // (a game that needs X / Y itself ends practice only from the keyboard keys or Start ▸ End practice)
+          m.players.forEach((p, i) => { const st = Input.state(i), k = p.human && (game.noPadSkip ? st.skip && !st.padSkip : st.skip); if (k && !skipPrev[i] && !skip[i]) { skip[i] = true; Sfx.tone(700 + i * 90, 0.1, 'triangle', 0.06); } skipPrev[i] = k; });
           for (let i = 0; i < 4; i++) if (pm.bot(i) && game.bot) game.bot(pm, pS, i, dt);
           if (!pm.done) { pm.t += dt; game.update(pm, pS, dt); if (game.dur && pm.t >= game.dur && !pm.done) pm.finish(game.score(pm, pS)); }
           this.drawGame(g, game, pm, pS, dt);
@@ -247,7 +248,7 @@ const MG = {
     MGH.text(g, 'PRACTICE ROUND — no timer', 640, 652, 24, '#ffe680', 'center', 'bold');
     MGH.text(g, "Just for fun — this doesn't count", 640, 676, 15, '#d8d0f0');
     const hum = m.players.filter(p => p.human);
-    MGH.text(g, 'Ready for the real thing? Gamepad X / Y (or Start ▸ End practice)  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
+    MGH.text(g, m.game && m.game.noPadSkip ? 'Ready for the real thing? Gamepad: Start ▸ End practice  ·  keys X, V, M, Backspace (P1–P4)' : 'Ready for the real thing? Gamepad X / Y (or Start ▸ End practice)  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
     hum.forEach((p, k) => { const x = 640 + (k - (hum.length - 1) / 2) * 120; g.fillStyle = p.color; g.globalAlpha = skip[p.i] ? 1 : 0.35; MGH.rr(g, x - 54, 600, 108, 24, 12); g.fill(); g.globalAlpha = 1; MGH.text(g, skip[p.i] ? `P${p.i + 1} ✔ ready` : `P${p.i + 1} practising`, x, 617, 13, '#fff', 'center', 'bold'); });
     g.restore();
   },

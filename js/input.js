@@ -59,7 +59,7 @@ const Input = {
   state(i) {
     const m = this.maps[i];
     const k = arr => arr.some(c => this.keys.has(c));
-    const s = { up: k(m.up), down: k(m.down), left: k(m.left), right: k(m.right), a: k(m.a), b: k(m.b), skip: k(m.skip || []), ax: 0, ay: 0 };
+    const s = { up: k(m.up), down: k(m.down), left: k(m.left), right: k(m.right), a: k(m.a), b: k(m.b), skip: k(m.skip || []), x: false, y: false, ax: 0, ay: 0 };
     const p = this.pad(i);
     if (p) {
       const ax = p.axes[0] || 0, ay = p.axes[1] || 0, b = n => p.buttons[n] && p.buttons[n].pressed;
@@ -69,7 +69,8 @@ const Input = {
       if (ay > 0.4 || b(13)) s.down = true;
       if (b(0)) s.a = true;   // A = primary action
       if (b(1)) s.b = true;   // B = alt / peek
-      if (b(2) || b(3)) s.skip = true; // X / Y = skip practice
+      if (b(2) || b(3)) { s.padSkip = true; s.skip = true; } // X / Y = skip practice
+      if (b(2)) s.x = true; if (b(3)) s.y = true;     // X and Y on their own (The Traitors' vote)
       if (Math.abs(ax) > 0.2) s.ax = ax;
       if (Math.abs(ay) > 0.2) s.ay = ay;
     }

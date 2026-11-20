@@ -1,385 +1,325 @@
 'use strict';
 // 65 ---------------------------------------------------------------- The Traitors of Moonhold Castle
-// A hidden-role game for one shared screen. One player is secretly the Traitor.
-//   Envelopes  each human, in turn, privately holds A to read their role (everyone else looks away).
-//   Mission    everyone fills vials at the four moon-wells and pours them into the cauldron (A or B).
-//              The Traitor's B pours POISON — it looks exactly like a normal pour, but the cauldron
-//              hisses 1.5–3.5 s later. The timeline at the bottom shows who poured when: logic does the rest.
-//              Fill the cauldron and the Seer's mirror clears one Faithful. A shield protects at the Round Table.
-//   Round Table everyone secretly votes (B shows / hides your own choice); votes are revealed one by one,
-//              the banished player reveals their role. Catch the Traitor and the Faithful share the pot;
-//              if the Traitor reaches the last two, they steal it all.
+// A hidden-role game for one shared screen. The game secretly makes one player the Traitor.
+//   The wave    everyone quietly presses A. A Faithful waves on A; the Traitor's A does nothing, so they
+//               know who they are and press B to wave instead. Everyone sees only four waves.
+//   The mission each player must pour their OWN quota of moon-water into the cauldron before time runs out
+//               (only those who finish can share the prize). Once, at a random moment, the Traitor gives
+//               away one tiny tell for about 0.15 s — a soft red-tinted-blue flicker, easy to miss.
+//   The vote    one secret vote: press the button of the seat you suspect (Y top, B right, A bottom, X left;
+//               keyboard: the arrow / direction keys). Catch the Traitor and every Faithful who filled their
+//               quota wins; if the Traitor survives the vote, the Traitor wins.
 (() => {
   const CAUL = { x: 640, y: 372 };
   const WELLS = [{ x: 170, y: 175 }, { x: 1110, y: 175 }, { x: 170, y: 585 }, { x: 1110, y: 585 }];
-  const MISSION = 45, DMIN = 1.5, DMAX = 3.5, FILL = 0.7;
-  const TL = { x0: 120, x1: 1160, y: 676 }; // the mission timeline strip
-  const tlx = t => TL.x0 + (TL.x1 - TL.x0) * clamp(t / MISSION, 0, 1);
-  const SEATS = [{ x: 400, y: 330 }, { x: 880, y: 330 }, { x: 400, y: 545 }, { x: 880, y: 545 }];
-  const ROLE_COL = { traitor: '#ff4d6d', faithful: '#ffd34d' };
+  const MISSION = 50, FILL = 0.7, QUOTA = 9, HINT_T = 0.15;
+  // round table seats, laid out like a gamepad's face buttons (and the arrow keys)
+  const SEATS = [{ x: 640, y: 290, btn: 'y', key: 'up', lab: 'Y', arrow: '▲', col: '#ffd34d' }, { x: 900, y: 440, btn: 'b', key: 'right', lab: 'B', arrow: '▶', col: '#ff5a5a' },
+    { x: 640, y: 590, btn: 'a', key: 'down', lab: 'A', arrow: '▼', col: '#5fd85f' }, { x: 380, y: 440, btn: 'x', key: 'left', lab: 'X', arrow: '◀', col: '#4f9dff' }];
+  const MAUVE = a => `rgba(150,105,215,${a})`; // the hint colour: blue with a tint of red
+  // twenty tiny tells; exactly one happens per game
+  const HINTS = ['vial', 'eye', 'smirk', 'cloak', 'shadow', 'name', 'glance', 'horns', 'smoke', 'feather',
+    'aura', 'footprint', 'well', 'drop', 'glint', 'crow', 'hem', 'dagger', 'slit', 'tint'];
+  const NEEDS = { vial: P => P.carry, drop: P => P.carry, well: P => P.fill > 0.1 };
 
   MG.def({
-    id: 'traitors', name: 'The Traitors', type: 'Deduction', controls: 'Move + A & B buttons', thumbT: 9,
-    how: 'One of you is secretly the TRAITOR. First, each human holds A alone to read their secret role (everyone else looks away!). MISSION: fill vials at the moon-wells and pour them into the cauldron with A or B. The Traitor\'s B pours POISON (2 doses per mission) — it looks just like a normal pour, but the cauldron hisses 1.5–3.5 seconds later. Watch the timeline at the bottom to work out who poured just before each hiss! Fill the cauldron and the Seer clears one Faithful; grab the shield to be safe from banishment. ROUND TABLE: pick who to banish (B shows/hides your own vote) and lock it with A. Catch the Traitor and the Faithful share the gold — if the Traitor survives to the final two, they steal it all.',
-    wins: 'The Faithful if they banish the Traitor; the Traitor if they reach the final two.',
+    id: 'traitors', name: 'The Traitors', type: 'Deduction', controls: 'Move + A & B buttons', thumbT: 10, noPadSkip: true,
+    how: 'The castle has secretly chosen one TRAITOR. THE WAVE: everyone quietly presses A — if your character doesn\'t wave, YOU are the Traitor: press B instead (nobody can tell the difference). THE MISSION: fill vials at the moon-wells and pour them into the cauldron (A) — everyone must pour their own 9 before time runs out, or they can\'t share the prize. Once, at a random moment, the Traitor gives away one tiny tell for a split second… keep half an eye on everyone! THE VOTE: one secret vote — press the button shown at the seat you suspect (gamepad Y top · B right · A bottom · X left, keyboard arrows). Catch the Traitor and every Faithful who finished their mission wins; if the Traitor survives, the Traitor wins.',
+    wins: 'Faithful who filled their quota, if the Traitor is voted out; otherwise the Traitor.',
     init(m, S) {
       S.traitor = R.int(0, 3);
-      S.P = [0, 1, 2, 3].map(i => Object.assign(MGH.body(CAUL.x + [-90, 90, -90, 90][i], CAUL.y + [-80, -80, 100, 100][i], 22), { alive: true, out: false, carry: 0, fill: 0, pours: 0, shield: false, clear: false, wait: 0, goal: null, think: 0, thinkT: 0 }));
-      S.round = 0; S.pot = 0; S.purse = 0; S.log = []; S.rx = []; S.pending = []; S.res = null; S.order = [];
-      S.sus = [0, 1, 2, 3].map(() => [0, 0, 0, 0]);
-      S.humans = m.players.map((p, i) => i).filter(i => !m.bot(i));
-      S.env = 0; S.envT = 0; S.envSeen = 0;
-      S.phase = S.humans.length ? 'roles' : 'brief'; S.t = 0;
-      if (S.phase === 'brief') this.startRound(m, S);
-    },
-    alive(S) { return S.P.map((P, i) => i).filter(i => !S.P[i].out); },
-    startRound(m, S) {
-      S.round++; S.phase = 'brief'; S.t = 0;
-      const n = this.alive(S).length;
-      S.meas = 0; S.target = n >= 4 ? 24 : 17; S.doses = 2; S.log = []; S.rx = []; S.pending = []; S.mT = 0;
-      S.shieldAt = R.range(14, 22); S.shieldItem = null; S.sparks = [];
-      this.alive(S).forEach((i, k) => { const P = S.P[i]; P.x = CAUL.x + [-90, 90, -90, 90][k]; P.y = CAUL.y + [-90, -90, 110, 110][k]; P.vx = P.vy = 0; P.carry = 0; P.fill = 0; P.shield = false; P.wait = 0; P.goal = null; });
+      S.P = [0, 1, 2, 3].map(i => Object.assign(MGH.body(CAUL.x + [-90, 90, -90, 90][i], CAUL.y + [-90, -90, 110, 110][i], 22), { carry: 0, fill: 0, pours: 0, waved: false, waveT: 0, nope: 0, botWave: R.range(0.8, 3.2), idle: 0, spd: R.range(0.86, 1), goal: null, voted: false }));
+      S.phase = 'wave'; S.t = 0; S.mT = 0; S.pot = 0; S.sparks = []; S.vote = {}; S.order = []; S.shown = 0;
+      S.hint = { kind: R.pick(HINTS), at: R.range(9, MISSION - 9), on: -1, seen: [false, false, false, false] };
     },
     // ---------------------------------------------------------------- update
     update(m, S, dt) {
       S.t += dt;
-      for (const s of S.sparks || []) { s.t += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 300 * dt; }
-      if (S.sparks) S.sparks = S.sparks.filter(s => s.t < s.life);
+      for (const s of S.sparks) { s.t += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 300 * dt; }
+      S.sparks = S.sparks.filter(s => s.t < s.life);
       const ph = S.phase;
-      if (ph === 'roles') return this.updRoles(m, S, dt);
-      if (ph === 'brief') { if (S.t > 4.2) { S.phase = 'mission'; S.t = 0; Sfx.whistle(); } return; }
+      if (ph === 'wave') return this.updWave(m, S, dt);
+      if (ph === 'brief') { if (S.t > 4.4) { S.phase = 'mission'; S.t = 0; Sfx.whistle(); } return; }
       if (ph === 'mission') return this.updMission(m, S, dt);
-      if (ph === 'outcome') { if (S.t > 4.5) this.startVote(m, S); return; }
+      if (ph === 'outcome') { if (S.t > 4.2) { S.phase = 'vote'; S.t = 0; } return; }
       if (ph === 'vote') return this.updVote(m, S, dt);
       if (ph === 'reveal') return this.updReveal(m, S, dt);
       if (ph === 'banish') {
-        if (S.t > 2.4 && !S.unmasked) { S.unmasked = true; const tr = S.banished === S.traitor; if (tr) { Sfx.crowd('cheer'); Sfx.star(); } else { Sfx.tone(220, 0.6, 'sine', 0.07, -80); Sfx.crowd('ooh'); } }
-        if (S.t > 6) {
-          const al = this.alive(S);
-          if (S.banished === S.traitor) this.endGame(m, S, 'faithful');
-          else if (al.length <= 2) this.endGame(m, S, 'traitor');
-          else this.startRound(m, S);
-        }
+        if (S.t > 2.4 && !S.unmasked) { S.unmasked = true; if (S.banished === S.traitor) { Sfx.crowd('happy'); Sfx.star(); } else { Sfx.tone(220, 0.6, 'sine', 0.07, -80); Sfx.crowd('ooh'); } }
+        if (S.t > 5.6) { S.phase = 'end'; S.t = 0; S.winner = S.banished === S.traitor ? 'faithful' : 'traitor'; if (S.winner === 'traitor') Sfx.thunder(); }
         return;
       }
-      if (ph === 'end') { if (S.t > 7) m.finish(this.score(m, S)); }
+      if (ph === 'end' && S.t > 7) m.finish(this.score(m, S));
     },
-    // envelopes: each human, one at a time, holds A to read their role
-    updRoles(m, S, dt) {
-      const i = S.humans[S.env];
-      if (i === undefined) { this.startRound(m, S); return; }
-      S.envT += dt;
-      if (m.held(i, 'a') && S.envT > 0.6) { S.envSeen += dt; if (S.envSeen - dt <= 0) Sfx.tone(S.traitor === i ? 180 : 520, 0.4, 'sine', 0.06, S.traitor === i ? -60 : 120); }
-      else if (S.envSeen > 0.8) { S.env++; S.envT = 0; S.envSeen = 0; Sfx.click(); }
-      if (S.envT > 40 && S.envSeen === 0) { S.env++; S.envT = 0; } // nobody came: carry on
+    // everyone presses A; only the Traitor's B works (and their A does nothing)
+    updWave(m, S, dt) {
+      S.P.forEach((P, i) => {
+        P.nope = Math.max(0, P.nope - dt);
+        if (P.waved) { P.waveT += dt; return; }
+        if (m.bot(i)) { P.botWave -= dt; if (P.botWave <= 0) this.wave(S, i); return; }
+        const tr = i === S.traitor;
+        if (m.pressed(i, tr ? 'b' : 'a')) this.wave(S, i);
+      });
+      if (S.P.every(P => P.waved && P.waveT > 1.2)) { S.phase = 'brief'; S.t = 0; }
     },
-    pour(m, S, i, poison) {
-      const P = S.P[i]; P.carry = 0; P.pours++;
-      S.log.push({ t: S.mT, i });
-      if (poison) { S.meas = Math.max(0, S.meas - 2); S.purse += 3; S.pending.push({ at: S.mT + R.range(DMIN, DMAX) }); }
-      else { S.meas++; S.pot += 2; }
-      // identical splash either way
-      for (let k = 0; k < 14; k++) S.sparks.push({ x: CAUL.x + R.range(-30, 30), y: CAUL.y - 40, vx: R.range(-120, 120), vy: R.range(-320, -120), t: 0, life: R.range(0.4, 0.8), c: R.pick(['#9fe8ff', '#ffffff', m.players[i].color]) });
-      Sfx.tone(700, 0.08, 'sine', 0.05, -300); Sfx.noise(0.18, 1600, 0.04, 'bandpass', 0, -900);
+    wave(S, i) { const P = S.P[i]; P.waved = true; P.waveT = 0; Sfx.tone(560 + i * 70, 0.12, 'triangle', 0.05); },
+    pour(m, S, i) {
+      const P = S.P[i]; P.carry = 0; P.pours++; S.pot += 2;
+      for (let k = 0; k < 12; k++) S.sparks.push({ x: CAUL.x + R.range(-30, 30), y: CAUL.y - 40, vx: R.range(-120, 120), vy: R.range(-300, -110), t: 0, life: R.range(0.4, 0.8), c: R.pick(['#9fe8ff', '#ffffff', m.players[i].color]) });
+      if (!m.bot(i)) { Sfx.tone(700, 0.08, 'sine', 0.05, -300); if (P.pours === QUOTA) { Sfx.star(); MGH.pop('✔ QUOTA FILLED!', P.x, P.y - 80, '#9fffa0', 26); } }
     },
     updMission(m, S, dt) {
       S.mT += dt;
-      const al = this.alive(S);
-      al.forEach(i => {
-        const P = S.P[i], a = m.axis(i);
-        MGH.steer(P, a.x, a.y, dt, 2300, 270, 8); MGH.integrate(P, dt, 30, 70, 1250, 640);
-        // keep out of the cauldron
+      S.P.forEach((P, i) => {
+        const a = m.axis(i);
+        MGH.steer(P, a.x, a.y, dt, 2300, 270, 8); MGH.integrate(P, dt, 30, 70, 1250, 650);
         const dx = P.x - CAUL.x, dy = P.y - CAUL.y, d = Math.hypot(dx, dy) || 1; if (d < 74) { P.x = CAUL.x + dx / d * 74; P.y = CAUL.y + dy / d * 74; }
-        // fill at a well
         const w = WELLS.find(w => Math.hypot(w.x - P.x, w.y - P.y) < 62);
         if (w && !P.carry) { P.fill += dt; if (P.fill >= FILL) { P.carry = 1; P.fill = 0; if (!m.bot(i)) Sfx.tone(880, 0.06, 'triangle', 0.05); } } else if (!w) P.fill = 0;
-        // pour at the cauldron (A = pour; B = pour too — only the Traitor's B is poison)
-        if (P.carry && d < 120) {
-          if (m.pressed(i, 'a')) this.pour(m, S, i, false);
-          else if (m.pressed(i, 'b')) { const pz = i === S.traitor && S.doses > 0; if (pz) S.doses--; this.pour(m, S, i, pz); }
-        }
-        // the shield
-        if (S.shieldItem && Math.hypot(S.shieldItem.x - P.x, S.shieldItem.y - P.y) < 46) { P.shield = true; S.shieldItem = null; MGH.pop('🛡️ SHIELD', P.x, P.y - 70, '#9fe0ff', 30); Sfx.star(); }
+        if (P.carry && d < 120 && (m.pressed(i, 'a') || m.pressed(i, 'b'))) this.pour(m, S, i);
       });
-      MGH.collide(al.map(i => S.P[i]), 0.4);
-      if (!S.shieldItem && S.shieldAt > 0 && S.mT >= S.shieldAt) { S.shieldAt = -1; S.shieldItem = R.pick([{ x: 640, y: 150 }, { x: 640, y: 600 }, { x: 330, y: 380 }, { x: 950, y: 380 }]); Sfx.tone(1200, 0.3, 'sine', 0.05, 400); }
-      // poison reactions
-      for (const p of S.pending) if (!p.done && S.mT >= p.at) {
-        p.done = true; S.rx.push({ t: p.at }); S.hiss = 1.2;
-        Sfx.noise(0.6, 900, 0.09, 'bandpass', 0, -500); Sfx.tone(140, 0.5, 'sawtooth', 0.04, -60); MGH.shake(5);
-        // every bot reasons about who poured inside the window
-        const cand = S.log.filter(e => e.t >= p.at - DMAX - 0.02 && e.t <= p.at - DMIN + 0.02).map(e => e.i);
-        al.forEach(b => { if (!m.bot(b) || b === S.traitor) return; const c = [...new Set(cand)].filter(j => j !== b && !S.P[j].clear); if (c.length && Math.random() < 0.7) c.forEach(j => { S.sus[b][j] += 1 / c.length; }); });
+      MGH.collide(S.P, 0.4);
+      // the one tell: it waits (a little) until it can actually show — e.g. a vial tell needs a vial in hand
+      const H = S.hint, T = S.P[S.traitor];
+      if (H.on < 0 && S.mT >= H.at && (!NEEDS[H.kind] || NEEDS[H.kind](T) || S.mT > H.at + 6)) {
+        H.on = S.mT; if (NEEDS[H.kind] && !NEEDS[H.kind](T)) H.kind = 'tint';
+        // bots only catch it if they happen to be looking (a third of the time)
+        S.P.forEach((P, i) => { if (m.bot(i) && i !== S.traitor) H.seen[i] = Math.random() < 0.34; });
       }
-      S.hiss = Math.max(0, (S.hiss || 0) - dt);
-      if (S.meas >= S.target || S.mT >= MISSION) this.endMission(m, S);
+      if (S.mT >= MISSION) { S.phase = 'outcome'; S.t = 0; Sfx.tone(660, 0.3, 'triangle', 0.06); }
     },
-    endMission(m, S) {
-      S.phase = 'outcome'; S.t = 0;
-      const ok = S.meas >= S.target; S.res = { ok, seer: -1 };
-      // late poison still hisses (so the evidence is complete)
-      for (const p of S.pending) if (!p.done) { p.done = true; S.rx.push({ t: p.at }); }
-      if (ok) {
-        const pool = this.alive(S).filter(i => i !== S.traitor && !S.P[i].clear);
-        if (pool.length) { const s = R.pick(pool); S.P[s].clear = true; S.res.seer = s; this.alive(S).forEach(b => { S.sus[b][s] = -99; }); }
-        S.pot += 10; Sfx.star(); Sfx.crowd('cheer');
-      } else { Sfx.tone(200, 0.6, 'sine', 0.06, -100); }
-    },
-    // ---------------------------------------------------------------- round table
-    cands(S, i) { return this.alive(S).filter(j => j !== i && !S.P[j].shield); },
-    startVote(m, S) {
-      S.phase = 'vote'; S.t = 0; S.vote = {}; S.pick = {};
-      if (m.peekOn) m.peekOn = m.peekOn.map(() => false);
-      this.alive(S).forEach(i => { const c = this.cands(S, i); S.pick[i] = { idx: 0, locked: false, c }; if (c.length <= 1) { S.pick[i].locked = true; S.vote[i] = c[0]; } S.P[i].thinkT = R.range(1.6, 4.2); });
-    },
-    botVote(m, S, i) {
-      const c = S.pick[i].c; if (!c.length) return undefined;
-      if (i === S.traitor) {
-        // frame the Faithful who looks guiltiest from the public evidence (never a cleared one)
-        const pub = this.publicSus(S, i);
-        const opts = c.filter(j => !S.P[j].clear); const pool = opts.length ? opts : c;
-        return pool.slice().sort((a, b) => pub[b] - pub[a] + R.range(-0.3, 0.3))[0];
-      }
-      if (Math.random() < 0.2) return R.pick(c);
-      return c.slice().sort((a, b) => S.sus[i][b] - S.sus[i][a] + R.range(-0.15, 0.15))[0];
-    },
-    publicSus(S, me) {
-      const s = [0, 0, 0, 0];
-      for (const r of S.rx) { const c = [...new Set(S.log.filter(e => e.t >= r.t - DMAX - 0.02 && e.t <= r.t - DMIN + 0.02).map(e => e.i))].filter(j => j !== me); c.forEach(j => { s[j] += 1 / c.length; }); }
-      return s;
-    },
+    hintOn(S) { return S.phase === 'mission' && S.hint.on >= 0 && S.mT - S.hint.on < HINT_T; },
+    // ---------------------------------------------------------------- the vote
     updVote(m, S, dt) {
-      const al = this.alive(S);
-      al.forEach(i => {
-        const pk = S.pick[i]; if (pk.locked) return;
-        if (m.bot(i)) { S.P[i].thinkT -= dt; if (S.P[i].thinkT <= 0) { S.vote[i] = this.botVote(m, S, i); pk.locked = true; Sfx.click(); } return; }
-        if (MGH.pick(m, i, pk, pk.c.length)) S.vote[i] = pk.c[pk.idx];
-        if (S.t > 60 && !pk.locked) { pk.locked = true; S.vote[i] = pk.c[pk.idx]; }
+      S.P.forEach((P, i) => {
+        if (P.voted) return;
+        if (m.bot(i)) {
+          P.think = (P.think || R.range(1.2, 3.6)) - dt;
+          if (P.think <= 0) {
+            const others = [0, 1, 2, 3].filter(j => j !== i);
+            S.vote[i] = i !== S.traitor && S.hint.seen[i] ? S.traitor : R.pick(others); P.voted = true; Sfx.click();
+          }
+          return;
+        }
+        for (let j = 0; j < 4; j++) {
+          if (j === i) continue;
+          const st = SEATS[j];
+          if (m.pressed(i, st.btn) || m.pressed(i, st.key)) { S.vote[i] = j; P.voted = true; Sfx.click(); break; }
+        }
       });
-      if (al.every(i => S.pick[i].locked) && S.t > 1) {
-        S.phase = 'reveal'; S.t = 0; S.order = R.shuffle(al.slice()); S.shown = 0;
-        Sfx.drum(2);
-      }
+      if (S.P.every(P => P.voted) && S.t > 1) { S.phase = 'reveal'; S.t = 0; S.order = R.shuffle([0, 1, 2, 3]); S.shown = 0; Sfx.drum(2); }
     },
     updReveal(m, S, dt) {
-      const n = Math.floor(S.t / 1.7);
-      if (n > S.shown && S.shown < S.order.length) { S.shown++; Sfx.drum(1); Sfx.tone(300 + S.shown * 60, 0.2, 'triangle', 0.06); }
-      if (S.t > S.order.length * 1.7 + 2.2) {
-        // count; ties are broken by the Ankar (at random)
-        const tally = [0, 0, 0, 0]; for (const v of Object.values(S.vote)) if (v !== undefined) tally[v]++;
-        const max = Math.max(...tally), top = [0, 1, 2, 3].filter(j => tally[j] === max && !S.P[j].out);
-        S.tie = top.length > 1; S.tally = tally;
-        S.banished = R.pick(top); S.P[S.banished].out = true; S.unmasked = false;
+      const n = Math.floor(S.t / 1.6);
+      if (n > S.shown && S.shown < 4) { S.shown++; Sfx.drum(1); Sfx.tone(300 + S.shown * 60, 0.2, 'triangle', 0.06); }
+      if (S.t > 4 * 1.6 + 2.2) {
+        const tally = [0, 0, 0, 0]; for (const v of Object.values(S.vote)) tally[v]++;
+        const max = Math.max(...tally), top = [0, 1, 2, 3].filter(j => tally[j] === max);
+        S.tie = top.length > 1; S.tally = tally; S.banished = R.pick(top); S.unmasked = false;
         S.phase = 'banish'; S.t = 0; Sfx.drum(0); Sfx.drum(3);
       }
     },
-    endGame(m, S, who) {
-      S.phase = 'end'; S.t = 0; S.winner = who;
-      if (who === 'faithful') { Sfx.crowd('cheer'); Sfx.star(); } else { Sfx.thunder(); Sfx.crowd('ooh'); }
-    },
-    // ---------------------------------------------------------------- bots
+    // ---------------------------------------------------------------- bots: fill, pour, repeat (each at their own pace)
     bot(m, S, i, dt) {
       const v = m.vin[i], P = S.P[i]; v.a = v.b = false; v.ax = v.ay = 0; v.left = v.right = v.up = v.down = false;
-      if (S.phase !== 'mission' || P.out) return;
-      const tr = i === S.traitor;
-      // every bot has its own pace and little pauses, so pours don't all line up
-      if (P.spd === undefined || S.mT < 0.05) { P.spd = R.range(0.72, 1); P.idle = R.range(0, 1.6); }
+      if (S.phase !== 'mission') return;
       if (P.idle > 0) { P.idle -= dt; return; }
-      // grab a nearby shield
-      if (S.shieldItem && Math.hypot(S.shieldItem.x - P.x, S.shieldItem.y - P.y) < 300) { this.go(v, P, S.shieldItem); return; }
       if (!P.carry) {
-        if (!P.goal || P.goal.kind !== 'well') { const free = WELLS.slice().sort((a, b) => Math.hypot(a.x - P.x, a.y - P.y) - Math.hypot(b.x - P.x, b.y - P.y)); P.goal = { kind: 'well', w: free[Math.random() < 0.8 ? 0 : 1] }; }
-        if (Math.hypot(P.goal.w.x - P.x, P.goal.w.y - P.y) > 30) this.go(v, P, P.goal.w);
+        if (!P.goal) { const ws = WELLS.slice().sort((a, b) => Math.hypot(a.x - P.x, a.y - P.y) - Math.hypot(b.x - P.x, b.y - P.y)); P.goal = ws[Math.random() < 0.8 ? 0 : 1]; }
+        if (Math.hypot(P.goal.x - P.x, P.goal.y - P.y) > 30) this.go(v, P, P.goal);
         return;
       }
-      if (P.goal && P.goal.kind === 'well') { P.goal = null; if (Math.random() < 0.45) { P.idle = R.range(0.2, 1.3); return; } }
-      P.goal = null;
-      const d = Math.hypot(CAUL.x - P.x, CAUL.y - P.y);
-      if (d > 105) { this.go(v, P, CAUL); return; }
-      P.wait += dt;
-      if (!tr) { if (P.wait > R.range(0.05, 0.4)) { v.a = !m.prev[i].a; P.wait = 0; } return; }
-      // the Traitor: poison when the mission is on track to succeed, ideally right after someone else pours (cover)
-      // the measured pace of the others tells it whether the mission will succeed without a little poison
-      const left = MISSION - S.mT, others = S.log.filter(e => e.i !== i).length, rate = S.mT > 6 ? others / S.mT : 0.55 * (this.alive(S).length - 1) / 3 * 3 / 3.4;
-      const onTrack = S.meas + rate * left >= S.target - 0.5;
-      const cover = S.log.some(e => e.i !== i && S.mT - e.t < 1.0) || this.alive(S).some(j => j !== i && S.P[j].carry && Math.hypot(S.P[j].x - CAUL.x, S.P[j].y - CAUL.y) < 140);
-      if (onTrack && S.doses > 0 && (cover || P.wait > 6)) { v.b = !m.prev[i].b; P.wait = 0; }
-      else if ((!onTrack || S.doses <= 0) && P.wait > 0.3) { v.a = !m.prev[i].a; P.wait = 0; }
+      if (P.goal) { P.goal = null; if (Math.random() < 0.15) { P.idle = R.range(0.2, 0.7); return; } }
+      if (Math.hypot(CAUL.x - P.x, CAUL.y - P.y) > 105) { this.go(v, P, CAUL); return; }
+      v.a = !m.prev[i].a;
     },
-    go(v, P, t) { const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy) || 1, k = P.spd || 1; v.ax = dx / d * k; v.ay = dy / d * k; },
+    go(v, P, t) { const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy) || 1; v.ax = dx / d * P.spd; v.ay = dy / d * P.spd; },
     // ---------------------------------------------------------------- scoring
+    done(S, i) { return S.P[i].pours >= QUOTA; },
     score(m, S) {
-      const sv = this.alive(S).filter(i => i !== S.traitor).length || 1;
+      const winners = [0, 1, 2, 3].filter(i => i !== S.traitor && this.done(S, i));
       return [0, 1, 2, 3].map(i => {
-        const tr = i === S.traitor, out = S.P[i].out;
-        if (S.winner === 'traitor') return tr ? 1000 + S.pot + S.purse : out ? 20 : 30;
-        if (S.winner === 'faithful') return tr ? 5 : out ? 300 : 500 + Math.round(S.pot / sv);
-        return 0;
+        if (i === S.traitor) return S.winner === 'traitor' ? 1000 + S.pot : 5;
+        if (S.winner === 'faithful') return this.done(S, i) ? 500 + Math.round(S.pot / Math.max(1, winners.length)) : 40;
+        return this.done(S, i) ? 30 : 20;
       });
     },
-    fmt(s) { return s >= 1000 ? `Traitor escaped with ${s - 1000} gold` : s >= 500 ? `Faithful survivor · ${s - 500} gold` : s >= 300 ? 'Faithful (banished)' : s >= 20 ? 'fooled by the Traitor' : 'caught Traitor'; },
-    hud(m, S, i) { const P = S.P[i]; return P.out ? (S.phase === 'end' || S.banished === i ? (i === S.traitor ? '🗡️ Traitor' : '☠ banished') : '☠ banished') : P.clear ? '✨ cleared' : P.shield ? '🛡️ shield' : (S.phase === 'end' && i === S.traitor ? '🗡️ Traitor' : '🕯️'); },
+    fmt(s) { return s >= 1000 ? `Traitor escaped with ${s - 1000} gold` : s >= 500 ? `Faithful winner · ${s - 500} gold` : s === 40 ? 'Faithful — mission unfinished' : s >= 20 ? 'fooled by the Traitor' : 'caught Traitor'; },
+    hud(m, S, i) { const P = S.P[i]; if (S.phase === 'end') return i === S.traitor ? '🗡️ Traitor' : `${P.pours >= QUOTA ? '✔' : '✖'} ${P.pours}/${QUOTA}`; return S.phase === 'wave' || S.phase === 'brief' ? (P.waved ? '👋' : '…') : `🧪 ${Math.min(P.pours, QUOTA)}/${QUOTA}`; },
     // ---------------------------------------------------------------- drawing
     draw(m, S, g) {
       const ph = S.phase;
-      if (ph === 'roles') return this.drawRoles(m, S, g);
-      if (ph === 'brief' || ph === 'mission' || ph === 'outcome') this.drawCourt(m, S, g);
-      else this.drawHall(m, S, g);
-      for (const s of S.sparks || []) { g.globalAlpha = 1 - s.t / s.life; g.fillStyle = s.c; g.beginPath(); g.arc(s.x, s.y, 4, 0, 7); g.fill(); } g.globalAlpha = 1;
-      if (ph === 'brief') this.banner(g, `MISSION ${S.round}`, `Fill the Moon Cauldron: ${S.target} measures in ${MISSION}s. The Traitor hides 2 doses of poison…`, S.t);
-      if (ph === 'outcome') this.banner(g, S.res.ok ? '✨ THE CAULDRON IS FULL ✨' : '☠ THE MISSION FAILED', S.res.ok ? (S.res.seer >= 0 ? `The Seer's mirror shows: ${m.players[S.res.seer].name} is FAITHFUL` : 'The pot grows by 10 gold') : 'The cauldron was spoiled — the Seer sees nothing tonight', S.t, S.res.ok ? '#ffe680' : '#ff8aa0');
+      if (ph === 'wave') return this.drawWave(m, S, g);
+      if (ph === 'brief' || ph === 'mission' || ph === 'outcome') this.drawCourt(m, S, g); else this.drawHall(m, S, g);
+      for (const s of S.sparks) { g.globalAlpha = 1 - s.t / s.life; g.fillStyle = s.c; g.beginPath(); g.arc(s.x, s.y, 4, 0, 7); g.fill(); } g.globalAlpha = 1;
+      if (ph === 'brief') this.banner(g, '🌙 THE MISSION', `Everyone must pour ${QUOTA} vials of moon-water into the cauldron in ${MISSION} s — only those who finish can share the prize. And somewhere among you… a Traitor.`, S.t);
+      if (ph === 'outcome') this.drawOutcome(m, S, g);
     },
     banner(g, title, sub, t, col = '#ffe680') {
       const k = Math.min(1, t / 0.4);
-      g.save(); g.globalAlpha = k; g.fillStyle = 'rgba(8,4,24,0.82)'; MGH.rr(g, 240, 250, 800, 170, 22); g.fill(); g.strokeStyle = col; g.lineWidth = 3; g.stroke();
-      g.font = 'bold 50px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 8; g.strokeStyle = '#1a0f3a'; g.strokeText(title, 640, 326); g.fillStyle = col; g.fillText(title, 640, 326);
-      MGH.wrap(g, sub, 640, 376, 720, 28, '#fff', 22); g.restore();
+      g.save(); g.globalAlpha = k; g.fillStyle = 'rgba(8,4,24,0.84)'; MGH.rr(g, 220, 240, 840, 190, 22); g.fill(); g.strokeStyle = col; g.lineWidth = 3; g.stroke();
+      g.font = 'bold 48px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 8; g.strokeStyle = '#1a0f3a'; g.strokeText(title, 640, 314); g.fillStyle = col; g.fillText(title, 640, 314);
+      MGH.wrap(g, sub, 640, 360, 760, 28, '#fff', 21); g.restore();
+    },
+    // the wave screen
+    drawWave(m, S, g) {
+      const t = m.t;
+      g.fillStyle = MGH.grad(g, 40, 720, ['#1a0c20', '#0a0612']); g.fillRect(0, 40, 1280, 680);
+      MGH.glow(g, 640, 430, 420, 'rgba(180,60,90,0.22)');
+      for (const x of [90, 1190]) { MGH.glow(g, x, 130, 80, 'rgba(255,170,70,0.45)'); MGH.fireball(g, x, 126, 10, t + x, 0, -1); }
+      g.font = 'bold 50px Georgia'; g.textAlign = 'center'; g.fillStyle = '#e8d8ff'; g.fillText('THE TRAITORS', 640, 108);
+      MGH.text(g, 'of Moonhold Castle', 640, 140, 21, '#b8a0d8');
+      MGH.text(g, '🤫 Everyone, press  A  — quietly.', 640, 196, 28, '#ffe680', 'center', 'bold');
+      MGH.text(g, 'If your character does NOT wave… you are the Traitor. Press  B  instead — and keep a straight face.', 640, 230, 19, '#e8d0f0');
+      S.P.forEach((P, i) => {
+        const x = 220 + i * 280, y = 470, col = m.players[i].color;
+        g.fillStyle = 'rgba(255,255,255,0.05)'; MGH.rr(g, x - 110, 290, 220, 330, 20); g.fill(); g.strokeStyle = col; g.lineWidth = 3; g.globalAlpha = 0.6; g.stroke(); g.globalAlpha = 1;
+        MGH.shadow(g, x, y + 70, 50, 0.4);
+        Char._wave = P.waved && P.waveT < 2.4;
+        Char.draw(g, x, y, 54, m.players[i].el.id, col, { mood: P.waved ? 'happy' : 'neutral', t: t + i, seed: i * 1.7, look: { x: 0, y: 0.1 } });
+        Char._wave = false;
+        MGH.text(g, m.players[i].name, x, 585, 24, col, 'center', 'bold');
+        MGH.text(g, P.waved ? '👋 waved' : '…', x, 612, 18, P.waved ? '#cfe8ff' : '#8a7aa8', 'center', 'bold');
+      });
+      MGH.text(g, 'Everyone sees the same thing: a wave. Nobody can tell whose wave came from A and whose from B.', 640, 680, 17, '#b8a8d8');
     },
     // the moonlit castle courtyard
     drawCourt(m, S, g) {
       const t = m.t;
       g.fillStyle = MGH.grad(g, 40, 720, ['#141a3a', '#1c2448', '#10142a']); g.fillRect(0, 40, 1280, 680);
-      // flagstones
-      for (let y = 60; y < 660; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(90,100,150,0.18)' : 'rgba(110,120,170,0.24)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); }
-      // moonlight pool and drifting fog
+      for (let y = 60; y < 700; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(90,100,150,0.18)' : 'rgba(110,120,170,0.24)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); }
       MGH.glow(g, 640, 380, 520, 'rgba(160,190,255,0.16)');
       for (let k = 0; k < 6; k++) { const x = ((k * 260 + t * 14) % 1600) - 160, y = 120 + k * 95; g.fillStyle = 'rgba(200,210,255,0.06)'; g.beginPath(); g.ellipse(x, y, 220, 40, 0, 0, 7); g.fill(); }
-      // castle walls with torches
       g.fillStyle = MGH.grad(g, 40, 70, ['#2a2e4a', '#1a1e34']); g.fillRect(0, 40, 1280, 28);
       for (let x = 0; x < 1280; x += 64) { g.fillStyle = '#2a2e4a'; g.fillRect(x, 32, 40, 14); }
       for (const tx of [90, 450, 830, 1190]) { MGH.glow(g, tx, 60, 70, 'rgba(255,170,70,0.45)'); MGH.fireball(g, tx, 56, 9, t + tx, 0, -1); }
-      // the wells
+      const hint = this.hintOn(S) ? S.hint.kind : null, T = S.P[S.traitor];
       WELLS.forEach((w, k) => {
         MGH.glow(g, w.x, w.y, 90, 'rgba(120,200,255,0.3)');
         g.fillStyle = '#4a4e6a'; g.beginPath(); g.ellipse(w.x, w.y + 8, 56, 26, 0, 0, 7); g.fill();
         g.fillStyle = '#6a6e8a'; g.beginPath(); g.ellipse(w.x, w.y, 56, 26, 0, 0, 7); g.fill();
-        g.fillStyle = `rgba(120,210,255,${0.75 + 0.15 * Math.sin(t * 3 + k)})`; g.beginPath(); g.ellipse(w.x, w.y, 42, 17, 0, 0, 7); g.fill();
+        const dark = hint === 'well' && Math.hypot(w.x - T.x, w.y - T.y) < 70;
+        g.fillStyle = dark ? 'rgba(130,120,215,0.85)' : `rgba(120,210,255,${0.75 + 0.15 * Math.sin(t * 3 + k)})`; g.beginPath(); g.ellipse(w.x, w.y, 42, 17, 0, 0, 7); g.fill();
         g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.ellipse(w.x - 12, w.y - 4, 10 + 3 * Math.sin(t * 2 + k), 3, 0, 0, 7); g.fill();
         MGH.text(g, '🌙', w.x, w.y - 36, 18, '#fff');
       });
       // the cauldron
-      const pois = S.hiss > 0 ? S.hiss / 1.2 : 0;
-      MGH.glow(g, CAUL.x, CAUL.y - 30, 170, pois ? `rgba(80,255,90,${0.45 * pois + 0.2})` : 'rgba(120,180,255,0.35)');
+      MGH.glow(g, CAUL.x, CAUL.y - 30, 170, 'rgba(120,180,255,0.35)');
       g.fillStyle = '#2a2a34'; g.beginPath(); g.ellipse(CAUL.x, CAUL.y + 34, 92, 30, 0, 0, 7); g.fill();
       g.fillStyle = MGH.grad(g, CAUL.y - 50, CAUL.y + 50, ['#3a3a48', '#16161e']); g.beginPath(); g.moveTo(CAUL.x - 86, CAUL.y - 40); g.quadraticCurveTo(CAUL.x - 100, CAUL.y + 50, CAUL.x, CAUL.y + 56); g.quadraticCurveTo(CAUL.x + 100, CAUL.y + 50, CAUL.x + 86, CAUL.y - 40); g.closePath(); g.fill();
-      const lq = pois ? `rgb(${Math.round(90 + 60 * (1 - pois))},${Math.round(200 + 40 * pois)},${Math.round(255 - 180 * pois)})` : '#7fd0ff';
-      g.fillStyle = lq; g.beginPath(); g.ellipse(CAUL.x, CAUL.y - 40, 82, 22, 0, 0, 7); g.fill();
+      g.fillStyle = '#7fd0ff'; g.beginPath(); g.ellipse(CAUL.x, CAUL.y - 40, 82, 22, 0, 0, 7); g.fill();
       for (let k = 0; k < 5; k++) { const bx = CAUL.x - 50 + ((k * 37 + t * 40) % 100), by = CAUL.y - 42 + Math.sin(t * 4 + k) * 4; g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(bx, by, 4 + (k % 2) * 2, 0, 7); g.fill(); }
       g.strokeStyle = '#5a5a6a'; g.lineWidth = 6; g.beginPath(); g.ellipse(CAUL.x, CAUL.y - 40, 86, 24, 0, 0, 7); g.stroke();
-      if (pois) { g.globalAlpha = pois; for (let k = 0; k < 4; k++) MGH.text(g, '☠', CAUL.x - 60 + k * 40, CAUL.y - 70 - (1 - pois) * 60 - k % 2 * 14, 26, '#7cff6a'); g.globalAlpha = 1; MGH.label(g, '☠ HISSSS! Poison was poured 1.5–3.5 s ago', CAUL.x, CAUL.y - 140, 22, '#9cff8a', 'rgba(10,40,10,0.8)'); }
-      // measure bar
-      const bw = 260, q = clamp(S.meas / S.target, 0, 1);
-      g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, CAUL.x - bw / 2, CAUL.y + 74, bw, 22, 11); g.fill();
-      g.fillStyle = MGH.grad(g, CAUL.y + 74, CAUL.y + 96, ['#bff0ff', '#4fa8ff']); MGH.rr(g, CAUL.x - bw / 2, CAUL.y + 74, Math.max(22, bw * q), 22, 11); g.fill();
-      MGH.text(g, `${S.meas} / ${S.target} measures`, CAUL.x, CAUL.y + 91, 15, '#fff', 'center', 'bold');
-      MGH.text(g, `💰 pot ${S.pot} gold`, CAUL.x, CAUL.y + 120, 16, '#ffe680', 'center', 'bold');
-      // shield
-      if (S.shieldItem) { const b = Math.sin(t * 4) * 5; MGH.glow(g, S.shieldItem.x, S.shieldItem.y, 60, 'rgba(140,220,255,0.6)'); MGH.emoji(g, '🛡️', S.shieldItem.x, S.shieldItem.y + b, 40); }
+      MGH.text(g, `💰 prize ${S.pot} gold`, CAUL.x, CAUL.y + 92, 17, '#ffe680', 'center', 'bold');
       // players
-      this.alive(S).sort((a, b) => S.P[a].y - S.P[b].y).forEach(i => {
-        const P = S.P[i];
-        MGH.shadow(g, P.x, P.y + 24, 22, 0.4);
-        this.cloak(g, P.x, P.y - 6, 1, m.players[i].color, t + i);
-        MGH.av(g, m, i, P.x, P.y, 24, S.hiss > 0 ? 'nervous' : P.carry ? 'determined' : 'happy', { look: P.face });
-        MGH.text(g, m.players[i].name, P.x, P.y + 44, 13, m.players[i].color, 'center', 'bold');
-        if (P.carry) { this.vial(g, P.x + 26, P.y - 46, t); }
-        else if (P.fill > 0) { g.strokeStyle = '#9fe8ff'; g.lineWidth = 4; g.beginPath(); g.arc(P.x, P.y - 70, 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * P.fill / FILL); g.stroke(); }
-        if (P.shield) MGH.text(g, '🛡️', P.x - 30, P.y - 50, 20, '#fff');
-        if (P.clear) { g.strokeStyle = 'rgba(255,220,100,0.9)'; g.lineWidth = 3; g.beginPath(); g.ellipse(P.x, P.y - 80, 18, 6, 0, 0, 7); g.stroke(); }
-      });
-      // ghosts of the banished watch from the wall
-      S.P.forEach((P, i) => { if (!P.out) return; g.globalAlpha = 0.35; MGH.av(g, m, i, 60 + i * 50, 110, 16, 'sad', { headOnly: true }); g.globalAlpha = 1; });
-      // timer
+      [0, 1, 2, 3].sort((a, b) => S.P[a].y - S.P[b].y).forEach(i => this.drawCourtPlayer(m, S, g, i, i === S.traitor ? hint : null));
       if (S.phase === 'mission') { const left = Math.max(0, MISSION - S.mT); MGH.label(g, `⏳ ${Math.ceil(left)}s`, 1200, 100, 22, left < 10 ? '#ff8a8a' : '#fff'); }
-      this.drawTimeline(m, S, g);
     },
-    cloak(g, x, y, s, col, t) {
+    drawCourtPlayer(m, S, g, i, h) {
+      const P = S.P[i], t = m.t, col = m.players[i].color, done = P.pours >= QUOTA;
+      // the shadow (the 'shadow' tell tints it)
+      g.fillStyle = h === 'shadow' ? 'rgba(90,30,110,0.7)' : 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(P.x, P.y + 24, h === 'shadow' ? 30 : 24, h === 'shadow' ? 9 : 7, 0, 0, 7); g.fill();
+      if (h === 'footprint') { g.fillStyle = MAUVE(0.75); g.beginPath(); g.ellipse(P.x - P.face.x * 34, P.y + 26 - P.face.y * 20, 6, 3, 0, 0, 7); g.fill(); }
+      if (h === 'smoke') { g.fillStyle = MAUVE(0.5); g.beginPath(); g.arc(P.x - 10, P.y + 18, 12, 0, 7); g.arc(P.x + 8, P.y + 20, 9, 0, 7); g.fill(); }
+      if (h === 'aura') { g.strokeStyle = MAUVE(0.65); g.lineWidth = 2; g.beginPath(); g.ellipse(P.x, P.y - 10, 34, 46, 0, 0, 7); g.stroke(); }
+      this.cloak(g, P.x, P.y - 6, 1, h === 'hem' ? '#9a6ad8' : col, t + i, h === 'cloak');
+      MGH.av(g, m, i, P.x, P.y, 24, h === 'smirk' ? 'smug' : done ? 'happy' : P.carry ? 'determined' : 'happy', { look: h === 'glance' ? { x: 0, y: 0 } : P.face });
+      if (h === 'tint') { g.fillStyle = MAUVE(0.24); g.beginPath(); g.ellipse(P.x, P.y - 14, 26, 38, 0, 0, 7); g.fill(); }
+      const ex = P.x + (P.face.x >= 0 ? 8 : -8), ey = P.y - 34;
+      if (h === 'eye') { g.fillStyle = MAUVE(0.85); g.beginPath(); g.arc(ex, ey, 2.4, 0, 7); g.fill(); }
+      if (h === 'slit') { g.fillStyle = 'rgba(90,50,140,0.75)'; g.fillRect(ex - 0.8, ey - 3, 1.6, 6); }
+      if (h === 'horns') { g.fillStyle = 'rgba(110,60,150,0.75)'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(P.x + s * 12, P.y - 74); g.lineTo(P.x + s * 19, P.y - 90); g.lineTo(P.x + s * 22, P.y - 72); g.fill(); } }
+      if (h === 'feather') { g.save(); g.translate(P.x + 30, P.y - 20); g.rotate(0.6); g.fillStyle = 'rgba(80,50,110,0.85)'; g.beginPath(); g.ellipse(0, 0, 3.5, 11, 0, 0, 7); g.fill(); g.restore(); }
+      if (h === 'crow') { g.strokeStyle = 'rgba(70,40,100,0.8)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(P.x - 10, P.y - 92); g.quadraticCurveTo(P.x - 5, P.y - 98, P.x, P.y - 92); g.quadraticCurveTo(P.x + 5, P.y - 98, P.x + 10, P.y - 92); g.stroke(); }
+      if (h === 'dagger') { g.save(); g.translate(P.x - 24, P.y - 4); g.rotate(-0.5); g.fillStyle = MAUVE(0.8); g.fillRect(-1.5, -10, 3, 12); g.fillRect(-4, 1, 8, 2); g.restore(); }
+      if (h === 'glint') { g.fillStyle = MAUVE(0.9); MGH.spark(g, P.x - 14, P.y + 6, 4, MAUVE(0.9)); }
+      if (P.carry) this.vial(g, P.x + 26, P.y - 46, h === 'vial', h === 'drop');
+      else if (P.fill > 0) { g.strokeStyle = '#9fe8ff'; g.lineWidth = 4; g.beginPath(); g.arc(P.x, P.y - 74, 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * P.fill / FILL); g.stroke(); }
+      // name and personal quota
+      MGH.text(g, m.players[i].name, P.x, P.y + 44, 13, h === 'name' ? '#a98ae0' : col, 'center', 'bold');
+      const q = Math.min(1, P.pours / QUOTA);
+      g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, P.x - 26, P.y + 50, 52, 8, 4); g.fill(); g.fillStyle = done ? '#7cf06a' : '#9fe8ff'; MGH.rr(g, P.x - 26, P.y + 50, 52 * q, 8, 4); g.fill();
+      if (done) MGH.text(g, '✔', P.x + 34, P.y + 58, 13, '#7cf06a', 'center', 'bold');
+    },
+    cloak(g, x, y, s, col, t, tell) {
       g.save(); g.translate(x, y); g.scale(s, s);
-      g.fillStyle = MGH.grad(g, -28, 34, ['#5a3a7a', '#2a1a3a']); g.beginPath(); g.moveTo(-26, -28); g.quadraticCurveTo(-40 + Math.sin(t * 2) * 3, 10, -34, 34); g.lineTo(34, 34); g.quadraticCurveTo(40 + Math.sin(t * 2 + 1) * 3, 10, 26, -28); g.closePath(); g.fill();
-      g.strokeStyle = col; g.lineWidth = 3; g.globalAlpha = 0.8; g.beginPath(); g.moveTo(-34, 34); g.lineTo(34, 34); g.stroke(); g.globalAlpha = 1;
+      g.fillStyle = tell ? MGH.grad(g, -28, 34, ['#7e3a86', '#4a1a48']) : MGH.grad(g, -28, 34, ['#5a3a7a', '#2a1a3a']);
+      g.beginPath(); g.moveTo(-26, -28); g.quadraticCurveTo(-40 + Math.sin(t * 2) * 3, 10, -34, 34); g.lineTo(34, 34); g.quadraticCurveTo(40 + Math.sin(t * 2 + 1) * 3, 10, 26, -28); g.closePath(); g.fill();
+      g.strokeStyle = col; g.lineWidth = col === '#9a6ad8' ? 4 : 3; g.globalAlpha = 0.8; g.beginPath(); g.moveTo(-34, 34); g.lineTo(34, 34); g.stroke(); g.globalAlpha = 1;
       g.restore();
     },
-    vial(g, x, y, t) {
-      MGH.glow(g, x, y, 22, 'rgba(140,220,255,0.6)');
-      g.fillStyle = '#7fd0ff'; g.beginPath(); g.arc(x, y + 4, 8, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(x - 3, y - 12, 6, 10); g.fillStyle = '#8a5a3a'; g.fillRect(x - 4, y - 15, 8, 4);
+    vial(g, x, y, tell, drop) {
+      MGH.glow(g, x, y, 22, tell ? 'rgba(170,130,235,0.4)' : 'rgba(140,220,255,0.6)');
+      g.fillStyle = tell ? '#9a8ae6' : '#7fd0ff'; g.beginPath(); g.arc(x, y + 4, 8, 0, 7); g.fill();
+      g.fillStyle = tell ? 'rgba(225,215,255,0.75)' : 'rgba(255,255,255,0.7)'; g.fillRect(x - 3, y - 12, 6, 10); g.fillStyle = '#8a5a3a'; g.fillRect(x - 4, y - 15, 8, 4);
+      if (drop) { g.fillStyle = MAUVE(0.85); g.beginPath(); g.arc(x, y + 17, 2.6, 0, 7); g.fill(); }
     },
-    // who poured when, and the windows in which each poison must have gone in
-    drawTimeline(m, S, g) {
-      const y = TL.y;
-      g.fillStyle = 'rgba(8,6,24,0.85)'; MGH.rr(g, TL.x0 - 110, y - 26, TL.x1 - TL.x0 + 130, 52, 12); g.fill();
-      MGH.text(g, '🕰️', TL.x0 - 88, y + 7, 20, '#cfc6ee', 'center', 'bold');
-      for (const r of S.rx) { const a = tlx(r.t - DMAX), b = tlx(r.t - DMIN); g.fillStyle = 'rgba(120,255,110,0.25)'; g.fillRect(a, y - 22, b - a, 44); g.strokeStyle = '#7cff6a'; g.lineWidth = 2; g.strokeRect(a, y - 22, b - a, 44); MGH.text(g, '☠', tlx(r.t), y - 8, 14, '#9cff8a'); g.strokeStyle = 'rgba(160,255,140,0.6)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(tlx(r.t), y - 22); g.lineTo(tlx(r.t), y + 22); g.stroke(); g.setLineDash([]); }
-      g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.beginPath(); g.moveTo(TL.x0, y); g.lineTo(TL.x1, y); g.stroke();
-      for (let s = 0; s <= MISSION; s += 5) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(tlx(s) - 1, y - 5, 2, 10); }
-      for (const e of S.log) { const x = tlx(e.t), ly = y - 17 + e.i * 11.3; g.fillStyle = m.players[e.i].color; g.beginPath(); g.arc(x, ly, 6, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 1; g.stroke(); }
-      // lane labels
-      m.players.forEach((p, i) => { g.fillStyle = p.color; g.font = 'bold 10px Georgia'; g.textAlign = 'right'; g.fillText(p.name, TL.x0 - 6, y - 13.5 + i * 11.3); });
-      if (S.phase === 'mission') { const x = tlx(S.mT); g.fillStyle = '#fff'; g.fillRect(x - 1, y - 24, 2, 48); }
+    drawOutcome(m, S, g) {
+      const k = Math.min(1, S.t / 0.4);
+      g.save(); g.globalAlpha = k; g.fillStyle = 'rgba(8,4,24,0.86)'; MGH.rr(g, 240, 190, 800, 330, 22); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 3; g.stroke();
+      MGH.text(g, '⏳ TIME! Who filled their quota?', 640, 244, 34, '#ffe680', 'center', 'bold');
+      S.P.forEach((P, i) => {
+        const x = 340 + i * 200, ok = P.pours >= QUOTA;
+        MGH.av(g, m, i, x, 360, 30, ok ? 'happy' : 'sad');
+        MGH.text(g, m.players[i].name, x, 432, 20, m.players[i].color, 'center', 'bold');
+        MGH.text(g, `${ok ? '✔' : '✖'} ${P.pours} / ${QUOTA}`, x, 466, 22, ok ? '#9fffa0' : '#ff9a9a', 'center', 'bold');
+      });
+      MGH.text(g, 'Now… did anyone notice anything strange?', 640, 506, 17, '#d8c8f0');
+      g.restore();
     },
-    // the Round Table hall
+    // the Round Table
     drawHall(m, S, g) {
-      const t = m.t;
+      const t = m.t, ph = S.phase;
       g.fillStyle = MGH.grad(g, 40, 720, ['#2a1420', '#1a0c16', '#0e0610']); g.fillRect(0, 40, 1280, 680);
-      // tapestries and stained glass
-      for (const [x, c] of [[160, '#7a1a2a'], [1120, '#1a3a6a']]) { g.fillStyle = c; g.fillRect(x - 60, 60, 120, 300); g.beginPath(); g.moveTo(x - 60, 360); g.lineTo(x, 400); g.lineTo(x + 60, 360); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 3; g.strokeRect(x - 52, 68, 104, 284); MGH.text(g, x < 640 ? '🗡️' : '🛡️', x, 220, 40, '#fff'); }
-      g.fillStyle = 'rgba(180,140,255,0.12)'; g.beginPath(); g.arc(640, 150, 90, Math.PI, 0); g.fillRect(550, 150, 180, 60); g.fill();
-      for (let k = 0; k < 4; k++) { g.fillStyle = ['rgba(255,80,100,0.35)', 'rgba(80,160,255,0.35)', 'rgba(255,200,80,0.35)', 'rgba(120,220,120,0.35)'][k]; g.beginPath(); g.moveTo(640, 150); g.arc(640, 150, 86, Math.PI + k * Math.PI / 4, Math.PI + (k + 1) * Math.PI / 4); g.fill(); }
-      // the round table with candles
+      for (const [x, c] of [[130, '#7a1a2a'], [1150, '#1a3a6a']]) { g.fillStyle = c; g.fillRect(x - 60, 60, 120, 300); g.beginPath(); g.moveTo(x - 60, 360); g.lineTo(x, 400); g.lineTo(x + 60, 360); g.fill(); g.strokeStyle = '#d8b04a'; g.lineWidth = 3; g.strokeRect(x - 52, 68, 104, 284); MGH.text(g, x < 640 ? '🗡️' : '🛡️', x, 220, 40, '#fff'); }
       MGH.glow(g, 640, 440, 420, 'rgba(255,170,80,0.25)');
-      g.fillStyle = '#2a160c'; g.beginPath(); g.ellipse(640, 460, 330, 120, 0, 0, 7); g.fill();
-      g.fillStyle = MGH.grad(g, 330, 560, ['#8a5a32', '#5a3418']); g.beginPath(); g.ellipse(640, 440, 330, 120, 0, 0, 7); g.fill();
-      g.strokeStyle = '#c89a5a'; g.lineWidth = 4; g.beginPath(); g.ellipse(640, 440, 300, 104, 0, 0, 7); g.stroke();
-      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2, cx = 640 + Math.cos(a) * 150, cy = 440 + Math.sin(a) * 50; g.fillStyle = '#f0e6d0'; g.fillRect(cx - 4, cy - 26, 8, 26); MGH.glow(g, cx, cy - 32, 26, 'rgba(255,190,90,0.6)'); g.fillStyle = '#ffcf5a'; g.beginPath(); g.ellipse(cx, cy - 32 + Math.sin(t * 9 + k), 4, 8, 0, 0, 7); g.fill(); }
-      const ph = S.phase;
-      // seats
+      g.fillStyle = '#2a160c'; g.beginPath(); g.ellipse(640, 452, 230, 96, 0, 0, 7); g.fill();
+      g.fillStyle = MGH.grad(g, 350, 540, ['#8a5a32', '#5a3418']); g.beginPath(); g.ellipse(640, 440, 230, 96, 0, 0, 7); g.fill();
+      g.strokeStyle = '#c89a5a'; g.lineWidth = 4; g.beginPath(); g.ellipse(640, 440, 206, 82, 0, 0, 7); g.stroke();
+      for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + 0.3, cx = 640 + Math.cos(a) * 100, cy = 440 + Math.sin(a) * 36; g.fillStyle = '#f0e6d0'; g.fillRect(cx - 4, cy - 24, 8, 24); MGH.glow(g, cx, cy - 30, 24, 'rgba(255,190,90,0.6)'); g.fillStyle = '#ffcf5a'; g.beginPath(); g.ellipse(cx, cy - 30 + Math.sin(t * 9 + k), 4, 8, 0, 0, 7); g.fill(); }
       if (ph !== 'end') S.P.forEach((P, i) => {
-        const s = SEATS[i], out = P.out && !(ph === 'banish' && S.banished === i);
-        g.fillStyle = '#3a2214'; MGH.rr(g, s.x - 40, s.y - 70, 80, 90, 14); g.fill();
-        if (out) { g.globalAlpha = 0.3; MGH.av(g, m, i, s.x, s.y, 26, 'sad'); g.globalAlpha = 1; MGH.text(g, '☠', s.x, s.y - 40, 30, '#aaa'); return; }
-        if (ph === 'banish' && S.banished === i) return; // standing in the spotlight instead
-        const mood = ph === 'reveal' ? 'nervous' : 'determined';
+        if (ph === 'banish' && S.banished === i) return;
+        const s = SEATS[i];
         this.cloak(g, s.x, s.y - 4, 1.1, m.players[i].color, t + i);
-        MGH.av(g, m, i, s.x, s.y, 28, mood, { look: { x: (640 - s.x) / 300, y: 0.2 } });
-        if (P.clear) { g.strokeStyle = 'rgba(255,220,100,0.9)'; g.lineWidth = 3; g.beginPath(); g.ellipse(s.x, s.y - 92, 20, 7, 0, 0, 7); g.stroke(); }
-        if (P.shield) MGH.text(g, '🛡️', s.x + 44, s.y - 50, 24, '#fff');
-        MGH.text(g, m.players[i].name, s.x, s.y + 48, 18, m.players[i].color, 'center', 'bold');
+        MGH.av(g, m, i, s.x, s.y, 28, ph === 'reveal' ? 'nervous' : 'determined', { look: { x: (640 - s.x) / 300, y: (440 - s.y) / 300 } });
+        MGH.text(g, m.players[i].name, s.x, s.y + 46, 18, m.players[i].color, 'center', 'bold');
+        if (ph === 'vote') this.seatButton(g, s, s.x + (s.x === 640 ? 62 : s.x < 640 ? -62 : 62), s.y - 20);
       });
       if (ph === 'vote') this.drawVote(m, S, g);
       if (ph === 'reveal') this.drawReveal(m, S, g);
       if (ph === 'banish') this.drawBanish(m, S, g);
       if (ph === 'end') this.drawEnd(m, S, g);
     },
+    // a gamepad face button with the matching arrow key
+    seatButton(g, s, x, y) {
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.arc(x, y, 21, 0, 7); g.fill();
+      g.fillStyle = s.col; g.beginPath(); g.arc(x, y, 17, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(x - 5, y - 5, 6, 0, 7); g.fill();
+      MGH.text(g, s.lab, x, y + 7, 20, '#1a1028', 'center', 'bold');
+      MGH.text(g, s.arrow, x, y + 38, 14, '#d8c8f0', 'center', 'bold');
+    },
     drawVote(m, S, g) {
-      MGH.label(g, '🕯️ THE ROUND TABLE — who is the Traitor?', 640, 90, 30, '#ffe680');
-      MGH.text(g, 'Choose with ◀ ▶, lock with A. Your vote is secret — press B to show / hide it (others look away!)', 640, 128, 16, '#e0d0f0');
-      this.alive(S).forEach(i => {
-        const s = SEATS[i], pk = S.pick[i];
-        let txt = pk.locked ? '🔒 vote locked' : m.bot(i) ? '🤔 thinking…' : '🤫 choosing…';
-        if (!m.bot(i) && MGH.peek(m, i) && pk.c.length) {
-          const j = pk.c[pk.idx]; txt = `${pk.locked ? '🔒' : '◀'} ${m.players[j].name} ${pk.locked ? '' : '▶'}`;
-          const sj = SEATS[j]; g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.setLineDash([10, 8]); g.beginPath(); g.moveTo(s.x, s.y - 30); g.quadraticCurveTo(640, 430, sj.x, sj.y - 30); g.stroke(); g.setLineDash([]);
-        }
-        MGH.label(g, txt, s.x, s.y + 76, 16, pk.locked ? '#9fffa0' : '#fff');
-      });
-      if (S.t > 45) MGH.text(g, `Votes lock automatically in ${Math.ceil(60 - S.t)}s`, 640, 700, 15, '#ffb0b0');
+      MGH.label(g, '🕯️ THE ROUND TABLE — one vote, one chance', 640, 92, 30, '#ffe680');
+      MGH.text(g, 'Secretly press the button next to the one you think is the Traitor (keyboard: the arrow / direction keys).', 640, 130, 17, '#e0d0f0');
+      MGH.text(g, 'Catch the Traitor and every Faithful who finished their mission wins. Miss, and the Traitor wins.', 640, 154, 15, '#c8b8e0');
+      S.P.forEach((P, i) => { const s = SEATS[i]; MGH.label(g, P.voted ? '🔒 voted' : m.bot(i) ? '🤔 thinking…' : '🤫 choosing…', s.x, s.y + 74, 15, P.voted ? '#9fffa0' : '#fff'); });
     },
     drawReveal(m, S, g) {
-      MGH.label(g, '📜 The votes are read out…', 640, 90, 30, '#ffe680');
+      MGH.label(g, '📜 The votes are read out…', 640, 92, 30, '#ffe680');
       const tally = [0, 0, 0, 0];
       S.order.slice(0, S.shown).forEach((i, k) => {
-        const j = S.vote[i]; if (j === undefined) return; tally[j]++;
-        const s = SEATS[i], fresh = k === S.shown - 1 ? Math.min(1, (S.t - k * 1.7) / 0.3) : 1;
-        g.save(); g.translate(s.x, s.y - 110); g.scale(fresh, fresh);
-        g.fillStyle = '#f0e6d0'; MGH.rr(g, -70, -30, 140, 50, 8); g.fill(); g.strokeStyle = '#5a3418'; g.lineWidth = 3; g.stroke();
-        MGH.text(g, m.players[j].name, 0, 4, 22, Char.shade(m.players[j].color, -0.35), 'center', 'bold');
+        const j = S.vote[i]; tally[j]++;
+        const s = SEATS[i], fresh = k === S.shown - 1 ? Math.min(1, (S.t - k * 1.6) / 0.3) : 1;
+        const o = [{ x: 175, y: -20 }, { x: 0, y: -100 }, { x: 175, y: -20 }, { x: 0, y: -100 }][i];
+        g.save(); g.translate(s.x + o.x, s.y + o.y); g.scale(fresh, fresh);
+        g.fillStyle = '#f0e6d0'; MGH.rr(g, -70, -26, 140, 46, 8); g.fill(); g.strokeStyle = '#5a3418'; g.lineWidth = 3; g.stroke();
+        MGH.text(g, '➜ ' + m.players[j].name, 0, 5, 20, Char.shade(m.players[j].color, -0.35), 'center', 'bold');
         g.restore();
       });
-      // running tally beside each seat
-      S.P.forEach((P, j) => { if (P.out || !tally[j]) return; const s = SEATS[j]; MGH.label(g, '✖'.repeat(tally[j]), s.x + 70, s.y, 22, '#ff8a8a'); });
+      S.P.forEach((P, j) => { if (!tally[j]) return; const s = SEATS[j]; MGH.label(g, '✖'.repeat(tally[j]), s.x, s.y + 76, 22, '#ff8a8a'); });
     },
     drawBanish(m, S, g) {
       const i = S.banished, tr = i === S.traitor, k = S.t;
-      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 40, 1280, 680);
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(0, 40, 1280, 680);
       const sp = g.createRadialGradient(640, 420, 20, 640, 420, 260); sp.addColorStop(0, 'rgba(255,240,200,0.45)'); sp.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = sp; g.fillRect(0, 40, 1280, 680);
       MGH.label(g, `${S.tie ? 'A tie — the Ankar decides! ' : ''}${m.players[i].name} is banished.`, 640, 110, 30, '#fff');
       this.cloak(g, 640, 420, 1.6, m.players[i].color, m.t);
@@ -389,53 +329,26 @@
         const pop = Math.min(1, (k - 2.4) / 0.3);
         g.save(); g.translate(640, 610); g.scale(0.6 + 0.4 * pop, 0.6 + 0.4 * pop);
         MGH.glow(g, 0, -14, 200, tr ? 'rgba(255,60,90,0.6)' : 'rgba(255,210,80,0.5)');
-        g.font = 'bold 66px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#1a0610'; const w = tr ? 'A TRAITOR!' : 'FAITHFUL'; g.strokeText(w, 0, 0); g.fillStyle = tr ? ROLE_COL.traitor : ROLE_COL.faithful; g.fillText(w, 0, 0);
+        g.font = 'bold 66px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#1a0610'; const w = tr ? 'THE TRAITOR!' : 'FAITHFUL'; g.strokeText(w, 0, 0); g.fillStyle = tr ? '#ff4d6d' : '#ffd34d'; g.fillText(w, 0, 0);
         g.restore();
-        if (!tr) MGH.text(g, 'The Traitor is still among you…', 640, 680, 20, '#ffb0c0');
       }
     },
     drawEnd(m, S, g) {
       const tw = S.winner === 'traitor', i = S.traitor;
-      g.fillStyle = tw ? 'rgba(60,0,20,0.7)' : 'rgba(40,30,0,0.55)'; g.fillRect(0, 40, 1280, 680);
+      g.fillStyle = tw ? 'rgba(60,0,20,0.75)' : 'rgba(40,30,0,0.6)'; g.fillRect(0, 40, 1280, 680);
       MGH.glow(g, 640, 400, 360, tw ? 'rgba(255,60,90,0.5)' : 'rgba(255,210,90,0.5)');
       const title = tw ? '🗡️ THE TRAITOR WINS 🗡️' : '🏆 THE FAITHFUL WIN 🏆';
-      g.font = 'bold 58px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#120610'; g.strokeText(title, 640, 150); g.fillStyle = tw ? '#ff6b8a' : '#ffe680'; g.fillText(title, 640, 150);
+      g.font = 'bold 56px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#120610'; g.strokeText(title, 640, 140); g.fillStyle = tw ? '#ff6b8a' : '#ffe680'; g.fillText(title, 640, 140);
+      const hk = { vial: 'their vial blushed', eye: 'a glint in their eye', smirk: 'a tiny smirk', cloak: 'their cloak flushed', shadow: 'their shadow darkened', name: 'their name flickered', glance: 'a glance straight at you', horns: 'two little horns', smoke: 'a wisp of smoke', feather: 'a dark feather', aura: 'a faint aura', footprint: 'a glowing footprint', well: 'the well water darkened', drop: 'a drop fell from their vial', glint: 'a glint under their cloak', crow: 'a crow flew over', hem: 'their cloak hem changed', dagger: 'a tiny dagger', slit: 'a snake-like eye', tint: 'a violet shimmer' }[S.hint.kind];
       if (tw) {
-        this.cloak(g, 640, 410, 1.8, '#ff4d6d', m.t); MGH.av(g, m, i, 640, 420, 52, 'evil');
-        MGH.text(g, `${m.players[i].name} was the Traitor all along — and steals ${S.pot + S.purse} gold!`, 640, 600, 26, '#fff', 'center', 'bold');
+        this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); MGH.av(g, m, i, 640, 410, 52, 'evil');
+        MGH.text(g, `${m.players[i].name} was the Traitor — and walks away with ${S.pot} gold!`, 640, 580, 26, '#fff', 'center', 'bold');
       } else {
-        const sv = this.alive(S);
-        sv.forEach((j, k) => { const x = 640 + (k - (sv.length - 1) / 2) * 200; this.cloak(g, x, 410, 1.3, m.players[j].color, m.t + j); MGH.av(g, m, j, x, 420, 40, 'cheer'); });
-        MGH.text(g, `${m.players[i].name} the Traitor is caught! The survivors share ${S.pot} gold.`, 640, 600, 26, '#fff', 'center', 'bold');
+        const w = [0, 1, 2, 3].filter(j => j !== i);
+        w.forEach((j, k) => { const x = 640 + (k - 1) * 230, ok = S.P[j].pours >= QUOTA; this.cloak(g, x, 400, 1.3, m.players[j].color, m.t + j); MGH.av(g, m, j, x, 410, 40, ok ? 'happy' : 'sad'); MGH.text(g, ok ? '✔ wins a share' : '✖ mission unfinished', x, 500, 18, ok ? '#9fffa0' : '#ff9a9a', 'center', 'bold'); });
+        MGH.text(g, `${m.players[i].name} the Traitor is caught!`, 640, 580, 26, '#fff', 'center', 'bold');
       }
-    },
-    // the private envelope screen
-    drawRoles(m, S, g) {
-      const t = m.t, i = S.humans[S.env];
-      g.fillStyle = MGH.grad(g, 40, 720, ['#1a0c20', '#0a0612']); g.fillRect(0, 40, 1280, 680);
-      MGH.glow(g, 640, 380, 380, 'rgba(180,60,90,0.25)');
-      g.font = 'bold 54px Georgia'; g.textAlign = 'center'; g.fillStyle = '#e8d8ff'; g.fillText('THE TRAITORS', 640, 130);
-      MGH.text(g, 'of Moonhold Castle', 640, 166, 22, '#b8a0d8');
-      if (i === undefined) return;
-      const p = m.players[i], open = m.held(i, 'a') && S.envT > 0.6;
-      MGH.text(g, `🔒 ${p.name}'s envelope — EVERYONE ELSE, LOOK AWAY!`, 640, 232, 26, p.color, 'center', 'bold');
-      // the envelope / card
-      g.save(); g.translate(640, 440);
-      if (!open) {
-        g.fillStyle = '#e8dcc0'; MGH.rr(g, -200, -120, 400, 240, 14); g.fill(); g.strokeStyle = '#8a6a3a'; g.lineWidth = 4; g.stroke();
-        g.fillStyle = '#d8c8a8'; g.beginPath(); g.moveTo(-200, -120); g.lineTo(0, 20); g.lineTo(200, -120); g.closePath(); g.fill(); g.stroke();
-        g.fillStyle = '#a8202a'; g.beginPath(); g.arc(0, 14, 30, 0, 7); g.fill(); MGH.text(g, '⚜', 0, 26, 32, '#ffd0a0');
-        g.restore();
-        MGH.text(g, S.envSeen > 0.8 ? 'Let go of A when you are done' : `${p.name}: HOLD  A  to open your envelope`, 640, 640, 24, '#fff', 'center', 'bold');
-        return;
-      }
-      const tr = S.traitor === i;
-      g.fillStyle = tr ? '#2a0610' : '#f6ecd0'; MGH.rr(g, -300, -150, 600, 300, 18); g.fill(); g.strokeStyle = tr ? '#ff4d6d' : '#c89a3a'; g.lineWidth = 6; g.stroke();
-      MGH.glow(g, 0, -60, 140, tr ? 'rgba(255,40,80,0.4)' : 'rgba(255,210,90,0.35)');
-      g.font = 'bold 56px Georgia'; g.textAlign = 'center'; g.fillStyle = tr ? '#ff4d6d' : '#8a5a1a'; g.fillText(tr ? 'TRAITOR' : 'FAITHFUL', 0, -60);
-      MGH.wrap(g, tr ? 'Spoil the missions without getting caught. At the cauldron, B pours POISON (it looks like a normal pour) — you have 2 doses per mission. It hisses 1.5–3.5 s later — pour it right after someone else does!' : 'Find the Traitor! Fill the cauldron, and watch the timeline: when the cauldron hisses, the Traitor poured 1.5–3.5 s earlier. (Your B is just a normal pour.)', 0, -10, 520, 28, tr ? '#ffd0d8' : '#3a2a10', 20);
-      g.restore();
-      MGH.text(g, 'Let go of A to seal it again', 640, 640, 22, '#fff', 'center', 'bold');
+      MGH.text(g, `The tell you could have spotted: ${hk}.`, 640, 630, 18, '#d8c8f0', 'center');
     },
   });
 })();
