@@ -281,7 +281,7 @@ const UI = {
         const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.setTransform(1.4, 0, 0, 1.4, 0, 0);
         const hov = c.closest('.seat') && c.closest('.seat').matches(':hover');
         Char._wave = hov;
-        Char.draw(g, 62, 58, 34, i, ELEMENTS[i].color, { mood: hov ? 'determined' : 'happy', t: t + i * 1.7, seed: i * 2.3, look: { x: -0.4, y: 0 } });
+        Char.draw(g, 60, 52, 37, i, ELEMENTS[i].color, { mood: hov ? 'determined' : 'happy', t: t + i * 1.7, seed: i * 2.3, look: { x: -0.4, y: 0 } });
         Char._wave = false;
       });
       this.menuRaf = requestAnimationFrame(tick);

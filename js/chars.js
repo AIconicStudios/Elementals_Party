@@ -59,6 +59,13 @@ const Char = {
     if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, true);
     g.translate(0, -idle.lift);
     g.scale(-face * idle.flip, 1); // everything below is drawn facing left
+    // full character: head, clan outfit, floating hands and feet (icons and generic folk keep the round head-only look)
+    if (el >= 0 && !o.headOnly && !this.headOnly && !(o.simple && o.noArms && o.noFeet)) {
+      this.fullBody(g, r, el, C, skin, mood, faceMood, o, t, seed, walk, out, squash, face, idle, color);
+      this._pose = null; g.restore();
+      if (o.prop) { g.save(); g.font = `${Math.round(r * 0.8)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.prop, x + face * r * 1.15, y - bob + r * 0.55); g.restore(); }
+      return;
+    }
     if (!o.noFeet) this.shoes(g, r, C, t, seed, walk, out);
     if (!o.noArms) this.glove(g, r, C, faceMood, t, seed, walk, false);
     g.save(); g.scale(1 / Math.sqrt(squash), squash);
@@ -77,6 +84,165 @@ const Char = {
     this._pose = null;
     g.restore();
     if (o.prop) { g.save(); g.font = `${Math.round(r * 0.9)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.prop, x + face * r * 1.2, y - bob + r * 0.1); g.restore(); }
+  },
+
+  // ---------------------------------------------------------------- full character (head + outfit + floating limbs)
+  // Same footprint as the old round hero: head top at about -r, floating feet on the ground at +1.25r.
+  OUTFIT: [
+    { top: '#a9dcf4', trim: '#ffffff', bottoms: '#7f8fa8' },                    // Zephi: Sky Scout jacket with a little cape
+    { top: '#f6f9ff', trim: '#24468f', bottoms: '#24468f', tie: '#5fb8ff' },   // Drip: sailor suit
+    { top: '#d8362a', trim: '#ffc23a', bottoms: '#2b2b38', stripe: '#ffc23a' }, // Pyra: varsity jacket
+    { top: '#6cb83c', trim: '#4f8a2c', bottoms: '#7a5230' },                    // Pebble: gardener overalls
+  ],
+  fullBody(g, r, el, C, skin, mood, faceMood, o, t, seed, walk, out, squash, face, idle, color) {
+    const h = r * 0.7, hy = -r * 0.32, tx = r * 0.01, ty = hy + h * 1.3, ground = r * 1.25;
+    const P = o.noArms ? null : (o.hands || this.handPose(faceMood, t, seed, walk, idle));
+    // far hand, then the feet, then the cape (all behind the torso)
+    if (P) this.floatHand(g, h, C, tx + P.f.x * h, ty + P.f.y * h, P.f, false, faceMood);
+    if (!o.noFeet) {
+      const F = o.feet || this.footPose(t, seed, walk, out, mood);
+      for (const [k, near] of [[1, false], [0, true]]) {
+        const sr = h * 0.82;
+        g.save(); g.translate(F[k].x * h, ground - F[k].lift * h - sr * 0.05);
+        if (F[k].tip) { g.translate(-sr * 0.06, 0); g.rotate(-F[k].tip); }
+        if (out) g.rotate(near ? -0.3 : 0.3);
+        this.shoe(g, sr, C, !near); g.restore();
+      }
+    }
+    if (el === 0) this.cape(g, h, tx, ty, t, seed);
+    // torso with the clan outfit (breathes a little)
+    const sq = 1 + (squash - 1) * 0.5;
+    g.save(); g.translate(tx, ty); g.scale(1 / Math.sqrt(sq), sq); this.outfit(g, h, el); g.restore();
+    // head
+    g.save(); g.translate(0, hy); g.scale(1 / Math.sqrt(squash), squash);
+    this.body(g, h, skin);
+    if (mood === 'angry' || mood === 'sick' || mood === 'evil') { g.save(); g.beginPath(); g.arc(0, 0, h, 0, 7); g.clip(); const tg = g.createLinearGradient(0, -h, 0, h); const c = mood === 'angry' ? '255,40,30' : mood === 'sick' ? '90,200,60' : '120,40,160'; tg.addColorStop(0, `rgba(${c},${mood === 'evil' ? 0.25 : 0.45})`); tg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = tg; g.fillRect(-h, -h, h * 2, h * 2); g.restore(); }
+    if (o.hat !== 'helmet') this.wrap(g, h, C, el, t, seed);
+    this.face(g, h, faceMood, o.look ? clamp(o.look.y, -1, 1) : 0, t, seed, skin);
+    if (o.hat === 'helmet') this.helmet(g, h, color);
+    if (!o.flat) this.lightPass(g, h, -face * idle.flip);
+    g.restore();
+    // Drip's neckerchief hangs just under the chin, in front of the body
+    if (el === 1) { const O = this.OUTFIT[1], rx = h * 0.68, ry = h * 0.6; g.fillStyle = O.tie; g.strokeStyle = '#2a6fb0'; g.lineWidth = Math.max(0.8, h * 0.02); g.beginPath(); g.moveTo(tx - rx * 0.42, ty - ry * 0.62); g.lineTo(tx - rx * 0.62, ty - ry * 0.05); g.lineTo(tx - rx * 0.32, ty - ry * 0.2); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(tx - rx * 0.44, ty - ry * 0.6, h * 0.07, h * 0.055, 0, 0, 7); g.fill(); g.stroke(); }
+    if (P) {
+      if (P.wave && h > 9) { g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = h * 0.035; g.lineCap = 'round'; for (const k of [0, 1]) { g.beginPath(); g.arc(tx + P.n.x * h, ty + P.n.y * h, h * (0.34 + k * 0.1), -Math.PI * 0.95, -Math.PI * 0.62); g.stroke(); } }
+      this.floatHand(g, h, C, tx + P.n.x * h, ty + P.n.y * h, P.n, true, faceMood);
+    }
+    // effects that belong to the head ride along with it
+    g.save(); g.translate(0, hy); if (!o.simple) this.flair(g, h, el, t, seed); this.moodFx(g, h, faceMood, t, seed); g.restore();
+    if (!o.simple) this.flourish(g, r, el, faceMood, t, seed);
+    if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, false);
+  },
+  // a floating glove placed by the rules of an imaginary arm: cuff toward the body, thumb toward the face on raised open hands,
+  // far hand a little smaller (further away)
+  floatHand(g, h, C, X, Y, H, near, mood) {
+    const d = H.d * Math.PI / 180;
+    this.mitt(g, h * (near ? 0.9 : 0.8), C, X, Y, Math.atan2(-Math.sin(d), -Math.cos(d)), near, mood, H.m, H.o);
+  },
+  // hand positions (head radii from the torso centre) and finger directions (deg: 0 back, 90 down, 180 forward, -90 up)
+  handPose(mood, t, seed, walk, idle) {
+    const S = (x, y, d, op, mi) => ({ x, y, d, o: !!op, m: !!mi });
+    const bn = Math.sin(t * 3.1 + seed) * 0.045, bf = Math.sin(t * 3.1 + seed + 1.9) * 0.045, shake = Math.sin(t * 40) * 0.05;
+    const stand = () => ({ n: S(-0.96, 0.24 + bn, 106), f: S(0.84, 0.12 + bf, 74) });
+    switch (idle.pose) {
+      case 'spin': return { n: S(-1.38, -0.28, 178, 1, 1), f: S(1.32, -0.28, 2, 1, 0) };                                  // arms out, twirling
+      case 'splash': return { n: S(-1.42, -1.4, -104, 1, 1), f: S(1.02, -1.78, -68, 1, 1) };                               // hands up for the splash
+      case 'pump': { const up = Math.abs(Math.sin(idle.pp * Math.PI * 3)); return { n: S(-0.9, -1.35 - up * 0.32, -98), f: S(0.84, 0.14, 74) }; } // fist pump
+      case 'stomp': return { n: S(-0.98, 0.3, 100), f: S(0.88, 0.3, 80) };
+      case 'flex': return { n: S(-1.14, -0.78 + shake * 0.4, -78), f: S(1.04, -0.78 - shake * 0.4, -102) };              // fists up: flexing
+    }
+    switch (mood) {
+      case 'cheer': { const b = Math.sin(t * 14) * 0.08; return { n: S(-1.5, -1.42 + b, -104, 1, 1), f: S(1.05, -1.8 - b, -66, 1, 1) }; }
+      case 'starry': { const b = Math.sin(t * 9) * 0.08; return { n: S(-1.36, -1.52 + b, -100, 1, 1), f: S(1.0, -1.88 - b, -70, 1, 1) }; }
+      case 'laugh': { const b = Math.abs(Math.sin(t * 11)) * 0.06; return { n: S(-0.62, 0.16 + b, 150), f: S(0.74, 0.2 + b, 76) }; }     // holding the belly
+      case 'shock': return { n: S(-1.42, -0.95 + shake, -125, 1, 1), f: S(1.12, -1.15 + shake, -55, 1, 1) };             // hands thrown up
+      case 'scared': return { n: S(-1.14, -0.55 + shake * 0.5, -112, 1, 1), f: S(-0.98, -0.42, -106, 1, 1) };            // hands up to fend off
+      case 'love': return { n: S(-0.88, -0.24, 200), f: S(-0.74, -0.3, 205) };                                           // clasped at the chest
+      case 'evil': { const q = Math.sin(t * 18) * 0.07; return { n: S(-0.88 + q, 0.02 + Math.cos(t * 18) * 0.04, 150), f: S(-0.74 - q, -0.02, 155) }; } // rubbing hands
+      case 'angry': return { n: S(-1.12, -0.05 + shake, 172), f: S(0.86, -shake, 162) };                                 // shaking fists
+      case 'effort': return { n: S(-1.05, 0.05 + Math.sin(t * 18) * 0.03, 175), f: S(-0.88, -0.02, 172) };              // straining, both fists forward
+      case 'stoic': return { n: S(-1.02, -0.3, 176), f: S(0.82, 0.26, 80) };                                             // one firm fist, steady
+      case 'grim': return { n: S(-0.42, 0.02, 175), f: S(-0.2, -0.05, 175) };                                            // arms folded
+      case 'smug': case 'proud': return { n: S(0.06, 0.3, 100), f: S(0.72, 0.28, 80) };                                  // hands on hips
+      case 'sick': return { n: S(-0.56, 0.18, 145), f: S(0.76, 0.25, 80) };
+      case 'nervous': return { n: S(-0.78 + Math.sin(t * 12) * 0.05, 0.08, 140), f: S(-0.62, 0.05, 145) };              // fidgeting
+      case 'hurt': case 'dizzy': case 'out': case 'sad': case 'cry': case 'sleepy': return { n: S(-0.78, 0.42, 96), f: S(0.76, 0.4, 84) }; // limp
+    }
+    const waving = (this._wave && mood !== 'scared') || (mood === 'happy' && walk < 0.1 && ((t + seed) % 7) < 1.3);
+    if (waving) { const w = Math.sin(t * 10); return { n: S(-1.3, -0.82 + w * 0.03, -102 + 22 * w, 1, 1), f: S(0.84, 0.12 + bf, 74), wave: true }; }
+    if (walk > 0.1) { const s = Math.sin(t * 14 + seed); return { n: S(-0.12 - 0.82 * s, 0.22 - 0.06 * Math.abs(s), 90 + 32 * s), f: S(0.12 + 0.82 * s, 0.2 - 0.06 * Math.abs(s), 90 - 32 * s) }; } // opposite swing
+    if (mood === 'determined') return { n: S(-1.02, -0.12 + bn, 172), f: S(0.8, -0.02 + bf, 162) };                    // fists up, ready
+    return stand();
+  },
+  // floating feet: x and lift in head radii; tip = toe-down tilt of a lifted foot
+  footPose(t, seed, walk, out, mood) {
+    if (walk > 0.1 && !out) {
+      const ph = t * 14 + seed, s = Math.sin(ph), c = Math.cos(ph);
+      const ln = Math.max(0, -c) * 0.16, lf = Math.max(0, c) * 0.16; // the foot swinging forward is in the air
+      return [{ x: -0.04 + 0.34 * s, lift: ln, tip: ln * 2.6 }, { x: -0.04 - 0.34 * s, lift: lf, tip: lf * 2.6 }];
+    }
+    if (mood === 'cheer') { const hop = Math.max(0, Math.sin(t * 7)) * 0.12; return [{ x: -0.2, lift: hop, tip: hop * 2.5 }, { x: 0.24, lift: hop * 1.3, tip: hop * 3 }]; }
+    return [{ x: -0.22, lift: 0, tip: 0 }, { x: 0.26, lift: 0, tip: 0 }];
+  },
+  cape(g, h, tx, ty, t, seed) {
+    const rx = h * 0.68, ry = h * 0.6, w = Math.sin(t * 3 + seed) * h * 0.06;
+    const cg = g.createLinearGradient(tx, ty - ry, tx + rx * 1.6, ty + ry); cg.addColorStop(0, '#ffffff'); cg.addColorStop(1, '#cfe3f2');
+    g.fillStyle = cg; g.strokeStyle = '#8fa6bf'; g.lineWidth = Math.max(0.8, h * 0.03);
+    g.beginPath(); g.moveTo(tx + rx * 0.2, ty - ry * 0.95); g.quadraticCurveTo(tx + rx * 1.15, ty - ry * 0.9 + w, tx + rx * 1.45, ty + ry * 0.2 + w);
+    g.quadraticCurveTo(tx + rx * 1.25, ty + ry * 0.35, tx + rx * 1.12, ty + ry * 0.55); g.quadraticCurveTo(tx + rx * 0.95, ty + ry * 0.3, tx + rx * 0.75, ty + ry * 0.45);
+    g.quadraticCurveTo(tx + rx * 0.6, ty - ry * 0.3, tx + rx * 0.2, ty - ry * 0.95); g.closePath(); g.fill(); g.stroke();
+  },
+  // torso and outfit, centred on the origin; r = head radius. Seen from the side like the head: hems curve round the body.
+  outfit(g, r, el) {
+    const O = this.OUTFIT[el], sh = (c, a) => this.shade(c, a), rx = r * 0.68, ry = r * 0.6, hi = r > 9;
+    const body = () => { g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, 7); };
+    g.save(); body(); g.clip();
+    const cloth = (col, path) => { if (hi) { const cg = g.createLinearGradient(-rx, -ry, rx, ry); cg.addColorStop(0, sh(col, 0.3)); cg.addColorStop(0.55, col); cg.addColorStop(1, sh(col, -0.3)); g.fillStyle = cg; } else g.fillStyle = col; path(); g.fill(); };
+    const full = () => { g.beginPath(); g.rect(-rx * 1.2, -ry * 1.2, rx * 2.4, ry * 2.4); };
+    const sag = ry * 0.16, yc = (xx, yy) => yy + sag * (1 - Math.pow(xx / (rx * 1.2), 2));
+    const below = yy => () => { g.beginPath(); g.moveTo(-rx * 1.2, yy); g.quadraticCurveTo(0, yy + sag * 2, rx * 1.2, yy); g.lineTo(rx * 1.2, ry * 1.5); g.lineTo(-rx * 1.2, ry * 1.5); g.closePath(); };
+    const band = (yy, hh, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(-rx * 1.2, yy); g.quadraticCurveTo(0, yy + sag * 2, rx * 1.2, yy); g.lineTo(rx * 1.2, yy + hh); g.quadraticCurveTo(0, yy + hh + sag * 2, -rx * 1.2, yy + hh); g.closePath(); g.fill(); };
+    cloth(O.top, full);
+    if (el === 0) { // sky scout: zip down the front, white trim, swirl badge, shorts
+      g.strokeStyle = '#ffffff'; g.lineWidth = r * 0.06; g.beginPath(); g.ellipse(0, 0, rx * 0.93, ry * 0.93, 0, Math.PI * 0.62, Math.PI * 1.3); g.stroke();
+      if (hi) { g.strokeStyle = '#7f8fa8'; g.lineWidth = Math.max(0.6, r * 0.02); g.setLineDash([r * 0.02, r * 0.02]); g.beginPath(); g.ellipse(0, 0, rx * 0.93, ry * 0.93, 0, Math.PI * 0.64, Math.PI * 1.28); g.stroke(); g.setLineDash([]); }
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(-rx * 0.15, -ry * 0.1, r * 0.13, 0, 7); g.fill();
+      if (hi) { g.strokeStyle = '#5aa9c9'; g.lineWidth = r * 0.03; g.beginPath(); g.arc(-rx * 0.15, -ry * 0.1, r * 0.08, 0.3, 5.3); g.stroke(); g.beginPath(); g.arc(-rx * 0.15, -ry * 0.1, r * 0.03, 0.3, 5.3); g.stroke(); }
+      band(ry * 0.4, r * 0.08, '#ffffff');
+      cloth(O.bottoms, below(ry * 0.4 + r * 0.075));
+    }
+    if (el === 1) { // sailor: navy shorts with gold buttons, collar flap at the back
+      cloth(O.bottoms, below(ry * 0.42));
+      g.fillStyle = '#ffd34d'; for (const k of [0, 1]) { g.beginPath(); g.arc(-rx * 0.62, ry * (0.62 + k * 0.2), r * 0.035, 0, 7); g.fill(); }
+      g.fillStyle = O.trim; g.beginPath(); g.moveTo(rx * 0.05, -ry * 1.05); g.lineTo(rx * 1.2, -ry * 1.05); g.lineTo(rx * 1.2, -ry * 0.2); g.lineTo(rx * 0.45, -ry * 0.2); g.closePath(); g.fill();
+      g.strokeStyle = '#ffffff'; g.lineWidth = r * 0.025; g.beginPath(); g.moveTo(rx * 0.2, -ry * 0.95); g.lineTo(rx * 0.52, -ry * 0.3); g.lineTo(rx * 1.2, -ry * 0.3); g.stroke();
+    }
+    if (el === 2) { // varsity: yellow ribbed hem, flame patch on the side, zip at the front, shorts with a side stripe
+      const hy = ry * 0.34;
+      cloth(O.bottoms, below(hy + r * 0.09));
+      g.save(); below(hy)(); g.clip(); g.strokeStyle = O.stripe; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(0, 0, rx * 0.84, ry * 0.98, 0, 0.1, 1.0); g.stroke(); g.restore();
+      band(hy, r * 0.1, O.trim);
+      if (hi) { g.strokeStyle = sh(O.trim, -0.3); g.lineWidth = Math.max(0.6, r * 0.012); for (let k = 0; k < 14; k++) { const xx = -rx + k * rx * 0.15; g.beginPath(); g.moveTo(xx, yc(xx, hy)); g.lineTo(xx, yc(xx, hy) + r * 0.1); g.stroke(); } }
+      g.strokeStyle = '#fff1d6'; g.lineWidth = r * 0.03; g.beginPath(); g.ellipse(0, 0, rx * 0.9, ry * 0.9, 0, Math.PI * 0.66, Math.PI * 1.28); g.stroke();
+      g.save(); g.translate(rx * 0.5, -ry * 0.12); g.transform(0.68, 0.08, 0, 1, 0, 0);
+      if (hi) { const fg = g.createLinearGradient(0, r * 0.15, 0, -r * 0.25); fg.addColorStop(0, '#fff3b0'); fg.addColorStop(1, '#ff9a2a'); g.fillStyle = fg; } else g.fillStyle = '#ffb03a';
+      g.strokeStyle = '#a82a10'; g.lineWidth = Math.max(0.6, r * 0.02);
+      g.beginPath(); g.moveTo(-r * 0.14, r * 0.14); g.quadraticCurveTo(-r * 0.17, -r * 0.06, 0, -r * 0.26); g.quadraticCurveTo(r * 0.02, -r * 0.06, r * 0.08, -r * 0.1); g.quadraticCurveTo(r * 0.2, r * 0.02, r * 0.14, r * 0.14); g.closePath(); g.fill(); if (hi) g.stroke(); g.restore();
+    }
+    if (el === 3) { // overalls over a green tee: bib, strap with a button, leaf patch pocket
+      const den = O.bottoms;
+      cloth(den, () => { g.beginPath(); g.moveTo(-rx * 0.95, -ry * 0.3); g.lineTo(rx * 0.3, -ry * 0.3); g.lineTo(rx * 0.42, ry * 0.25); g.lineTo(rx * 1.2, ry * 0.25); g.lineTo(rx * 1.2, ry * 1.2); g.lineTo(-rx * 1.2, ry * 1.2); g.closePath(); });
+      if (hi) { g.strokeStyle = sh(den, 0.4); g.lineWidth = Math.max(0.6, r * 0.015); g.setLineDash([r * 0.03, r * 0.025]); g.beginPath(); g.moveTo(-rx * 0.9, -ry * 0.22); g.lineTo(rx * 0.25, -ry * 0.22); g.lineTo(rx * 0.36, ry * 0.3); g.stroke(); g.setLineDash([]); }
+      g.strokeStyle = den; g.lineWidth = r * 0.1; g.lineCap = 'butt'; g.beginPath(); g.moveTo(rx * 0.2, -ry * 0.3); g.lineTo(rx * 0.35, -ry * 1.1); g.stroke();
+      g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(rx * 0.2, -ry * 0.2, r * 0.04, 0, 7); g.fill();
+      g.fillStyle = sh(den, -0.18); g.beginPath(); rrPath(g, -rx * 0.62, -ry * 0.12, rx * 0.5, ry * 0.36, r * 0.04); g.fill();
+      g.save(); g.translate(-rx * 0.37, ry * 0.06); g.rotate(-0.5); g.fillStyle = '#9fe06a'; g.beginPath(); g.moveTo(-r * 0.1, 0); g.quadraticCurveTo(0, -r * 0.08, r * 0.1, 0); g.quadraticCurveTo(0, r * 0.08, -r * 0.1, 0); g.fill(); g.restore();
+    }
+    // the big head shades the top of the body; a soft rim of sky light on the back
+    const sd = g.createLinearGradient(0, -ry, 0, -ry * 0.35); sd.addColorStop(0, 'rgba(60,20,20,0.35)'); sd.addColorStop(1, 'rgba(60,20,20,0)'); g.fillStyle = sd; g.fillRect(-rx, -ry, rx * 2, ry * 0.7);
+    if (hi) { g.strokeStyle = 'rgba(255,250,230,0.25)'; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(0, 0, rx * 0.95, ry * 0.95, 0, -0.5, 0.6); g.stroke(); }
+    g.restore();
+    g.strokeStyle = sh(O.top, -0.6); g.lineWidth = Math.max(0.8, r * 0.04); body(); g.stroke();
   },
 
   body(g, r, skin) {
@@ -655,11 +821,11 @@ const Char = {
 
   // chubby cartoon fist: puffy palm, three knuckle bumps, a hugging thumb and a flared rolled cuff.
   // Local space: knuckles point to -x, cuff (wrist) to +x, thumb on the -y side.
-  mitt(g, r, C, hx, hy, rot, front, mood, flip = false) {
+  mitt(g, r, C, hx, hy, rot, front, mood, flip = false, openHand) {
     const s = r * 0.27, hi = r > 10, lw = Math.max(0.8, r * 0.034);
     const L = this.shade(C.glove, front ? 0.5 : 0.22), M = front ? this.shade(C.glove, 0) : this.shade(C.glove, -0.16), D = this.shade(C.glove, front ? -0.38 : -0.5);
     const ink = this.shade(C.glove, -0.65);
-    const open = mood === 'cheer' || mood === 'shock' || mood === 'starry' || this._wave; // open, waving hand
+    const open = openHand !== undefined ? openHand : (mood === 'cheer' || mood === 'shock' || mood === 'starry' || this._wave); // open, waving hand
     g.save(); g.translate(hx, hy); g.rotate(rot); if (flip) g.scale(1, -1); // flip puts the thumb on the other side
     if (hi && front) { g.fillStyle = 'rgba(40,15,10,0.16)'; g.beginPath(); g.ellipse(s * 0.2, s * 0.3, s * 1.05, s * 0.85, 0, 0, 7); g.fill(); }
     const parts = open ? [

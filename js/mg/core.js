@@ -437,7 +437,7 @@ const MGH = {
     const k = [['A/D', 'W/S', 'WASD', 'Q'], ['F/H', 'T/G', 'TFGH', 'R'], ['J/L', 'I/K', 'IJKL', 'U'], ['←/→', '↑/↓', 'Arrows', 'Enter']][i];
     const c = game.controls;
     let s;
-    if (/A & B/.test(c)) s = `${/Left\/Right/.test(c) ? k[0] + ' move · ' : ''}${k[3]} = A · ${['E', 'Y', 'O', 'R-Shift'][i]} = B`;
+    if (/A & B/.test(c)) s = `${/Left\/Right/.test(c) ? k[0] + ' move · ' : /Move/.test(c) ? k[2] + ' move · ' : ''}${k[3]} = A · ${['E', 'Y', 'O', 'R-Shift'][i]} = B`;
     else if (/Cursor/.test(c)) s = `${k[2]} move cursor · ${k[3]} click${i === 0 ? ' (or mouse)' : ''}`;
     else if (/Move/.test(c)) s = `${k[2]} move · ${k[3]} action`;
     else if (/Left\/Right/.test(c)) s = `${k[0]} steer${/mash|\+/.test(c) ? ' · ' + k[3] + ' action' : ''}`;

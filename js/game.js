@@ -1212,11 +1212,17 @@ class Game {
 
   async minigamePhase() {
     this.phase = 'minigame';
-    let pool = MG.list.map(g => g.id).filter(id => !this.mgPlayed.includes(id));
-    if (!pool.length) { this.mgPlayed = []; pool = MG.list.map(g => g.id); }
+    // the last Moot of every game is the Grand Finale brawl; the halfway Moot is one of the long marathon games
+    const finale = this.round === this.rounds - 1 && MG.byId.brawl && this.rounds > 2;
+    const marathon = !finale && this.round === Math.floor(this.rounds / 2) && MG.list.some(g => g.long);
+    const elig = g => (marathon ? g.long : !g.long) && !g.finale;
+    let pool = MG.list.filter(g => elig(g) && !this.mgPlayed.includes(g.id)).map(g => g.id);
+    if (!pool.length) { this.mgPlayed = this.mgPlayed.filter(x => !MG.list.some(g => g.id === x && elig(g))); pool = MG.list.filter(elig).map(g => g.id); }
     let id;
     if (this.mgForce) id = this.mgForce;
+    else if (finale) { id = 'brawl'; await UI.banner('🔥 Grand Finale 🔥', 'The last Moot is the Fourfold Clash — six lives, clan powers, last one standing!'); }
     else {
+      if (marathon) await UI.banner('🏟️ Marathon Moot', 'Halfway there — time for one of the big multi-event games!');
       const under = this.players.slice().sort((a, b) => a.vault - b.vault || (this.bank(a) + a.cash) - (this.bank(b) + b.cash))[0];
       const two = R.shuffle(pool).slice(0, 2);
       if (two.length < 2) id = two[0];

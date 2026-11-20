@@ -440,28 +440,18 @@ MG.def({
 // 8 ---------------------------------------------------------------- Rising Tide
 MG.def({
   id: 'tide', name: 'Rising Tide', type: 'Survival', controls: 'Move + jump', dur: 50,
-  how: 'Climb as the water rises all the way to the sky. Platforms crumble about a second after anyone stands on them and come back later, so keep hopping. Press B to attack and shove rivals: Zephi blasts a gust, Drip splashes a wave, Pyra throws a fireball, Pebble ground-pounds. Touch the water and you are out.',
+  how: 'Climb as the water rises all the way to the sky. Platforms crumble about a second after anyone stands on them and come back later, so keep hopping upward. Pure climbing: jump with A, no attacks, no power-ups.',
   wins: 'Last one alive.',
   init(m, S) {
-    S.atk = []; S.shots = [];
     S.plats = [{ x: 0, y: 690, w: 1280, floor: true, load: 0, st: 'ok', tt: 0 }];
     for (let y = 600; y > 80; y -= 92) {
       const n = R.int(3, 4);
       for (let k = 0; k < n; k++) S.plats.push({ x: k * (1280 / n) + R.range(0, 1280 / n - 190), y: y + R.range(-12, 12), w: R.range(130, 185), load: 0, st: 'ok', tt: 0 });
     }
-    S.b = [0, 1, 2, 3].map(i => ({ x: 220 + i * 280, y: 690, vx: 0, vy: 0, ground: true, alive: true, outT: 0, on: null, kx: 0, cd: 0, dir: i < 2 ? 1 : -1, hit: 0 }));
+    S.b = [0, 1, 2, 3].map(i => ({ x: 220 + i * 280, y: 690, vx: 0, vy: 0, ground: true, alive: true, outT: 0, on: null, dir: i < 2 ? 1 : -1 }));
     S.water = 800; S.wall = 0;
   },
   solid(p) { return p.st === 'ok' || p.st === 'crack'; },
-  shove(m, S, j, fx, fy) { const o = S.b[j]; if (!o.alive) return; o.kx += fx; if (fy) { o.vy = Math.min(o.vy, fy); o.ground = false; } o.hit = 0.5; MGH.burst(o.x, o.y - 16, ['#fff', m.players[j].color], 10, { speed: 200, kind: 'spark', size: 2 }); },
-  attack(m, S, i) {
-    const b = S.b[i], el = m.players[i].el.id; b.cd = 1.4;
-    const near = (r, front) => S.b.map((o, j) => j).filter(j => j !== i && S.b[j].alive && Math.abs(S.b[j].y - b.y) < 70 && Math.abs(S.b[j].x - b.x) < r && (!front || Math.sign(S.b[j].x - b.x) === b.dir));
-    if (el === 0) { near(260, true).forEach(j => this.shove(m, S, j, b.dir * 900, -300)); S.atk.push({ k: 'gust', x: b.x, y: b.y - 18, dir: b.dir, t: 0 }); Sfx.whoosh(true); }
-    if (el === 1) { near(170, false).forEach(j => this.shove(m, S, j, Math.sign(S.b[j].x - b.x || 1) * 700, -420)); S.atk.push({ k: 'wave', x: b.x, y: b.y, t: 0 }); Sfx.noise(0.4, 900, 0.1, 'lowpass', 0, 800); }
-    if (el === 2) { S.shots.push({ x: b.x + b.dir * 20, y: b.y - 20, vx: b.dir * 640, own: i, t: 0 }); Sfx.noise(0.3, 1500, 0.08, 'bandpass', 0, -900); }
-    if (el === 3) { if (!b.ground) b.vy = 900; S.atk.push({ k: 'pound', x: b.x, y: b.y, t: 0, own: i, wait: !b.ground }); if (b.ground) { near(190, false).forEach(j => this.shove(m, S, j, Math.sign(S.b[j].x - b.x || 1) * 650, -560)); MGH.shake(6); Sfx.boom(); } }
-  },
   update(m, S, dt) {
     S.water = 800 - m.t * 15.2; S.wall = Math.min(240, m.t * 5);
     // platform life cycle: ok -> (stood on 1.1s) crack 0.6s -> gone 4.5s -> back
@@ -476,8 +466,7 @@ MG.def({
       const b = S.b[i]; if (!b.alive) continue;
       const ax = m.axis(i).x;
       if (ax) b.dir = Math.sign(ax);
-      b.vx = ax * 300 + b.kx; b.kx *= Math.pow(0.04, dt); b.cd -= dt; b.hit -= dt;
-      if (m.pressed(i, 'b') && b.cd <= 0) this.attack(m, S, i);
+      b.vx = ax * 300;
       if (m.pressed(i, 'a') && b.ground) { b.vy = -820; b.ground = false; MGH.burst(b.x, b.y, '#d9c7a8', 6, { speed: 90, life: 0.4 }); }
       b.vy += 1900 * dt;
       const py = b.y;
@@ -488,17 +477,11 @@ MG.def({
       }
       if (b.y > S.water || b.y > 760) { b.alive = false; b.outT = m.t; MGH.burst(b.x, S.water, ['#9fd8ff', '#ffffff', '#4f8dff'], 26, { speed: 300, up: 250, grav: 900 }); if (!m.bot(i)) Sfx.bad(); }
     }
-    // attack effects & fireballs
-    S.atk.forEach(a => { a.t += dt; if (a.k === 'pound' && a.wait) { const b = S.b[a.own]; if (b.ground || !b.alive) { a.wait = false; a.x = b.x; a.y = b.y; a.t = 0; S.b.forEach((o, j) => { if (j !== a.own && o.alive && Math.abs(o.y - b.y) < 70 && Math.abs(o.x - b.x) < 190) this.shove(m, S, j, Math.sign(o.x - b.x || 1) * 650, -560); }); MGH.shake(6); Sfx.boom(); } } });
-    S.atk = S.atk.filter(a => a.t < 0.6 || a.wait);
-    S.shots.forEach(s => { s.x += s.vx * dt; s.t += dt; S.b.forEach((o, j) => { if (!s.dead && j !== s.own && o.alive && Math.abs(o.x - s.x) < 26 && Math.abs(o.y - 16 - s.y) < 30) { s.dead = true; this.shove(m, S, j, Math.sign(s.vx) * 950, -380); MGH.burst(s.x, s.y, ['#ffe680', '#ff8a3d', '#ff3d1f'], 18, { speed: 260 }); Sfx.boom(); } }); });
-    S.shots = S.shots.filter(s => !s.dead && s.t < 1.6 && s.x > 0 && s.x < 1280);
     if (S.b.filter(b => b.alive).length <= 1) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
     const b = S.b[i], v = m.vin[i]; if (!b.alive) return;
     v.a = false;
-    v.b = b.cd <= 0 && Math.random() < 0.05 && S.b.some((o, j) => j !== i && o.alive && Math.abs(o.y - b.y) < 60 && Math.abs(o.x - b.x) < 170) && !m.prev[i].b;
     const usable = p => p.st === 'ok' && p.load < 0.45 && p !== b.on && p.x + p.w > S.wall + 25 && p.x < 1280 - S.wall - 25 && p.y < S.water - 50;
     const onBad = !b.on || b.on.st !== 'ok' || b.on.load > 0.5 || b.on.floor;
     if (b.ground && (onBad || !b.goal || !usable(b.goal))) {
@@ -536,20 +519,10 @@ MG.def({
       if (heat > 0.3 || p.st === 'crack') { g.strokeStyle = '#2a1a0a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(p.x + p.w * 0.3 + sx, p.y); g.lineTo(p.x + p.w * 0.36 + sx, p.y + 8); g.lineTo(p.x + p.w * 0.33 + sx, p.y + 16); g.moveTo(p.x + p.w * 0.7 + sx, p.y); g.lineTo(p.x + p.w * 0.64 + sx, p.y + 16); g.stroke(); }
       if (p.st === 'crack' && Math.random() < 0.3) MGH.burst(p.x + Math.random() * p.w, p.y + 14, '#8a6a4a', 1, { speed: 40, grav: 600, life: 0.5 });
     }
-    // attacks
-    for (const a of S.atk) {
-      const k = clamp(a.t / 0.6, 0, 1); g.globalAlpha = 1 - k;
-      if (a.k === 'gust') { for (let s = 0; s < 4; s++) { g.strokeStyle = 'rgba(230,245,255,0.9)'; g.lineWidth = 4; g.beginPath(); g.arc(a.x + a.dir * (40 + k * 220 + s * 18), a.y - 16 + s * 10, 18 + s * 4, a.dir > 0 ? -1.2 : 1.9, a.dir > 0 ? 1.2 : 4.3); g.stroke(); } }
-      if (a.k === 'wave') { g.fillStyle = 'rgba(80,170,255,0.8)'; for (const d of [-1, 1]) { g.beginPath(); g.ellipse(a.x + d * (30 + k * 140), a.y - 10, 26, 22 * (1 - k * 0.5), 0, Math.PI, 0); g.fill(); } }
-      if (a.k === 'pound' && !a.wait) { g.strokeStyle = 'rgba(190,150,100,0.9)'; g.lineWidth = 6; g.beginPath(); g.ellipse(a.x, a.y, 30 + k * 170, 10 + k * 20, 0, 0, 7); g.stroke(); for (let s = 0; s < 6; s++) MGH.rock(g, a.x + (s - 2.5) * 40 * (0.5 + k), a.y - Math.sin(k * Math.PI) * (30 + s * 6), 6, s, '#8a6a4a'); }
-      g.globalAlpha = 1;
-    }
-    for (const s of S.shots) MGH.fireball(g, s.x, s.y, 13, m.t, s.vx, 0);
     S.b.forEach((b, i) => {
       if (!b.alive) return;
       MGH.shadow(g, b.x, b.y, 18, 0.25);
-      MGH.av(g, m, i, b.x, b.y - 17, 16, b.hit > 0 ? 'dizzy' : S.water - b.y < 90 || (b.on && b.on.st === 'crack') ? 'scared' : (b.cd > 1.1 ? 'angry' : b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: b.dir * 0.8, y: -0.5 } });
-      if (b.cd > 0) { g.strokeStyle = m.players[i].color; g.lineWidth = 3; g.beginPath(); g.arc(b.x, b.y - 58, 7, -Math.PI / 2, -Math.PI / 2 + (1 - b.cd / 1.4) * Math.PI * 2); g.stroke(); }
+      MGH.av(g, m, i, b.x, b.y - 17, 16, S.water - b.y < 90 || (b.on && b.on.st === 'crack') ? 'scared' : (b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: b.dir * 0.8, y: -0.5 } });
     });
     MGH.surface(g, S.water, m.t, 'rgba(200,240,255,0.9)', ['rgba(40,150,255,0.72)', 'rgba(10,40,120,0.95)'], 7);
   },
