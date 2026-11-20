@@ -293,6 +293,11 @@ const Voice = {
       speechSynthesis.speak(u);
     } catch (e) { /* no speech on this computer: stay quiet */ }
   },
+  // the Moot announcer: "Ready… Go!", "Finish!", "Pyra wins!"
+  announce(text) {
+    if (!this.ok() || !text) return;
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.pitch = 1.25; u.rate = 1.05; u.volume = 0.9; const v = this.pick(); if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
+  },
   line(el, kind) { const L = this.LINES[kind]; if (L && L[el]) this.say(el, R.pick(L[el])); },
 };
 if (typeof speechSynthesis !== 'undefined') try { speechSynthesis.onvoiceschanged = () => { Voice.voice = null; }; } catch (e) { /* ignore */ }

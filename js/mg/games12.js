@@ -64,6 +64,9 @@
       for (let k = 0; k < 14; k++) { const x = k * 110 - 60; g.fillStyle = k % 2 ? 'rgba(20,70,40,0.9)' : 'rgba(30,90,50,0.9)'; g.beginPath(); g.arc(x, 640 + (k % 3) * 16, 90, 0, 7); g.fill(); }
       for (let k = 0; k < 6; k++) { const x = 100 + k * 220; g.strokeStyle = 'rgba(40,90,40,0.7)'; g.lineWidth = 5; g.beginPath(); g.moveTo(x, -40); g.quadraticCurveTo(x + Math.sin(t + k) * 20, 120, x + 10, 240 + (k % 3) * 40); g.stroke(); }
       g.restore();
+      // warm sunbeams through the canopy and slow drifting mist
+      g.save(); g.globalCompositeOperation = 'screen'; for (let k = 0; k < 5; k++) { const bx = 160 + k * 260 + Math.sin(t * 0.2 + k) * 30; const gr = g.createLinearGradient(bx, 0, bx - 260, 720); gr.addColorStop(0, 'rgba(255,220,150,0.16)'); gr.addColorStop(1, 'rgba(255,220,150,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(bx - 40, 0); g.lineTo(bx + 40, 0); g.lineTo(bx - 200, 720); g.lineTo(bx - 330, 720); g.fill(); } g.restore();
+      for (let k = 0; k < 4; k++) { const mx = ((k * 420 + t * 12) % 1700) - 200; g.fillStyle = 'rgba(230,240,220,0.07)'; g.beginPath(); g.ellipse(mx, 470 + k * 50, 300, 34, 0, 0, 7); g.fill(); }
       if (S.wind) { g.fillStyle = `rgba(220,240,255,${Math.abs(S.wind) * 0.12})`; g.fillRect(0, 0, 1280, 720); }
     },
     drawStage(g, S, t) {
@@ -78,7 +81,13 @@
       g.fillStyle = MGH.grad(g, y - 6, y + 34, ['#d8c8a0', '#a8906a', '#7a6a4a']); g.fillRect(x0 - 10, y, w + 20, 34);
       g.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = x0; x < x1; x += 80) g.fillRect(x, y + 2, 3, 30);
       g.fillStyle = '#3a2e22'; for (let x = x0 + 20; x < x1 - 20; x += 26) g.fillRect(x + 6, y + 4, 12, 4);
-      for (const vx of [420, 640, 960, 1180]) { g.fillStyle = '#2a1a10'; MGH.rr(g, vx - 22, y - 2, 44, 10, 4); g.fill(); MGH.glow(g, vx, y, 26, 'rgba(255,120,40,0.4)'); }
+      for (const vx of [420, 640, 960, 1180]) { g.fillStyle = '#2a1a10'; MGH.rr(g, vx - 22, y - 2, 44, 10, 4); g.fill(); MGH.flame(g, vx, y + 2, 0.32, t, vx); }
+      // stone braziers burning at both ends of the temple
+      for (const bx of [x0 + 34, x1 - 34]) {
+        g.fillStyle = MGH.grad(g, y - 70, y, ['#b8a07a', '#7a6448']); g.beginPath(); g.moveTo(bx - 14, y); g.lineTo(bx - 8, y - 56); g.lineTo(bx + 8, y - 56); g.lineTo(bx + 14, y); g.fill();
+        g.fillStyle = '#5a4630'; g.beginPath(); g.ellipse(bx, y - 58, 26, 9, 0, 0, 7); g.fill(); g.fillStyle = '#3a2a1a'; g.beginPath(); g.ellipse(bx, y - 60, 20, 6, 0, 0, 7); g.fill();
+        MGH.flame(g, bx, y - 60, 1.15, t, bx);
+      }
       g.fillStyle = '#5fae4a'; g.fillRect(x0 - 10, y - 3, w + 20, 4);
       // ledges: mossy carved slabs (the side ones crumble away when the gong rings)
       this.A.soft.forEach((p, k) => {
@@ -145,6 +154,12 @@
       g.fillRect(x0 - 140, c.y0 - 200, 140, y - c.y0 + 400); g.fillRect(x1, c.y0 - 200, 140, y - c.y0 + 400); g.fillRect(x0 - 140, c.y0 - 200, w + 280, 200);
       g.fillStyle = 'rgba(255,255,255,0.08)'; for (let yy = c.y0; yy < y; yy += 60) { g.fillRect(x0 - 140, yy, 140, 4); g.fillRect(x1, yy, 140, 4); }
       g.fillStyle = '#5a5060'; for (let yy = c.y0 + 20; yy < y; yy += 60) for (const xx of [x0 - 16, x1 + 16]) { g.beginPath(); g.arc(xx, yy, 5, 0, 7); g.fill(); }
+      // furnace mouths roaring in the side walls
+      for (const [fx, fy] of [[x0 - 70, y - 120], [x1 + 70, y - 120], [x0 - 70, c.y0 + 160], [x1 + 70, c.y0 + 160]]) {
+        g.fillStyle = '#1a0a08'; MGH.rr(g, fx - 34, fy - 40, 68, 52, 10); g.fill(); MGH.glow(g, fx, fy, 80, 'rgba(255,110,30,0.4)');
+        MGH.flame(g, fx - 12, fy + 8, 0.7, t, fx); MGH.flame(g, fx + 12, fy + 8, 0.6, t * 1.1, fx + fy);
+        g.strokeStyle = '#5a5060'; g.lineWidth = 4; for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(fx + k * 18, fy - 40); g.lineTo(fx + k * 18, fy + 12); g.stroke(); }
+      }
       // hazard stripes on the inside edges
       for (const xx of [x0 - 10, x1]) for (let yy = c.y0; yy < y; yy += 40) { g.fillStyle = (yy / 40) % 2 ? '#ffcf3a' : '#2a2430'; g.fillRect(xx, yy, 10, 40); }
       g.fillStyle = '#6a6070'; for (let xx = x0; xx < x1; xx += 50) g.fillRect(xx, c.y0 - 10, 30, 10);
@@ -221,6 +236,7 @@
       g.fillStyle = MGH.grad(g, c.y0, y, ['#b89a72', '#8a6e4e']); g.fillRect(x0 - 140, c.y0 + 160, 140, y - c.y0); g.fillRect(x1, c.y0 + 160, 140, y - c.y0);
       g.fillStyle = 'rgba(0,0,0,0.15)'; for (let yy = c.y0 + 180; yy < y; yy += 44) { g.fillRect(x0 - 140, yy, 140, 3); g.fillRect(x1, yy, 140, 3); }
       g.fillStyle = '#d8c09a'; g.fillRect(x0 - 150, c.y0 + 150, 160, 16); g.fillRect(x1 - 10, c.y0 + 150, 160, 16);
+      for (const tx of [x0 - 70, x1 + 70]) { g.fillStyle = '#6a4a2a'; g.fillRect(tx - 5, c.y0 + 108, 10, 44); g.fillStyle = '#3a2a1a'; g.beginPath(); g.ellipse(tx, c.y0 + 108, 14, 5, 0, 0, 7); g.fill(); MGH.flame(g, tx, c.y0 + 108, 0.85, t, tx); }
       // a shimmering force wall above the stone (you bounce off it)
       for (const xx of [x0, x1]) { g.fillStyle = `rgba(160,220,255,${0.12 + 0.06 * Math.sin(t * 3)})`; g.fillRect(xx - 6, c.y0, 12, 170); }
       g.fillStyle = `rgba(160,220,255,${0.1 + 0.05 * Math.sin(t * 3)})`; g.fillRect(x0, c.y0 - 6, w, 10);

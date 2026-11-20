@@ -129,7 +129,7 @@ const Stage = {
   },
   // ---------------------------------------------------------- 1. turn intro
   turn(p) {
-    const len = 1.7; Sfx.turn(p.id); Sfx.turnJingle(p.id); setTimeout(() => Voice.line(p.id, 'turn'), 250);
+    const len = 1.7; Sfx.turn(p.id); Sfx.turnJingle(p.id);
     return this.play({ len, draw: (g, t) => {
       const a = this.fade(t, len, 0.2, 0.25), e = this.E.back(t / 0.4);
       g.save(); g.globalAlpha = a;

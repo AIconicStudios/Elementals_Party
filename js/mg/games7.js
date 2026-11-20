@@ -847,7 +847,10 @@
       g.translate(f.x, f.y - R0 * 1.25);
       if (f.spin) g.rotate(t * 16 * Math.sign(f.vx || 1));
       else if (f.spinJ > 0) { f.spinJ -= m.dt; g.rotate((0.35 - f.spinJ) / 0.35 * Math.PI * 2 * f.face); }
-      if (f.landT > 0) { f.landT -= m.dt; g.scale(1.12, 0.88); }
+      // smooth motion: an eased squash on landing, a lean into the run, a stretch through jumps and falls
+      if (f.landT > 0) { f.landT -= m.dt; const q = Math.sin(Math.max(0, f.landT) / 0.12 * Math.PI / 2) * 0.12; g.translate(0, R0 * 1.25 * q * 0.5); g.scale(1 + q, 1 - q); }
+      else if (!f.ground && f.state !== 'hit' && !f.spinJ) { const st = clamp(Math.abs(f.vy) / 9000, 0, 0.07); g.scale(1 - st, 1 + st); }
+      if (!f.spin && f.state !== 'hit') { f.lean = (f.lean || 0) + (clamp(f.vx / 5000, -0.1, 0.1) - (f.lean || 0)) * Math.min(1, m.dt * 10); g.rotate(f.lean); }
       if (f.state === 'brace') g.scale(1.08, 0.86);
       const blink = f.inv > 0 && Math.floor(t * 16) % 2 === 0;
       if (P.glow || f.charge > 0.2) MGH.glow(g, -f.face * 10, -6, 40 + Math.min(1, f.charge) * 30, PCOL[f.el], 0.8);

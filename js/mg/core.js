@@ -186,11 +186,11 @@ const MG = {
           }
         } else if (phase === 'count') {
           this.drawGame(g, game, m, S, dt);
-          if (phaseT < 0.9) { this.bigText(g, 'READY?', '#9fe0ff', phaseT, 110); if (phaseT - dt <= 0) Sfx.tone(660, 0.25, 'triangle', 0.06, 200); }
+          if (phaseT < 0.9) { this.bigText(g, 'READY?', '#9fe0ff', phaseT, 110); if (phaseT - dt <= 0) { Sfx.tone(660, 0.25, 'triangle', 0.06, 200); Voice.announce('Ready?'); } }
           else {
             const q = phaseT - 0.9, n = 3 - Math.floor(q / 0.6);
             this.bigText(g, n > 0 ? String(n) : 'GO!', n === 3 ? '#ff6b6b' : n === 2 ? '#ffd34d' : n === 1 ? '#7cf06a' : '#ffffff', q % 0.6, n > 0 ? 170 : 190);
-            if (Math.floor(q / 0.6) !== Math.floor((q - dt) / 0.6) || q - dt <= 0) { if (n > 0) Sfx.tone(440, 0.14, 'triangle', 0.07); else { Sfx.tone(880, 0.3, 'square', 0.06); Sfx.tone(1320, 0.4, 'triangle', 0.06, 0, 0.05); } }
+            if (Math.floor(q / 0.6) !== Math.floor((q - dt) / 0.6) || q - dt <= 0) { if (n > 0) Sfx.tone(440, 0.14, 'triangle', 0.07); else { Sfx.tone(880, 0.3, 'square', 0.06); Sfx.tone(1320, 0.4, 'triangle', 0.06, 0, 0.05); Voice.announce('Go!'); } }
           }
           if (phaseT > 3.2) { phase = 'play'; phaseT = 0; this.replay = { frames: [], n: 0 }; }
         } else if (phase === 'play') {
@@ -212,7 +212,8 @@ const MG = {
           const RP = this.replay && this.replay.frames.length >= 12 ? 2.8 : 1.1;
           if (phaseT < RP && RP > 2) this.drawReplay(g, phaseT / RP);
           else this.drawGame(g, game, m, S, dt, true);
-          if (phaseT < RP) { this.bigText(g, 'FINISHED!', '#ffd34d', Math.min(phaseT, 1.2), 130); if (phaseT - dt <= 0) Sfx.boom(); }
+          if (phaseT < RP) { this.bigText(g, 'FINISHED!', '#ffd34d', Math.min(phaseT, 1.2), 130); if (phaseT - dt <= 0) { Sfx.boom(); Voice.announce('Finish!'); } }
+          if (phaseT >= RP && phaseT - dt < RP) Voice.announce(winners.length > 1 ? 'It\'s a tie!' : `${m.players[winners[0]].name} wins!`);
           else this.drawResult(g, game, m, ranking, winners, phaseT - RP);
           // any player's A, or any gamepad's A / B / Start, moves on from the results
           const anyPad = this.anyPadTap();

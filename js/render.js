@@ -135,7 +135,7 @@ const Render = {
       const re = this.reactions[pl.id]; if (!re) continue;
       re.t += 1 / 60; if (re.t < 0) continue;
       if (re.t > re.dur) { delete this.reactions[pl.id]; continue; }
-      if (!re.voiced) { re.voiced = true; if (re.text) Sfx.babble(pl.id, re.text, re.mood); else Sfx.moodVoice(pl.id, re.mood); }
+      if (!re.voiced) { re.voiced = true; if (re.speak && Voice.ok()) Voice.say(pl.id, re.text); else if (re.text) Sfx.babble(pl.id, re.text, re.mood); else Sfx.moodVoice(pl.id, re.mood); }
       if (this.zoom) continue;
       const c0 = this.homeCenter(pl.id), c = { x: c0.x, y: c0.y - 20 };
       g.save(); this.up(g, c0.x, c0.y);

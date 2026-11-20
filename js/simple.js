@@ -45,6 +45,7 @@ class SimpleGame extends Game {
     UI.refresh(); UI.turnStart(p);
     this.log(`<hr>— ${this.name(p)}'s turn —`);
     await Stage.turn(p);
+    this.say(p, 'happy', 'turn');
     let rolled = null;
     for (let back = 0; back < 20 && !rolled; back++) {
     for (let guard = 0; guard < 8; guard++) {
@@ -323,8 +324,8 @@ class SimpleGame extends Game {
       if (buy) {
         await Stage.buy(0);
         p.cash -= SIMPLE_STAR_PRICE; p.vault++;
-        this.log(`⭐ ${this.name(p)} buys a star!`, 'good'); Sfx.star(); Voice.line(p.id, 'star'); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680');
-        this.react(p, 'starry'); this.react(R.pick(this.players.filter(q => q !== p)), R.pick(['sad', 'angry']), R.pick(['Show-off…', 'Hmph!']), 0.4);
+        this.log(`⭐ ${this.name(p)} buys a star!`, 'good'); Sfx.star(); this.say(p, 'starry', 'star'); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680');
+        this.react(R.pick(this.players.filter(q => q !== p)), R.pick(['sad', 'angry']), R.pick(['Show-off…', 'Hmph!']), 0.4);
         UI.refresh();
       }
     }

@@ -81,6 +81,11 @@ class Game {
     Render.react(p.id, mood, line === undefined ? R.pick(LINES[mood] || ['!']) : line, delay);
     if (warden && Render.reactions[p.id]) Render.reactions[p.id].warden = true;
   }
+  // a spoken line: the speech bubble shows it and the character says it aloud (cute voice)
+  say(p, mood, kind, delay = 0) {
+    const L = Voice.LINES[kind]; if (!p || !L || !L[p.id]) return;
+    this.react(p, mood, R.pick(L[p.id]), delay); if (Render.reactions[p.id]) Render.reactions[p.id].speak = true;
+  }
   crowd(skip, moods, delay = 0.5) {
     this.players.filter(q => !skip.includes(q)).forEach((q, k) => this.react(q, Array.isArray(moods) ? R.pick(moods) : moods, undefined, delay + k * 0.25));
   }
@@ -322,6 +327,7 @@ class Game {
     UI.turnStart(p);
     this.log(`<hr>— ${this.name(p)}'s turn —`);
     await Stage.turn(p);
+    this.say(p, 'happy', 'turn');
     if (t.thief && this.round > t.thief.round) { t.thief = null; }
 
     // poison tick
@@ -1170,7 +1176,7 @@ class Game {
         wares[0].keep = bulk; await Stage.buy(0);
         this.pay(p, sp); p.vault++; stars++;
         if (sale) this.consume(p, 'starsale');
-        this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); Voice.line(p.id, 'star'); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680'); this.react(p, 'starry'); { const riv = this.players.filter(q => q !== p); this.react(R.pick(riv), R.pick(['sad', 'angry', 'nervous']), R.pick(['Show-off…', 'Hmph!', 'Must… catch up…']), 0.4); }
+        this.log(`⭐ ${this.name(p)} buys a star for ${sp}!`, 'good'); Sfx.star(); this.say(p, 'starry', 'star'); Sfx.crowd('cheer'); this.fx(p, '+1⭐', '#ffe680'); { const riv = this.players.filter(q => q !== p); this.react(R.pick(riv), R.pick(['sad', 'angry', 'nervous']), R.pick(['Show-off…', 'Hmph!', 'Must… catch up…']), 0.4); }
       } else if (v === 'ult') {
         await Stage.buy(wares.length - 1);
         this.pay(p, ult.price); p.ultBought = true; p.ultHeld = true; itemBought = true;
@@ -1274,10 +1280,9 @@ class Game {
     winners.forEach(x => this.P(x).mgWins++);
     await Stage.podium(places);
     places.forEach((r, k) => { if (r.coins) setTimeout(() => this.fx(r.p, `+${r.coins}🪙`, '#ffe680'), k * 120); });
-    if (winners.length === 1) Voice.line(this.P(winners[0]).id, 'win');
     if (coinGame) this.log(`🪙 Coin Moot <b>${MG.byId[id].name}</b>: ${places.map(r => `${this.name(r.p)} +${r.coins}`).join(', ')}.`, 'good');
     else this.log(`🏆 ${winners.map(x => this.name(this.P(x))).join(' & ')} ${winners.length > 1 ? 'tie and win' : 'wins'} the Moot <b>${MG.byId[id].name}</b> (+3)${places.filter(r => r.place > 1 && r.coins).map(r => `, ${this.name(r.p)} +${r.coins}`).join('')}.`, 'good');
-    this.players.forEach((q, k) => this.react(q, winners.includes(q.id) ? R.pick(['proud', 'laugh']) : R.pick(['sad', 'angry', 'cry']), winners.includes(q.id) ? R.pick(['Victory!', 'Too easy!', 'Champion!']) : undefined, k * 0.15));
+    this.players.forEach((q, k) => { if (winners.length === 1 && q.id === winners[0]) this.say(q, 'proud', 'win', k * 0.15); else this.react(q, winners.includes(q.id) ? R.pick(['proud', 'laugh']) : R.pick(['sad', 'angry', 'cry']), winners.includes(q.id) ? R.pick(['Victory!', 'Too easy!', 'Champion!']) : undefined, k * 0.15); });
     // next round's turn order follows the Moot result: 1st, 2nd, 3rd, 4th (ties keep the old order)
     const prev = this.order.slice(), pl = id => places.find(r => r.p.id === id).place;
     this.order = prev.slice().sort((a, b) => pl(a) - pl(b) || prev.indexOf(a) - prev.indexOf(b));
