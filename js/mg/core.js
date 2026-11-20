@@ -89,7 +89,7 @@ const MG = {
     if (Settings.test) return this.simulate(game, players, order);
     const layer = document.getElementById('mgLayer');
     const quiet = game.type === 'Rhythm' || game.quietMusic;
-    Music.play(Music.nextMini()); Music.setDuck(1, 0.3);
+    Music.play(Music.nextMini()); Music.setDuck(0.6, 0.3); // mild background music under the minigame sounds
     layer.classList.remove('hidden');
     let m = this.makeCtx(game, players);
     let S = {};
@@ -103,16 +103,35 @@ const MG = {
     const demo = this.makeDemo(game, players);
     Input.mouse.moved = false;
     return new Promise(resolve => {
-      const finishWith = res => { Music.setDuck(1, 0.3); Music.resume(); this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
+      const finishWith = res => { closed = true; return finishWith0(res); };
+      const finishWith0 = res => { Music.setDuck(1, 0.3); Music.resume(); this.pauseUI(false); document.getElementById('mgPauseBtn').classList.add('hidden'); layer.classList.add('hidden'); resolve(res); };
       document.getElementById('mgPauseBtn').classList.remove('hidden');
       this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
       // restart: fresh round straight into the countdown
-      this.onRestartClick = () => { m = this.makeCtx(game, players); S = {}; game.init(m, S); phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0; this.paused = false; this.pauseUI(false); if (quiet) Music.setDuck(0, 0.5); };
+      this.onRestartClick = () => { m = this.makeCtx(game, players); S = {}; game.init(m, S); phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0; this.paused = false; this.pauseUI(false); if (quiet) Music.setDuck(0.18, 0.5); };
       // from the pause menu during practice: everyone is ready, start the real round
       this.onSkipPractice = () => { if (phase === 'practice') skip.fill(true); this.paused = false; this.pauseUI(false); };
       this.onQuitClick = () => { this.paused = false; finishWith({ winners: [], winner: null, scores: null, quit: true }); };
       this.paused = false;
+      // safety net: an error in a game's update or drawing must never freeze the Moot. The loop carries on,
+      // and if the errors keep coming the Moot ends with the current scores and the board continues.
+      let errN = 0, closed = false;
       const frame = nowT => {
+        if (closed) return;
+        try { frameBody(nowT); errN = 0; }
+        catch (e) {
+          console.error('minigame error', e); errN++;
+          if (errN > 20) {
+            closed = true;
+            let sc = null; try { sc = m.scores || game.score(m, S); } catch (e2) { sc = null; }
+            if (sc) { const rk = this.rank(sc, order), w = this.winnersOf(rk); finishWith({ winners: w.map(i => m.players[i].id), winner: m.players[w[0]].id, scores: sc }); }
+            else finishWith({ winners: [], winner: null, scores: null, quit: true });
+            return;
+          }
+          requestAnimationFrame(frame);
+        }
+      };
+      const frameBody = nowT => {
         const dt = Math.min(0.05, (nowT - last) / 1000); last = nowT;
         // pause toggle: Esc, any gamepad Start, or the on-screen button
         const pin = this.pauseInput();
@@ -141,9 +160,9 @@ const MG = {
             // a short practice round so everyone gets the hang of it before it counts
             phase = 'practice'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
             pm = this.makeCtx(game, players); pm.practice = true; pS = {}; game.init(pm, pS);
-            if (quiet) Music.setDuck(0, 1.2);
+            if (quiet) Music.setDuck(0.18, 1.2);
             Sfx.tone(520, 0.15, 'triangle', 0.07);
-          } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0, 1.2); }
+          } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0.18, 1.2); }
         } else if (phase === 'practice') {
           // X / Y on a gamepad that isn't tied to a seat readies the first human still practising
           // Start / Select on a seat's own gamepad (or on a gamepad no seat owns) ends practice for that player
@@ -427,13 +446,18 @@ const MG = {
     if (/button|mash|jump|dash|fire|push|pass|grab|\+ button/i.test(c) || /1 button/.test(c)) rows.push('a');
     if (/Pick/i.test(c) && !rows.includes('a')) rows.push('a');
     if (/A & B/.test(c)) { const k = rows.indexOf('a'); if (k >= 0) rows.splice(k, 1); rows.push('a', 'b'); }
-    const gap = rows.length > 2 ? 112 : 120, y0 = y - (rows.length - 1) * gap / 2;
+    // what each control does, in words (a game can say exactly with game.ctl; otherwise it's guessed)
+    const CTL = { coinshower: { a: 'Dash' }, goldclaw: { a: 'Fire claw' }, pinata: { pad: 'Run', a: 'Whack' }, coinrun: { a: 'Jump' }, trail: { a: 'Open', b: 'Bank' }, traitors: { pad: 'Walk', a: 'Pour', b: 'Pour' }, hammer: { a: 'Hold, let go' }, burrow: { lr: 'Steer', a: 'Dig (beat)' }, counterfeit: { pad: 'Hop', a: 'Pick' }, constellation: { pad: 'Hop', a: 'Link' }, swing: { a: 'Leap' }, rally: { lr: 'Ride / flip' }, whack: { lr: 'Bop' }, fireball: { pad: 'Move', a: 'Fire' } };
+    const lab = Object.assign({}, CTL[game.id] || {}, game.ctl || {}), aWord = /hold/i.test(c) ? 'Hold, let go' : /jump/i.test(c) ? 'Jump' : /dash/i.test(c) ? 'Dash' : /fire/i.test(c) ? 'Fire' : /push/i.test(c) ? 'Push' : /grab/i.test(c) ? 'Grab' : /dig/i.test(c) ? 'Dig' : /pass/i.test(c) ? 'Pass' : /Pick/i.test(c) ? 'Choose' : 'Action';
+    const words = { lr: lab.lr || 'Move', pad: lab.pad || 'Move', a: lab.a || (game.type === 'Brawl' ? 'Jump' : aWord), b: lab.b || (game.type === 'Brawl' ? 'Power' : 'Alt'), cursor: 'Aim' };
+    const gap = 126, y0 = y - (rows.length - 1) * gap / 2;
     rows.forEach((r, k) => {
-      const yy = y0 + k * gap;
-      g.fillStyle = 'rgba(255,255,255,0.06)'; MGH.rr(g, x - 95, yy - 48, 190, 100, 18); g.fill();
+      const yy = y0 + k * gap - 8;
+      g.fillStyle = 'rgba(255,255,255,0.06)'; MGH.rr(g, x - 95, yy - 52, 190, 118, 18); g.fill();
+      MGH.text(g, words[r], x, yy + 60, 16, '#ffe680', 'center', 'bold');
       if (r === 'lr') { this.key(g, x - 34, yy - 4, 50, '◀', ph === 0); this.key(g, x + 34, yy - 4, 50, '▶', ph === 2); }
-      if (r === 'pad') { const s = 34; this.key(g, x, yy - 38, s, '▲', ph === 0); this.key(g, x - s, yy - 4, s, '◀', ph === 3); this.key(g, x + s, yy - 4, s, '▶', ph === 1); this.key(g, x, yy + 30, s, '▼', ph === 2); }
-      if (r === 'a') { const press = (t * 2) % 1 < 0.2; g.save(); g.translate(x, yy - 2 + (press ? 3 : 0)); this.btnA(g, 0, 0, press ? 26 : 28); g.restore(); if (/mash/i.test(c)) MGH.text(g, '×5!', x + 58, yy + 8, 20, '#ffe680', 'center', 'bold'); }
+      if (r === 'pad') { const s = 30; this.key(g, x, yy - 32, s, '▲', ph === 0); this.key(g, x - s, yy - 2, s, '◀', ph === 3); this.key(g, x + s, yy - 2, s, '▶', ph === 1); this.key(g, x, yy + 28, s, '▼', ph === 2); }
+      if (r === 'a') { const press = (t * 2) % 1 < 0.2; g.save(); g.translate(x, yy - 2 + (press ? 3 : 0)); this.btnA(g, 0, 0, press ? 26 : 28); g.restore(); }
       if (r === 'b') { const press = (t * 2 + 0.5) % 1 < 0.2; g.save(); g.translate(x, yy - 2 + (press ? 3 : 0)); g.fillStyle = '#e0404a'; g.beginPath(); g.arc(0, 0, press ? 26 : 28, 0, 7); g.fill(); g.strokeStyle = '#ffd6d9'; g.lineWidth = 2; g.stroke(); g.font = 'bold 32px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText('B', 0, 1); g.textBaseline = 'alphabetic'; g.restore(); }
       if (r === 'cursor') { g.save(); g.translate(x + Math.sin(t * 2) * 30, yy - 8 + Math.cos(t * 1.6) * 14); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -18); g.lineTo(0, 14); g.lineTo(8, 6); g.lineTo(14, 18); g.lineTo(19, 15); g.lineTo(13, 4); g.lineTo(23, 3); g.closePath(); g.fill(); g.stroke(); g.restore(); }
     });

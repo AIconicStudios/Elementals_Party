@@ -4,6 +4,7 @@ const Settings = {
   speed: 1,          // animation delay multiplier (0 = instant)
   sound: true,
   music: true,
+  voice: true,       // characters speak short lines aloud (the computer's own speech voices)
   test: false,       // headless test mode (minigames simulated instantly)
 };
 
@@ -120,9 +121,14 @@ const Sfx = {
   breeze() { this.noise(2.5, 500, 0.018, 'bandpass', 0, 400, 0.6); },
   pop() { this.tone(600, 0.06, 'sine', 0.06, 500); },
   thud() { this.tone(90, 0.18, 'sine', 0.12, -40); this.noise(0.08, 400, 0.06, 'lowpass'); },
-  coin() { this.tone(988, 0.07, 'square', 0.04); this.tone(1319, 0.14, 'square', 0.04, 0, 0.06); this.tone(2637, 0.1, 'sine', 0.02, 0, 0.06); },
-  bad() { this.tone(240, 0.22, 'sawtooth', 0.05, -120); this.tone(180, 0.25, 'square', 0.03, -60, 0.05); },
-  star() { [784, 988, 1175, 1568, 1976].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.05, 0, i * 0.06)); this.noise(0.4, 6000, 0.02, 'highpass', 0.1); },
+  // a bright little bell: two chimes with a sparkle on top
+  coin() { this.tone(1318, 0.09, 'triangle', 0.05); this.tone(1976, 0.26, 'sine', 0.045, 0, 0.055); this.tone(3951, 0.18, 'sine', 0.012, 0, 0.06); },
+  // a soft "aww": two sliding notes, not a harsh buzz
+  bad() { this.tone(392, 0.2, 'triangle', 0.05, -40); this.tone(294, 0.34, 'triangle', 0.05, -60, 0.17); },
+  // a shimmering arpeggio with a chorus of high sines
+  star() { [784, 988, 1175, 1568, 1976].forEach((f, i) => { this.tone(f, 0.22, 'triangle', 0.045, 0, i * 0.06); this.tone(f * 2.005, 0.3, 'sine', 0.014, 0, i * 0.06 + 0.02); }); this.noise(0.5, 7000, 0.018, 'highpass', 0.12); },
+  // each clan's little "it's my turn" motif
+  turnJingle(el) { const M = [[784, 988, 1318], [659, 784, 988], [523, 784, 1046], [392, 523, 659]][el] || [523, 659, 784]; M.forEach((f, i) => { this.tone(f, 0.12, 'triangle', 0.05, 0, i * 0.09); this.tone(f / 2, 0.12, 'sine', 0.03, 0, i * 0.09); }); },
   click() { this.tone(760, 0.03, 'triangle', 0.04); },
   dice() { this.noise(0.03, 1800 + Math.random() * 1500, 0.06, 'bandpass', 0, 0, 3); this.tone(300 + Math.random() * 300, 0.025, 'square', 0.02); },
   boom() { this.tone(110, 0.45, 'sine', 0.14, -70); this.noise(0.5, 400, 0.14, 'lowpass', 0, -300); },
@@ -259,3 +265,34 @@ const Sfx = {
     [0, 3 + h % 4, 7, 12].forEach((n, i) => T(440 * Math.pow(2, (h % 12 + n) / 12), 0.12, i % 2 ? 'triangle' : 'square', 0.035, 0, i * 0.06));
   },
 };
+
+// Cute spoken lines: the computer's built-in speech voices, pitched up and given a personality per clan.
+// Short and sparing — on your turn, buying a star and winning a Moot — so it charms rather than chatters.
+const Voice = {
+  P: [{ pitch: 1.95, rate: 1.12 }, { pitch: 1.6, rate: 1.02 }, { pitch: 1.75, rate: 1.18 }, { pitch: 1.3, rate: 0.92 }],
+  LINES: {
+    turn: [['Whee! My turn!', 'Here I go!', 'Wind, carry me!', 'Wheee, watch this!'], ['My turn! Splish!', 'Okay, okay, here goes!', 'Let it flow!', 'Bloop! My go!'], ['My turn! Ha!', 'Fire it up!', 'Watch this!', 'Feel the heat!'], ['My turn.', 'Rock and roll.', 'Steady now.', 'Hmm. Let us go.']],
+    star: [['Yay, a star!', 'So shiny!'], ['A star! Splendid!', 'Ooh, sparkly!'], ['A star! Mine!', 'Hah! Shiny!'], ['A star. Nice.', 'Solid gold.']],
+    win: [['I won! Wheee!', 'Yay me!'], ['I won! Hooray!', 'Splash of victory!'], ['Victory! Ha ha!', 'Too easy!'], ['Victory.', 'Unbreakable.']],
+  },
+  voice: null,
+  ok() { return Settings.voice !== false && Settings.sound && !Settings.test && typeof speechSynthesis !== 'undefined'; },
+  pick() {
+    if (this.voice) return this.voice;
+    const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)); if (!vs.length) return null;
+    const pref = ['Aria', 'Jenny', 'Zira', 'Samantha', 'Female', 'Libby', 'Sonia', 'Google UK English Female', 'Google US English'];
+    for (const n of pref) { const v = vs.find(x => x.name.includes(n)); if (v) return (this.voice = v); }
+    return (this.voice = vs[0]);
+  },
+  say(el, text) {
+    if (!this.ok() || el < 0 || el > 3 || !text) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text), p = this.P[el];
+      u.pitch = p.pitch; u.rate = p.rate; u.volume = 0.85; const v = this.pick(); if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch (e) { /* no speech on this computer: stay quiet */ }
+  },
+  line(el, kind) { const L = this.LINES[kind]; if (L && L[el]) this.say(el, R.pick(L[el])); },
+};
+if (typeof speechSynthesis !== 'undefined') try { speechSynthesis.onvoiceschanged = () => { Voice.voice = null; }; } catch (e) { /* ignore */ }

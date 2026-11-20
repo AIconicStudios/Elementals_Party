@@ -78,7 +78,7 @@
     draw(m, S, g) {
       // a gold-lit treasure vault
       g.fillStyle = MGH.grad(g, 40, 720, ['#3a2410', '#5a3a18', '#2a1808']); g.fillRect(0, 40, 1280, 680);
-      for (let k = 0; k < 8; k++) { const x = 80 + k * 160; g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, 40, 30, 560); MGH.glow(g, x + 15, 120, 60, 'rgba(255,190,90,0.35)'); MGH.fireball(g, x + 15, 116, 8, m.t + k, 0, -1); }
+      for (let k = 0; k < 8; k++) { const x = 80 + k * 160; g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, 40, 30, 560); MGH.flame(g, x + 15, 132, 0.6, m.t, k * 5); }
       for (let k = 0; k < 18; k++) { const x = (k * 97) % 1280; MGH.coin(g, x, 690 + (k % 3) * 8, 12, m.t + k); }
       g.fillStyle = MGH.grad(g, 620, 720, ['#c89a4a', '#8a6a2a']); g.fillRect(0, 630, 1280, 90);
       for (const it of S.items) {

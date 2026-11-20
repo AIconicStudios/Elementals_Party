@@ -138,8 +138,8 @@ MG.def({
 
 // 53 ---------------------------------------------------------------- Gale Hammer Throw
 MG.def({
-  id: 'hammer', name: 'Gale Hammer Throw', type: 'Skill', controls: 'Left/Right + button',
-  how: 'Spin up the hammer by pressing LEFT and RIGHT alternately in rhythm. Press the button to let go — it flies off in the direction it is pointing, so release while it points up the field (inside the white lines). Two throws, best counts.',
+  id: 'hammer', name: 'Gale Hammer Throw', type: 'Skill', controls: '1 button (hold & release)', mouseA: true,
+  how: 'HOLD the button to spin the hammer faster and faster — but stay at full speed too long and you get dizzy! LET GO to throw: it flies off the way it is pointing, so release while it points up the field (inside the white lines). Two throws, best counts.',
   wins: 'Longest throw.',
   init(m, S) { S.best = [0, 0, 0, 0]; S.att = 1; this.reset(S); },
   reset(S) { S.p = [0, 1, 2, 3].map(() => ({ a: Math.PI / 2, w: 1, last: null, st: 'spin', tm: 0, hx: 0, hy: 0, vx: 0, vy: 0, dist: 0, foul: false, bt: 0 })); S.wait = 0; },
@@ -147,10 +147,12 @@ MG.def({
     S.p.forEach((p, i) => {
       if (p.st === 'spin') {
         p.tm += dt;
-        for (const k of ['left', 'right']) if (m.pressed(i, k)) { if (p.last !== k) p.w = Math.min(15, p.w + 0.9); else p.w *= 0.8; p.last = k; }
-        p.w = Math.max(1, p.w - 1.1 * dt);
+        p.dizzy = Math.max(0, (p.dizzy || 0) - dt);
+        const hold = m.held(i, 'a') && p.dizzy <= 0;
+        if (hold) { p.held = true; p.w = Math.min(15, p.w + 5.2 * dt); if (p.w >= 15) { p.over = (p.over || 0) + dt; if (p.over > 1.1) { p.dizzy = 1.2; p.w = 4; p.over = 0; p.held = false; MGH.pop('DIZZY!', i * 320 + 160, 520, '#ff9a9a', 26); if (!m.bot(i)) Sfx.bad(); } } }
+        else { p.over = 0; if (!p.held) p.w = Math.max(1, p.w - 2 * dt); }
         p.a += p.w * dt;
-        if (m.pressed(i, 'a') || p.tm > 12) {
+        if ((p.held && !hold && p.dizzy <= 0) || p.tm > 14) {
           const dir = -Math.sin(p.a + Math.PI / 2) < 0 ? 0 : 0;
           const ang = ((p.a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
           // tangent direction of release (counter-clockwise spin): angle + 90°
@@ -174,11 +176,14 @@ MG.def({
   bot(m, S, i, dt) {
     const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false; if (p.st !== 'spin') return;
     p.bt -= dt;
-    if (p.w < 12 + i * 0.5) { if (p.bt <= 0) { v[p.last === 'left' ? 'right' : 'left'] = true; p.bt = R.range(0.09, 0.15); } return; }
-    const ang = (((p.a + p.w * 2.2 * dt) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    if (p.dizzy > 0) return;
+    if (p.goalW === undefined) p.goalW = R.range(11.5, 15);
+    v.a = true; // keep holding…
+    if (p.w < p.goalW) return;
+    // …and let go when the hammer is about to point up the field
+    const ang = (((p.a + p.w * 2 * dt) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     const tx = -Math.sin(ang), ty = Math.cos(ang), dev = Math.atan2(tx, ty);
-    if (Math.abs(dev - R.range(-0.3, 0.3)) < 0.18 && ty > 0) v.a = true;
-    else if (p.bt <= 0) { v[p.last === 'left' ? 'right' : 'left'] = true; p.bt = R.range(0.12, 0.18); }
+    if (Math.abs(dev - R.range(-0.3, 0.3)) < 0.2 && ty > 0) v.a = false;
   },
   score(m, S) { return S.best.slice(); },
   fmt(s) { return s.toFixed(1) + ' m'; },

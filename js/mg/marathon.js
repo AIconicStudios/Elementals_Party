@@ -59,7 +59,7 @@ const MGM = {
       },
       update(m, S, dt) {
         S.pt += dt;
-        const st = stages[S.si];
+        const st = stages[Math.min(S.si, stages.length - 1)];
         // the intro waits for a human to press A (so there's time to read it); bots-only games move on by themselves
         const humans = m.players.some((p, i) => !m.bot(i)), tap = m.players.some((p, i) => !m.bot(i) && (m.pressed(i, 'a') || m.pressed(i, 'start')));
         if (S.phase === 'intro') { if (st.idle) st.idle(m, S, S.T, dt); if (humans ? (S.pt > 1.5 && tap) || S.pt > 30 : S.pt > 5.5) { S.phase = 'play'; S.pt = 0; S.stageT = 0; Sfx.whistle(); } return; }
@@ -77,14 +77,15 @@ const MGM = {
         if (S.phase === 'results') {
           if (st.idle) st.idle(m, S, S.T, dt);
           if (humans ? (S.pt > 1.2 && tap) || S.pt > 20 : S.pt > 4.2) {
+            // the last event: finish on the final results screen (never step past the last stage)
+            if (S.si + 1 >= stages.length) { S.phase = 'over'; m.finish(this.score(m, S)); return; }
             S.si++;
-            if (S.si >= stages.length) { m.finish(this.score(m, S)); return; }
             S.T = {}; MGM.clearIn(m); stages[S.si].init(m, S, S.T); S.phase = 'intro'; S.pt = 0;
           }
         }
       },
       bot(m, S, i, dt) {
-        const st = stages[S.si];
+        const st = stages[Math.min(S.si, stages.length - 1)];
         if (S.phase === 'play') st.bot(m, S, S.T, i, dt); else { const v = m.vin[i]; v.a = v.b = v.up = v.down = v.left = v.right = false; v.ax = v.ay = 0; }
       },
       // tie-break on the last event's points, then total raw placings
@@ -92,7 +93,7 @@ const MGM = {
       fmt(s) { return `${Math.floor(s + 1e-6)} pts`; },
       hud(m, S, i) { return `${S.pts[i]} pts`; },
       draw(m, S, g) {
-        const st = stages[S.si];
+        const st = stages[Math.min(S.si, stages.length - 1)];
         st.draw(m, S, S.T, g);
         // event progress pips (top right)
         stages.forEach((s, k) => { const x = 1270 - (stages.length - k) * 34, y = 58; g.fillStyle = k < S.si ? '#ffd34d' : k === S.si ? '#ffffff' : 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill(); MGH.text(g, s.icon, x, y + 6, 15, '#000', 'center'); });

@@ -16,6 +16,8 @@
   // round table seats, laid out like a gamepad's face buttons (and the arrow keys)
   const SEATS = [{ x: 640, y: 290, btn: 'y', key: 'up', lab: 'Y', arrow: '▲', col: '#ffd34d' }, { x: 900, y: 440, btn: 'b', key: 'right', lab: 'B', arrow: '▶', col: '#ff5a5a' },
     { x: 640, y: 590, btn: 'a', key: 'down', lab: 'A', arrow: '▼', col: '#5fd85f' }, { x: 380, y: 440, btn: 'x', key: 'left', lab: 'X', arrow: '◀', col: '#4f9dff' }];
+  // calm, simple animations only (no random hops, spins or fidgets that could look like a 'tell')
+  const av = (g, m, i, x, y, r, mood, o = {}) => MGH.av(g, m, i, x, y, r, mood === 'nervous' ? 'neutral' : mood, Object.assign({ noIdle: true }, o));
   const MAUVE = a => `rgba(160,95,215,${Math.min(1, a * 1.25)})`; // the hint colour: blue with a tint of red
   // twenty tiny tells; exactly one happens per game
   const HINTS = ['vial', 'eye', 'smirk', 'cloak', 'shadow', 'name', 'glance', 'horns', 'smoke', 'feather',
@@ -175,7 +177,7 @@
       const t = m.t;
       g.fillStyle = MGH.grad(g, 40, 720, ['#1a0c20', '#0a0612']); g.fillRect(0, 40, 1280, 680);
       MGH.glow(g, 640, 430, 420, 'rgba(180,60,90,0.22)');
-      for (const x of [90, 1190]) { MGH.glow(g, x, 130, 80, 'rgba(255,170,70,0.45)'); MGH.fireball(g, x, 126, 10, t + x, 0, -1); }
+      for (const x of [90, 1190]) { MGH.flame(g, x, 146, 0.8, t, x); }
       g.font = 'bold 50px Georgia'; g.textAlign = 'center'; g.fillStyle = '#e8d8ff'; g.fillText('THE TRAITORS', 640, 108);
       MGH.text(g, 'of Moonhold Castle', 640, 140, 21, '#b8a0d8');
       MGH.text(g, '🤫 Everyone, press  A  — quietly.', 640, 196, 28, '#ffe680', 'center', 'bold');
@@ -185,7 +187,7 @@
         g.fillStyle = 'rgba(255,255,255,0.05)'; MGH.rr(g, x - 110, 290, 220, 330, 20); g.fill(); g.strokeStyle = col; g.lineWidth = 3; g.globalAlpha = 0.6; g.stroke(); g.globalAlpha = 1;
         MGH.shadow(g, x, y + 70, 50, 0.4);
         Char._wave = P.waved && P.waveT < 2.4;
-        Char.draw(g, x, y, 54, m.players[i].el.id, col, { mood: P.waved ? 'happy' : 'neutral', t: t + i, seed: i * 1.7, look: { x: 0, y: 0.1 } });
+        Char.draw(g, x, y, 54, m.players[i].el.id, col, { mood: P.waved ? 'happy' : 'neutral', t: t + i, seed: i * 1.7, look: { x: 0, y: 0.1 }, noIdle: true });
         Char._wave = false;
         MGH.text(g, m.players[i].name, x, 585, 24, col, 'center', 'bold');
         MGH.text(g, P.waved ? '👋 waved' : '…', x, 612, 18, P.waved ? '#cfe8ff' : '#8a7aa8', 'center', 'bold');
@@ -211,7 +213,7 @@
         for (let k = 0; k < 6; k++) { const x = ((k * 260 + t * 14) % 1600) - 160, y = 120 + k * 95; g.fillStyle = 'rgba(200,210,255,0.06)'; g.beginPath(); g.ellipse(x, y, 220, 40, 0, 0, 7); g.fill(); }
         g.fillStyle = MGH.grad(g, 40, 70, ['#2a2e4a', '#1a1e34']); g.fillRect(0, 40, 1280, 28);
         for (let x = 0; x < 1280; x += 64) { g.fillStyle = '#2a2e4a'; g.fillRect(x, 32, 40, 14); }
-        for (const tx of [90, 450, 830, 1190]) { MGH.glow(g, tx, 60, 70, 'rgba(255,170,70,0.45)'); MGH.fireball(g, tx, 56, 9, t + tx, 0, -1); }
+        for (const tx of [90, 450, 830, 1190]) { MGH.flame(g, tx, 68, 0.62, t, tx); }
       }
       const hint = this.hintOn(S) ? S.hint.kind : null, T = S.P[S.traitor];
       WELLS.forEach((w, k) => {
@@ -243,7 +245,7 @@
       if (h === 'smoke') { g.fillStyle = MAUVE(0.5); g.beginPath(); g.arc(P.x - 10, P.y + 18, 12, 0, 7); g.arc(P.x + 8, P.y + 20, 9, 0, 7); g.fill(); }
       if (h === 'aura') { g.strokeStyle = MAUVE(0.65); g.lineWidth = 2; g.beginPath(); g.ellipse(P.x, P.y - 10, 34, 46, 0, 0, 7); g.stroke(); }
       this.cloak(g, P.x, P.y - 6, 1, h === 'hem' ? '#9a6ad8' : col, t + i, h === 'cloak');
-      MGH.av(g, m, i, P.x, P.y, 24, h === 'smirk' ? 'smug' : done ? 'happy' : P.carry ? 'determined' : 'happy', { look: h === 'glance' ? { x: 0, y: 0 } : P.face });
+      av(g, m, i, P.x, P.y, 24, h === 'smirk' ? 'smug' : done ? 'happy' : P.carry ? 'determined' : 'happy', { look: h === 'glance' ? { x: 0, y: 0 } : P.face });
       if (h === 'tint') { g.fillStyle = MAUVE(0.24); g.beginPath(); g.ellipse(P.x, P.y - 14, 26, 38, 0, 0, 7); g.fill(); }
       const ex = P.x + (P.face.x >= 0 ? 8 : -8), ey = P.y - 34;
       if (h === 'eye') { g.fillStyle = MAUVE(0.9); g.beginPath(); g.arc(ex, ey, 3.6, 0, 7); g.fill(); }
@@ -281,7 +283,7 @@
       MGH.text(g, '⏳ TIME! Who filled their quota?', 640, 244, 34, '#ffe680', 'center', 'bold');
       S.P.forEach((P, i) => {
         const x = 340 + i * 200, ok = P.pours >= QUOTA;
-        MGH.av(g, m, i, x, 360, 30, ok ? 'happy' : 'sad');
+        av(g, m, i, x, 360, 30, ok ? 'happy' : 'sad');
         MGH.text(g, m.players[i].name, x, 432, 20, m.players[i].color, 'center', 'bold');
         MGH.text(g, `${ok ? '✔' : '✖'} ${P.pours} / ${QUOTA}`, x, 466, 22, ok ? '#9fffa0' : '#ff9a9a', 'center', 'bold');
       });
@@ -302,7 +304,7 @@
         if (ph === 'banish' && S.banished === i) return;
         const s = SEATS[i];
         this.cloak(g, s.x, s.y - 4, 1.1, m.players[i].color, t + i);
-        MGH.av(g, m, i, s.x, s.y, 28, ph === 'reveal' ? 'nervous' : 'determined', { look: { x: (640 - s.x) / 300, y: (440 - s.y) / 300 } });
+        av(g, m, i, s.x, s.y, 28, ph === 'reveal' ? 'nervous' : 'determined', { look: { x: (640 - s.x) / 300, y: (440 - s.y) / 300 } });
         MGH.text(g, m.players[i].name, s.x, s.y + 46, 18, m.players[i].color, 'center', 'bold');
         if (ph === 'vote') this.seatButton(g, s, s.x + (s.x === 640 ? 62 : s.x < 640 ? -62 : 62), s.y - 20);
       });
@@ -360,7 +362,7 @@
       const sp = g.createRadialGradient(640, 420, 20, 640, 420, 260); sp.addColorStop(0, 'rgba(255,240,200,0.45)'); sp.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = sp; g.fillRect(0, 40, 1280, 680);
       MGH.label(g, `${S.tie ? 'The coin has spoken — ' : ''}${m.players[i].name} is banished.`, 640, 110, 30, '#fff');
       this.cloak(g, 640, 420, 1.6, m.players[i].color, m.t);
-      MGH.av(g, m, i, 640, 430, 46, S.unmasked ? (tr ? 'evil' : 'sad') : 'nervous');
+      av(g, m, i, 640, 430, 46, S.unmasked ? (tr ? 'evil' : 'sad') : 'nervous');
       if (!S.unmasked) MGH.text(g, '"I am…"' + '.'.repeat(Math.floor(k * 2) % 4), 640, 600, 34, '#e0d0f0', 'center', 'bold');
       else {
         const pop = Math.min(1, (k - 2.4) / 0.3);
@@ -378,11 +380,11 @@
       g.font = 'bold 56px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#120610'; g.strokeText(title, 640, 140); g.fillStyle = tw ? '#ff6b8a' : '#ffe680'; g.fillText(title, 640, 140);
       const hk = { vial: 'their vial blushed', eye: 'a glint in their eye', smirk: 'a tiny smirk', cloak: 'their cloak flushed', shadow: 'their shadow darkened', name: 'their name flickered', glance: 'a glance straight at you', horns: 'two little horns', smoke: 'a wisp of smoke', feather: 'a dark feather', aura: 'a faint aura', footprint: 'a glowing footprint', well: 'the well water darkened', drop: 'a drop fell from their vial', glint: 'a glint under their cloak', crow: 'a crow flew over', hem: 'their cloak hem changed', dagger: 'a tiny dagger', slit: 'a snake-like eye', tint: 'a violet shimmer' }[S.hint.kind];
       if (tw) {
-        this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); MGH.av(g, m, i, 640, 410, 52, 'evil');
+        this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); av(g, m, i, 640, 410, 52, 'evil');
         MGH.text(g, `${m.players[i].name} was the Traitor — and walks away with ${S.pot} gold!`, 640, 580, 26, '#fff', 'center', 'bold');
       } else {
         const w = [0, 1, 2, 3].filter(j => j !== i);
-        w.forEach((j, k) => { const x = 640 + (k - 1) * 230, ok = S.P[j].pours >= QUOTA; this.cloak(g, x, 400, 1.3, m.players[j].color, m.t + j); MGH.av(g, m, j, x, 410, 40, ok ? 'happy' : 'sad'); MGH.text(g, ok ? '✔ wins a share' : '✖ mission unfinished', x, 500, 18, ok ? '#9fffa0' : '#ff9a9a', 'center', 'bold'); });
+        w.forEach((j, k) => { const x = 640 + (k - 1) * 230, ok = S.P[j].pours >= QUOTA; this.cloak(g, x, 400, 1.3, m.players[j].color, m.t + j); av(g, m, j, x, 410, 40, ok ? 'happy' : 'sad'); MGH.text(g, ok ? '✔ wins a share' : '✖ mission unfinished', x, 500, 18, ok ? '#9fffa0' : '#ff9a9a', 'center', 'bold'); });
         MGH.text(g, `${m.players[i].name} the Traitor is caught!`, 640, 580, 26, '#fff', 'center', 'bold');
       }
       MGH.text(g, `The tell you could have spotted: ${hk}.`, 640, 630, 18, '#d8c8f0', 'center');

@@ -63,7 +63,7 @@ const UI = {
       el.style.setProperty('--c', p.color);
       const rank = ranks.indexOf(p) + 1, ord = ['1st', '2nd', '3rd', '4th'][rank - 1];
       const sig = `${p.vault}|${p.cash}|${G.simple ? 0 : G.bank(p)}`, bump = el.dataset.sig !== undefined && el.dataset.sig !== sig; el.dataset.sig = sig;
-      el.innerHTML = `<canvas class="pport" width="84" height="84" data-pid="${p.id}"></canvas><div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="rank">${ord}</span></div>
+      el.innerHTML = `<canvas class="pport" width="84" height="84" data-pid="${p.id}"></canvas><div class="pch"><span class="gl">${p.el.glyph}</span><b>${esc(p.name)}</b><span class="tag">${p.human ? 'Human' : 'Bot'}</span><span class="torder" title="Turn order: plays #${G.order.indexOf(p.id) + 1} this round">🎲#${G.order.indexOf(p.id) + 1}</span><span class="rank" title="Overall standing">🏅${ord}</span></div>
         <div class="pcs">${G.simple ? `<span title="Stars">⭐ <b>${p.vault}</b></span><span title="Coins">🪙 <b>${p.cash}</b></span>` : `<span title="Banked stars">⭐ <b>${p.vault}</b></span><span title="Banked coins">🏦 <b>${G.bank(p)}</b></span><span title="Coins on hand">💰 <b>${p.cash}</b></span>${G.hotCoins(p) + G.hotStars(p) ? `<span title="Hot loot">🔥 ${G.hotCoins(p)}c ${G.hotStars(p)}⭐</span>` : ''}`}<span title="Moot wins">🏆 ${p.mgWins}</span></div>
         <div class="pcb"><span class="pci">${items}</span>${st.length ? `<span class="pct">${st.join(' · ')}</span>` : ''}</div>`;
       if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
@@ -350,7 +350,8 @@ const UI = {
       <label>Game length <select id="rounds"><option value="20">20 rounds</option><option value="15">15 rounds</option><option value="12">12 rounds</option><option value="10">10 rounds (quick)</option></select></label>
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label>
-      <label><input type="checkbox" id="mus" ${Settings.music ? 'checked' : ''}> Music</label></div>
+      <label><input type="checkbox" id="mus" ${Settings.music ? 'checked' : ''}> Music</label>
+      <label><input type="checkbox" id="vox" ${Settings.voice !== false ? 'checked' : ''}> Voices</label></div>
       <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (${MG.list.length} minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map · right stick scrolls · Start pauses). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
@@ -371,6 +372,8 @@ const UI = {
     };
     $('#practiceBtn').onclick = () => { const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); Settings.sound = $('#snd').checked; Settings.music = $('#mus').checked; Sfx.init(); Music.refresh(); this.showPractice(s); };
     $('#mus').onchange = () => { Settings.music = $('#mus').checked; Music.refresh(); };
+    $('#vox').onchange = () => { Settings.voice = $('#vox').checked; localStorageSet('ff_voice', Settings.voice ? '1' : '0'); if (Settings.voice) Voice.line(0, 'turn'); };
+    { const sv = localStorageGet('ff_voice'); if (sv !== null && sv !== undefined) { Settings.voice = sv === '1'; $('#vox').checked = Settings.voice; } }
     $('#rulesBtn').onclick = () => this.toggleHelp(true, 'rules');
   },
 

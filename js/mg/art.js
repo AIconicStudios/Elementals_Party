@@ -5,6 +5,32 @@ Object.assign(MGH, {
   // deterministic noise for stable shapes
   hash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); },
   grad(g, y0, y1, stops) { const gr = g.createLinearGradient(0, y0, 0, y1); stops.forEach((c, k) => gr.addColorStop(k / (stops.length - 1), c)); return gr; },
+  // a realistic flame standing at (x, y = its base): layered tongues from a white-hot core through yellow and
+  // orange to deep red, each flickering and swaying on its own, with a warm glow, rising embers and a wisp of smoke
+  flame(g, x, y, s = 1, t = 0, seed = 0) {
+    g.save();
+    const sway = Math.sin(t * 4.3 + seed) * 3 * s + Math.sin(t * 9.1 + seed * 2) * 1.5 * s;
+    this.glow(g, x, y - 20 * s, 70 * s, `rgba(255,140,50,${0.3 + 0.06 * Math.sin(t * 11 + seed)})`);
+    // smoke
+    for (let k = 0; k < 3; k++) { const ph = (t * 0.45 + k / 3 + seed * 0.13) % 1; g.fillStyle = `rgba(60,50,60,${0.18 * (1 - ph)})`; g.beginPath(); g.arc(x + sway * 1.5 + Math.sin(ph * 5 + k) * 6 * s, y - 50 * s - ph * 60 * s, (6 + ph * 14) * s, 0, 7); g.fill(); }
+    g.globalCompositeOperation = 'lighter';
+    const layers = [[20, 56, 'rgba(255,80,10,', 0.32], [15.5, 48, 'rgba(255,120,20,', 0.45], [12, 38, 'rgba(255,165,40,', 0.6], [8.5, 28, 'rgba(255,205,80,', 0.75], [5.5, 19, 'rgba(255,238,170,', 0.9], [3, 11, 'rgba(255,255,240,', 1]];
+    const tongue = (x0, hs, ws, ph) => layers.forEach(([w, h, c, a], k) => {
+      const hh = h * s * hs * (1 + 0.16 * Math.sin(t * (12 + k * 2.3) + seed + k + ph) + 0.09 * Math.sin(t * (23 + k) + seed * 3 + ph)), ww = w * s * ws * (1 + 0.07 * Math.sin(t * 17 + seed + k + ph));
+      const tip = x0 + sway * (1 + k * 0.15) * hs + Math.sin(t * 7 + ph) * 2 * s;
+      const gr = g.createLinearGradient(0, y, 0, y - hh); gr.addColorStop(0, c + a + ')'); gr.addColorStop(0.65, c + (a * 0.7) + ')'); gr.addColorStop(1, c + '0)');
+      g.shadowColor = k < 2 ? 'rgba(255,120,30,0.7)' : 'rgba(0,0,0,0)'; g.shadowBlur = k < 2 ? 14 * s : 0;
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x0 - ww, y);
+      g.bezierCurveTo(x0 - ww * 1.05, y - hh * 0.45, tip - ww * 0.35, y - hh * 0.78, tip, y - hh);
+      g.bezierCurveTo(tip + ww * 0.35, y - hh * 0.78, x0 + ww * 1.05, y - hh * 0.45, x0 + ww, y);
+      g.quadraticCurveTo(x0, y + ww * 0.5, x0 - ww, y); g.fill();
+    });
+    tongue(x - 9 * s, 0.6, 0.5, 1.7); tongue(x + 9 * s, 0.68, 0.5, 3.1); tongue(x, 1, 0.82, 0);
+    g.shadowBlur = 0;
+    // embers
+    for (let k = 0; k < 4; k++) { const ph = (t * 0.9 + k * 0.27 + seed * 0.31) % 1; g.fillStyle = `rgba(255,${180 + k * 15},90,${1 - ph})`; g.beginPath(); g.arc(x + Math.sin(k * 7 + ph * 6) * 8 * s + sway, y - 25 * s - ph * 70 * s, 1.6 * s, 0, 7); g.fill(); }
+    g.restore();
+  },
   // an eye-friendly impact flash: a soft coloured glow around the screen edges (centre stays clear), never a full white frame
   softFlash(g, a, rgb = '255,214,120', y0 = 0, h = 720) {
     if (a <= 0) return; a = Math.min(1, a);

@@ -289,7 +289,7 @@
     fmt: v => `${Math.round(v)} crystal hits`,
     draw(m, S, T, g) {
       g.fillStyle = MGH.grad(g, 40, 720, ['#1a1030', '#3a2050', '#1a1028']); g.fillRect(0, 40, 1280, 680);
-      for (let k = 0; k < 6; k++) { const x = 120 + k * 210; g.fillStyle = 'rgba(80,60,110,0.6)'; g.fillRect(x - 24, 80, 48, 560); MGH.glow(g, x, 140, 50, 'rgba(255,170,80,0.3)'); MGH.fireball(g, x, 136, 9, m.t + k, 0, -1); }
+      for (let k = 0; k < 6; k++) { const x = 120 + k * 210; g.fillStyle = 'rgba(80,60,110,0.6)'; g.fillRect(x - 24, 80, 48, 560); MGH.flame(g, x, 152, 0.7, m.t, k * 3); }
       // the golem (sinks and crumbles when beaten)
       const sink = T.hp <= 0 ? Math.min(1, T.dead / 1.6) : 0;
       g.save(); g.translate(0, sink * 260); g.globalAlpha = 1 - sink * 0.6;

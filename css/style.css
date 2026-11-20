@@ -191,3 +191,5 @@ html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden; fon
 @keyframes startPulse { 50% { box-shadow: 0 5px 0 #8a3a10, 0 0 40px rgba(255,190,80,0.9); } }
 .panel.menu .row label { color: #f0e8ff; }
 .hpad { font-size: 13px; letter-spacing: 0; color: #a99ad8; margin-left: 14px; font-weight: normal; }
+
+.pch .torder { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: rgba(90,63,208,0.85); color: #fff; margin-left: 4px; font-weight: bold; }
