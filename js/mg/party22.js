@@ -307,8 +307,8 @@ MG.def({
   init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(320 + (i % 2) * 640, 320 + Math.floor(i / 2) * 240, 22), { n: 0, sw: 0, cd: 0, hit: 0 })); S.bugs = []; for (let k = 0; k < 14; k++) this.bug(S); S.sp = 0; },
   bug(S, x, y) { S.bugs.push({ x: x !== undefined ? x : R.range(100, 1180), y: y !== undefined ? y : R.range(220, 660), vx: 0, vy: 0, ph: R.range(0, 6), per: R.range(1.6, 2.6), moth: Math.random() < 0.08, flee: 0 }); },
   update(m, S, dt) {
-    S.sp -= dt; if (S.sp <= 0 && S.bugs.length < 16) { this.bug(S); S.sp = 0.7; }
-    S.bugs.forEach(q => { q.ph += dt; q.flee -= dt; const sp = q.moth ? 3 : 1; if (Math.random() < dt * 1.2 * sp) { const a = R.range(0, 6.28); q.vx = Math.cos(a) * 60 * sp; q.vy = Math.sin(a) * 40 * sp; } q.x = clamp(q.x + q.vx * dt, 70, 1210); q.y = clamp(q.y + q.vy * dt + Math.sin(q.ph * 3) * 10 * dt, 210, 680); });
+    S.sp -= dt; if (S.sp <= 0 && S.bugs.length < 18) { this.bug(S); S.sp = 0.32; }
+    S.bugs.forEach(q => { q.ph += dt; q.flee -= dt; const sp = q.moth ? 3 : 1; const near = S.b.find(b => dist(b.x, b.y, q.x, q.y) < 85); if (near && q.flee <= 0) { const l = dist(near.x, near.y, q.x, q.y) || 1; q.vx = (q.x - near.x) / l * 170 * sp; q.vy = (q.y - near.y) / l * 120 * sp; q.flee = 0.5; } if (Math.random() < dt * 1.2 * sp) { const a = R.range(0, 6.28); q.vx = Math.cos(a) * 60 * sp; q.vy = Math.sin(a) * 40 * sp; } q.x = clamp(q.x + q.vx * dt, 70, 1210); q.y = clamp(q.y + q.vy * dt + Math.sin(q.ph * 3) * 10 * dt, 210, 680); });
     S.b.forEach((b, i) => {
       b.sw -= dt; b.cd -= dt; b.hit -= dt;
       if (m.pressed(i, 'a') && b.cd <= 0) { b.sw = 0.28; b.cd = 0.55; Sfx.whoosh(false);
@@ -364,7 +364,8 @@ MG.def({
     ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
     g.drawImage(dk, 0, 0, 1280, 720);
     // glowing bugs stay visible above the dark when they light up
-    g.save(); g.globalCompositeOperation = 'lighter'; S.bugs.forEach(q => { if (!this.lit(q)) return; const a = 0.6 + 0.4 * Math.sin(q.ph * 8); MGH.glow(g, q.x, q.y, q.moth ? 34 : 26, q.moth ? `rgba(120,180,255,${a})` : `rgba(220,255,120,${a})`); g.fillStyle = q.moth ? '#e0f0ff' : '#fbffd0'; g.beginPath(); g.arc(q.x, q.y, q.moth ? 4 : 3, 0, 7); g.fill(); }); S.b.forEach((b, i) => MGH.glow(g, b.x - 22, b.y + 4, 16 + b.n * 2, 'rgba(230,255,140,0.35)')); g.restore();
+    g.save(); g.globalCompositeOperation = 'lighter'; S.bugs.forEach(q => { if (!this.lit(q)) return; const a = 0.6 + 0.4 * Math.sin(q.ph * 8); MGH.glow(g, q.x, q.y, q.moth ? 40 : 32, q.moth ? `rgba(120,180,255,${a})` : `rgba(230,255,110,${a})`); }); g.restore();
+    S.bugs.forEach(q => { if (!this.lit(q)) return; const a = 0.6 + 0.4 * Math.sin(q.ph * 8); g.fillStyle = q.moth ? `rgba(140,190,255,${0.35 * a})` : `rgba(230,255,120,${0.35 * a})`; g.beginPath(); g.arc(q.x, q.y, 11, 0, 7); g.fill(); g.fillStyle = q.moth ? '#e8f4ff' : '#fdffc8'; g.beginPath(); g.arc(q.x, q.y, q.moth ? 5.5 : 4.5, 0, 7); g.fill(); if (q.moth) { const fl = Math.sin(m.t * 30 + q.ph); g.fillStyle = 'rgba(180,220,255,0.8)'; g.beginPath(); g.ellipse(q.x - 7, q.y, 8, 4 + fl * 3, -0.4, 0, 7); g.ellipse(q.x + 7, q.y, 8, 4 + fl * 3, 0.4, 0, 7); g.fill(); } }); g.save(); g.globalCompositeOperation = 'lighter'; S.b.forEach((b, i) => MGH.glow(g, b.x - 22, b.y + 4, 16 + b.n * 2, 'rgba(230,255,140,0.35)')); g.restore();
     m.players.forEach((p, i) => { g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, 160 + i * 320 - 70, 206, 140, 28, 14); g.fill(); MGH.text(g, `${p.name} ✨ ${S.b[i].n}`, 160 + i * 320, 226, 17, p.color, 'center', 'bold'); });
   },
 });
