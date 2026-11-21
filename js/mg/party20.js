@@ -62,14 +62,14 @@ MG.def({
 
 // ======================================================================== ICE CREAM CONE (catch the scoops where their shadows fall)
 MG.def({
-  id: 'icecone', name: 'Ice Cream Cone', type: 'Coins', controls: 'Move', dur: 45,
+  id: 'icecone', name: 'Ice Cream Cone', type: 'Coins', controls: 'Move', dur: 45, view: [190, 195, 1090, 673],
   rows: [['stick', 'Run with your cone']],
   how: 'Ice-cream scoops are raining down in the parlour! Watch the floor: a SHADOW shows where each scoop will land, and it grows as the scoop gets close. Get your cone under it to catch it — first cone there gets it! The taller your stack, the slower you run. Golden scoops count triple; green YUCK scoops knock two off your stack.',
   wins: 'Tallest ice cream.',
-  init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(320 + (i % 2) * 640, 280 + Math.floor(i / 2) * 240, 24), { stack: [], fx: '', fxT: 0 })); S.drops = []; S.sp = 0; },
+  init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(420 + (i % 2) * 440, 340 + Math.floor(i / 2) * 200, 24), { stack: [], fx: '', fxT: 0 })); S.drops = []; S.sp = 0; },
   update(m, S, dt) {
-    S.sp -= dt; if (S.sp <= 0) { S.sp = Math.max(0.28, 0.75 - m.t * 0.008); const r = Math.random(); S.drops.push({ x: R.range(120, 1160), y: R.range(190, 660), t: 0, T: R.range(1.2, 1.7), k: r < 0.1 ? 'gold' : r < 0.22 ? 'yuck' : 'n', col: R.pick(['#ffd0e0', '#fff4c8', '#a86a3a', '#c8f0ff', '#ffb8d8', '#c8ffb0']) }); }
-    S.b.forEach((b, i) => { b.fxT -= dt; const a = m.axis(i), sp = 320 / (1 + b.stack.length * 0.07); MGH.steer(b, a.x, a.y, dt, 2200, sp, 8); MGH.integrate(b, dt, 60, 160, 1220, 690); });
+    S.sp -= dt; if (S.sp <= 0) { S.sp = Math.max(0.28, 0.75 - m.t * 0.008); const r = Math.random(); S.drops.push({ x: R.range(240, 1040), y: R.range(265, 630), t: 0, T: R.range(1.2, 1.7), k: r < 0.1 ? 'gold' : r < 0.22 ? 'yuck' : 'n', col: R.pick(['#ffd0e0', '#fff4c8', '#a86a3a', '#c8f0ff', '#ffb8d8', '#c8ffb0']) }); }
+    S.b.forEach((b, i) => { b.fxT -= dt; const a = m.axis(i), sp = 320 / (1 + b.stack.length * 0.07); MGH.steer(b, a.x, a.y, dt, 2200, sp, 8); MGH.integrate(b, dt, 215, 240, 1065, 650); });
     MGH.collide(S.b, 0.6);
     S.drops.forEach(d => {
       d.t += dt; if (d.t < d.T || d.done) return; d.done = true;
@@ -93,7 +93,8 @@ MG.def({
   hud(m, S, i) { return `🍦 ${S.b[i].stack.length}`; },
   draw(m, S, g) {
     g.fillStyle = '#f4d8e0'; g.fillRect(0, 0, 1280, 720);
-    for (let x = 0; x < 1280; x += 60) for (let y = 150; y < 720; y += 60) { g.fillStyle = ((x + y) / 60) % 2 ? '#fff' : '#ffc8dc'; g.fillRect(x, y, 60, 60); }
+    for (let x = 0; x < 1280; x += 60) for (let y = 150; y < 720; y += 60) { g.fillStyle = (Math.round(x / 60) + Math.round((y - 150) / 60)) % 2 ? '#fff4f8' : '#ffb8d4'; g.fillRect(x, y, 60, 60); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x + 4, y + 4, 52, 6); }
+    g.strokeStyle = '#e86a98'; g.lineWidth = 8; g.strokeRect(205, 230, 870, 430);
     g.fillStyle = MGH.grad(g, 40, 150, ['#ff8ab8', '#e86a98']); g.fillRect(0, 40, 1280, 110); for (let x = 0; x < 1280; x += 80) { g.fillStyle = (x / 80) % 2 ? '#fff' : '#ff8ab8'; g.beginPath(); g.moveTo(x, 150); g.lineTo(x + 80, 150); g.lineTo(x + 40, 180); g.fill(); }
     MGH.text(g, '🍨 Scoop Parlour 🍨', 640, 110, 34, '#fff', 'center', 'bold');
     S.drops.forEach(d => { const k = d.t / d.T; g.fillStyle = `rgba(80,30,60,${0.15 + 0.35 * k})`; g.beginPath(); g.ellipse(d.x, d.y, 10 + 22 * k, 5 + 9 * k, 0, 0, 7); g.fill(); if (k > 0.55) { const yy = d.y - (1 - k) * 600 - 20; g.fillStyle = d.k === 'yuck' ? '#7ab84a' : d.k === 'gold' ? '#ffd34d' : d.col; g.beginPath(); g.arc(d.x, yy, 16, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(d.x - 5, yy - 5, 4, 0, 7); g.fill(); if (d.k === 'gold') MGH.spark(g, d.x + 8, yy - 8, 3, '#fff'); if (d.k === 'yuck') { g.fillStyle = '#4a7a2a'; g.beginPath(); g.arc(d.x - 4, yy + 2, 3, 0, 7); g.fill(); } } });
@@ -116,17 +117,17 @@ MG.def({
   rows: [['stick', 'Move'], ['a', 'Squirt (hold for a power blast)'], ['b', 'Hold to refill at the fountain']],
   how: 'A round fountain floating high in the sky! Everyone has a water pistol. TAP A to squirt (it pushes rivals back a little and uses a drop of water); HOLD A and let go for a POWER BLAST that uses all your water but shoves much harder. Keep pushing someone and they\'ll slide right off the edge! Your tank empties fast — hold B near the middle fountain to refill. Three lives each.',
   wins: 'Last one on the fountain (or most lives left).',
-  CX: 640, CY: 410, RR: 290,
-  init(m, S) { S.b = [0, 1, 2, 3].map(i => { const a = i * Math.PI / 2 + Math.PI / 4; return Object.assign(MGH.body(this.CX + Math.cos(a) * 170, this.CY + Math.sin(a) * 130, 22), { water: 10, hold: 0, cd: 0, lives: 3, fall: 0, inv: 1, last: -1, aim: { x: -Math.cos(a), y: -Math.sin(a) }, fill: 0 }); }); S.jets = []; S.order = []; },
+  CX: 640, CY: 400, RR: 230, view: [310, 110, 970, 700],
+  init(m, S) { S.b = [0, 1, 2, 3].map(i => { const a = i * Math.PI / 2 + Math.PI / 4; return Object.assign(MGH.body(this.CX + Math.cos(a) * 130, this.CY + Math.sin(a) * 110, 22), { water: 10, hold: 0, cd: 0, lives: 3, fall: 0, inv: 1, last: -1, aim: { x: -Math.cos(a), y: -Math.sin(a) }, fill: 0 }); }); S.jets = []; S.order = []; },
   update(m, S, dt) {
     S.b.forEach((b, i) => {
       if (b.lives <= 0) return; b.cd -= dt; b.inv -= dt;
       if (b.fall > 0) { b.fall -= dt; if (b.fall <= 0) { if (b.lives > 0) { b.x = this.CX + R.range(-60, 60); b.y = this.CY + R.range(-40, 40); b.vx = b.vy = 0; b.kx = b.ky = 0; b.inv = 1.5; b.water = 10; } } return; }
       const a = m.axis(i); if (Math.hypot(a.x, a.y) > 0.3) b.aim = { x: a.x / Math.hypot(a.x, a.y), y: a.y / Math.hypot(a.x, a.y) };
-      b.fill = m.held(i, 'b') && dist(b.x, b.y, this.CX, this.CY) < 110 ? b.fill + dt : 0; if (b.fill > 0.25 && b.water < 10) { b.water = Math.min(10, b.water + dt * 6); if (Math.random() < dt * 6) Sfx.tone(500 + b.water * 30, 0.03, 'sine', 0.015); }
+      b.fill = m.held(i, 'b') && dist(b.x, b.y, this.CX, this.CY) < 90 ? b.fill + dt : 0; if (b.fill > 0.25 && b.water < 10) { b.water = Math.min(10, b.water + dt * 6); if (Math.random() < dt * 6) Sfx.tone(500 + b.water * 30, 0.03, 'sine', 0.015); }
       MGH.steer(b, b.fill > 0 ? 0 : a.x, b.fill > 0 ? 0 : a.y, dt, 1600, 230, 2.4);
       if (m.held(i, 'a') && b.water > 0) b.hold += dt;
-      else if (b.hold > 0) { const power = b.hold > 0.45 && b.water >= 3; const use = power ? b.water : 1; if (b.water >= 1) { b.water -= use; S.jets.push({ x: b.x + b.aim.x * 26, y: b.y - 14 + b.aim.y * 26, vx: b.aim.x * 760, vy: b.aim.y * 760, t: 0, own: i, push: power ? 140 + use * 70 : 170, big: power }); Sfx.noise(power ? 0.4 : 0.12, 2200, power ? 0.1 : 0.04, 'bandpass'); b.kx = (b.kx || 0) - b.aim.x * (power ? 160 : 20); b.ky = (b.ky || 0) - b.aim.y * (power ? 160 : 20); } b.hold = 0; b.cd = 0.15; }
+      else if (b.hold > 0) { const power = b.hold > 0.45 && b.water >= 3; const use = power ? b.water : 1; if (b.water >= 1) { b.water -= use; S.jets.push({ x: b.x + b.aim.x * 26, y: b.y - 14 + b.aim.y * 26, vx: b.aim.x * 640, vy: b.aim.y * 640, t: 0, own: i, push: power ? 140 + use * 70 : 170, big: power }); Sfx.noise(power ? 0.4 : 0.12, 2200, power ? 0.1 : 0.04, 'bandpass'); b.kx = (b.kx || 0) - b.aim.x * (power ? 160 : 20); b.ky = (b.ky || 0) - b.aim.y * (power ? 160 : 20); } b.hold = 0; b.cd = 0.15; }
       MGH.integrate(b, dt, null); // no walls: the edge is a drop!
       b.x += (b.kx || 0) * dt; b.y += (b.ky || 0) * dt; b.kx = (b.kx || 0) * Math.exp(-2.4 * dt); b.ky = (b.ky || 0) * Math.exp(-2.4 * dt);
       if (dist(b.x, b.y, this.CX, this.CY) > this.RR + 6) { b.lives--; b.fall = 1.6; Sfx.noise(0.6, 600, 0.08, 'lowpass'); if (b.last >= 0) S.b[b.last].ko = (S.b[b.last].ko || 0) + 1; if (b.lives <= 0) S.order.push(i); }
@@ -140,11 +141,11 @@ MG.def({
     const b = S.b[i], v = m.vin[i]; v.a = v.b = false; if (b.lives <= 0 || b.fall > 0) return;
     if (!b.pers) b.pers = { agg: R.range(0.3, 1), side: R.pick([-1, 1]) };
     const dc = dist(b.x, b.y, this.CX, this.CY);
-    if (b.water < 1.5 || (b.water < 5 && dc < 120 && Math.random() < 0.02)) { if (dc > 90) MGH.aim(m, i, this.CX, this.CY, b, 6); else { v.ax = v.ay = 0; v.b = true; } return; }
+    if (b.water < 1.5 || (b.water < 5 && dc < 100 && Math.random() < 0.02)) { if (dc > 70) MGH.aim(m, i, this.CX, this.CY, b, 6); else { v.ax = v.ay = 0; v.b = true; } return; }
     if (b.tg === undefined || S.b[b.tg].lives <= 0 || S.b[b.tg].fall > 0 || Math.random() < 0.004) { const o = [0, 1, 2, 3].filter(k => k !== i && S.b[k].lives > 0 && S.b[k].fall <= 0); if (!o.length) return; b.tg = R.pick(o); }
     const t = S.b[b.tg], d = dist(t.x, t.y, b.x, b.y), td = dist(t.x, t.y, this.CX, this.CY);
     // circle to the middle side of the target so the shots push it outward
-    const ux = (t.x - this.CX) / (td || 1), uy = (t.y - this.CY) / (td || 1), gx = t.x - ux * 170 - uy * 60 * b.pers.side, gy = t.y - uy * 130 + ux * 60 * b.pers.side;
+    const ux = (t.x - this.CX) / (td || 1), uy = (t.y - this.CY) / (td || 1), gx = t.x - ux * 135 - uy * 50 * b.pers.side, gy = t.y - uy * 105 + ux * 50 * b.pers.side;
     if (dc > this.RR - 60) MGH.aim(m, i, this.CX, this.CY, b, 10); else MGH.aim(m, i, gx, gy, b, 14);
     if (d < 280) { const ax = (t.x - b.x) / d, ay = (t.y - b.y) / d; if (b.hold <= 0) { if (b.cd <= 0 && Math.random() < 0.15 * b.pers.agg) { v.ax = ax; v.ay = ay; v.a = true; } } else { v.ax = ax; v.ay = ay; v.a = td > this.RR * 0.55 && b.water >= 4 ? b.hold < 0.55 : false; } }
   },

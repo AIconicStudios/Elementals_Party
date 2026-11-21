@@ -322,10 +322,13 @@ const MG = {
     this.pauseBtns().forEach((b, k) => b.classList.toggle('navsel', k === (this.pauseSel || 0)));
   },
 
+  // a game may declare view: [x0, y0, x1, y1] — that part of its world fills the play area (a closer camera)
+  viewT(g, game) { const v = game.view; if (!v) return; const k = Math.min(1280 / (v[2] - v[0]), 680 / (v[3] - v[1])); g.translate(640 - (v[0] + v[2]) / 2 * k, 380 - (v[1] + v[3]) / 2 * k); g.scale(k, k); },
   drawGame(g, game, m, S, dt, frozen) {
     this.stepFx(dt);
     g.save();
     if (this.shakeAmt > 0) g.translate(R.range(-1, 1) * this.shakeAmt, R.range(-1, 1) * this.shakeAmt);
+    this.viewT(g, game);
     game.draw(m, S, g);
     this.drawFx(g);
     g.restore();
@@ -358,7 +361,7 @@ const MG = {
         if (game.dur && m.t >= game.dur && !m.done) m.finish(game.score(m, S));
       } else { d.end += dt; if (d.end > 1.2) d.reset(); }
       this.stepFx(dt);
-      game.draw(d.m, d.S, d.g); this.drawFx(d.g); this.hud(d.m, d.S, game, d.g);
+      d.g.save(); this.viewT(d.g, game); game.draw(d.m, d.S, d.g); this.drawFx(d.g); d.g.restore(); this.hud(d.m, d.S, game, d.g);
     } catch (e) { console.error(e); }
     d.fx = this.fx; this.fx = keepFx; this.shakeAmt = keepShake; Sfx.suppress = false;
   },
@@ -377,7 +380,7 @@ const MG = {
       const secs = game.thumbT || (game.finale ? 6 : 3.2);
       for (let k = 0; k < secs * 30 && !m.done; k++) { this.readInputs(m); for (let i = 0; i < 4; i++) if (game.bot) game.bot(m, S, i, m.dt); m.t += m.dt; game.update(m, S, m.dt); }
       Settings.test = test;
-      g.fillStyle = '#100a24'; g.fillRect(0, 0, 1280, 720); game.draw(m, S, g);
+      g.fillStyle = '#100a24'; g.fillRect(0, 0, 1280, 720); g.save(); this.viewT(g, game); game.draw(m, S, g); g.restore();
     } catch (e) { Settings.test = test; g.fillStyle = '#241c42'; g.fillRect(0, 0, 1280, 720); }
     this.fx = []; this.shakeAmt = 0;
     const t = document.createElement('canvas'); t.width = 320; t.height = 180; t.getContext('2d').drawImage(c, 0, 40, 1280, 680, 0, 0, 320, 180);

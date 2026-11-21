@@ -2,6 +2,9 @@
 // Graphics pass 1: shared drawing helpers and redrawn scenes for games that asked for a visual upgrade.
 // Each block replaces only a game's draw (and sometimes hud) so gameplay stays exactly as tuned.
 const GX = {
+  // draw a static scene once (at high resolution) and reuse it every frame — same look, a fraction of the cost
+  bake(key, fn) { GX._bk = GX._bk || {}; let c = GX._bk[key]; if (!c) { c = document.createElement('canvas'); c.width = 2560; c.height = 1440; const b = c.getContext('2d'); b.scale(2, 2); fn(b); GX._bk[key] = c; } return c; },
+  blit(g, c) { g.drawImage(c, 0, 0, 1280, 720); },
   // a hero swimming: body tilts toward the stroke, limbs flutter, bubbles trail behind
   swimmer(g, m, i, b, mood, o = {}) {
     const p = m.players[i], sp = Math.hypot(b.vx || 0, b.vy || 0), s = Math.min(1, sp / 110);
@@ -674,6 +677,7 @@ GX.haySprite = function (v) {
 
 // ===================================================================== Haystack Hunt: a real harvest field
 MG.byId.haystack && (MG.byId.haystack.draw = function (m, S, g) {
+  GX.blit(g, GX.bake('haystack', g => {
   GX.vfill(g, 0, 0, 1280, 130, ['#78b4e8', '#bcdcf4', '#f4ead0']);
   MGH.glow(g, 1080, 70, 120, 'rgba(255,240,190,0.6)');
   g.fillStyle = '#8aa8a0'; g.beginPath(); g.moveTo(0, 130); for (let x = 0; x <= 1280; x += 40) g.lineTo(x, 104 - Math.abs(Math.sin(x * 0.006)) * 30); g.lineTo(1280, 130); g.fill();
@@ -688,6 +692,7 @@ MG.byId.haystack && (MG.byId.haystack.draw = function (m, S, g) {
   for (let k = 0; k < 18; k++) { const x = MGH.hash(k + 40) * 1280, y = 140 + MGH.hash(k + 41) * 570; g.fillStyle = 'rgba(80,60,40,0.4)'; g.beginPath(); g.ellipse(x, y, 4, 2, 0, 0, 7); g.fill(); }
   // fence along the top of the field
   for (let x = 0; x < 1280; x += 60) { g.fillStyle = '#7a5530'; g.fillRect(x, 120, 5, 22); } g.fillStyle = '#8a6438'; g.fillRect(0, 124, 1280, 4); g.fillRect(0, 134, 1280, 4);
+  }));
   const ents = S.st.map((s, k) => ({ y: s.y + 30, f: () => {
     const near = S.b.some(b => dist(b.x, b.y, S.st[S.n].x, S.st[S.n].y) < 220) && dist(s.x, s.y, S.st[S.n].x, S.st[S.n].y) < 200 && s.flat <= 0;
     const dg = S.b.find(b => b.at === k), wob = near ? Math.sin(m.t * 20 + k) * 0.03 : 0, shake = dg ? Math.sin(m.t * 40) * 0.025 : 0;
@@ -765,6 +770,7 @@ MG.byId.ships && (MG.byId.ships.draw = function (m, S, g) {
 
 // ===================================================================== Masquerade: a grand moonlit ballroom with ornate masks and gowns
 MG.byId.masquerade && (MG.byId.masquerade.draw = function (m, S, g) {
+  GX.blit(g, GX.bake('masquerade', g => {
   // back wall with arched windows, pillars and curtains
   GX.vfill(g, 0, 0, 1280, 160, ['#1a0a24', '#3a1840']);
   for (let k = 0; k < 6; k++) { const x = 110 + k * 212;
@@ -784,6 +790,7 @@ MG.byId.masquerade && (MG.byId.masquerade.draw = function (m, S, g) {
   for (let y = 120; y < 760; y += 60) for (let x = -60; x < 1340; x += 120) { const ox = ((y / 60) % 2) * 60; g.fillStyle = ((y / 60) % 2) ? 'rgba(240,226,210,0.22)' : 'rgba(30,10,30,0.25)'; g.beginPath(); g.moveTo(x + ox, y); g.lineTo(x + ox + 60, y + 30); g.lineTo(x + ox, y + 60); g.lineTo(x + ox - 60, y + 30); g.fill(); }
   const sheen = g.createLinearGradient(0, 160, 0, 720); sheen.addColorStop(0, 'rgba(255,220,160,0.12)'); sheen.addColorStop(1, 'rgba(0,0,0,0.25)'); g.fillStyle = sheen; g.fillRect(0, 160, 1280, 560);
   g.restore();
+  }));
   // chandeliers (their light pools on the floor)
   for (let k = 0; k < 3; k++) { const x = 320 + k * 320, sw = Math.sin(m.t * 0.8 + k) * 4; MGH.glow(g, x, 420, 260, 'rgba(255,210,140,0.12)');
     g.strokeStyle = '#c8a050'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + sw, 50); g.stroke();
@@ -809,11 +816,15 @@ MG.byId.masquerade && (MG.byId.masquerade.draw = function (m, S, g) {
     g.fillStyle = '#fff'; g.beginPath(); g.arc(b.x - 17 - sw * 0.5, y + 8 + Math.sin(ph) * 3, 4.5, 0, 7); g.arc(b.x + 17, y - 2 - Math.abs(Math.sin(ph)) * 6, 4.5, 0, 7); g.fill();
     // head + venetian mask with feather plume
     const hx = b.x + sw * 0.6;
-    Char.npc(g, hx, y - 18, 15, 'host', { mood: 'happy', headOnly: true, look: b.face, seed: 3 });
-    const mk = g.createLinearGradient(hx - 16, 0, hx + 16, 0); mk.addColorStop(0, '#b8862a'); mk.addColorStop(0.5, '#fff0a8'); mk.addColorStop(1, '#b8862a'); g.fillStyle = mk;
-    g.beginPath(); g.moveTo(hx - 17, y - 22); g.quadraticCurveTo(hx - 9, y - 28, hx, y - 21); g.quadraticCurveTo(hx + 9, y - 28, hx + 17, y - 22); g.quadraticCurveTo(hx + 14, y - 11, hx + 5, y - 13); g.quadraticCurveTo(hx, y - 16, hx - 5, y - 13); g.quadraticCurveTo(hx - 14, y - 11, hx - 17, y - 22); g.fill();
-    g.fillStyle = '#1a0a20'; g.beginPath(); g.ellipse(hx - 7, y - 19, 4, 2.6, 0.15, 0, 7); g.ellipse(hx + 7, y - 19, 4, 2.6, -0.15, 0, 7); g.fill();
-    g.fillStyle = '#e8323e'; g.beginPath(); g.arc(hx, y - 22, 2, 0, 7); g.fill();
+    const fr = b.face && b.face.x > 0.25 ? 1 : 0, spr = GX._mask && GX._mask[fr] || (GX._mask = GX._mask || [])[fr] || (GX._mask[fr] = (() => { const c = document.createElement('canvas'); c.width = 160; c.height = 160; const q = c.getContext('2d'); q.scale(2, 2); const hx = 40, y = 58;
+      Char.npc(q, hx, y - 18, 15, 'host', { mood: 'happy', headOnly: true, look: { x: fr ? 1 : -1, y: 0 }, seed: 3, t: 0, noShadow: true });
+      const g = q;
+      const mk = g.createLinearGradient(hx - 16, 0, hx + 16, 0); mk.addColorStop(0, '#b8862a'); mk.addColorStop(0.5, '#fff0a8'); mk.addColorStop(1, '#b8862a'); g.fillStyle = mk;
+      g.beginPath(); g.moveTo(hx - 17, y - 22); g.quadraticCurveTo(hx - 9, y - 28, hx, y - 21); g.quadraticCurveTo(hx + 9, y - 28, hx + 17, y - 22); g.quadraticCurveTo(hx + 14, y - 11, hx + 5, y - 13); g.quadraticCurveTo(hx, y - 16, hx - 5, y - 13); g.quadraticCurveTo(hx - 14, y - 11, hx - 17, y - 22); g.fill();
+      g.fillStyle = '#1a0a20'; g.beginPath(); g.ellipse(hx - 7, y - 19, 4, 2.6, 0.15, 0, 7); g.ellipse(hx + 7, y - 19, 4, 2.6, -0.15, 0, 7); g.fill();
+      g.fillStyle = '#e8323e'; g.beginPath(); g.arc(hx, y - 22, 2, 0, 7); g.fill();
+        return c; })());
+    g.drawImage(spr, hx - 40, y - 58, 80, 80);
     const fw = Math.sin(m.t * 3 + b.x) * 0.15;
     [['#8a3ac8', -0.25], ['#ff5a9a', 0], ['#3ac8c0', 0.25]].forEach(([c, a]) => { g.save(); g.translate(hx + 12, y - 26); g.rotate(a + fw + 0.4); g.fillStyle = c; g.beginPath(); g.ellipse(0, -14, 4, 15, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -27); g.stroke(); g.restore(); });
     if (!b.npc && b.cool > 0) MGH.label(g, m.players[b.i].name, b.x, b.y - 62, 14, m.players[b.i].color);

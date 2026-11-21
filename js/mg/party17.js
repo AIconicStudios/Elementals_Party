@@ -311,7 +311,7 @@ MG.def({
   hud(m, S, i) { return `💎 ${S.b[i].pts}`; },
   draw(m, S, g) {
     g.fillStyle = '#0e1220'; g.fillRect(0, 0, 1280, 720);
-    for (let x = 60; x < 1220; x += 60) for (let y = 150; y < 700; y += 60) { g.fillStyle = ((x + y) / 60) % 2 ? '#161c30' : '#1a2238'; g.fillRect(x, y, 60, 60); }
+    for (let x = 60; x < 1220; x += 60) for (let y = 150; y < 700; y += 60) { g.fillStyle = Math.floor((x + y) / 60) % 2 ? '#161c30' : '#1a2238'; g.fillRect(x, y, 60, 60); }
     g.strokeStyle = '#3a4a6a'; g.lineWidth = 6; g.strokeRect(60, 150, 1160, 550);
     S.gems.forEach(gm => MGH.gem(g, gm.x, gm.y, 14, '#5fd8ff', m.t));
     g.save(); g.beginPath(); g.rect(60, 150, 1160, 550); g.clip();

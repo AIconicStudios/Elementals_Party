@@ -149,7 +149,7 @@
     draw(m, S, T, g) {
       // arena floor: polished tiles under spotlights
       g.fillStyle = MGH.grad(g, 40, 720, ['#2a1a4a', '#3a2460', '#241640']); g.fillRect(0, 40, 1280, 680);
-      for (let y = 70; y < 700; y += 70) for (let x = 30; x < 1250; x += 70) { g.fillStyle = ((x + y) / 70) % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.06)'; g.fillRect(x, y, 70, 70); }
+      for (let y = 70; y < 700; y += 70) for (let x = 30; x < 1250; x += 70) { g.fillStyle = Math.floor((x + y) / 70) % 2 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.06)'; g.fillRect(x, y, 70, 70); }
       g.strokeStyle = '#ffcf4a'; g.lineWidth = 6; MGH.rr(g, 30, 70, 1220, 630, 30); g.stroke();
       g.strokeStyle = 'rgba(255,207,74,0.3)'; g.lineWidth = 14; MGH.rr(g, 22, 62, 1236, 646, 36); g.stroke();
       T.pod.forEach((p, k) => {

@@ -51,7 +51,7 @@ MG.byId.splashzone && (MG.byId.splashzone.draw = function (m, S, g) {
   // ---- central tiered fountain (the refill spot)
   const refilling = S.b.some(b => b.fill > 0.25 && b.lives > 0 && b.fall <= 0);
   MGH.glow(g, CX, CY, 130, refilling ? 'rgba(160,230,255,0.55)' : 'rgba(160,230,255,0.25)');
-  g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 2; g.setLineDash([6, 8]); g.lineDashOffset = -t * 20; g.beginPath(); g.arc(CX, CY, 110, 0, 7); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 2; g.setLineDash([6, 8]); g.lineDashOffset = -t * 20; g.beginPath(); g.arc(CX, CY, 90, 0, 7); g.stroke(); g.setLineDash([]);
   const basin = (r, y, c1, c2) => { const bg = g.createLinearGradient(CX - r, 0, CX + r, 0); bg.addColorStop(0, c2); bg.addColorStop(0.45, c1); bg.addColorStop(1, c2); g.fillStyle = bg; g.beginPath(); g.ellipse(CX, y + 8, r, r * 0.42, 0, 0, Math.PI); g.lineTo(CX - r, y); g.fill(); g.fillStyle = '#f4f2ee'; g.beginPath(); g.ellipse(CX, y, r, r * 0.42, 0, 0, 7); g.fill(); g.fillStyle = '#5ac4f0'; g.beginPath(); g.ellipse(CX, y + 1, r * 0.82, r * 0.32, 0, 0, 7); g.fill(); };
   basin(64, CY + 8, '#f0ece6', '#a8a098');
   g.fillStyle = '#d8d4ce'; g.fillRect(CX - 9, CY - 46, 18, 52);
@@ -99,7 +99,7 @@ MG.byId.splashzone && (MG.byId.splashzone.draw = function (m, S, g) {
     if (charging) { MGH.glow(g, b.x, b.y - 10, 46 + Math.sin(t * 30) * 4, 'rgba(120,200,255,0.65)'); for (let q = 0; q < 6; q++) { const an = t * 6 + q; g.fillStyle = 'rgba(200,240,255,0.9)'; g.beginPath(); g.arc(b.x + Math.cos(an) * (30 - (t * 40 + q * 5) % 24), b.y - 10 + Math.sin(an) * (22 - (t * 40 + q * 5) % 18), 2.5, 0, 7); g.fill(); } }
     const lean = clamp((b.vx + (b.kx || 0)) / 900, -0.25, 0.25) + (charging ? Math.sin(t * 50) * 0.02 : 0);
     g.save(); g.translate(b.x, b.y + 22); g.rotate(lean);
-    Char.draw(g, 0, -28, 24, p.el.id, p.color, { mood: MGH.persona(Math.hypot(b.kx || 0, b.ky || 0) > 200 ? 'hurt' : charging ? 'effort' : b.fill > 0 ? 'happy' : 'determined', p.el.id), seed: i * 1.7, look: b.aim, walk: sp > 40 ? 1 : 0, noShadow: true });
+    Char.draw(g, 0, -34, 29, p.el.id, p.color, { mood: MGH.persona(Math.hypot(b.kx || 0, b.ky || 0) > 200 ? 'hurt' : charging ? 'effort' : b.fill > 0 ? 'happy' : 'determined', p.el.id), seed: i * 1.7, look: b.aim, walk: sp > 40 ? 1 : 0, noShadow: true });
     g.restore();
     // water line hides the feet a little
     g.fillStyle = 'rgba(80,180,240,0.55)'; g.beginPath(); g.ellipse(b.x, b.y + 22, 22, 7, 0, 0, 7); g.fill();
@@ -115,9 +115,11 @@ MG.byId.splashzone && (MG.byId.splashzone.draw = function (m, S, g) {
     if (b.water < 1 && b.fill <= 0) MGH.text(g, 'empty! hold B at the fountain', b.x, b.y - 66, 12, '#ffe0e0', 'center', 'bold');
   } }));
   ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
-  // ---- player cards: lives as droplets + water tank
-  m.players.forEach((p, i) => { const b = S.b[i], x = 160 + i * 320, y = 66; g.fillStyle = 'rgba(10,40,80,0.55)'; MGH.rr(g, x - 110, y - 20, 220, 44, 22); g.fill(); g.strokeStyle = b.lives > 0 ? p.color : 'rgba(255,255,255,0.2)'; g.lineWidth = 2.5; g.stroke();
+  // ---- player cards: lives as droplets + water tank (drawn in screen space, outside the zoomed camera)
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  m.players.forEach((p, i) => { const b = S.b[i], x = 160 + i * 320, y = 66; g.fillStyle = 'rgba(10,40,80,0.55)'; MGH.rr(g, x - 110, y - 18, 220, 38, 19); g.fill(); g.strokeStyle = b.lives > 0 ? p.color : 'rgba(255,255,255,0.2)'; g.lineWidth = 2.5; g.stroke();
     MGH.text(g, p.name, x - 54, y + 7, 17, b.lives > 0 ? p.color : 'rgba(255,255,255,0.4)', 'center', 'bold');
     for (let k = 0; k < 3; k++) { const on = k < b.lives, dx = x + 6 + k * 22, dy = y - 2; g.fillStyle = on ? '#5ac8ff' : 'rgba(255,255,255,0.15)'; g.beginPath(); g.moveTo(dx, dy - 10); g.quadraticCurveTo(dx + 8, dy + 2, dx, dy + 8); g.quadraticCurveTo(dx - 8, dy + 2, dx, dy - 10); g.fill(); }
     if (b.lives > 0) { g.fillStyle = 'rgba(255,255,255,0.15)'; MGH.rr(g, x + 72, y - 10, 28, 20, 4); g.fill(); g.fillStyle = '#5ac8ff'; const h = 18 * clamp(b.water / 10, 0, 1); g.fillRect(x + 73, y + 9 - h, 26, h); } else MGH.text(g, 'OUT', x + 86, y + 6, 14, '#ff9a8a', 'center', 'bold'); });
+  g.restore();
 });
