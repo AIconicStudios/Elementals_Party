@@ -17,8 +17,8 @@ const CATS = [
   { k: 'sport', n: 'Sports', f: g => !!g.sport },
   { k: 'brawl', n: 'Brawl', f: g => Shell.isBrawl(g) },
   { k: 'mara', n: 'Marathon', f: g => g.type === 'Marathon' },
-  { k: 'skill', n: 'Skill', f: g => ['Skill', 'Timing', 'Reaction', 'Rhythm', 'Arcade'].includes(g.type) },
-  { k: 'wits', n: 'Wits & luck', f: g => ['Luck', 'Bluff', 'Memory', 'Deduction', 'Strategy', 'Search', 'Stealth'].includes(g.type) },
+  { k: 'skill', n: 'Skill', f: g => ['Skill', 'Timing', 'Reaction', 'Rhythm', 'Arcade', 'Balance', 'Mash'].includes(g.type) },
+  { k: 'wits', n: 'Wits & luck', f: g => ['Luck', 'Bluff', 'Memory', 'Deduction', 'Strategy', 'Search', 'Stealth', 'Wits'].includes(g.type) },
   { k: 'action', n: 'Action', f: g => ['Arena', 'Race', 'Survival', 'Coins'].includes(g.type) },
 ];
 
