@@ -59,19 +59,6 @@ const Char = {
     }
     if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, true);
     g.translate(0, -idle.lift);
-    // real-time 3D model (lit, glossy, round); the 2D effects ride on top
-    const head3 = !!(o.headOnly || this.headOnly || (o.simple && o.noArms && o.noFeet));
-    if (el >= 0 && el < 4 && !o.flat2d && typeof Char3D !== 'undefined' && !Settings.test &&
-        Char3D.draw(g, r, el, { o, t, seed, walk, out, squash, face, idle, mood, faceMood, headOnly: head3 })) {
-      if (head3) { this._pose = null; g.restore(); return; }
-      g.scale(-face * (idle.pose === 'spin' ? 1 : idle.flip), 1);
-      g.save(); g.translate(0, -r * 0.32); if (!o.simple) this.flair(g, r * 0.7, el, t, seed); this.moodFx(g, r * 0.7, faceMood, t, seed); g.restore();
-      if (!o.simple) this.flourish(g, r, el, faceMood, t, seed);
-      if (idle.pose) this.poseFx(g, r, el, idle.pose, idle.pp, t, false);
-      this._pose = null; g.restore();
-      if (o.prop) { g.save(); g.font = `${Math.round(r * 0.8)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.prop, x + face * r * 1.15, y - bob + r * 0.55); g.restore(); }
-      return;
-    }
     g.scale(-face * idle.flip, 1); // everything below is drawn facing left
     // full character: head, clan outfit, floating hands and feet (icons and generic folk keep the round head-only look)
     if (el >= 0 && !o.headOnly && !this.headOnly && !(o.simple && o.noArms && o.noFeet)) {

@@ -351,8 +351,7 @@ const UI = {
       <label>Animation <select id="speed"><option value="1">Normal</option><option value="0.5">Fast</option><option value="0.15">Very fast</option></select></label>
       <label><input type="checkbox" id="snd" ${Settings.sound ? 'checked' : ''}> Sound</label>
       <label><input type="checkbox" id="mus" ${Settings.music ? 'checked' : ''}> Music</label>
-      <label><input type="checkbox" id="vox" ${Settings.voice !== false ? 'checked' : ''}> Voices</label>
-      <label title="Real-time 3D characters (switch off on very old computers)"><input type="checkbox" id="c3d" ${!Settings.flat3d ? 'checked' : ''}> 3D characters</label></div>
+      <label><input type="checkbox" id="vox" ${Settings.voice !== false ? 'checked' : ''}> Voices</label></div>
       <div class="row btns"><button id="startBtn" class="big">▶ Start game</button><button id="practiceBtn">🎮 Moot practice (${MG.list.length} minigames)</button><button id="rulesBtn">❓ Help & how to play</button></div>
       <p class="hint">Board turns: mouse, keyboard (arrows + Enter) or any gamepad (A select · B back · X help · Y map · right stick scrolls · Start pauses). Minigames use the keys above or gamepads 1–4. Empty seats are bots.</p>
     </div>`;
@@ -374,8 +373,6 @@ const UI = {
     $('#practiceBtn').onclick = () => { const s = readSeats(); localStorageSet('ff_seats', JSON.stringify(s)); Settings.sound = $('#snd').checked; Settings.music = $('#mus').checked; Sfx.init(); Music.refresh(); this.showPractice(s); };
     $('#mus').onchange = () => { Settings.music = $('#mus').checked; Music.refresh(); };
     $('#vox').onchange = () => { Settings.voice = $('#vox').checked; localStorageSet('ff_voice', Settings.voice ? '1' : '0'); if (Settings.voice) Voice.line(0, 'turn'); };
-    $('#c3d').onchange = () => { Settings.flat3d = !$('#c3d').checked; localStorageSet('ff_3d', Settings.flat3d ? '0' : '1'); if (!Settings.flat3d && typeof Char3D !== 'undefined') { Char3D.q = 2; Char3D.applyQ(); } };
-    { const s3 = localStorageGet('ff_3d'); if (s3 === '0') { Settings.flat3d = true; $('#c3d').checked = false; } }
     { const sv = localStorageGet('ff_voice'); if (sv !== null && sv !== undefined) { Settings.voice = sv === '1'; $('#vox').checked = Settings.voice; } }
     $('#rulesBtn').onclick = () => this.toggleHelp(true, 'rules');
   },

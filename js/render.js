@@ -375,8 +375,6 @@ const Render = {
     let col = sp.color; if (type === 'gate') col = ELEMENTS[i / 10].color;
     const r = type === 'gate' ? 36 : 30, x = p.x, y = p.y;
     const closed = (type === 'gate' && G.closedGates[i]) || (type === 'bank' && G.closedBanks[i]);
-    const d3 = typeof Board3D !== 'undefined' && Board3D.disc(col, r);
-    if (d3) { Board3D.putGround(g, d3, x, y); } else {
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.arc(x + 2, y + 9, r + 3, 0, 7); g.fill();
     g.fillStyle = Char.shade(col, -0.4); g.beginPath(); g.arc(x, y + 6, r, 0, 7); g.fill();
     g.fillStyle = '#ffffff'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
@@ -384,7 +382,6 @@ const Render = {
     gr.addColorStop(0, Char.shade(col, 0.45)); gr.addColorStop(0.7, col); gr.addColorStop(1, Char.shade(col, -0.15));
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, r - 4, 0, 7); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.3)'; g.beginPath(); g.ellipse(x - r * 0.25, y - r * 0.35, r * 0.45, r * 0.22, -0.3, 0, 7); g.fill();
-    }
     if (this.flash[i] > 0) { g.fillStyle = `rgba(255,255,255,${this.flash[i] * 0.7})`; g.beginPath(); g.arc(x, y, r + 4, 0, 7); g.fill(); this.flash[i] -= 0.04; }
     if (type === 'bank' && !closed && Math.random() < 0.04) this.addP({ x: x + R.range(-24, 24), y: y + R.range(-20, 10), vy: -30, life: 0.8, size: 2.5, kind: 'twinkle', color: '#fff3b0' });
     const ph = now + i * 0.7;
@@ -538,11 +535,9 @@ const Render = {
       if (k === 16) { fill = pl.color; label = '🌀'; lc = '#000'; }
       else if (k === 8) { fill = '#6b5512'; label = '⭐'; }
       else if (pile) { fill = '#8a6a12'; label = String(pile.real + pile.fake); lc = '#fff3b0'; }
-      const d3 = typeof Board3D !== 'undefined' && Board3D.disc(fill.startsWith('rgba') ? '#1c1a30' : fill, 20, { rim: pl.color, dark: true, th: 6 });
-      if (d3) Board3D.putGround(g, d3, p.x, p.y);
-      else { g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(p.x, p.y + 5, 21, 0, 7); g.fill();
-        g.fillStyle = fill; g.beginPath(); g.arc(p.x, p.y, 20, 0, 7); g.fill();
-        g.strokeStyle = pl.color; g.lineWidth = 2; g.stroke(); }
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(p.x, p.y + 5, 21, 0, 7); g.fill();
+      g.fillStyle = fill; g.beginPath(); g.arc(p.x, p.y, 20, 0, 7); g.fill();
+      g.strokeStyle = pl.color; g.lineWidth = 2; g.stroke();
       if (pile && pile.prot) { g.strokeStyle = '#9fd8ff'; g.lineWidth = 3.5; g.beginPath(); g.arc(p.x, p.y, 20, 0, 7); g.stroke(); }
       if (k === 8 && pl.vaultProt) { g.strokeStyle = '#b4f'; g.lineWidth = 3.5; g.beginPath(); g.arc(p.x, p.y, 20, 0, 7); g.stroke(); }
       g.fillStyle = lc; g.font = (pile ? 'bold 15px' : '14px') + ' Georgia, "Segoe UI Emoji"';
