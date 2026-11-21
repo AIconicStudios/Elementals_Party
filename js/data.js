@@ -19,7 +19,7 @@ const ELEMENTS = [
   { id: 14, key: 'metal', mascot: 'Rivet', name: 'Metal', color: '#9aa6b4', dark: '#4a5666', glyph: '⚙️' },
 ];
 // behaviour base for each hero (0 air, 1 water, 2 fire, 3 earth): idle style, poses, celebration
-const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3];
+const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3, 2, 0, 1, 3];
 
 // Space types on the Crossing (main board)
 const SPACE = {

@@ -73,7 +73,7 @@ MG.def({
     showStage(g, m.t);
     // referee with the command
     const rx = 640, ry = 250;
-    Char.npc(g, rx, ry + 20, 54, 'ref', { col: '#6fd8c0', mood: S.phase === 'cmd' ? (S.kind === 'trick' ? 'smug' : 'shout') : 'happy', t: m.t });
+    Char.npc(g, rx, ry, 52, 'ref', { mood: S.phase === 'cmd' ? (S.kind === 'trick' ? 'smug' : 'determined') : 'happy', t: m.t, noArms: true });
     this.flagPair(g, rx, ry - 10, 88, S.ref.L, S.ref.Rf, m.t, 1.1);
     if (S.phase === 'cmd') {
       const k = Math.min(1, S.pt / 0.15);

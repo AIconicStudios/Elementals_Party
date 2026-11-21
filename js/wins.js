@@ -159,50 +159,11 @@ Object.assign(Char, {
   },
 });
 
-// ======================================================================== NPCs: the Glimmers
-// Game hosts, referees and helpers are Glimmers — round fluffy creatures with an antenna light,
-// a separate species from the playable heroes. kind: 'ref' (striped vest + whistle), 'host' (bow tie + top hat),
-// 'chef', 'guard', or plain. o: { col, mood: 'happy'|'shout'|'smug'|'shock', look: -1..1, t }
-Char.npc = function (g, x, y, r, kind = '', o = {}) {
-  const t = o.t !== undefined ? o.t : performance.now() / 1000, col = o.col || '#b89aff', look = o.look || 0;
-  const bob = Math.sin(t * 3) * r * 0.05, sq = 1 + Math.sin(t * 3) * 0.03;
-  g.save(); g.translate(x, y - bob);
-  g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0, r * 1.02 + bob, r * 0.85, r * 0.18, 0, 0, 7); g.fill();
-  // feet
-  g.fillStyle = Char.shade(col, -0.35); for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * r * 0.38, r * 0.92, r * 0.24, r * 0.14, 0, 0, 7); g.fill(); }
-  // antenna with a glowing bulb
-  const sw = Math.sin(t * 2.4) * r * 0.08;
-  g.strokeStyle = Char.shade(col, -0.4); g.lineWidth = Math.max(1.5, r * 0.06); g.lineCap = 'round'; g.beginPath(); g.moveTo(0, -r * 0.85); g.quadraticCurveTo(sw, -r * 1.2, sw * 1.6, -r * 1.42); g.stroke();
-  MGH.glow(g, sw * 1.6, -r * 1.48, r * 0.4, 'rgba(255,240,150,0.6)'); g.fillStyle = '#fff6a8'; g.beginPath(); g.arc(sw * 1.6, -r * 1.48, r * 0.12, 0, 7); g.fill();
-  // fluffy round body
-  g.save(); g.scale(1 / Math.sqrt(sq), sq);
-  const gr = g.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r * 1.05); gr.addColorStop(0, Char.shade(col, 0.45)); gr.addColorStop(0.65, col); gr.addColorStop(1, Char.shade(col, -0.25));
-  g.fillStyle = gr; g.beginPath(); for (let k = 0; k <= 24; k++) { const a = k / 24 * Math.PI * 2, rr = r * (0.92 + (k % 2 ? 0.08 : 0)); g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill();
-  g.strokeStyle = Char.shade(col, -0.45); g.lineWidth = Math.max(1, r * 0.04); g.stroke();
-  // outfit by job
-  if (kind === 'ref') { g.save(); g.beginPath(); g.arc(0, 0, r * 0.95, 0, 7); g.clip(); for (let k = -4; k <= 4; k++) { g.fillStyle = k % 2 ? '#111' : '#fff'; g.fillRect(k * r * 0.22, r * 0.25, r * 0.22, r); } g.restore(); g.fillStyle = '#c8c8d0'; g.beginPath(); g.arc(r * 0.35, r * 0.3, r * 0.1, 0, 7); g.fill(); g.strokeStyle = '#555'; g.lineWidth = r * 0.03; g.beginPath(); g.moveTo(r * 0.35, r * 0.2); g.quadraticCurveTo(r * 0.1, r * 0.1, -r * 0.2, r * 0.25); g.stroke(); }
-  if (kind === 'host') { g.fillStyle = '#e8323e'; g.beginPath(); g.moveTo(0, r * 0.42); g.lineTo(-r * 0.3, r * 0.28); g.lineTo(-r * 0.3, r * 0.56); g.closePath(); g.fill(); g.beginPath(); g.moveTo(0, r * 0.42); g.lineTo(r * 0.3, r * 0.28); g.lineTo(r * 0.3, r * 0.56); g.closePath(); g.fill(); g.fillStyle = '#a81a2a'; g.beginPath(); g.arc(0, r * 0.42, r * 0.08, 0, 7); g.fill(); }
-  if (kind === 'chef') { g.fillStyle = '#fff'; g.save(); g.beginPath(); g.arc(0, 0, r * 0.95, 0, 7); g.clip(); g.fillRect(-r, r * 0.3, r * 2, r); g.restore(); }
-  if (kind === 'guard') { g.fillStyle = '#2a3a6a'; g.save(); g.beginPath(); g.arc(0, 0, r * 0.95, 0, 7); g.clip(); g.fillRect(-r, r * 0.25, r * 2, r); g.restore(); g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(-r * 0.3, r * 0.45, r * 0.08, 0, 7); g.fill(); }
-  // face: two big glossy eyes and a small mouth
-  const ex = look * r * 0.12, mood = o.mood || 'happy';
-  for (const s of [-1, 1]) {
-    const cx = s * r * 0.3 + ex, cy = -r * 0.12;
-    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(cx, cy, r * 0.2, r * 0.25, 0, 0, 7); g.fill();
-    g.fillStyle = '#1a1030'; g.beginPath(); g.ellipse(cx + look * r * 0.05, cy + r * 0.03, r * (mood === 'shock' ? 0.07 : 0.12), r * (mood === 'shock' ? 0.07 : 0.15), 0, 0, 7); g.fill();
-    g.fillStyle = '#fff'; g.beginPath(); g.arc(cx + look * r * 0.05 - r * 0.05, cy - r * 0.05, r * 0.05, 0, 7); g.fill();
-    if (mood === 'smug') { g.fillStyle = col; g.fillRect(cx - r * 0.22, cy - r * 0.27, r * 0.44, r * 0.14); }
-  }
-  g.fillStyle = 'rgba(255,120,150,0.45)'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * r * 0.55 + ex, r * 0.12, r * 0.1, r * 0.06, 0, 0, 7); g.fill(); }
-  g.strokeStyle = '#1a1030'; g.lineWidth = Math.max(1, r * 0.05); g.fillStyle = '#7a1a3a';
-  if (mood === 'shout') { g.beginPath(); g.ellipse(ex, r * 0.2, r * 0.13, r * 0.1 + Math.abs(Math.sin(t * 12)) * r * 0.05, 0, 0, 7); g.fill(); g.stroke(); }
-  else if (mood === 'shock') { g.beginPath(); g.arc(ex, r * 0.22, r * 0.07, 0, 7); g.fill(); }
-  else { g.beginPath(); g.arc(ex, r * 0.12, r * 0.12, 0.3, Math.PI - 0.3); g.stroke(); }
-  g.restore();
-  // hats
-  if (kind === 'ref') { g.fillStyle = '#111'; g.beginPath(); g.ellipse(0, -r * 0.82, r * 0.45, r * 0.14, 0, Math.PI, 0); g.fill(); g.fillRect(-r * 0.05, -r * 0.84, r * 0.6, r * 0.08); }
-  if (kind === 'host') { g.fillStyle = '#1a1a2a'; g.fillRect(-r * 0.3, -r * 1.25, r * 0.6, r * 0.45); g.fillRect(-r * 0.5, -r * 0.84, r * 1.0, r * 0.08); g.fillStyle = '#e8323e'; g.fillRect(-r * 0.3, -r * 0.95, r * 0.6, r * 0.08); }
-  if (kind === 'chef') { g.fillStyle = '#fff'; g.beginPath(); g.arc(-r * 0.2, -r * 1.1, r * 0.25, 0, 7); g.arc(r * 0.2, -r * 1.1, r * 0.25, 0, 7); g.arc(0, -r * 1.25, r * 0.28, 0, 7); g.fill(); g.fillRect(-r * 0.35, -r * 1.0, r * 0.7, r * 0.2); }
-  if (kind === 'guard') { g.fillStyle = '#2a3a6a'; g.beginPath(); g.ellipse(0, -r * 0.85, r * 0.5, r * 0.16, 0, 0, 7); g.fill(); g.fillRect(-r * 0.35, -r * 1.12, r * 0.7, r * 0.28); g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(0, -r * 0.98, r * 0.08, 0, 7); g.fill(); }
-  g.restore();
+// ======================================================================== NPCs
+// Hosts, referees and helpers are the same round species as the heroes, but never one of the 15 playable heroes.
+// kind: 'ref' (striped referee), 'host' (tuxedo + top hat), 'chef', 'guard'. o: any Char.draw options.
+Char.NPC = { ref: 15, host: 16, chef: 17, guard: 18 };
+Char.npc = function (g, x, y, r, kind = 'host', o = {}) {
+  const id = Char.NPC[kind] !== undefined ? Char.NPC[kind] : 16, mood = { shout: 'cheer', shock: 'shock', smug: 'smug' }[o.mood] || o.mood || 'happy';
+  Char.draw(g, x, y, r, id, '#ffffff', Object.assign({ seed: 5 + id, look: { x: 0, y: 0 } }, o, { mood }));
 };
