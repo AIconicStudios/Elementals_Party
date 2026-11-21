@@ -5,40 +5,53 @@ const swingP = t => 0.5 - 0.5 * Math.cos(t * 2.4); // a power meter that swings 
 // ======================================================================== FIREFLY FLIGHT (hold to rise through a cave)
 MG.def({
   id: 'firefly', name: 'Firefly Flight', type: 'Survival', controls: '1 button', dur: 0,
-  rows: [['a', 'Hold to rise, let go to sink']],
-  how: 'Fly your glowing firefly through the dark cave! HOLD A to flutter up, let go to drift down. Slip through the gaps between the rocks — touch one and your light goes out. The cave speeds up and the gaps get tighter. Last firefly glowing wins!',
+  rows: [['a', 'Hold to rise, let go to sink'], ['lb', 'Spark shot (3 per flight)']],
+  how: 'Fly your glowing firefly through the dark cave! HOLD A to flutter up, let go to drift down. Slip through the gaps between the rock pillars, dodge the floating boulders and the flapping BATS — touch anything and your light goes out. Press LB (or LT) to fire a SPARK that smashes the next obstacle in front of you — but you only have three, so save them for emergencies! The cave speeds up and the gaps get tighter. Last firefly glowing wins!',
   wins: 'Last one flying (or furthest).',
   init(m, S) {
-    S.x = 0; S.sp = 220; S.cols = []; let x = 700; while (x < 30000) { const gap = Math.max(140, 230 - x / 160); S.cols.push({ x, c: R.range(200 + gap / 2, 660 - gap / 2), gap }); x += R.range(300, 380); }
-    S.p = [0, 1, 2, 3].map(i => ({ y: 300 + i * 40, vy: 0, alive: true, d: 0, px: 220 + i * 50, look: R.range(0.9, 1.3) }));
+    S.x = 0; S.sp = 220; S.cols = []; S.shots = []; let x = 700; while (x < 30000) { const gap = Math.max(140, 230 - x / 160), r = Math.random(); if (x < 1500 || r < 0.55) S.cols.push({ k: 'col', x, c: R.range(200 + gap / 2, 660 - gap / 2), gap }); else if (r < 0.78) S.cols.push({ k: 'boulder', x, c: R.range(180, 620), r: R.range(48, 70) }); else S.cols.push({ k: 'bats', x, c: R.range(230, 570), ph: R.range(0, 6), amp: R.range(70, 140) }); x += R.range(280, 360); }
+    S.p = [0, 1, 2, 3].map(i => ({ y: 300 + i * 40, vy: 0, alive: true, d: 0, ammo: 3, px: 220 + i * 50, look: R.range(0.9, 1.3) }));
   },
   update(m, S, dt) {
     S.sp = Math.min(520, 220 + m.t * 7); S.x += S.sp * dt;
     S.p.forEach((P, i) => {
       if (!P.alive) return;
       P.vy += (m.held(i, 'a') ? -1500 : 900) * dt; P.vy = clamp(P.vy, -380, 420); P.y += P.vy * dt; P.d = S.x + P.px;
-      const wx = S.x + P.px, c = S.cols.find(c => Math.abs(c.x - wx) < 34);
-      if (P.y < 80 || P.y > 690 || (c && Math.abs(P.y - c.c) > c.gap / 2 - 12)) { P.alive = false; Sfx.thud(); MGH.burst(P.px, P.y, ['#ffe680', '#c8ff7a'], 16, { speed: 200 }); }
+      if (P.ammo > 0 && (m.pressed(i, 'lb') || m.pressed(i, 'lt'))) { P.ammo--; S.shots.push({ x: S.x + P.px + 10, y: P.y, own: i }); Sfx.tone(1200, 0.12, 'triangle', 0.05, 600); }
+      const wx = S.x + P.px;
+      if (P.y < 80 || P.y > 690 || S.cols.some(c => !c.gone && this.hits(c, wx, P.y, m.t))) { P.alive = false; Sfx.thud(); MGH.burst(P.px, P.y, ['#ffe680', '#c8ff7a'], 16, { speed: 200 }); }
     });
-    if (S.p.filter(P => P.alive).length <= (S.p.length > 1 ? 0 : 0) || m.t > 90) m.finish(this.score(m, S));
+    // sparks fly ahead and smash the first obstacle they reach
+    S.shots.forEach(sh => { sh.x += 900 * dt; const c = S.cols.find(c => !c.gone && Math.abs(c.x - sh.x) < 36); if (c) { c.gone = true; sh.dead = true; Sfx.boom(); MGH.burst(c.x - S.x, sh.y, ['#ffe680', '#c8b8ff', '#fff'], 22, { speed: 260 }); } if (sh.x > S.x + 1400) sh.dead = true; });
+    S.shots = S.shots.filter(sh => !sh.dead);
+    if (S.p.filter(P => P.alive).length <= 0 || m.t > 90) m.finish(this.score(m, S));
+  },
+  hits(c, x, y, t) {
+    if (c.k === 'col') return Math.abs(c.x - x) < 34 && Math.abs(y - c.c) > c.gap / 2 - 12;
+    if (c.k === 'boulder') return dist(c.x, c.c, x, y) < c.r + 10;
+    const by = c.c + Math.sin(t * 2.5 + c.ph) * c.amp; return dist(c.x, by, x, y) < 34;
   },
   bot(m, S, i) {
-    const P = S.p[i], v = m.vin[i]; if (!P.alive) { v.a = false; return; }
-    const wx = S.x + P.px, c = S.cols.find(c => c.x + 40 > wx); const ty = c ? c.c : 400;
+    const P = S.p[i], v = m.vin[i]; v.lb = false; if (!P.alive) { v.a = false; return; }
+    const wx = S.x + P.px, c = S.cols.find(c => !c.gone && c.x + 40 > wx);
+    let ty = 400; if (c) { if (c.k === 'col') ty = c.c; else { const oy = c.k === 'bats' ? c.c + Math.sin(m.t * 2.5 + c.ph) * c.amp : c.c, rr = c.k === 'bats' ? 90 : c.r + 60; ty = oy > 400 ? oy - rr : oy + rr; } if (c.x - wx < 160 && P.ammo > 0 && this.hits(c, c.x, P.y + P.vy * 0.25, m.t + (c.x - wx) / S.sp) && Math.random() < 0.3) v.lb = true; }
     v.a = P.y + P.vy * 0.18 * P.look > ty + 6;
     if (Math.random() < 0.01) P.look = R.range(0.5, 1.7);
   },
   score(m, S) { return S.p.map(P => Math.round(P.d / 10)); },
   fmt(s) { return `${s} m`; },
-  hud(m, S, i) { return S.p[i].alive ? `${Math.round(S.x / 10)} m` : `out ${Math.round(S.p[i].d / 10)} m`; },
+  hud(m, S, i) { return S.p[i].alive ? `${Math.round(S.x / 10)} m · ✨${S.p[i].ammo}` : `out ${Math.round(S.p[i].d / 10)} m`; },
   draw(m, S, g) {
     g.fillStyle = MGH.grad(g, 0, 720, ['#0a0a1a', '#141a30', '#0a1020']); g.fillRect(0, 0, 1280, 720);
     for (let k = 0; k < 40; k++) { const x = ((k * 137 - S.x * 0.2) % 1400 + 1400) % 1400 - 60, y = 100 + (k * 71) % 560; g.fillStyle = 'rgba(120,200,255,0.15)'; g.beginPath(); g.arc(x, y, 2 + k % 3, 0, 7); g.fill(); }
     // cave ceiling and floor
     g.fillStyle = '#2a2438'; g.beginPath(); g.moveTo(0, 0); for (let x = 0; x <= 1280; x += 40) g.lineTo(x, 70 + Math.sin((x + S.x) * 0.02) * 10); g.lineTo(1280, 0); g.fill();
     g.beginPath(); g.moveTo(0, 720); for (let x = 0; x <= 1280; x += 40) g.lineTo(x, 700 + Math.sin((x + S.x) * 0.017) * 10); g.lineTo(1280, 720); g.fill();
+    S.shots.forEach(sh => { const x = sh.x - S.x; MGH.glow(g, x, sh.y, 30, 'rgba(255,230,120,0.8)'); g.fillStyle = '#fff'; g.beginPath(); g.arc(x, sh.y, 6, 0, 7); g.fill(); });
     S.cols.forEach(c => {
-      const x = c.x - S.x; if (x < -80 || x > 1360) return;
+      const x = c.x - S.x; if (x < -80 || x > 1360 || c.gone) return;
+      if (c.k === 'boulder') { MGH.rock(g, x, c.c, c.r, Math.round(c.x) % 7, '#5a4a6a', c.x * 0.01); g.strokeStyle = 'rgba(120,255,200,0.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, c.c - c.r); g.lineTo(x + 4, 0); g.stroke(); return; }
+      if (c.k === 'bats') { const by = c.c + Math.sin(m.t * 2.5 + c.ph) * c.amp, fl = Math.sin(m.t * 18 + c.ph); g.fillStyle = '#1a1424'; g.beginPath(); g.ellipse(x, by, 14, 11, 0, 0, 7); g.fill(); for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(x + sd * 8, by - 2); g.quadraticCurveTo(x + sd * 28, by - 18 * fl - 6, x + sd * 40, by - 4 * fl); g.quadraticCurveTo(x + sd * 26, by + 4, x + sd * 8, by + 4); g.fill(); } g.fillStyle = '#ff4a4a'; g.beginPath(); g.arc(x - 5, by - 3, 2.5, 0, 7); g.arc(x + 5, by - 3, 2.5, 0, 7); g.fill(); return; }
       for (const [y0, y1] of [[0, c.c - c.gap / 2], [c.c + c.gap / 2, 720]]) {
         g.fillStyle = MGH.grad(g, y0, y1, ['#4a3a5a', '#3a2e4a']); g.beginPath(); g.moveTo(x - 34, y0); g.lineTo(x + 34, y0);
         if (y0 === 0) { g.lineTo(x + 30, y1 - 20); g.lineTo(x, y1); g.lineTo(x - 30, y1 - 20); } else { g.lineTo(x + 34, y1); g.lineTo(x - 34, y1); g.lineTo(x - 30, y0 + 20); g.lineTo(x, y0); g.lineTo(x + 30, y0 + 20); }
@@ -52,6 +65,7 @@ MG.def({
       g.fillStyle = 'rgba(220,240,255,0.6)'; const fl = Math.sin(m.t * 40 + i) * 0.5 + 0.5; g.beginPath(); g.ellipse(P.px - 6, P.y - 14, 14, 6 + fl * 4, -0.5, 0, 7); g.ellipse(P.px + 6, P.y - 14, 14, 6 + fl * 4, 0.5, 0, 7); g.fill();
       Char.draw(g, P.px, P.y, 16, p.el.id, p.color, { mood: MGH.persona(P.alive ? (P.vy < 0 ? 'effort' : 'happy') : 'sad', p.el.id), seed: i * 1.7, look: { x: 1, y: P.vy / 600 }, noFeet: true, noShadow: true });
       g.fillStyle = '#ffe680'; g.beginPath(); g.arc(P.px - 14, P.y + 10, 6, 0, 7); g.fill();
+      for (let k = 0; k < P.ammo; k++) { g.fillStyle = '#fff6a0'; g.beginPath(); g.arc(P.px - 10 + k * 10, P.y - 34, 3, 0, 7); g.fill(); }
       g.globalAlpha = 1;
     });
     MGH.text(g, `${Math.round(S.x / 10)} m`, 1200, 100, 22, '#ffe680', 'center', 'bold');
@@ -410,7 +424,7 @@ MG.def({
 MG.def({
   id: 'ringtoss', name: 'Ring Toss', type: 'Timing', controls: '1 button (hold & release)', dur: 0,
   rows: [['a', 'Hold for power, let go to toss']],
-  how: 'Carnival time! Three pegs stand in your lane: the near one is worth 1, the middle 2 and the far one 3. HOLD A — the power bar swings up and down — and let go to toss your ring. Land it on a peg to score! Eight rings each.',
+  how: 'Carnival time! Three pegs stand in your lane: the near one is worth 1, the middle 2 and the far one 3. HOLD A — the power bar swings up and down — and let go to toss your ring. Land it on a peg to score! Fourteen rings each — and no markers on the power bar, so it\'s all feel!',
   wins: 'Most points.',
   PEG: [{ d: 0.3, v: 1 }, { d: 0.58, v: 2 }, { d: 0.86, v: 3 }],
   init(m, S) { S.p = [0, 1, 2, 3].map(() => ({ n: 0, pts: 0, hold: 0, fly: null, on: [], tgt: null, wait: 0 })); },
@@ -418,13 +432,13 @@ MG.def({
     S.p.forEach((P, i) => {
       P.wait -= dt;
       if (P.fly) { P.fly.t += dt / 0.8; if (P.fly.t >= 1) { const pg = this.PEG.find(q => Math.abs(q.d - P.fly.pw) < 0.035); if (pg) { P.pts += pg.v; P.on.push(pg.d); Sfx.coin(); } else { P.on.push(-P.fly.pw); Sfx.tone(300, 0.08, 'triangle', 0.03); } P.fly = null; P.wait = 0.3; } return; }
-      if (P.n >= 8 || P.wait > 0) return;
+      if (P.n >= 14 || P.wait > 0) return;
       if (m.held(i, 'a')) P.hold += dt; else if (P.hold > 0.08) { P.fly = { pw: swingP(P.hold), t: 0 }; P.n++; P.hold = 0; Sfx.whoosh(false); } else P.hold = 0;
     });
-    if (S.p.every(P => P.n >= 8 && !P.fly)) { S.endT = (S.endT || 0) + dt; if (S.endT > 1) m.finish(this.score(m, S)); }
+    if (S.p.every(P => P.n >= 14 && !P.fly)) { S.endT = (S.endT || 0) + dt; if (S.endT > 1) m.finish(this.score(m, S)); }
   },
   bot(m, S, i, dt) {
-    const P = S.p[i], v = m.vin[i]; v.a = false; if (P.n >= 8 || P.fly || P.wait > 0) { P.tgt = null; return; }
+    const P = S.p[i], v = m.vin[i]; v.a = false; if (P.n >= 14 || P.fly || P.wait > 0) { P.tgt = null; return; }
     if (P.tgt === null) P.tgt = R.pick(this.PEG).d + R.range(-0.05, 0.05);
     const now = swingP(P.hold), nx = swingP(P.hold + 2 * dt);
     v.a = !(P.hold > 0.1 && now <= P.tgt && nx >= P.tgt);
@@ -444,8 +458,7 @@ MG.def({
       if (P.fly) { const x = 130 + (X(P.fly.pw) - 130) * P.fly.t, y = fy - 60 - Math.sin(Math.PI * P.fly.t) * 70 + P.fly.t * 40; g.strokeStyle = p.color; g.lineWidth = 5; g.beginPath(); g.ellipse(x, y, 18, 8, Math.sin(m.t * 20) * 0.5, 0, 7); g.stroke(); }
       Char.draw(g, 90, fy - 30, 26, p.el.id, p.color, { mood: MGH.persona(P.hold > 0 ? 'effort' : 'happy', p.el.id), seed: i * 1.7, look: { x: 1, y: 0 } });
       g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, 140, L.y0 + 12, 14, 90, 6); g.fill(); const pw = P.hold > 0 ? swingP(P.hold) : 0; g.fillStyle = '#ffb13d'; g.fillRect(142, L.y0 + 100 - 86 * pw, 10, 86 * pw);
-      this.PEG.forEach(q => { g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(136, L.y0 + 100 - 86 * q.d - 1, 22, 2); });
-      MGH.text(g, `${P.pts} pts · ${8 - P.n} rings`, 1180, L.y0 + 28, 16, i % 2 ? '#fff' : '#5a2a1a', 'center', 'bold');
+      MGH.text(g, `${P.pts} pts · ${14 - P.n} rings`, 1180, L.y0 + 28, 16, i % 2 ? '#fff' : '#5a2a1a', 'center', 'bold');
     }
   },
 });

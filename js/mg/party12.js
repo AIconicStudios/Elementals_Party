@@ -196,9 +196,9 @@ MG.def({
 
 // ======================================================================== COMBO COOK (race to punch in the recipe)
 MG.def({
-  id: 'combocook', name: 'Combo Cook', type: 'Reaction', controls: 'Move', dur: 0,
-  rows: [['pad', 'Enter the recipe arrows']],
-  how: 'The chef calls out a recipe of arrows. Punch it in with the d-pad or stick as fast as you can! One wrong arrow and you start that dish again. The first cook to finish scores 3, then 2, then 1. Recipes get longer each round.',
+  id: 'combocook', name: 'Combo Cook', type: 'Reaction', controls: 'A B X Y', dur: 0, noPadSkip: true,
+  rows: [['abxy', 'Enter the recipe buttons']],
+  how: 'The chef calls out a recipe of coloured buttons. Punch it in with A, B, X and Y as fast as you can! One wrong arrow and you start that dish again. The first cook to finish scores 3, then 2, then 1. Recipes get longer each round.',
   wins: 'Most points after six dishes.',
   D: ['up', 'right', 'down', 'left'], G: ['▲', '▶', '▼', '◀'],
   init(m, S) { S.pts = [0, 0, 0, 0]; S.round = 0; this.next(S); },
@@ -208,9 +208,8 @@ MG.def({
     if (S.ph === 'cook') {
       S.p.forEach((P, i) => {
         P.err -= dt; if (P.done) return;
-        const a = m.axis(i), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : a.y < -0.6 ? 'up' : a.y > 0.6 ? 'down' : '';
-        const d = (m.bot(i) ? null : this.D.find(k => m.pressed(i, k))) || (now && now !== P.ax ? now : null); P.ax = now; if (!d) return;
-        if (this.D.indexOf(d) === S.seq[P.k]) { P.k++; Sfx.tone(500 + P.k * 50, 0.04, 'triangle', 0.03); if (P.k >= S.seq.length) { P.done = S.pt; S.order.push(i); S.pts[i] += [3, 2, 1, 0][S.order.length - 1]; Sfx.coin(); } }
+        const d = abxyPress(m, i); if (d < 0) return;
+        if (d === S.seq[P.k]) { P.k++; Sfx.tone(500 + P.k * 50, 0.04, 'triangle', 0.03); if (P.k >= S.seq.length) { P.done = S.pt; S.order.push(i); S.pts[i] += [3, 2, 1, 0][S.order.length - 1]; Sfx.coin(); } }
         else { P.k = 0; P.err = 0.4; Sfx.bad(); }
       });
       if (S.order.length >= 3 || S.pt > 12) { S.ph = 'show'; S.pt = 0; }
@@ -219,9 +218,9 @@ MG.def({
     if (S.pt > 2.2) { if (S.round >= 6) m.finish(S.pts.slice()); else this.next(S); }
   },
   bot(m, S, i, dt) {
-    const P = S.p[i], v = m.vin[i]; v.up = v.down = v.left = v.right = false; if (S.ph !== 'cook' || P.done || S.pt < 0.6) return;
-    P.bt -= dt; if (P.bt > 0) return; P.bt = R.range(0.16, 0.34);
-    const d = Math.random() < 0.93 ? S.seq[P.k] : R.int(0, 3); v[this.D[d]] = true;
+    const P = S.p[i]; abxyBot(m, i, -1); if (S.ph !== 'cook' || P.done || S.pt < 0.6) return;
+    P.bt -= dt; if (P.bt > 0) return; P.bt = R.range(0.18, 0.36);
+    abxyBot(m, i, Math.random() < 0.93 ? S.seq[P.k] : R.int(0, 3));
   },
   score(m, S) { return S.pts.slice(); },
   fmt(s) { return `${s} pts`; },
@@ -232,7 +231,7 @@ MG.def({
     Char.npc(g, 200, 170, 40, 'chef', { mood: S.ph === 'cook' ? 'shout' : 'happy', look: { x: 1, y: 0.3 } });
     MGH.label(g, `Dish ${S.round} of 6`, 640, 60, 22, '#a8503a');
     const n = S.seq.length, w = Math.min(70, 900 / n);
-    S.seq.forEach((d, k) => { const x = 640 - (n - 1) * w / 2 + k * w; g.fillStyle = '#fff'; MGH.rr(g, x - w * 0.42, 110, w * 0.84, w * 0.84, 10); g.fill(); g.strokeStyle = '#e8a060'; g.lineWidth = 3; g.stroke(); MGH.text(g, this.G[d], x, 110 + w * 0.6, w * 0.5, '#a8503a', 'center', 'bold'); });
+    S.seq.forEach((d, k) => { const x = 640 - (n - 1) * w / 2 + k * w; g.fillStyle = '#fff'; MGH.rr(g, x - w * 0.42, 110, w * 0.84, w * 0.84, 10); g.fill(); g.strokeStyle = '#e8a060'; g.lineWidth = 3; g.stroke(); abxyBadge(g, d, x, 110 + w * 0.42, w * 0.3); });
     for (let i = 0; i < 4; i++) {
       const P = S.p[i], p = m.players[i], x = 160 + i * 320;
       g.fillStyle = '#c8c8d0'; MGH.rr(g, x - 110, 420, 220, 30, 8); g.fill(); g.fillStyle = '#5a5a6a'; g.beginPath(); g.ellipse(x, 420, 90, 18, 0, 0, 7); g.fill();

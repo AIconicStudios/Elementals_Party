@@ -4,7 +4,13 @@ const MG = {
   list: [], byId: {},
   W: 1280, H: 720,
   canvas: null, g: null,
-  def(game) { game.n = this.list.length + 1; this.list.push(game); this.byId[game.id] = game; },
+  def(game) { // a later definition with the same id replaces the earlier one in place (used for reworked games)
+    const k = this.list.findIndex(g => g.id === game.id);
+    if (k >= 0) { game.n = this.list[k].n; this.list[k] = game; } else { game.n = this.list.length + 1; this.list.push(game); }
+    this.byId[game.id] = game;
+  },
+  // drop games from the collection (replaced, merged or removed) and renumber the rest
+  retire(ids) { this.list = this.list.filter(g => !ids.includes(g.id)); ids.forEach(id => { delete this.byId[id]; }); this.list.forEach((g, k) => { g.n = k + 1; }); },
 
   init(canvas) {
     this.canvas = canvas; this.g = canvas.getContext('2d');

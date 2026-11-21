@@ -1,0 +1,17 @@
+'use strict';
+// Games taken out of the collection: replaced by better versions, merged into another game, or removed on request.
+MG.retire([
+  'archery',     // replaced by Night Fright
+  'curling',     // removed
+  'beeline',     // replaced by Ice Cream Cone
+  'scoops',      // its idea lives on in Ice Cream Cone
+  'cannonfort',  // removed
+  'relay',       // removed
+  'molepatrol',  // removed
+  'copychain',   // removed
+  'penguin',     // too close to other racers
+  'splash',      // replaced by Splash Zone
+  'skip',        // merged into Jump Rope
+  'fireworks',   // too close to Dance Floor
+  'balloonbump', // too close to Wheel Drive
+]);

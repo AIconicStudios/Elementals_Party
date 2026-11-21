@@ -28,7 +28,7 @@ MG.def({
   wins: 'Most balls of your colour potted.',
   T: { x0: 190, y0: 140, w: 900, h: 450 },
   init(m, S) {
-    const T = this.T; S.pts = [0, 0, 0, 0]; S.turn = 0; S.shots = [0, 0, 0, 0]; S.MAX = 4; S.phase = 'aim'; S.pt = 0; S.hold = -1; S.ang = 0; S.msg = '';
+    const T = this.T; S.pts = [0, 0, 0, 0]; S.order = R.shuffle([0, 1, 2, 3]); S.oi = 0; S.turn = S.order[0]; S.shots = [0, 0, 0, 0]; S.MAX = 4; S.phase = 'aim'; S.pt = 0; S.hold = -1; S.ang = 0; S.msg = '';
     S.balls = [{ x: T.x0 + T.w * 0.25, y: T.y0 + T.h / 2, vx: 0, vy: 0, own: -1, in: false }];
     const rack = [[0, 0], [1, -0.5], [1, 0.5], [2, -1], [2, 0], [2, 1], [3, -0.5], [3, 0.5]], own = R.shuffle([0, 0, 1, 1, 2, 2, 3, 3]);
     rack.forEach(([c, r], k) => S.balls.push({ x: T.x0 + T.w * 0.68 + c * 22, y: T.y0 + T.h / 2 + r * 25, vx: 0, vy: 0, own: own[k], in: false }));
@@ -58,7 +58,7 @@ MG.def({
       S.ang = aimTurn(m, i, S.ang, dt);
       if (m.held(i, 'a')) { if (S.hold < 0) S.hold = 0; S.hold += dt; }
       else if (S.hold > 0) { const pw = powerSwing(S.hold); cue.vx = Math.cos(S.ang) * (160 + pw * 1150); cue.vy = Math.sin(S.ang) * (160 + pw * 1150); S.hold = -1; S.phase = 'roll'; S.pt = 0; S.potted = []; S.shots[i]++; Sfx.punch(); }
-      if (S.pt > 14 && S.hold < 0) { S.hold = 0.6; } // a sleepy player shoots after a while
+      if (S.pt > 30 && S.hold < 0) { S.hold = 0.6; } // a sleepy player shoots after a while
     } else if (S.phase === 'roll') {
       this.step(m, S, dt);
       if (!this.moving(S) && S.pt > 0.3) {
@@ -67,7 +67,7 @@ MG.def({
         if (scratch) { S.pts[i]--; S.msg = `${m.players[i].name} potted the white! −1`; Sfx.bad(); cue.in = false; cue.x = this.T.x0 + this.T.w * 0.25; cue.y = this.T.y0 + this.T.h / 2; again = false; while (S.balls.some(b => b !== cue && !b.in && Math.hypot(b.x - cue.x, b.y - cue.y) < 26)) cue.y += 26; }
         else if (again) { S.msg = `${m.players[i].name} shoots again!`; Sfx.coin(); } else S.msg = '';
         const left = S.balls.filter(b => b.own >= 0 && !b.in).length;
-        if (!again) { let k = 0; do { S.turn = (S.turn + 1) % 4; k++; } while (S.shots[S.turn] >= S.MAX && k < 5); }
+        if (!again) { let k = 0; do { S.oi++; if (S.oi >= 4) { S.oi = 0; S.order = R.shuffle([0, 1, 2, 3]); } S.turn = S.order[S.oi]; k++; } while (S.shots[S.turn] >= S.MAX && k < 9); }
         if (left === 0 || S.shots.every(s => s >= S.MAX) && !again) { m.finish(this.score(m, S)); return; }
         if (again && S.shots[i] >= S.MAX) S.shots[i]--; // a bonus shot never runs out
         S.phase = 'aim'; S.pt = 0; S.ang = Math.atan2(this.T.y0 + this.T.h / 2 - cue.y, this.T.x0 + this.T.w * 0.7 - cue.x);
@@ -137,7 +137,7 @@ MG.def({
       for (let k = 0; k < S.MAX; k++) { g.fillStyle = k < S.shots[i] ? 'rgba(255,255,255,0.2)' : '#ffe680'; g.beginPath(); g.arc(x - 24 + k * 16, y + 88, 5, 0, 7); g.fill(); }
     });
     if (S.msg) MGH.label(g, S.msg, 640, 670, 22, '#fff');
-    else if (S.phase === 'aim') MGH.text(g, `${m.players[S.turn].name}'s shot`, 640, 676, 22, m.players[S.turn].color, 'center', 'bold');
+    else if (S.phase === 'aim') { MGH.text(g, `${m.players[S.turn].name}'s shot  ·  ${Math.max(0, 30 - S.pt).toFixed(0)}s`, 640, 676, 22, m.players[S.turn].color, 'center', 'bold'); MGH.text(g, 'next: ' + [1, 2, 3].map(k => m.players[S.order[(S.oi + k) % 4]].name).join(' → '), 640, 700, 14, 'rgba(255,255,255,0.6)', 'center'); }
   },
 });
 
@@ -345,7 +345,7 @@ MG.def({
 
 // ======================================================================== BEACH VOLLEY (2 vs 2)
 MG.def({
-  id: 'volley', name: 'Beach Volley', type: 'Arena', mode: '2v2', controls: 'Left/Right + jump', dur: 90, sport: true,
+  id: 'volley', name: 'Beach Volley', type: 'Arena', mode: '2v2', controls: 'Left/Right + jump', dur: 45, sport: true,
   rows: [['lr', 'Run'], ['a', 'Jump (hit the ball in the air to SPIKE)']],
   how: 'Two against two on the sand. Run under the ball to bump it back over the net. Jump and touch the ball high up to SPIKE it down hard! Holding LEFT or RIGHT as you touch it steers the shot. If the ball lands on your side, the other team scores. First team to 5 points wins.',
   wins: 'First to 5 points (or the most points at the end).',
@@ -367,8 +367,8 @@ MG.def({
       const lo = s < 0 ? 70 : 664, hi = s < 0 ? 616 : 1210; b.x = clamp(b.x, lo, hi);
       b.cd -= dt;
     });
-    const B = S.ball;
-    B.vy += 620 * dt; B.x += B.vx * dt; B.y += B.vy * dt;
+    const B = S.ball, bk = 1 + Math.min(0.7, m.t * 0.016), bd = dt * bk; // the rally gets faster as the match goes on
+    B.vy += 620 * bd; B.x += B.vx * bd; B.y += B.vy * bd;
     if (B.x < 30) { B.x = 30; B.vx = Math.abs(B.vx) * 0.8; } if (B.x > 1250) { B.x = 1250; B.vx = -Math.abs(B.vx) * 0.8; }
     // net
     if (B.y > 410 && Math.abs(B.x - 640) < 26) { B.x = 640 + Math.sign(B.x - 640 || 1) * 26; B.vx = -B.vx * 0.5; }

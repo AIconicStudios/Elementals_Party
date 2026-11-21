@@ -5,24 +5,26 @@
 MG.def({
   id: 'pancake', name: 'Pancake Flip', type: 'Timing', controls: '1 button', dur: 45,
   rows: [['a', 'Flip, then serve']],
-  how: 'Each pancake cooks from pale to golden to burnt. Press A to FLIP it when the colour bar is in the golden zone, then press A again to SERVE when the second side is golden. Perfect golden = 3 points, a bit early or late = 1, burnt = 0. Stack up as many as you can!',
+  how: 'The marker on the colour bar shows how cooked the pancake is — and the stove flickers, so the marker speeds up, slows down and swings back and forth! Press A to FLIP when the marker is in the golden zone, then press A again to SERVE when the second side is golden. Perfect golden = 3 points, a bit early or late = 1, burnt = 0. Stack up as many as you can!',
   wins: 'Most points.',
   init(m, S) { S.p = [0, 1, 2, 3].map(() => this.fresh({ pts: 0, stack: 0, fx: null, fxT: 0, err: R.range(-0.06, 0.06) })); },
-  fresh(P) { return Object.assign(P, { side: 0, c: 0, sp: R.range(0.38, 0.55), flip: 0, q: [] }); },
+  fresh(P) { return Object.assign(P, { side: 0, c: 0, sp: R.range(0.4, 0.7), dir: 1, chg: R.range(0.5, 1.2), age: 0, flip: 0, q: [] }); },
   grade(c) { return c >= 0.56 && c <= 0.7 ? 3 : c >= 0.45 && c <= 0.8 ? 1 : 0; },
   update(m, S, dt) {
     S.p.forEach((P, i) => {
       P.fxT -= dt; P.flip = Math.max(0, P.flip - dt);
       if (P.flip > 0) return;
-      P.c += P.sp * dt;
-      if (m.pressed(i, 'a') || P.c > 1.15) {
+      // the heat flickers: the marker speeds up, slows down and even swings back the other way
+      P.age += dt; P.chg -= dt; if (P.chg <= 0) { P.chg = R.range(0.4, 1.1); P.sp = R.range(0.3, 1.0); if (Math.random() < 0.45) P.dir *= -1; }
+      P.c += P.dir * P.sp * dt; if (P.c > 1.1) { P.c = 1.1; P.dir = -1; } if (P.c < 0) { P.c = 0; P.dir = 1; }
+      if (m.pressed(i, 'a') || P.age > 7) {
         const g = this.grade(P.c); P.q.push(g);
-        if (P.side === 0) { P.side = 1; P.c = 0; P.flip = 0.45; Sfx.whoosh(false); }
+        if (P.side === 0) { P.side = 1; P.c = 0; P.dir = 1; P.age = 0; P.flip = 0.45; Sfx.whoosh(false); }
         else { const sc = Math.min(P.q[0], P.q[1]) === 3 ? 3 : P.q[0] + P.q[1] >= 2 ? 1 : 0; P.pts += sc; if (sc) P.stack++; P.fx = sc === 3 ? 'PERFECT +3' : sc ? '+1' : 'burnt…'; P.fxT = 1; if (sc) Sfx.coin(); else Sfx.bad(); this.fresh(P); P.flip = 0.3; }
       }
     });
   },
-  bot(m, S, i) { const P = S.p[i], v = m.vin[i]; v.a = false; if (P.flip > 0) return; if (P.c >= 0.63 + P.err) { v.a = !m.prev[i].a; P.err = R.range(-0.12, 0.1); } },
+  bot(m, S, i) { const P = S.p[i], v = m.vin[i]; v.a = false; if (P.flip > 0) return; if (Math.abs(P.c - 0.63) < 0.05 + Math.abs(P.err) * 0.5 && Math.random() < 0.25) { v.a = !m.prev[i].a; P.err = R.range(-0.12, 0.1); } },
   score(m, S) { return S.p.map(P => P.pts); },
   fmt(s) { return `${s} pts`; },
   hud(m, S, i) { return `${S.p[i].pts}`; },
@@ -122,15 +124,17 @@ MG.def({
     S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(this.PEN[i][0] + (i % 2 ? -140 : 140), this.PEN[i][1] + (i < 2 ? 100 : -100), 22), { cd: 0, wh: 0 }));
     S.sh = []; for (let k = 0; k < 14; k++) S.sh.push(Object.assign(MGH.body(R.range(450, 830), R.range(240, 540), 18), { wob: R.range(0, 6), dir: R.range(0, 6), baa: 0 }));
   },
+  // solid pen walls (top, bottom, back); the gate side facing the middle is the only way in or out
+  penWalls(b) { this.PEN.forEach(([x, y], i) => { const open = i % 2 ? -1 : 1, bx = x - open * 100; bounceSeg(b, x - 100, y - 80, x + 100, y - 80, b.r, 0.3); bounceSeg(b, x - 100, y + 80, x + 100, y + 80, b.r, 0.3); bounceSeg(b, bx, y - 80, bx, y + 80, b.r, 0.3); }); },
   penOf(x, y) { return this.PEN.findIndex(([px, py]) => Math.abs(x - px) < 100 && Math.abs(y - py) < 80); },
   update(m, S, dt) {
-    S.b.forEach((b, i) => { b.cd -= dt; b.wh -= dt; const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2000, 300, 7); MGH.integrate(b, dt, 20, 70, 1260, 710); if (m.pressed(i, 'a') && b.cd <= 0) { b.cd = 2.5; b.wh = 0.5; Sfx.tone(1600, 0.2, 'sine', 0.05, 2200); S.sh.forEach(s => { const d = dist(s.x, s.y, b.x, b.y); if (d < 200) { s.vx += (s.x - b.x) / d * 420; s.vy += (s.y - b.y) / d * 420; s.baa = 0.6; } }); } });
+    S.b.forEach((b, i) => { b.cd -= dt; b.wh -= dt; const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2000, 300, 7); MGH.integrate(b, dt, 20, 70, 1260, 710); this.penWalls(b); if (m.pressed(i, 'a') && b.cd <= 0) { b.cd = 2.5; b.wh = 0.5; Sfx.tone(1600, 0.2, 'sine', 0.05, 2200); S.sh.forEach(s => { const d = dist(s.x, s.y, b.x, b.y); if (d < 200) { s.vx += (s.x - b.x) / d * 420; s.vy += (s.y - b.y) / d * 420; s.baa = 0.6; } }); } });
     MGH.collide(S.b, 0.6);
     S.sh.forEach(s => {
       s.dir += R.range(-1, 1) * dt * 2; let ax = Math.cos(s.dir) * 0.25, ay = Math.sin(s.dir) * 0.25;
       S.b.forEach(b => { const d = dist(s.x, s.y, b.x, b.y); if (d < 150) { ax += (s.x - b.x) / d * (150 - d) / 60; ay += (s.y - b.y) / d * (150 - d) / 60; } });
       const inPen = this.penOf(s.x, s.y) >= 0; MGH.steer(s, ax, ay, dt, 900, inPen ? 120 : 230, 3);
-      MGH.integrate(s, dt, 20, 70, 1260, 710); s.wob += dt * 8 * Math.min(1, Math.hypot(s.vx, s.vy) / 100); s.baa -= dt;
+      MGH.integrate(s, dt, 20, 70, 1260, 710); this.penWalls(s); s.wob += dt * 8 * Math.min(1, Math.hypot(s.vx, s.vy) / 100); s.baa -= dt;
       if (Math.random() < 0.002) s.baa = 0.6;
     });
     MGH.collide(S.sh, 0.4);
@@ -175,11 +179,11 @@ MG.def({
 
 // ======================================================================== DANCE FLOOR (arrow rhythm)
 MG.def({
-  id: 'dance', name: 'Dance Floor', type: 'Rhythm', controls: 'Move', dur: 0,
-  rows: [['pad', 'Hit the arrows on the beat']],
-  how: 'Arrows scroll up your lane in time with the music. When an arrow reaches the glowing targets at the top, press that direction (d-pad or stick)! PERFECT, GOOD or MISS — keep a combo going for bonus points. The song speeds up near the end.',
+  id: 'dance', name: 'Dance Floor', type: 'Rhythm', controls: 'Move + A & B', dur: 0,
+  rows: [['lr', 'Left and right lanes'], ['a', 'Green lane'], ['b', 'Red lane']],
+  how: 'Notes scroll up your four lanes in time with the music: ◀ LEFT, A, B and RIGHT ▶. When a note reaches the glowing target at the top, press it — LEFT or RIGHT on the stick / d-pad, or the A or B button! PERFECT, GOOD or MISS — keep a combo going for bonus points. The song speeds up near the end.',
   wins: 'Highest score.',
-  DIRS: ['left', 'down', 'up', 'right'], GLY: ['◀', '▼', '▲', '▶'], COL: ['#c87aff', '#5ab8ff', '#7cf06a', '#ff6b8a'],
+  DIRS: ['left', 'a', 'b', 'right'], GLY: ['◀', 'A', 'B', '▶'], COL: ['#c87aff', '#3fc35a', '#e8453c', '#5ab8ff'],
   init(m, S) {
     S.notes = []; let t = 2, beat = 0.5;
     while (t < 38) { const n = Math.random() < 0.2 ? 2 : 1; const used = new Set(); for (let k = 0; k < n; k++) { let d; do d = R.int(0, 3); while (used.has(d)); used.add(d); S.notes.push({ t, d }); } t += beat * R.pick([1, 1, 1, 0.5, 2]); if (t > 26) beat = 0.4; }
@@ -192,8 +196,8 @@ MG.def({
     if (Math.floor(t * 2) !== Math.floor((t - dt) * 2) && t > 1.5 && t < S.end - 1) Sfx.drum(Math.floor(t * 2) % 2);
     S.p.forEach((P, i) => {
       P.fxT -= dt; P.flash = P.flash.map(f => Math.max(0, f - dt));
-      const a = m.axis(i), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : a.y < -0.6 ? 'up' : a.y > 0.6 ? 'down' : '';
-      const presses = m.bot(i) ? [] : this.DIRS.filter(k => m.pressed(i, k)); if (now && now !== P.ax && !presses.includes(now)) presses.push(now); P.ax = now;
+      const a = m.axis(i), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : '';
+      const presses = (m.bot(i) ? ['a', 'b'] : this.DIRS).filter(k => m.pressed(i, k)); if (now && now !== P.ax && !presses.includes(now)) presses.push(now); P.ax = now;
       presses.forEach(k => {
         const d = this.DIRS.indexOf(k); P.flash[d] = 0.15;
         const n = S.notes.findIndex((q, j) => q.d === d && !P.hit.has(j) && Math.abs(q.t - t) < 0.18);
@@ -206,7 +210,7 @@ MG.def({
     if (t > S.end) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
-    const P = S.p[i], v = m.vin[i], t = m.t; v.left = v.right = v.up = v.down = false;
+    const P = S.p[i], v = m.vin[i], t = m.t; v.left = v.right = v.up = v.down = v.a = v.b = false;
     S.notes.forEach((q, j) => { if (!P.hit.has(j) && !q['b' + i] && t >= q.t - P.err) { q['b' + i] = true; if (Math.random() < 0.9) v[this.DIRS[q.d]] = true; P.err = R.range(-0.02, 0.1); } });
   },
   score(m, S) { return S.p.map(P => P.pts); },
@@ -236,15 +240,15 @@ MG.def({
 // ======================================================================== GHOST HUNT (1 vs 3)
 MG.def({
   id: 'ghosthunt', name: 'Ghost Hunt', type: 'Stealth', mode: '1v3', controls: 'Move + button', dur: 60,
-  rows: [['stick', 'Move'], ['a', 'Hunters: zap · Ghost: BOO!']],
-  how: 'One player is an invisible GHOST haunting a dark mansion; three hunters carry torches. HUNTERS: the ghost only shows up inside your torch beam — keep it in YOUR beam until the lock-on ring closes, then press A to zap (4 zaps wins). GHOST: you can only be seen in the beams. Sneak up behind a hunter and press A to BOO! them — five scares and the ghost wins. Creaking floorboards give a running ghost away!',
-  wins: 'Hunters: 4 zaps. Ghost: 5 scares.',
+  rows: [['stick', 'Move'], ['a', 'Hunters: zap · Ghost: BOO!'], ['b', 'Ghost: vanish (when the meter is full)']],
+  how: 'One player is an invisible GHOST haunting a dark mansion; three hunters carry torches. HUNTERS: the ghost only shows up inside your torch beam — keep it in YOUR beam until the lock-on ring closes, then press A to zap (4 zaps wins). GHOST: you can only be seen in the beams — and your VANISH meter fills up over time: when it\'s full, press B to disappear completely for 2 seconds, even inside a beam! Sneak up behind a hunter and press A to BOO! them — six scares and the ghost wins. Creaking floorboards give a running ghost away!',
+  wins: 'Hunters: 4 zaps. Ghost: 6 scares.',
   init(m, S) {
     S.ghost = m.players.findIndex((p, i) => m.teamOf(i) === 0);
     S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(i === S.ghost ? 640 : 300 + i * 200, i === S.ghost ? 170 : 620, 22), { cd: 0, stun: 0, fx: 0 }));
     S.zaps = 0; S.scares = 0; S.win = -1; S.creak = [];
   },
-  lit(S, i) { const g = S.b[S.ghost]; return [0, 1, 2, 3].some(j => { if (j === S.ghost || S.b[j].stun > 0) return false; const h = S.b[j], dx = g.x - h.x, dy = g.y - h.y, d = Math.hypot(dx, dy); if (d > 300) return false; const f = h.face, dot = (dx * f.x + dy * f.y) / (d || 1); return dot > 0.86 || d < 50; }); },
+  lit(S, i) { const g = S.b[S.ghost]; return [0, 1, 2, 3].some(j => { if (j === S.ghost || S.b[j].stun > 0) return false; const h = S.b[j], dx = g.x - h.x, dy = g.y - h.y, d = Math.hypot(dx, dy); if (d > 255 || (g.hide || 0) > 0) return false; const f = h.face, dot = (dx * f.x + dy * f.y) / (d || 1); return dot > 0.86 || d < 50; }); },
   update(m, S, dt) {
     const G = S.b[S.ghost];
     S.b.forEach((b, i) => {
@@ -255,22 +259,25 @@ MG.def({
       else MGH.steer(b, a.x, a.y, dt, 2000, sp, 7);
       MGH.integrate(b, dt, 60, 110, 1220, 690);
       if (i === S.ghost) {
+        b.cloak = Math.min(1, (b.cloak || 0) + dt / 12); b.hide = (b.hide || 0) - dt;
+        if (m.pressed(i, 'b') && b.cloak >= 1) { b.cloak = 0; b.hide = 2.2; Sfx.tone(300, 0.5, 'sine', 0.05, -200); }
         if (Math.hypot(b.vx, b.vy) > 200 && Math.random() < dt * 1.3) S.creak.push({ x: b.x + R.range(-30, 30), y: b.y + R.range(-30, 30), t: 0 });
         if (m.pressed(i, 'a') && b.cd <= 0) { b.cd = 1; const h = [0, 1, 2, 3].filter(j => j !== i && S.b[j].stun <= 0 && dist(S.b[j].x, S.b[j].y, b.x, b.y) < 70)[0]; if (h !== undefined) { const H = S.b[h]; H.stun = 1.6; H.face = { x: Math.sign(H.x - b.x) || 1, y: 0 }; S.scares++; b.fx = 0.6; Sfx.tone(180, 0.4, 'sawtooth', 0.06, -100); MGH.burst(H.x, H.y, ['#c8b8ff', '#fff'], 14, { speed: 200 }); } }
       } else {
-        { const dx = G.x - b.x, dy = G.y - b.y, d = Math.hypot(dx, dy) || 1; b.lock = d < 260 && (dx * b.face.x + dy * b.face.y) / d > 0.86 && b.stun <= 0 && (G.inv || 0) <= 0 ? (b.lock || 0) + dt : Math.max(0, (b.lock || 0) - dt * 2); }
+        { const dx = G.x - b.x, dy = G.y - b.y, d = Math.hypot(dx, dy) || 1; b.lock = d < 240 && (G.hide || 0) <= 0 && (dx * b.face.x + dy * b.face.y) / d > 0.86 && b.stun <= 0 && (G.inv || 0) <= 0 ? (b.lock || 0) + dt : Math.max(0, (b.lock || 0) - dt * 2); }
         if (!(m.pressed(i, 'a') && b.cd <= 0 && b.stun <= 0)) return;
         b.cd = 0.8; b.fx = 0.2; Sfx.tone(900, 0.06, 'square', 0.03);
         const dx = G.x - b.x, dy = G.y - b.y, d = Math.hypot(dx, dy);
-        if (b.lock >= 0.7 && d < 260 && (dx * b.face.x + dy * b.face.y) / (d || 1) > 0.9 && G.stun <= 0 && (G.inv || 0) <= 0) { S.zaps++; G.stun = 0.8; G.inv = 3; MGH.burst(G.x, G.y, ['#9fe0ff', '#fff'], 20, { speed: 260 }); Sfx.boom(); const far = [[140, 160], [1140, 160], [140, 640], [1140, 640]].sort((p, q) => Math.min(...[0, 1, 2, 3].filter(j => j !== S.ghost).map(j => dist(S.b[j].x, S.b[j].y, q[0], q[1]))) - Math.min(...[0, 1, 2, 3].filter(j => j !== S.ghost).map(j => dist(S.b[j].x, S.b[j].y, p[0], p[1]))))[0]; G.tx = far; }
+        if (b.lock >= 0.7 && d < 240 && (G.hide || 0) <= 0 && (dx * b.face.x + dy * b.face.y) / (d || 1) > 0.9 && G.stun <= 0 && (G.inv || 0) <= 0) { S.zaps++; G.stun = 0.8; G.inv = 3; MGH.burst(G.x, G.y, ['#9fe0ff', '#fff'], 20, { speed: 260 }); Sfx.boom(); const far = [[140, 160], [1140, 160], [140, 640], [1140, 640]].sort((p, q) => Math.min(...[0, 1, 2, 3].filter(j => j !== S.ghost).map(j => dist(S.b[j].x, S.b[j].y, q[0], q[1]))) - Math.min(...[0, 1, 2, 3].filter(j => j !== S.ghost).map(j => dist(S.b[j].x, S.b[j].y, p[0], p[1]))))[0]; G.tx = far; }
       }
     });
     S.creak.forEach(c => { c.t += dt; }); S.creak = S.creak.filter(c => c.t < 1);
     if (S.zaps >= 4) { S.win = 1; m.finish(this.score(m, S)); }
-    else if (S.scares >= 5) { S.win = 0; m.finish(this.score(m, S)); }
+    else if (S.scares >= 6) { S.win = 0; m.finish(this.score(m, S)); }
   },
   bot(m, S, i) {
-    const b = S.b[i], v = m.vin[i], G = S.b[S.ghost]; v.a = false;
+    const b = S.b[i], v = m.vin[i], G = S.b[S.ghost]; v.a = v.b = false;
+    if (i === S.ghost && (b.cloak || 0) >= 1 && [0, 1, 2, 3].some(j => j !== i && (S.b[j].lock || 0) > 0.25)) { v.b = true; }
     if (i === S.ghost) {
       // sneak toward the hunter whose back is turned
       const prey = [0, 1, 2, 3].filter(j => j !== i && S.b[j].stun <= 0).map(j => S.b[j]).sort((p, q) => dist(p.x, p.y, b.x, b.y) - dist(q.x, q.y, b.x, b.y))[0];
@@ -286,11 +293,11 @@ MG.def({
     const ck = S.creak.filter(c => dist(c.x, c.y, b.x, b.y) < 380).pop();
     if (!b.wp || dist(b.wp.x, b.wp.y, b.x, b.y) < 40 || Math.random() < 0.004) b.wp = { x: R.range(120, 1160), y: R.range(150, 650) };
     if (ck && Math.random() < 0.02) b.wp = { x: ck.x, y: ck.y }; const t = b.wp; MGH.aim(m, i, t.x, t.y, b, 10);
-    if (this.lit(S) && G.stun <= 0) { const dx = G.x - b.x, dy = G.y - b.y, d = Math.hypot(dx, dy); MGH.aim(m, i, G.x, G.y, b, 4); if (d < 240 && (dx * b.face.x + dy * b.face.y) / d > 0.9 && b.cd <= 0 && (G.inv || 0) <= 0 && b.lock >= 0.7 && Math.random() < 0.08) v.a = true; }
+    if (this.lit(S) && G.stun <= 0) { const dx = G.x - b.x, dy = G.y - b.y, d = Math.hypot(dx, dy); MGH.aim(m, i, G.x, G.y, b, 4); if (d < 230 && (dx * b.face.x + dy * b.face.y) / d > 0.9 && b.cd <= 0 && (G.inv || 0) <= 0 && b.lock >= 0.7 && Math.random() < 0.08) v.a = true; }
   },
   score(m, S) { const hW = S.win === 1 || (S.win < 0 && S.zaps * 2 > S.scares); return m.players.map((p, i) => (i === S.ghost) !== hW ? 1 : 0); },
   fmt(s) { return s ? 'WIN' : '—'; },
-  hud(m, S, i) { return i === S.ghost ? `👻 scares ${S.scares}/5` : `🔦 zaps ${S.zaps}/4`; },
+  hud(m, S, i) { return i === S.ghost ? `👻 scares ${S.scares}/6` : `🔦 zaps ${S.zaps}/4`; },
   draw(m, S, g) {
     // mansion floor
     g.fillStyle = '#1a1424'; g.fillRect(0, 0, 1280, 720);
@@ -302,15 +309,15 @@ MG.def({
     S.b.forEach((b, i) => {
       if (i === S.ghost) return;
       const a = Math.atan2(b.face.y, b.face.x);
-      const gr = g.createRadialGradient(b.x, b.y, 10, b.x, b.y, 300); gr.addColorStop(0, b.stun > 0 ? 'rgba(255,240,180,0.05)' : 'rgba(255,240,180,0.35)'); gr.addColorStop(1, 'rgba(255,240,180,0)');
-      g.fillStyle = gr; g.beginPath(); g.moveTo(b.x, b.y); g.arc(b.x, b.y, 300, a - 0.6, a + 0.6); g.closePath(); g.fill();
+      const gr = g.createRadialGradient(b.x, b.y, 10, b.x, b.y, 255); gr.addColorStop(0, b.stun > 0 ? 'rgba(255,240,180,0.05)' : 'rgba(255,240,180,0.35)'); gr.addColorStop(1, 'rgba(255,240,180,0)');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(b.x, b.y); g.arc(b.x, b.y, 255, a - 0.6, a + 0.6); g.closePath(); g.fill();
       MGH.glow(g, b.x, b.y, 50, 'rgba(255,240,180,0.15)');
     });
     S.creak.forEach(c => { g.globalAlpha = 1 - c.t; MGH.text(g, 'creak', c.x, c.y, 13, '#c8b8ff', 'center', 'bold'); g.globalAlpha = 1; });
     const lit = this.lit(S), ghostView = !m.bot(S.ghost);
     S.b.forEach((b, i) => {
       if (i === S.ghost) {
-        const al = (lit || G.stun > 0 ? 0.95 : G.fx > 0 ? 0.8 : 0.07) * (G.inv > 0 && G.stun <= 0 ? 0.5 : 1);
+        const al = (G.hide > 0 ? (ghostView ? 0.12 : 0) : (lit || G.stun > 0 ? 0.95 : G.fx > 0 ? 0.8 : 0.07)) * (G.inv > 0 && G.stun <= 0 ? 0.5 : 1);
         g.save(); g.globalAlpha = al; const fl = Math.sin(m.t * 3) * 4;
         g.fillStyle = '#e8e2ff'; g.beginPath(); g.arc(b.x, b.y - 12 + fl, 26, Math.PI, 0); g.lineTo(b.x + 26, b.y + 18 + fl); for (let k = 0; k < 4; k++) g.quadraticCurveTo(b.x + 26 - k * 13 - 6, b.y + 26 + fl, b.x + 26 - (k + 1) * 13, b.y + 18 + fl); g.closePath(); g.fill();
         g.fillStyle = '#2a1a4a'; g.beginPath(); g.ellipse(b.x - 9, b.y - 14 + fl, 4, 6, 0, 0, 7); g.ellipse(b.x + 9, b.y - 14 + fl, 4, 6, 0, 0, 7); g.fill();
@@ -324,7 +331,8 @@ MG.def({
       }
     });
     g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, 440, 60, 400, 34, 12); g.fill();
-    MGH.text(g, `🔦 zaps ${S.zaps}/4        👻 scares ${S.scares}/5`, 640, 84, 20, '#fff', 'center', 'bold');
+    MGH.text(g, `🔦 zaps ${S.zaps}/4        👻 scares ${S.scares}/6`, 640, 84, 20, '#fff', 'center', 'bold');
+    { const c = G.cloak || 0; g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, 880, 64, 180, 26, 10); g.fill(); g.fillStyle = c >= 1 ? '#c8b8ff' : '#7a6aaa'; MGH.rr(g, 884, 68, 172 * c, 18, 8); g.fill(); MGH.text(g, G.hide > 0 ? 'VANISHED!' : c >= 1 ? 'B = VANISH' : 'vanish', 970, 83, 13, '#fff', 'center', 'bold'); }
   },
 });
 

@@ -15,77 +15,109 @@ function showStage(g, t, col = '#b8203a') {
 }
 
 // ======================================================================== FLAG FRENZY
+// Hold LB (or LT / LEFT) to keep the RED flag up, hold RB (or RT / RIGHT) to keep the BLUE flag up. Let go to lower it.
+// The referee shows a picture command; the flags you're holding when the bar runs out are judged.
+// need: 1 = must be up, 0 = must be down, null = either.  order: 'R' = blue must go up before red, 'L' = red before blue
+const FLAG_CMDS = [
+  { id: 'red', t: 'RED', L: 1, R: 0, lvl: 0 }, { id: 'blue', t: 'BLUE', L: 0, R: 1, lvl: 0 },
+  { id: 'both', t: 'BOTH', L: 1, R: 1, lvl: 1 }, { id: 'none', t: 'NONE', L: 0, R: 0, lvl: 1 },
+  { id: 'notred', t: 'NOT RED', L: 0, R: null, lvl: 2, not: ['L'] }, { id: 'notblue', t: 'NOT BLUE', L: null, R: 0, lvl: 2, not: ['R'] },
+  { id: 'bthenr', t: 'BLUE then RED', L: 1, R: 1, order: 'R', lvl: 3 }, { id: 'rthenb', t: 'RED then BLUE', L: 1, R: 1, order: 'L', lvl: 3 },
+  { id: 'nnred', t: 'NOT NOT RED', L: 1, R: null, lvl: 4, nn: ['L'] }, { id: 'nnblue', t: 'NOT NOT BLUE', L: null, R: 1, lvl: 4, nn: ['R'] },
+];
 MG.def({
   id: 'flags', name: 'Flag Frenzy', type: 'Reaction', controls: 'LB / RB flags', dur: 0,
-  rows: [['lb', 'Red flag (or ◀)'], ['rb', 'Blue flag (or ▶)']],
-  how: 'The referee calls out commands: "Red UP!", "Blue DOWN!", "Don\'t lower red!". You hold a red flag (LB or LEFT) and a blue flag (RB or RIGHT) — each press flips that flag up or down. Match the command before the bar runs out. Watch out for "Don\'t…" — those mean leave it alone! Wrong flags cost a heart; three hearts and you are out. It gets faster and faster.',
+  rows: [['lb', 'HOLD: red flag up'], ['rb', 'HOLD: blue flag up']],
+  how: 'HOLD LB to keep the RED flag up and HOLD RB to keep the BLUE flag up (let go to lower it). The referee shows a picture: a red flag = red up only, a blue flag = blue up only, both flags = both up, crossed-out hands = both down. A flag with a ✖ means NOT that flag (keep it down — the other one can do anything). Two ✖✖ cancel out: NOT NOT red means red UP! An arrow between flags means raise them in that order. It starts slow and gets faster. Wrong flags cost a heart — three hearts each.',
   wins: 'Last one still waving.',
   init(m, S) {
-    S.p = m.players.map(() => ({ L: false, Rf: false, hearts: 3, outT: 0, ok: true, flash: 0, wave: 0, bot: { at: 0, do: null } }));
-    S.want = { L: false, Rf: false }; S.n = 0; S.phase = 'wait'; S.pt = 0; S.window = 2.0; S.cmd = 'Get ready…'; S.host = hostHero(m); S.ref = { L: false, Rf: false };
+    S.p = m.players.map(() => ({ L: false, Rf: false, hearts: 3, outT: 0, flash: 0, wave: 0, upL: -1, upR: -1, ok: true, bot: {} }));
+    S.n = 0; S.phase = 'wait'; S.pt = 0; S.window = 3.4; S.cmd = null; S.host = hostHero(m); S.ref = { L: false, Rf: false };
   },
   newCmd(m, S) {
-    S.n++; const flag = Math.random() < 0.5 ? 'L' : 'Rf', name = flag === 'L' ? 'RED' : 'BLUE', cur = S.want[flag];
-    const trick = S.n > 3 && Math.random() < 0.28, both = S.n > 8 && Math.random() < 0.15;
-    if (both) { const up = !(S.want.L && S.want.Rf); S.want.L = up; S.want.Rf = up; S.cmd = up ? 'BOTH UP!' : 'BOTH DOWN!'; S.kind = 'both'; }
-    else if (trick) { S.cmd = `Don't ${cur ? 'lower' : 'raise'} ${name}!`; S.kind = 'trick'; }
-    else { S.want[flag] = !cur; S.cmd = `${name} ${!cur ? 'UP' : 'DOWN'}!`; S.kind = 'go'; }
-    S.ref = Object.assign({}, S.want);
-    S.window = Math.max(0.7, 1.9 - S.n * 0.07); S.phase = 'cmd'; S.pt = 0;
-    Sfx.tone(trick ? 320 : 660, 0.12, 'square', 0.05);
-    // bots: react after a human-like delay; the faster the calls, the likelier a slip (wrong flag, or frozen)
-    const slip = (S.kind === 'trick' ? 0.16 : S.kind === 'both' ? 0.14 : 0.07) + S.n * 0.006;
-    S.p.forEach((p, i) => { if (p.hearts > 0 && m.bot(i)) { p.bot.at = R.range(0.32, 0.85); const r = Math.random(); p.bot.tL = S.want.L; p.bot.tR = S.want.Rf; if (r < slip) { if (Math.random() < 0.5) p.bot.tL = !p.bot.tL; else p.bot.tR = !p.bot.tR; } else if (r < slip * 1.4) p.bot.at = S.window + 1; } });
+    S.n++; const lvl = S.n < 4 ? 0 : S.n < 8 ? 1 : S.n < 13 ? 2 : S.n < 18 ? 3 : 4;
+    const pool = FLAG_CMDS.filter(c => c.lvl <= lvl); let c; do c = R.pick(pool); while (S.cmd && c.id === S.cmd.id && pool.length > 1);
+    S.cmd = c; S.window = Math.max(1.15, 3.4 - S.n * 0.09); S.phase = 'cmd'; S.pt = 0;
+    S.p.forEach(p => { p.upL = p.L ? 0 : -1; p.upR = p.Rf ? 0 : -1; });
+    Sfx.tone(c.not || c.nn ? 320 : 660, 0.12, 'square', 0.05);
+    // bots: work out the answer after a human-like pause; the harder and faster the calls, the likelier a slip
+    const slip = (c.nn ? 0.2 : c.not ? 0.14 : c.order ? 0.12 : 0.06) + S.n * 0.005;
+    S.p.forEach((p, i) => { if (p.hearts <= 0 || !m.bot(i)) return; const tL = c.L === null ? Math.random() < 0.3 : !!c.L, tR = c.R === null ? Math.random() < 0.3 : !!c.R; p.bot = { tL, tR, at: R.range(0.35, Math.min(1.3, S.window * 0.6)), first: c.order || null }; if (Math.random() < slip) { if (Math.random() < 0.5) p.bot.tL = !p.bot.tL; else p.bot.tR = !p.bot.tR; } });
+  },
+  judge(S, p) {
+    const c = S.cmd; if (c.L !== null && p.L !== !!c.L) return false; if (c.R !== null && p.Rf !== !!c.R) return false;
+    if (c.order === 'R' && !(p.upR >= 0 && p.upL > p.upR)) return false; if (c.order === 'L' && !(p.upL >= 0 && p.upR > p.upL)) return false;
+    return true;
   },
   update(m, S, dt) {
     S.pt += dt;
     S.p.forEach((p, i) => {
-      p.flash = Math.max(0, p.flash - dt); p.wave += dt;
-      if (p.hearts <= 0) return;
-      if (S.phase !== 'cmd') return;
-      if (m.pressed(i, 'lb') || m.pressed(i, 'lt') || m.pressed(i, 'left')) { p.L = !p.L; p.wave = 0; if (!m.bot(i)) Sfx.whoosh(); }
-      if (m.pressed(i, 'rb') || m.pressed(i, 'rt') || m.pressed(i, 'right')) { p.Rf = !p.Rf; p.wave = 0; if (!m.bot(i)) Sfx.whoosh(); }
+      p.flash = Math.max(0, p.flash - dt); p.wave += dt; if (p.hearts <= 0) return;
+      const L = m.held(i, 'lb') || m.held(i, 'lt') || m.held(i, 'left'), Rf = m.held(i, 'rb') || m.held(i, 'rt') || m.held(i, 'right');
+      if (L !== p.L || Rf !== p.Rf) { p.wave = 0; if (!m.bot(i)) Sfx.whoosh(); }
+      if (S.phase === 'cmd') { if (L && !p.L && p.upL < 0) p.upL = S.pt + 0.001; if (Rf && !p.Rf && p.upR < 0) p.upR = S.pt + 0.001; if (!L) p.upL = -1; if (!Rf) p.upR = -1; }
+      p.L = L; p.Rf = Rf;
     });
-    if (S.phase === 'wait' && S.pt > 1.2) this.newCmd(m, S);
+    if (S.phase === 'wait' && S.pt > (S.n ? 1.1 : 1.6)) this.newCmd(m, S);
     else if (S.phase === 'cmd' && S.pt > S.window) {
-      // judge
+      const c = S.cmd; S.ref = { L: c.L === null ? false : !!c.L, Rf: c.R === null ? false : !!c.R };
       S.p.forEach((p, i) => {
-        if (p.hearts <= 0) return;
-        p.ok = p.L === S.want.L && p.Rf === S.want.Rf;
-        if (!p.ok) { p.hearts--; p.flash = 0.8; p.L = S.want.L; p.Rf = S.want.Rf; MGH.pop('✖', 200 + i * 293, 330, '#ff6a6a', 50); if (p.hearts <= 0) { p.outT = m.t; Sfx.boom(); MGH.burst(200 + i * 293, 420, ['#fff', m.players[i].color], 24, { speed: 300 }); } else Sfx.bad(); }
+        if (p.hearts <= 0) return; p.ok = this.judge(S, p);
+        if (!p.ok) { p.hearts--; p.flash = 0.8; MGH.pop('✖', 200 + i * 293, 330, '#ff6a6a', 50); if (p.hearts <= 0) { p.outT = m.t; Sfx.boom(); MGH.burst(200 + i * 293, 420, ['#fff', m.players[i].color], 24, { speed: 300 }); } else Sfx.bad(); }
         else MGH.pop('✔', 200 + i * 293, 330, '#7f7', 40);
       });
       S.phase = 'wait'; S.pt = 0;
-      const alive = S.p.filter(p => p.hearts > 0).length;
-      if (alive <= 1 || S.n >= 32) m.finish(this.score(m, S));
+      if (S.p.filter(p => p.hearts > 0).length <= 1 || S.n >= 36) m.finish(this.score(m, S));
     }
   },
   bot(m, S, i) {
-    const p = S.p[i], v = m.vin[i]; v.lb = false; v.rb = false;
-    if (S.phase !== 'cmd' || p.hearts <= 0 || S.pt < p.bot.at) return;
-    const tL = p.bot.tL, tR = p.bot.tR;
-    if (p.L !== tL && Math.random() < 0.5) v.lb = true; else if (p.Rf !== tR && Math.random() < 0.5) v.rb = true;
+    const p = S.p[i], v = m.vin[i]; if (p.hearts <= 0) { v.lb = v.rb = false; return; }
+    if (S.phase !== 'cmd') { v.lb = v.rb = false; return; }
+    const B = p.bot; if (S.pt < B.at) return;
+    if (B.first === 'R') { v.rb = B.tR; v.lb = B.tL && S.pt > B.at + 0.25; }
+    else if (B.first === 'L') { v.lb = B.tL; v.rb = B.tR && S.pt > B.at + 0.25; }
+    else { v.lb = B.tL; v.rb = B.tR; }
   },
   score(m, S) { return S.p.map(p => p.hearts > 0 ? 1000 + p.hearts : p.outT); },
   fmt(s) { return s >= 1000 ? `still waving (${Math.round(s - 1000)}♥)` : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].hearts > 0 ? '♥'.repeat(S.p[i].hearts) : 'out'; },
+  // one flag icon for the command picture
+  flagIcon(g, x, y, s, col, up, crosses) {
+    g.save(); g.translate(x, y);
+    g.strokeStyle = '#8a5a32'; g.lineWidth = 5 * s; g.lineCap = 'round'; g.beginPath(); g.moveTo(-10 * s, 30 * s); g.lineTo(-10 * s, -34 * s); g.stroke();
+    g.fillStyle = col; g.beginPath(); g.moveTo(-10 * s, -34 * s); g.quadraticCurveTo(14 * s, -42 * s, 34 * s, -30 * s); g.lineTo(32 * s, -4 * s); g.quadraticCurveTo(12 * s, -12 * s, -10 * s, -6 * s); g.closePath(); g.fill();
+    if (up) { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(26 * s, 26 * s); g.lineTo(38 * s, 6 * s); g.lineTo(50 * s, 26 * s); g.fill(); }
+    for (let k = 0; k < crosses; k++) { const ox = (k - (crosses - 1) / 2) * 30 * s; g.strokeStyle = '#ff2a2a'; g.lineWidth = 8 * s; g.beginPath(); g.moveTo(ox - 22 * s, -40 * s); g.lineTo(ox + 22 * s, 4 * s); g.moveTo(ox + 22 * s, -40 * s); g.lineTo(ox - 22 * s, 4 * s); g.stroke(); }
+    g.restore();
+  },
+  drawCmd(g, c, t) {
+    const red = '#e8323e', blue = '#2f6ae8';
+    if (c.id === 'red') this.flagIcon(g, 0, 6, 1.2, red, true, 0);
+    else if (c.id === 'blue') this.flagIcon(g, 0, 6, 1.2, blue, true, 0);
+    else if (c.id === 'both') { this.flagIcon(g, -50, 6, 1.1, red, true, 0); this.flagIcon(g, 50, 6, 1.1, blue, true, 0); }
+    else if (c.id === 'none') { MGH.emoji(g, '🙌', -40, 26, 54); g.strokeStyle = '#ff2a2a'; g.lineWidth = 8; g.beginPath(); g.moveTo(-74, -30); g.lineTo(-6, 30); g.stroke(); MGH.text(g, '⬇', 40, 26, 54, '#5a3a1a', 'center', 'bold'); }
+    else if (c.id === 'notred') this.flagIcon(g, 0, 6, 1.2, red, false, 1);
+    else if (c.id === 'notblue') this.flagIcon(g, 0, 6, 1.2, blue, false, 1);
+    else if (c.id === 'nnred') this.flagIcon(g, 0, 6, 1.2, red, false, 2);
+    else if (c.id === 'nnblue') this.flagIcon(g, 0, 6, 1.2, blue, false, 2);
+    else { const first = c.order === 'R' ? blue : red, second = c.order === 'R' ? red : blue; MGH.text(g, '1', -110, -20, 26, '#5a3a1a', 'center', 'bold'); this.flagIcon(g, -80, 6, 1, first, true, 0); MGH.text(g, '➜', 0, 18, 46, '#5a3a1a', 'center', 'bold'); MGH.text(g, '2', 50, -20, 26, '#5a3a1a', 'center', 'bold'); this.flagIcon(g, 80, 6, 1, second, true, 0); }
+  },
   draw(m, S, g) {
     showStage(g, m.t);
-    // referee with the command
-    const rx = 640, ry = 250;
-    Char.npc(g, rx, ry, 52, 'ref', { mood: S.phase === 'cmd' ? (S.kind === 'trick' ? 'smug' : 'determined') : 'happy', t: m.t, noArms: true });
+    const rx = 640, ry = 290;
+    Char.npc(g, rx, ry, 52, 'ref', { mood: S.phase === 'cmd' ? (S.cmd && (S.cmd.not || S.cmd.nn) ? 'smug' : 'determined') : 'happy', t: m.t, noArms: true });
     this.flagPair(g, rx, ry - 10, 88, S.ref.L, S.ref.Rf, m.t, 1.1);
-    if (S.phase === 'cmd') {
+    if (S.phase === 'cmd' && S.cmd) {
       const k = Math.min(1, S.pt / 0.15);
-      g.save(); g.translate(640, 112); g.scale(k, k);
-      g.fillStyle = '#fff'; MGH.rr(g, -260, -44, 520, 80, 30); g.fill(); g.beginPath(); g.moveTo(-20, 34); g.lineTo(0, 60); g.lineTo(20, 34); g.fill();
-      MGH.text(g, S.cmd, 0, 12, 44, S.kind === 'trick' ? '#a020c0' : /RED/.test(S.cmd) ? '#e02a3a' : /BLUE/.test(S.cmd) ? '#2a6ae0' : '#222', 'center', 'bold');
+      g.save(); g.translate(640, 128); g.scale(k, k);
+      g.fillStyle = '#fff'; MGH.rr(g, -200, -78, 400, 140, 30); g.fill(); g.beginPath(); g.moveTo(-20, 60); g.lineTo(0, 86); g.lineTo(20, 60); g.fill();
+      this.drawCmd(g, S.cmd, m.t);
+      MGH.text(g, S.cmd.t, 0, 54, 15, 'rgba(60,40,20,0.6)', 'center', 'bold');
       g.restore();
-      const left = 1 - S.pt / S.window; g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, 440, 166, 400, 14, 7); g.fill(); g.fillStyle = left > 0.35 ? '#7cf06a' : '#ff6a4a'; MGH.rr(g, 440, 166, 400 * Math.max(0, left), 14, 7); g.fill();
-    } else MGH.text(g, S.n ? 'Next…' : 'Get ready…', 640, 120, 34, '#ffe680', 'center', 'bold');
-    // players on podiums
+      const left = 1 - S.pt / S.window; g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, 440, 228, 400, 14, 7); g.fill(); g.fillStyle = left > 0.35 ? '#7cf06a' : '#ff6a4a'; MGH.rr(g, 440, 228, 400 * Math.max(0, left), 14, 7); g.fill();
+    } else MGH.text(g, S.n ? 'Next…' : 'Get ready — HOLD LB for red, RB for blue!', 640, 130, 30, '#ffe680', 'center', 'bold');
     S.p.forEach((p, i) => {
-      const x = 200 + i * 293, y = 470, out = p.hearts <= 0;
+      const x = 200 + i * 293, y = 480, out = p.hearts <= 0;
       g.fillStyle = Char.shade(m.players[i].color, -0.3); MGH.rr(g, x - 80, y + 70, 160, 60, 10); g.fill(); g.fillStyle = m.players[i].color; MGH.rr(g, x - 80, y + 70, 160, 14, 7); g.fill();
       if (p.flash > 0) MGH.glow(g, x, y, 120, `rgba(255,60,60,${p.flash * 0.6})`);
       Char.draw(g, x, y, 42, m.players[i].el.id, m.players[i].color, { mood: out ? 'out' : p.flash > 0 ? 'hurt' : S.phase === 'cmd' ? 'determined' : 'happy', seed: i * 1.7, noArms: true, alpha: out ? 0.5 : 1 });

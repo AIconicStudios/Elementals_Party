@@ -133,7 +133,7 @@ MG.def({
       if (i === S.seek || b.found) return;
       const dx = b.x - s.x, dy = b.y - s.y, d = Math.hypot(dx, dy), inCone = d < 250 && (dx * fx + dy * fy) / (d || 1) > 0.84 && b.bush < 0;
       b.seen = inCone ? b.seen + dt : Math.max(0, b.seen - dt * 2);
-      if (b.seen > 0.8) { b.found = true; Sfx.boom(); MGH.pop('FOUND!', b.x, b.y - 50, '#ffe680', 30); }
+      if (b.seen > 0.62) { b.found = true; Sfx.boom(); MGH.pop('FOUND!', b.x, b.y - 50, '#ffe680', 30); }
     });
     S.respawn = S.respawn.map(t => t - dt); while (S.respawn.length && S.respawn[0] <= 0) { S.respawn.shift(); const f = S.flies.find(f => f.got); if (f) { f.got = false; f.x = R.range(80, 1200); f.y = R.range(130, 680); } }
     if (S.caught >= S.NEED) { S.win = 1; m.finish(this.score(m, S)); }
@@ -167,7 +167,7 @@ MG.def({
     const s = S.b[S.seek], ang = Math.atan2(s.face.y, s.face.x);
     // lantern light cone
     g.save(); const lg = g.createRadialGradient(s.x, s.y, 10, s.x, s.y, 310); lg.addColorStop(0, 'rgba(255,240,170,0.55)'); lg.addColorStop(1, 'rgba(255,240,170,0)'); g.fillStyle = lg; g.beginPath(); g.moveTo(s.x, s.y); g.arc(s.x, s.y, 260, ang - 0.57, ang + 0.57); g.closePath(); g.fill(); g.restore();
-    S.b.forEach((b, i) => { if (i === S.seek) return; if (b.found) { g.globalAlpha = 0.6; MGH.drawBody(g, b, m.players[i], null, 'shock'); g.globalAlpha = 1; return; } if (b.bush < 0) { MGH.drawBody(g, b, m.players[i], null, b.seen > 0 ? 'scared' : 'nervous'); if (b.seen > 0) { g.fillStyle = '#ff4a3a'; g.fillRect(b.x - 20, b.y - 56, 40 * b.seen / 0.8, 5); } } });
+    S.b.forEach((b, i) => { if (i === S.seek) return; if (b.found) { g.globalAlpha = 0.6; MGH.drawBody(g, b, m.players[i], null, 'shock'); g.globalAlpha = 1; return; } if (b.bush < 0) { MGH.drawBody(g, b, m.players[i], null, b.seen > 0 ? 'scared' : 'nervous'); if (b.seen > 0) { g.fillStyle = '#ff4a3a'; g.fillRect(b.x - 20, b.y - 56, 40 * b.seen / 0.62, 5); } } });
     S.bushes.forEach(u => { const sh = S.b.some(b => b.bush >= 0 && S.bushes[b.bush] === u && b.rustle > 0) ? Math.sin(m.t * 40) * 4 : 0; for (const [dx, dy, r] of [[-28, 8, 30], [26, 6, 30], [0, -16, 36], [-10, 18, 24], [18, 20, 24]]) { g.fillStyle = '#1f5a32'; g.beginPath(); g.arc(u.x + dx + sh, u.y + dy, r, 0, 7); g.fill(); } g.fillStyle = 'rgba(80,140,90,0.4)'; g.beginPath(); g.arc(u.x - 10 + sh, u.y - 26, 12, 0, 7); g.fill(); if (sh) MGH.text(g, '~', u.x, u.y - 60, 24, '#bfe8a0', 'center', 'bold'); });
     MGH.drawBody(g, s, m.players[S.seek], '🏮', 'determined');
     g.fillStyle = 'rgba(0,0,10,0.25)'; g.fillRect(0, 0, 1280, 720);

@@ -33,7 +33,7 @@
   const CMDS = [{ k: 'left', t: 'LEFT FACE!' }, { k: 'right', t: 'RIGHT FACE!' }, { k: 'down', t: 'ABOUT FACE!' }, { k: 'up', t: 'FORWARD MARCH!' }, { k: 'a', t: 'SALUTE!' }];
   const NCMD = 16;
   const drill = {
-    name: 'Drill Commands', icon: '🫡', how: 'The sergeant shouts an order — obey it FAST! LEFT FACE = LEFT, RIGHT FACE = RIGHT, ABOUT FACE = DOWN, FORWARD MARCH = UP, SALUTE = A. Quickest correct soldier earns the most points; a wrong move costs one. The orders get faster!',
+    name: 'Drill Commands', icon: '🫡', how: 'The sergeant holds up a picture — copy it FAST! An ARROW means push that way (left, right, up or down). The green A button means SALUTE: press A. Quickest correct soldier earns the most points; a wrong move costs one. The orders get faster!',
     init(m, S, T) {
       T.seq = []; for (let k = 0; k < NCMD; k++) { let c; do c = R.pick(CMDS); while (T.seq.length && c === T.seq[T.seq.length - 1]); T.seq.push(c); }
       T.k = -1; T.ph = 'gap'; T.tt = 1.2; T.p = [0, 1, 2, 3].map(() => ({ pts: 0, ans: null, face: 'up', pose: 0, axd: '', bR: 0 })); T.order = [];
@@ -80,7 +80,11 @@
       if (cmd) {
         const sh = Math.sin(m.t * 40) * (T.tt > this.win(T) - 0.2 ? 3 : 0);
         g.fillStyle = '#fff'; MGH.rr(g, 400 + sh, 72, 480, 70, 20); g.fill(); g.beginPath(); g.moveTo(620, 142); g.lineTo(640, 162); g.lineTo(660, 142); g.fill();
-        MGH.text(g, cmd.t, 640 + sh, 122, 40, '#1a0f3a', 'center', 'bold');
+        // a big picture instead of words: an arrow for the direction, or the green A button for a salute
+        const ix = 640 + sh, iy = 104;
+        if (cmd.k === 'a') { g.fillStyle = '#3fc35a'; g.beginPath(); g.arc(ix - 40, iy, 26, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke(); MGH.text(g, 'A', ix - 40, iy + 10, 30, '#fff', 'center', 'bold'); MGH.emoji(g, '🫡', ix + 30, iy + 16, 46); }
+        else { const ang = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[cmd.k]; g.save(); g.translate(ix, iy); g.rotate(ang); g.fillStyle = { left: '#3f8ee8', right: '#e8453c', up: '#e8b82e', down: '#8a5ad8' }[cmd.k]; g.beginPath(); g.moveTo(44, 0); g.lineTo(6, -30); g.lineTo(6, -13); g.lineTo(-40, -13); g.lineTo(-40, 13); g.lineTo(6, 13); g.lineTo(6, 30); g.closePath(); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke(); g.restore(); }
+        MGH.text(g, cmd.t, 640 + sh, 136, 13, 'rgba(26,15,58,0.6)', 'center', 'bold');
         g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(440, 136, 400, 5); g.fillStyle = '#e8432a'; g.fillRect(440, 136, 400 * Math.max(0, T.tt / this.win(T)), 5);
       }
       MGH.text(g, `order ${Math.min(NCMD, T.k + 1)}/${NCMD}`, 640, 340, 16, '#5a4a2a', 'center', 'bold');

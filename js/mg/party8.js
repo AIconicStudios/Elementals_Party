@@ -4,8 +4,8 @@
 // ======================================================================== TIGHTROPE GALE (1 vs 3)
 MG.def({
   id: 'tightrope', name: 'Tightrope Gale', type: 'Balance', mode: '1v3', controls: 'Move + button', dur: 55,
-  rows: [['a', 'Walkers: hold to walk · Fan: blow'], ['lr', 'Walkers: balance'], ['pad', 'Fan: pick a rope (up/down)']],
-  how: 'Three walkers cross tightropes high above the circus floor; one player works the giant FAN. WALKERS: hold A to step forward and tilt LEFT/RIGHT to stay balanced — the wobble meter must stay in the middle. Fall and you climb back on 30% further back. FAN: move UP/DOWN to pick a rope and press A to blast a gust at it (it takes a moment to spin up). Walkers win if two of them cross before time runs out!',
+  rows: [['a', 'Walkers: hold to walk · Fan: blow'], ['b', 'Walkers: brace (standing, in the green)'], ['lr', 'Walkers: balance'], ['pad', 'Fan: pick a rope (up/down)']],
+  how: 'Three walkers cross tightropes high above the circus floor; one player works the giant FAN. WALKERS: hold A to step forward and tilt LEFT/RIGHT to stay balanced — the wobble meter must stay in the middle. Standing still with the needle in the GREEN? Press B to BRACE: for a moment the fan cannot budge you (it needs a rest before you can brace again). Fall and you climb back on 30% further back. FAN: move UP/DOWN to pick a rope and press A to blast a gust at it (it takes a moment to spin up). Walkers win if two of them cross before time runs out!',
   wins: 'Walkers: two crossings. Fan: stop them!',
   ROPE: [230, 400, 570],
   init(m, S) {
@@ -25,8 +25,11 @@ MG.def({
       if (W.done) return;
       if (W.fall > 0) { W.fall -= dt; if (W.fall <= 0) { W.x = Math.max(0, W.x - 30); W.bal = 0; W.bv = 0; } return; }
       const i = W.i, walking = m.held(i, 'a');
-      const gust = F.gust > 0 && F.gRope === W.rope ? F.dir * 9 : 0;
-      W.bv += (R.range(-1, 1) * (walking ? 3.2 : 1.4) + W.bal * 2.4 + gust) * dt; W.bv -= m.axis(i).x * 6 * dt; W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
+      W.brace = (W.brace || 0) - dt; W.bcd = (W.bcd || 0) - dt;
+      if (m.pressed(i, 'b') && !walking && Math.abs(W.bal) < 0.3 && W.bcd <= 0) { W.brace = 1.4; W.bcd = 4; Sfx.tone(500, 0.1, 'triangle', 0.04); }
+      const braced = W.brace > 0 && !walking;
+      const gust = F.gust > 0 && F.gRope === W.rope && !braced ? F.dir * 9.5 : 0;
+      W.bv += (R.range(-1, 1) * (walking ? 3.2 : braced ? 0.3 : 1.4) + W.bal * (braced ? 0.6 : 2.4) + gust) * dt; W.bv -= m.axis(i).x * 6 * dt; W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
       if (walking) W.x += (1 - Math.min(0.7, Math.abs(W.bal))) * 6.2 * dt;
       if (Math.abs(W.bal) > 1) { W.fall = 1.4; W.falls++; Sfx.bad(); MGH.burst(140 + W.x * 10, this.ROPE[W.rope] + 20, ['#fff', m.players[i].color], 12, { speed: 200, grav: 600 }); }
       if (W.x >= 100) { W.done = true; S.crossed++; Sfx.coin(); MGH.burst(1150, this.ROPE[W.rope], ['#ffe680', '#fff'], 20, { speed: 240 }); }
@@ -34,7 +37,7 @@ MG.def({
     if (S.crossed >= 2) { S.win = 1; m.finish(this.score(m, S)); }
   },
   bot(m, S, i, dt) {
-    const v = m.vin[i]; v.a = false; v.ax = v.ay = 0; v.up = v.down = false;
+    const v = m.vin[i]; v.a = v.b = false; v.ax = v.ay = 0; v.up = v.down = false;
     if (i === S.fan) {
       // blow at the walker closest to finishing (who isn't falling)
       const tg = S.w.filter(W => !W.done && W.fall <= 0).sort((a, b) => b.x - a.x)[0]; if (!tg) return;
@@ -44,6 +47,7 @@ MG.def({
     }
     const W = S.w.find(W => W.i === i); if (!W || W.done || W.fall > 0) return;
     const gustSoon = S.f.spin > 0 && S.f.rope === W.rope;
+    if (gustSoon && Math.abs(W.bal) < 0.3 && (W.bcd || 0) <= 0 && Math.random() < 0.06) { v.b = true; return; }
     v.ax = clamp(W.bal * 1.4 + W.bv * 0.6 + R.range(-0.25, 0.25), -1, 1);
     v.a = Math.abs(W.bal) < 0.45 && !gustSoon;
   },
@@ -70,6 +74,7 @@ MG.def({
         Char.draw(g, 0, -42, 26, p.el.id, p.color, { mood: MGH.persona(W.done ? 'cheer' : Math.abs(W.bal) > 0.6 ? 'scared' : 'determined', p.el.id), seed: W.i, look: { x: 1, y: 0 }, walk: m.held(W.i, 'a') ? 1 : 0, noShadow: true, hands: { n: { x: -1.5, y: -0.4, d: 180, o: true, m: true }, f: { x: 1.4, y: -0.4, d: 0, o: true, m: false } } });
         g.fillStyle = '#c8a060'; g.fillRect(-70, -50, 140, 4);
         g.restore();
+        if (W.brace > 0) { MGH.glow(g, x, y + sag - 42, 46, 'rgba(120,200,255,0.5)'); g.strokeStyle = 'rgba(160,220,255,0.9)'; g.lineWidth = 3; g.beginPath(); g.arc(x, y + sag - 42, 40, 0, 7); g.stroke(); MGH.text(g, 'BRACED', x, y + sag - 92, 13, '#bfe6ff', 'center', 'bold'); }
         if (!W.done) { g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 40, y - 108, 80, 10, 5); g.fill(); g.fillStyle = 'rgba(120,230,120,0.5)'; g.fillRect(x - 14, y - 108, 28, 10); g.fillStyle = Math.abs(W.bal) > 0.7 ? '#ff6b6b' : '#fff'; g.fillRect(x - 3 + clamp(W.bal, -1, 1) * 38, y - 112, 6, 18); }
       }
     });
@@ -88,19 +93,20 @@ MG.def({
 MG.def({
   id: 'dodgeball', name: 'Dodgeball', type: 'Arena', mode: '2v2', sport: true, controls: 'Move + A & B', dur: 60,
   rows: [['stick', 'Move'], ['a', 'Throw (auto-aims)'], ['b', 'Dodge roll']],
-  how: 'Stay on your side of the court! Run over a ball to pick it up and press A to throw it at the nearest rival — it aims for you. Press B to dodge-roll out of the way (you can\'t be hit mid-roll). Every hit scores a point for your team and sends the rival to the back line for a moment.',
+  how: 'Stay on your side of the court! Run over a ball to pick it up and press A to throw it at the nearest rival — it aims for you. Press B to dodge-dive out of the way (you can\'t be hit mid-dive) — but you only have two dodges, and each one takes a few seconds to refill (the blue dots under you). Every hit scores a point for your team and sends the rival to the back line for a moment.',
   wins: 'Team with the most hits.',
   init(m, S) {
     S.hits = [0, 0]; const k = [0, 0];
-    S.b = m.players.map((p, i) => { const tm = m.teamOf(i), j = k[tm]++; return Object.assign(MGH.body(tm ? 960 : 320, 280 + j * 220, 24), { ball: false, cd: 0, roll: 0, rcd: 0, stun: 0, tm }); });
+    S.b = m.players.map((p, i) => { const tm = m.teamOf(i), j = k[tm]++; return Object.assign(MGH.body(tm ? 960 : 320, 280 + j * 220, 24), { ball: false, cd: 0, roll: 0, rcd: 0, stun: 0, tm, dg: 2, dgT: 0, trail: [] }); });
     S.balls = [250, 390, 530].map((y, k) => ({ x: k === 1 ? (Math.random() < 0.5 ? 560 : 720) : k ? 720 : 560, y, vx: 0, vy: 0, live: false, own: -1, t: 0 }));
   },
   update(m, S, dt) {
     S.b.forEach((b, i) => {
-      b.cd -= dt; b.roll -= dt; b.rcd -= dt; b.stun -= dt;
+      b.cd -= dt; b.roll -= dt; b.rcd -= dt; b.stun -= dt; if (b.dg < 2) { b.dgT += dt; if (b.dgT > 3.5) { b.dg++; b.dgT = 0; } }
+      if (b.roll > 0) { b.trail.push({ x: b.x, y: b.y, t: 0 }); } b.trail.forEach(q => { q.t += dt; }); b.trail = b.trail.filter(q => q.t < 0.25);
       const a = m.axis(i);
       if (b.stun > 0) { b.vx *= 0.85; b.vy *= 0.85; } else MGH.steer(b, a.x, a.y, dt, b.roll > 0 ? 4000 : 2000, b.roll > 0 ? 600 : (b.ball ? 280 : 310), 7);
-      if (m.pressed(i, 'b') && b.rcd <= 0 && b.stun <= 0) { b.roll = 0.3; b.rcd = 1.2; Sfx.whoosh(false); }
+      if (m.pressed(i, 'b') && b.rcd <= 0 && b.stun <= 0 && b.dg > 0) { b.roll = 0.3; b.rcd = 0.5; b.dg--; Sfx.whoosh(false); }
       const x0 = b.tm ? 660 : 60, x1 = b.tm ? 1220 : 620; MGH.integrate(b, dt, x0, 90, x1, 690);
       if (!b.ball && b.stun <= 0) for (const B of S.balls) if (!B.live && B.own < 0 && dist(B.x, B.y, b.x, b.y) < 38) { B.own = i; b.ball = true; Sfx.pop(); break; }
       if (b.ball && m.pressed(i, 'a') && b.cd <= 0 && b.stun <= 0) {
@@ -122,7 +128,7 @@ MG.def({
   bot(m, S, i) {
     const b = S.b[i], v = m.vin[i]; v.a = v.b = false;
     const incoming = S.balls.find(B => B.live && S.b[B.from].tm !== b.tm && dist(B.x, B.y, b.x, b.y) < 140);
-    if (incoming && b.rcd <= 0 && Math.random() < 0.15) { v.b = true; v.ax = -incoming.vy / 760; v.ay = incoming.vx / 760; return; }
+    if (incoming && b.rcd <= 0 && b.dg > 0 && Math.random() < 0.15) { v.b = true; v.ax = -incoming.vy / 760; v.ay = incoming.vx / 760; return; }
     let gx, gy;
     if (!b.ball) { const free = S.balls.filter(B => !B.live && B.own < 0 && (b.tm ? B.x > 660 : B.x < 620)).sort((p, q) => dist(p.x, p.y, b.x, b.y) - dist(q.x, q.y, b.x, b.y))[0]; if (free) { gx = free.x; gy = free.y; } else { gx = b.tm ? 900 : 380; gy = 390 + Math.sin(m.t + i) * 160; } }
     else { gx = b.tm ? 760 : 520; gy = b.y + Math.sin(m.t * 2 + i) * 60; if (Math.abs(b.x - gx) < 200 && b.cd <= 0 && Math.random() < 0.06) v.a = true; }
@@ -140,8 +146,11 @@ MG.def({
     MGH.text(g, `${S.hits[0]}`, 560, 60, 36, MG.TEAMC[0], 'center', 'bold'); MGH.text(g, `${S.hits[1]}`, 720, 60, 36, MG.TEAMC[1], 'center', 'bold');
     const ents = S.b.map((b, i) => ({ y: b.y, f: () => {
       g.fillStyle = MG.TEAMC[b.tm]; g.globalAlpha = 0.5; g.beginPath(); g.ellipse(b.x, b.y + 30, 30, 9, 0, 0, 7); g.fill(); g.globalAlpha = 1;
-      if (b.roll > 0) { g.save(); g.translate(b.x, b.y); g.rotate((0.3 - b.roll) * 20); MGH.drawBody(g, Object.assign({}, b, { x: 0, y: 0 }), m.players[i], '', 'determined'); g.restore(); }
+      // the dodge: a quick sideways dive with ghostly after-images and a puff of dust
+      b.trail.forEach(q => { g.globalAlpha = 0.35 * (1 - q.t / 0.25); MGH.drawBody(g, Object.assign({}, b, { x: q.x, y: q.y }), m.players[i], '', 'determined'); }); g.globalAlpha = 1;
+      if (b.roll > 0) { const k = 1 - b.roll / 0.3; g.save(); g.translate(b.x, b.y + 8); g.rotate(Math.sign(b.vx || 1) * Math.sin(k * Math.PI) * 0.9); MGH.drawBody(g, Object.assign({}, b, { x: 0, y: -8 }), m.players[i], '', 'determined'); g.restore(); if (Math.random() < 0.5) MGH.burst(b.x, b.y + 26, ['#e8d0a0', '#fff'], 2, { speed: 80 }); }
       else MGH.drawBody(g, b, m.players[i], '', b.stun > 0 ? 'dizzy' : b.ball ? 'determined' : 'happy');
+      for (let k = 0; k < 2; k++) { const full = k < b.dg, part = k === b.dg ? b.dgT / 3.5 : 0; g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.arc(b.x - 8 + k * 16, b.y + 44, 6, 0, 7); g.fill(); g.fillStyle = '#5ab8ff'; g.beginPath(); g.moveTo(b.x - 8 + k * 16, b.y + 44); g.arc(b.x - 8 + k * 16, b.y + 44, 6, -Math.PI / 2, -Math.PI / 2 + (full ? 1 : part) * Math.PI * 2); g.fill(); }
     } })).concat(S.balls.map(B => ({ y: B.y + 1, f: () => { if (!B.live && B.own < 0) MGH.shadow(g, B.x, B.y + 14, 14, 0.3); g.fillStyle = '#e8432a'; g.beginPath(); g.arc(B.x, B.y, 13, 0, 7); g.fill(); g.strokeStyle = '#a82a1a'; g.lineWidth = 2; g.beginPath(); g.arc(B.x, B.y, 13, 0.3, 2.6); g.stroke(); g.fillStyle = 'rgba(255,255,255,0.5)'; g.beginPath(); g.arc(B.x - 4, B.y - 4, 4, 0, 7); g.fill(); if (B.live) { g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 4; g.beginPath(); g.moveTo(B.x, B.y); g.lineTo(B.x - B.vx * 0.05, B.y - B.vy * 0.05); g.stroke(); } } })));
     ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
   },

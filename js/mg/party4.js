@@ -137,20 +137,20 @@ MG.def({
     S.pt += dt;
     S.p.forEach((p, i) => {
       if (p.ph === 'run') {
-        p.hold = m.held(i, 'a'); p.s += (p.hold ? 0.36 : 0.26) * dt;
+        p.hold = m.held(i, 'a'); p.s += (p.hold ? 0.22 : 0.16) * dt;
         if (p.s >= 1) { p.take = 0; this.launch(p); }
         else if (p.hold === false && m.released(i, 'a') && p.s > 0.6) { p.take = 1 - p.s; this.launch(p); }
       } else if (p.ph === 'air') {
-        p.air += dt; p.balV += R.range(-2.2, 2.2) * dt; const a = m.axis(i).y; p.balV += a * 3.2 * dt; p.bal += p.balV * dt; p.balV *= Math.pow(0.6, dt);
+        p.air += dt; p.balV += R.range(-1.3, 1.3) * dt; const a = m.axis(i).y; p.balV += a * 2.6 * dt; p.bal += p.balV * dt; p.balV *= Math.pow(0.6, dt);
         if (Math.abs(p.bal) > 1) { p.fell = true; p.bal = Math.sign(p.bal); }
-        p.vy += 300 * dt; p.h -= p.vy * dt; p.dist += p.spd * dt * (1 - Math.abs(p.bal) * 0.35);
-        if (m.pressed(i, 'a') && p.h < 40 && p.h > 0) p.tele = true;
+        p.vy += 170 * dt; p.h -= p.vy * dt; p.dist += p.spd * dt * (1 - Math.abs(p.bal) * 0.35);
+        if (m.pressed(i, 'a') && p.h < 55 && p.h > 0) p.tele = true;
         if (p.h <= 0) { p.ph = 'land'; if (p.tele && !p.fell) p.dist += 5; if (p.fell) p.dist *= 0.5; p.msg = p.fell ? 'Wipe-out!' : p.tele ? 'Telemark! +5 m' : 'Landed'; if (!m.bot(i)) (p.fell ? Sfx.bad() : Sfx.thud()); S.tot[i] += p.dist; }
       }
     });
-    if (S.p.every(p => p.ph === 'land')) { S.wait = (S.wait || 0) + dt; if (S.wait > 2.4) { S.wait = 0; if (S.jump >= 2) m.finish(this.score(m, S)); else this.start(S); } }
+    if (S.p.every(p => p.ph === 'land')) { S.wait = (S.wait || 0) + dt; if (S.wait > 3.2) { S.wait = 0; if (S.jump >= 2) m.finish(this.score(m, S)); else this.start(S); } }
   },
-  launch(p) { const q = Math.max(0, 1 - p.take / 0.12); p.ph = 'air'; p.spd = 34 + q * 26; p.vy = -90 - q * 70; p.h = 30; p.msg = q > 0.85 ? 'Perfect take-off!' : q > 0.4 ? 'Good take-off' : 'Early…'; },
+  launch(p) { const q = Math.max(0, 1 - p.take / 0.2); p.ph = 'air'; p.spd = 20 + q * 15; p.vy = -60 - q * 45; p.h = 30; p.msg = q > 0.85 ? 'Perfect take-off!' : q > 0.4 ? 'Good take-off' : 'Early…'; },
   bot(m, S, i) {
     const p = S.p[i], v = m.vin[i]; v.up = v.down = false;
     if (p.ph === 'run') { p.rel = p.rel || R.range(0.9, 0.995); v.a = p.s < p.rel; }
