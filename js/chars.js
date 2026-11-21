@@ -26,9 +26,10 @@ const CLAN = [
   { wrap: '#7a1a3a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'plain', orn: 'tophat', glove: '#ffffff', cuff: '#e8e8f0', shoe: '#1a1a2a', sole: '#3a3a4a', lace: '#ffd34d' },
   { wrap: '#ffffff', wrap2: '#e0e0e8', hem: '#d8d8e0', pattern: 'plain', orn: 'chefhat', glove: '#ffffff', cuff: '#d8d8e0', shoe: '#3a3a3a', sole: '#1a1a1a', lace: '#ffffff' },
   { wrap: '#2a3a6a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'plain', orn: 'plume', glove: '#ffffff', cuff: '#2a3a6a', shoe: '#1a1a2a', sole: '#3a3a4a', lace: '#ffd34d', boot: true },
+  { wrap: '#e8dcc0', wrap2: '#c8302a', hem: '#c8302a', pattern: 'plain', orn: 'strawhat', glove: '#f4ecd8', cuff: '#c8302a', shoe: '#5a3a20', sole: '#2a1a10', lace: '#c8302a' },   // 19: the old sensei
 ];
 // resting / game-face personality per hero: 0 curious, 1 sweet, 2 confident, 3 calm
-const PERSONA = [0, 1, 2, 3, 3, 1, 2, 1, 3, 0, 3, 2, 1, 3, 0, 2, 0, 1, 3];
+const PERSONA = [0, 1, 2, 3, 3, 1, 2, 1, 3, 0, 3, 2, 1, 3, 0, 2, 0, 1, 3, 3];
 const STOIC = { 3: true, 6: true }; // Pebble and Flint never go bubbly
 // personality: how each newer hero shows a feeling
 const MOODMAP = {
@@ -44,7 +45,7 @@ const MOODMAP = {
   14: { cheer: 'laugh', proud: 'laugh' },                                                                 // Rivet: the cheerful tinkerer
 };
 // what makes each face its own (drawn on the head, facing left; see Char.faceAcc)
-const FACEACC = { 4: 'piercing', 5: 'freckles', 6: 'stubble', 7: 'diva', 9: 'boltpaint', 10: 'teeth', 11: 'skull', 12: 'halo', 13: 'goth', 14: 'goggles', 16: 'moustache', 17: 'moustache' };
+const FACEACC = { 4: 'piercing', 5: 'freckles', 6: 'stubble', 7: 'diva', 9: 'boltpaint', 10: 'teeth', 11: 'skull', 12: 'halo', 13: 'goth', 14: 'goggles', 16: 'moustache', 17: 'moustache', 19: 'sagebeard' };
 // eye size per hero (width, height multipliers)
 const EYEK = { 8: [0.88, 0.58] };
 const GENERIC = { wrap: '#9aa0ad', wrap2: '#cfd3dc', hem: '#cfd3dc', pattern: 'none', glove: '#cfd3dc', cuff: '#9aa0ad', shoe: '#8a8f99', sole: '#5a5f69', lace: '#cfd3dc' };
@@ -147,6 +148,7 @@ const Char = {
     { style: 11, top: '#1a1a2a', trim: '#ffffff', bottoms: '#1a1a2a', tie: null }, // host tuxedo
     { style: 12, top: '#ffffff', trim: '#d8d8e0', bottoms: '#3a3a4a' },        // chef whites
     { style: 0, top: '#2a3a6a', trim: '#ffd34d', bottoms: '#1a2440' },         // guard uniform
+    { style: 7, top: '#f4ecd8', trim: '#c8302a', bottoms: '#8a6a4a' },         // sensei robe
   ],
   fullBody(g, r, el, C, skin, mood, faceMood, o, t, seed, walk, out, squash, face, idle, color) {
     const h = r * 0.7, hy = -r * 0.32, tx = r * 0.01, ty = hy + h * 1.3, ground = r * 1.25;
@@ -367,7 +369,7 @@ const Char = {
     g.fillStyle = 'rgba(255,255,255,0.75)'; g.beginPath(); g.ellipse(nx - nr * 0.35, ny - nr * 0.45, nr * 0.28, nr * 0.2, -0.5, 0, 7); g.fill();
   },
 
-  IRIS: ['#4fb3c8', '#2f7fe8', '#e08a2a', '#6f8f2c', '#8a6ad8', '#3fb0a8', '#2f86ff', '#e0508a', '#4aa8d8', '#d8a800', '#c8902a', '#ff5020', '#e8b020', '#9a7aff', '#5a7a9a', '#6a4a34', '#3a6ad8', '#4a8a3a', '#5a4a8a'],
+  IRIS: ['#4fb3c8', '#2f7fe8', '#e08a2a', '#6f8f2c', '#8a6ad8', '#3fb0a8', '#2f86ff', '#e0508a', '#4aa8d8', '#d8a800', '#c8902a', '#ff5020', '#e8b020', '#9a7aff', '#5a7a9a', '#6a4a34', '#3a6ad8', '#4a8a3a', '#5a4a8a', '#5a4a34'],
   // modern cartoon eye: shaded sclera, gradient iris with limbal ring, pupil, lid shadow and twin highlights
   eyeball(g, ex, ey, ew, eh, pr, lid, pdx, pdy, skin, r) {
     const K = EYEK[this._el]; if (K) { ew *= K[0]; eh *= K[1]; }
@@ -580,6 +582,12 @@ const Char = {
       g.save(); g.shadowColor = 'rgba(255,220,120,0.9)'; g.shadowBlur = r * 0.35; g.strokeStyle = '#ffd86a'; g.lineWidth = r * 0.08; g.beginPath(); g.ellipse(r * 0.05, hy, r * 0.46, r * 0.12, -0.08, 0, 7); g.stroke(); g.restore();
       g.strokeStyle = 'rgba(255,255,220,0.9)'; g.lineWidth = r * 0.025; g.beginPath(); g.ellipse(r * 0.05, hy - r * 0.01, r * 0.42, r * 0.1, -0.08, Math.PI * 1.1, Math.PI * 1.7); g.stroke();
     }
+    if (k === 'sagebeard') { // the sensei's long white beard
+      const sw = Math.sin(t * 2 + seed) * r * 0.05; g.fillStyle = '#fafaf4'; g.strokeStyle = '#b8b4a8'; g.lineWidth = lw;
+      g.beginPath(); g.moveTo(-r * 0.98, r * 0.34); g.quadraticCurveTo(-r * 0.95, r * 0.9, -r * 0.6 + sw, r * 1.45); g.quadraticCurveTo(-r * 0.45 + sw, r * 1.0, -r * 0.2, r * 0.65); g.quadraticCurveTo(-r * 0.45, r * 0.42, -r * 0.98, r * 0.34); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(-r * 0.98, r * 0.2); g.quadraticCurveTo(-r * 0.8, r * 0.12, -r * 0.55, r * 0.26); g.quadraticCurveTo(-r * 0.75, r * 0.32, -r * 0.98, r * 0.3); g.closePath(); g.fill(); g.stroke();
+      g.strokeStyle = '#3a2a1a'; g.lineWidth = lw * 1.4; g.beginPath(); g.moveTo(-r * 0.6, -r * 0.42); g.lineTo(-r * 0.25, -r * 0.38); g.stroke();
+    }
     if (k === 'moustache') { g.fillStyle = '#3a2418'; g.beginPath(); g.moveTo(-r * 0.98, r * 0.18); g.quadraticCurveTo(-r * 0.86, r * 0.1, -r * 0.7, r * 0.2); g.quadraticCurveTo(-r * 0.56, r * 0.12, -r * 0.5, r * 0.04); g.quadraticCurveTo(-r * 0.5, r * 0.24, -r * 0.7, r * 0.27); g.quadraticCurveTo(-r * 0.86, r * 0.3, -r * 0.98, r * 0.24); g.closePath(); g.fill(); }
     if (k === 'goth') { // smoky eye, winged liner, plum lips
       g.fillStyle = 'rgba(110,60,170,0.35)'; g.beginPath(); g.ellipse(ex, ey - r * 0.2, r * 0.24, r * 0.12, 0, Math.PI, Math.PI * 2); g.fill();
@@ -656,6 +664,9 @@ const Char = {
       g.translate(-r * 0.42, r * 0.02); g.fillStyle = '#fff'; g.strokeStyle = '#c8c8d0'; g.lineWidth = Math.max(1, r * 0.03); g.fillRect(-r * 0.42, -r * 0.2, r * 0.84, r * 0.2); g.beginPath(); g.arc(-r * 0.25, -r * 0.42, r * 0.28, 0, 7); g.arc(r * 0.25, -r * 0.42, r * 0.28, 0, 7); g.arc(0, -r * 0.6, r * 0.32, 0, 7); g.fill(); g.stroke();
     } else if (kind === 'plume') {
       g.translate(-r * 0.42, r * 0.02); g.fillStyle = '#2a3a6a'; g.beginPath(); g.ellipse(0, -r * 0.05, r * 0.55, r * 0.3, 0, Math.PI, 0); g.fill(); g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(-r * 0.3, -r * 0.18, r * 0.07, 0, 7); g.fill(); g.fillStyle = '#e8323e'; g.beginPath(); g.ellipse(r * 0.15, -r * 0.45, r * 0.1, r * 0.3, 0.5 + Math.sin(t * 3 + seed) * 0.1, 0, 7); g.fill();
+    } else if (kind === 'strawhat') { // a wide conical straw hat
+      g.translate(-r * 0.42, r * 0.02); g.fillStyle = '#d8b86a'; g.strokeStyle = '#8a6a2a'; g.lineWidth = Math.max(1, r * 0.03); g.beginPath(); g.moveTo(-r * 1.15, r * 0.02); g.lineTo(0, -r * 0.62); g.lineTo(r * 1.15, r * 0.02); g.quadraticCurveTo(0, r * 0.16, -r * 1.15, r * 0.02); g.fill(); g.stroke();
+      for (let q = -3; q <= 3; q++) { g.beginPath(); g.moveTo(0, -r * 0.6); g.lineTo(q * r * 0.32, r * 0.06); g.stroke(); }
     } else if (kind === 'gear') {
       g.save(); g.translate(0, -r * 0.22); g.rotate(t * 1.5 + seed);
       g.fillStyle = '#b8c2ce'; g.strokeStyle = '#4a5666';
