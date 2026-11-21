@@ -24,14 +24,14 @@ function segHit(ax, ay, bx, by, cx, cy, dx, dy) { // do segments AB and CD cross
 MG.def({
   id: 'pool', name: 'Pocket Pool', type: 'Skill', controls: 'Move + hold', dur: 0, sport: true,
   rows: [['lr', 'Aim (▲▼ fine)'], ['a', 'Hold for power, let go']],
-  how: 'Each hero owns two balls in their colour. A roulette picks the turn order at the start (it stays the same all game). Take turns shooting the white cue ball: aim with LEFT/RIGHT (UP/DOWN for fine aim), hold A to swing the power bar and let go to shoot. Every coloured ball that drops scores a point for its OWNER — so sink yours and keep the others safe! Sink your own ball and you shoot again. Pot the white ball and you lose a point. Four shots each.',
-  wins: 'Most balls of your colour potted.',
+  how: 'Each hero owns FOUR balls in their colour. A roulette picks the turn order at the start (it stays the same all game). Take turns shooting the white cue ball: aim with LEFT/RIGHT (UP/DOWN for fine aim), hold A to swing the power bar and let go to shoot. Every coloured ball that drops counts for its OWNER — so sink yours and keep the others safe! Sink your own ball and you shoot again; pot the white and your turn ends. The FIRST hero to clear all four of their balls wins (after 8 shots each, most balls cleared wins).',
+  wins: 'First to pocket all four of their balls.',
   T: { x0: 190, y0: 140, w: 900, h: 450 },
   init(m, S) {
-    const T = this.T; S.pts = [0, 0, 0, 0]; S.order = R.shuffle([0, 1, 2, 3]); S.oi = 0; S.turn = S.order[0]; S.shots = [0, 0, 0, 0]; S.MAX = 4; S.phase = 'spin'; S.spinHi = 0; S.spinStep = 0; S.pt = 0; S.hold = -1; S.ang = 0; S.msg = '';
+    const T = this.T; S.pts = [0, 0, 0, 0]; S.order = R.shuffle([0, 1, 2, 3]); S.oi = 0; S.turn = S.order[0]; S.shots = [0, 0, 0, 0]; S.MAX = 8; S.win = -1; S.phase = 'spin'; S.spinHi = 0; S.spinStep = 0; S.pt = 0; S.hold = -1; S.ang = 0; S.msg = '';
     S.balls = [{ x: T.x0 + T.w * 0.25, y: T.y0 + T.h / 2, vx: 0, vy: 0, own: -1, in: false }];
-    const rack = [[0, 0], [1, -0.5], [1, 0.5], [2, -1], [2, 0], [2, 1], [3, -0.5], [3, 0.5]], own = R.shuffle([0, 0, 1, 1, 2, 2, 3, 3]);
-    rack.forEach(([c, r], k) => S.balls.push({ x: T.x0 + T.w * 0.68 + c * 22, y: T.y0 + T.h / 2 + r * 25, vx: 0, vy: 0, own: own[k], in: false }));
+    const rack = []; [1, 2, 3, 4, 3, 2, 1].forEach((n, c) => { for (let k = 0; k < n; k++) rack.push([c, k - (n - 1) / 2]); }); const own = R.shuffle([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]);
+    rack.forEach(([c, r], k) => S.balls.push({ x: T.x0 + T.w * 0.62 + c * 22, y: T.y0 + T.h / 2 + r * 25, vx: 0, vy: 0, own: own[k], in: false }));
     S.pockets = [[0, 0], [0.5, 0], [1, 0], [0, 1], [0.5, 1], [1, 1]].map(([u, v]) => ({ x: T.x0 + u * T.w, y: T.y0 + v * T.h }));
   },
   moving(S) { return S.balls.some(b => !b.in && Math.hypot(b.vx, b.vy) > 4); },
@@ -71,9 +71,10 @@ MG.def({
       if (!this.moving(S) && S.pt > 0.3) {
         let again = false, scratch = false;
         S.potted.forEach(b => { if (b.own < 0) scratch = true; else { S.pts[b.own]++; MGH.pop(`+1 ${m.players[b.own].name}`, b.x, b.y - 20, m.players[b.own].color, 26); if (b.own === i) again = true; } });
-        if (scratch) { S.pts[i]--; S.msg = `${m.players[i].name} potted the white! −1`; Sfx.bad(); cue.in = false; cue.x = this.T.x0 + this.T.w * 0.25; cue.y = this.T.y0 + this.T.h / 2; again = false; while (S.balls.some(b => b !== cue && !b.in && Math.hypot(b.x - cue.x, b.y - cue.y) < 26)) cue.y += 26; }
+        if (scratch) { S.msg = `${m.players[i].name} potted the white — turn over!`; Sfx.bad(); cue.in = false; cue.x = this.T.x0 + this.T.w * 0.25; cue.y = this.T.y0 + this.T.h / 2; again = false; while (S.balls.some(b => b !== cue && !b.in && Math.hypot(b.x - cue.x, b.y - cue.y) < 26)) cue.y += 26; }
         else if (again) { S.msg = `${m.players[i].name} shoots again!`; Sfx.coin(); } else S.msg = '';
         const left = S.balls.filter(b => b.own >= 0 && !b.in).length;
+        if (S.win < 0) { const order = [i].concat(S.order.filter(k => k !== i)); const w = order.find(k => S.pts[k] >= 4); if (w !== undefined) { S.win = w; S.msg = `${m.players[w].name} cleared all four!`; Sfx.coin(); m.finish(this.score(m, S)); return; } }
         if (!again) { let k = 0; do { S.oi++; if (S.oi >= 4) S.oi = 0; S.turn = S.order[S.oi]; k++; } while (S.shots[S.turn] >= S.MAX && k < 9); }
         if (left === 0 || S.shots.every(s => s >= S.MAX) && !again) { m.finish(this.score(m, S)); return; }
         if (again && S.shots[i] >= S.MAX) S.shots[i]--; // a bonus shot never runs out
@@ -101,9 +102,9 @@ MG.def({
     if (S.pt < 1) return;
     v.a = !(S.hold > 0 && powerSwing(S.hold) >= S.plan.pw && S.hold < 1.3);
   },
-  score(m, S) { return S.pts.slice(); },
-  fmt(s) { return `${s} ball${s === 1 ? '' : 's'}`; },
-  hud(m, S, i) { return `${S.pts[i]}` + (S.turn === i && S.phase === 'aim' ? ' 🎱' : '') + ` (${Math.max(0, S.MAX - S.shots[i])} shots)`; },
+  score(m, S) { return S.pts.map((p, k) => p + (k === S.win ? 10 : 0)); },
+  fmt(s) { return s >= 10 ? 'cleared all 4!' : `${s} of 4 cleared`; },
+  hud(m, S, i) { return `${S.pts[i]}/4` + (S.turn === i && S.phase === 'aim' ? ' 🎱' : '') + ` (${Math.max(0, S.MAX - S.shots[i])} shots)`; },
   draw(m, S, g) {
     this.drawTable(m, S, g);
     if (S.phase === 'spin') this.drawSpin(m, S, g); else this.drawOrder(m, S, g);

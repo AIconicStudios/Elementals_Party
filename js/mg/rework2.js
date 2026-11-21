@@ -213,3 +213,54 @@ MG.byId.logroll && (MG.byId.logroll.draw = function (m, S, g) {
     g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, x - 60, 684, 120, 28, 14); g.fill(); MGH.text(g, p.name, x, 705, 18, p.color, 'center', 'bold');
   });
 });
+
+// ======================================================================== SUSHI TRAIN: unmistakable dishes (shape + colour-coded plate rim)
+MG.byId.sushi && (MG.byId.sushi.plate = function (g, x, y, k, s = 1) {
+  const RIM = ['#ff8a2a', '#e8323e', '#ffd32a', '#3ab84a', '#ff6ab8'];
+  g.save(); g.translate(x, y); g.scale(s * 1.15, s * 1.15);
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(2, 6, 30, 11, 0, 0, 7); g.fill();
+  g.fillStyle = RIM[k]; g.beginPath(); g.ellipse(0, 2, 30, 11, 0, 0, 7); g.fill();
+  g.fillStyle = '#fffaf2'; g.beginPath(); g.ellipse(0, 1, 23, 8, 0, 0, 7); g.fill();
+  const rice = (w) => { g.fillStyle = '#fffdf6'; MGH.rr(g, -w, -10, w * 2, 12, 6); g.fill(); g.fillStyle = 'rgba(200,190,170,0.6)'; for (let q = -w + 3; q < w; q += 5) { g.beginPath(); g.arc(q, -4, 1.2, 0, 7); g.fill(); } };
+  if (k === 0) { rice(15); g.fillStyle = '#ff8a4a'; MGH.rr(g, -17, -18, 34, 10, 5); g.fill(); g.strokeStyle = '#fff0e0'; g.lineWidth = 2; for (let q = -12; q <= 12; q += 6) { g.beginPath(); g.moveTo(q - 2, -17); g.lineTo(q + 3, -9); g.stroke(); } }
+  else if (k === 1) { rice(15); g.fillStyle = '#c8142a'; MGH.rr(g, -17, -18, 34, 10, 5); g.fill(); g.fillStyle = 'rgba(255,255,255,0.3)'; MGH.rr(g, -12, -17, 18, 3, 2); g.fill(); }
+  else if (k === 2) { rice(13); g.fillStyle = '#ffd83a'; MGH.rr(g, -16, -22, 32, 14, 3); g.fill(); g.fillStyle = 'rgba(200,140,0,0.4)'; g.fillRect(-16, -15, 32, 2); g.fillStyle = '#1a2a1a'; g.fillRect(-4, -22, 8, 22); }
+  else if (k === 3) { [-9, 9].forEach(cx => { g.fillStyle = '#1a2a1a'; g.beginPath(); g.ellipse(cx, -6, 10, 9, 0, 0, 7); g.fill(); g.fillStyle = '#fffdf6'; g.beginPath(); g.ellipse(cx, -7, 7.5, 6.5, 0, 0, 7); g.fill(); g.fillStyle = '#3ab84a'; g.beginPath(); g.ellipse(cx, -7, 3.5, 3, 0, 0, 7); g.fill(); }); }
+  else { rice(14); g.fillStyle = '#ffd0c0'; g.beginPath(); g.moveTo(-16, -10); g.quadraticCurveTo(-4, -24, 14, -14); g.lineTo(14, -8); g.quadraticCurveTo(-2, -14, -16, -8); g.fill(); g.strokeStyle = '#ff7a5a'; g.lineWidth = 2; for (let q = -10; q <= 8; q += 5) { g.beginPath(); g.moveTo(q, -16); g.lineTo(q + 1, -10); g.stroke(); } g.fillStyle = '#e8402a'; g.beginPath(); g.moveTo(14, -14); g.lineTo(22, -20); g.lineTo(21, -8); g.fill(); }
+  g.restore();
+});
+
+// ======================================================================== PAPER PLANES: 2x2 split screen, each view follows its own plane
+MG.byId.planes && Object.assign(MG.byId.planes, {
+  world(m, S, g, cam, me) {
+    const W = 1360;
+    GX.vfill(g, 0, 0, W, 720, ['#5ab0f0', '#a8dcff', '#ffe8c8']);
+    for (let k = 0; k < 8; k++) MGH.cloud(g, ((k * 260 - cam * 0.3) % 1700 + 1700) % 1700 - 160, 100 + (k % 4) * 70, 34 + (k % 3) * 8);
+    g.fillStyle = '#7ac85a'; g.beginPath(); g.moveTo(0, 720); for (let x = 0; x <= W; x += 40) g.lineTo(x, 650 + Math.sin((x + cam * 0.6) * 0.01) * 14); g.lineTo(W, 720); g.fill();
+    g.fillStyle = '#5aa84a'; for (let k = 0; k < 22; k++) { const x = ((k * 140 - cam) % 3080 + 3080) % 3080 - 100; g.beginPath(); g.arc(x, 652, 26, Math.PI, 0); g.fill(); }
+    for (let d = 0; d < 7000; d += 500) { const x = d - cam; if (x < -40 || x > W + 40) continue; g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(x, 636, 5, 26); MGH.text(g, `${d / 10} m`, x, 700, 26, '#2a5a2a', 'center', 'bold'); }
+    S.up.forEach(u => { const x = u.x - cam; if (x < -100 || x > W + 100) return; const gr = g.createLinearGradient(0, 650, 0, 150); gr.addColorStop(0, 'rgba(255,200,120,0.4)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = gr; g.fillRect(x - u.w / 2, 150, u.w, 500); for (let k = 0; k < 4; k++) { const yy = 650 - ((m.t * 120 + k * 120) % 480); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 4; g.beginPath(); g.moveTo(x - 14, yy); g.lineTo(x, yy - 18); g.lineTo(x + 14, yy); g.stroke(); } });
+    const P0 = S.p[me];
+    S.rings.forEach((r, k) => { const x = r.x - cam; if (x < -60 || x > W + 60) return; const got = P0.got.has(k); g.strokeStyle = got ? 'rgba(255,230,120,0.3)' : '#ffcf4a'; g.lineWidth = 9; g.beginPath(); g.ellipse(x, r.y, 16, 50, 0, 0, 7); g.stroke(); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.beginPath(); g.ellipse(x - 2, r.y, 11, 43, 0, 0, 7); g.stroke(); });
+    [0, 1, 2, 3].filter(i => i !== me).concat([me]).forEach(i => {
+      const P = S.p[i], p = m.players[i], x = P.x - cam; if (x < -80 || x > W + 80) return;
+      g.save(); g.globalAlpha = i === me ? 1 : 0.35; g.translate(x, P.y); g.rotate(P.a); g.scale(1.3, 1.3);
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(40, 0); g.lineTo(-30, -22); g.lineTo(-18, 0); g.lineTo(-30, 18); g.closePath(); g.fill(); g.strokeStyle = p.color; g.lineWidth = 3; g.stroke();
+      g.fillStyle = p.color; g.beginPath(); g.moveTo(40, 0); g.lineTo(-18, 0); g.lineTo(-30, 10); g.closePath(); g.fill();
+      g.restore();
+      if (i === me) { for (let q = 1; q <= 4; q++) { g.fillStyle = `rgba(255,255,255,${0.4 - q * 0.08})`; g.beginPath(); g.arc(x - q * 22 * Math.cos(P.a), P.y - q * 22 * Math.sin(P.a), 5 - q, 0, 7); g.fill(); }
+        Char.draw(g, x - 4, P.y - 30, 19, p.el.id, p.color, { mood: MGH.persona(!P.alive ? 'sad' : P.a < -0.2 ? 'effort' : 'cheer', p.el.id), seed: i * 1.7, look: { x: 1, y: 0 }, noFeet: true, noShadow: true }); }
+    });
+  },
+  draw(m, S, g) {
+    const sc = 340 / 720;
+    S.p.forEach((P, i) => {
+      const qx = (i % 2) * 640, qy = 40 + Math.floor(i / 2) * 340, p = m.players[i], cam = Math.max(0, P.x - 420);
+      g.save(); g.beginPath(); g.rect(qx, qy, 640, 340); g.clip(); g.translate(qx, qy); g.scale(sc, sc); this.world(m, S, g, cam, i); g.restore();
+      if (!P.alive) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(qx, qy, 640, 340); MGH.label(g, `Landed · ${Math.round(P.x / 10)} m`, qx + 320, qy + 170, 26, '#fff'); }
+      g.strokeStyle = p.color; g.lineWidth = 4; g.strokeRect(qx + 2, qy + 2, 636, 336);
+      g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, qx + 10, qy + 10, 230, 30, 15); g.fill(); MGH.text(g, `${p.name}  ${Math.round(P.x / 10)} m · 💍${P.rings}`, qx + 22, qy + 31, 17, p.color, 'left', 'bold');
+      const place = S.p.filter(o => o.x > P.x).length; MGH.text(g, ['1st', '2nd', '3rd', '4th'][place], qx + 610, qy + 34, 22, place ? '#fff' : '#ffe680', 'right', 'bold');
+    });
+  },
+});

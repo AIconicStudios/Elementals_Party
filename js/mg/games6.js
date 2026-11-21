@@ -499,7 +499,7 @@ MG.def({
       if (m.pressed(i, 'a') && p.ground) { p.vy = 520; p.ground = false; }
       if (m.pressed(i, 'b') && p.cd <= 0) {
         p.cd = 1.2; p.shove = 0.3;
-        S.p.forEach((q, j) => { if (j === i || !q.alive || Math.abs(q.y - p.y) > 40) return; const dx = q.x - p.x; if (Math.abs(dx) < 70 && Math.sign(dx) === p.face) { q.kx += p.face * 590; q.vy = Math.max(q.vy, 220); q.ground = false; q.hurt = 0.7; S.fx.push({ x: (p.x + q.x) / 2, y: 480 - 30 - p.y, t: 0 }); MGH.shake(9); Sfx.punch(); Sfx.voice(m.players[j].el.id, 'ouch'); MGH.burst((p.x + q.x) / 2, 450 - p.y, ['#fff', '#ffd34d', m.players[i].color], 18, { speed: 280, kind: 'spark', size: 3 }); } });
+        S.p.forEach((q, j) => { if (j === i || !q.alive || Math.abs(q.y - p.y) > 40) return; const dx = q.x - p.x; if (Math.abs(dx) < 70 && Math.sign(dx) === p.face) { q.kx += p.face * 360; q.vy = Math.max(q.vy, 150); q.ground = false; q.hurt = 0.7; S.fx.push({ x: (p.x + q.x) / 2, y: 480 - 30 - p.y, t: 0 }); MGH.shake(9); Sfx.punch(); Sfx.voice(m.players[j].el.id, 'ouch'); MGH.burst((p.x + q.x) / 2, 450 - p.y, ['#fff', '#ffd34d', m.players[i].color], 18, { speed: 280, kind: 'spark', size: 3 }); } });
         if (!m.bot(i)) Sfx.whoosh(true);
       }
       p.vy -= 1500 * dt; p.y += p.vy * dt; p.x = clamp(p.x + p.vx * dt, 16, 1264);

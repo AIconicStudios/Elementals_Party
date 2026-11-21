@@ -350,16 +350,21 @@ MG.def({
     S.bugs.forEach(q => { const on = this.lit(q), near = S.b.some(b => dist(b.x, b.y, q.x, q.y) < this.sight(b)); if (!on && !near) return; const a = on ? 0.6 + 0.4 * Math.sin(q.ph * 8) : 0.35; if (q.moth) { MGH.glow(g, q.x, q.y, 30, `rgba(120,180,255,${a})`); g.fillStyle = `rgba(180,220,255,${a})`; const fl = Math.sin(m.t * 30 + q.ph); g.beginPath(); g.ellipse(q.x - 7, q.y, 9, 5 + fl * 3, -0.4, 0, 7); g.ellipse(q.x + 7, q.y, 9, 5 + fl * 3, 0.4, 0, 7); g.fill(); g.fillStyle = '#e8f4ff'; g.beginPath(); g.ellipse(q.x, q.y, 2.5, 6, 0, 0, 7); g.fill(); } else { MGH.glow(g, q.x, q.y, 20, `rgba(220,255,120,${a})`); g.fillStyle = `rgba(250,255,190,${Math.min(1, a + 0.2)})`; g.beginPath(); g.arc(q.x, q.y, 3.5, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.ellipse(q.x - 3, q.y - 3, 3, 1.5, -0.5, 0, 7); g.ellipse(q.x + 3, q.y - 3, 3, 1.5, 0.5, 0, 7); g.fill(); } });
     const ents = S.b.map((b, i) => ({ y: b.y, f: () => {
       const p = m.players[i], f = b.face || { x: 1, y: 0 };
-      MGH.drawBody(g, b, p, '', b.hit > 0 ? 'hurt' : b.sw > 0 ? 'determined' : 'happy');
+      Char.draw(g, b.x, b.y, b.r * 1.3, p.el.id, p.color, { mood: MGH.persona(b.hit > 0 ? 'hurt' : b.sw > 0 ? 'determined' : 'happy', p.el.id), seed: i * 1.7, look: { x: (f.x >= 0 ? 1 : -1), y: 0 }, walk: Math.hypot(b.vx, b.vy) > 40 ? 1 : 0, hands: { n: { x: -0.95, y: -0.15, d: 0, o: false, m: false }, f: { x: 0.6, y: 0.2, d: 0, o: true, m: false } } });
       // jar lantern on the belt
       const jx = b.x - 22, jy = b.y + 4; MGH.glow(g, jx, jy, 22 + b.n * 2.5, `rgba(230,255,140,${Math.min(0.8, 0.2 + b.n * 0.05)})`); g.fillStyle = 'rgba(220,240,255,0.35)'; MGH.rr(g, jx - 8, jy - 12, 16, 22, 4); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#8a6a3a'; g.fillRect(jx - 7, jy - 15, 14, 4); for (let q = 0; q < Math.min(6, b.n); q++) { g.fillStyle = '#f4ffb0'; g.beginPath(); g.arc(jx - 4 + (q % 3) * 4, jy + 4 - Math.floor(q / 3) * 6 + Math.sin(m.t * 6 + q) * 1.5, 1.8, 0, 7); g.fill(); }
-      // butterfly net: swings in an arc when used
-      const base = Math.atan2(f.y, f.x), swing = b.sw > 0 ? (1 - b.sw / 0.28) * 2.4 - 1.2 : -0.8, ang = base + swing * (f.x >= 0 ? 1 : -1);
-      const hx = b.x + Math.cos(base) * 12, hy = b.y - 10, nx = hx + Math.cos(ang) * 46, ny = hy + Math.sin(ang) * 32;
-      g.strokeStyle = '#a8703a'; g.lineWidth = 4; g.beginPath(); g.moveTo(hx, hy); g.lineTo(nx, ny); g.stroke();
+      // butterfly net held in the glove: the handle starts in the hand and swings with it
+      const fx = (f.x >= 0 ? 1 : -1), r = b.r * 1.3, base = Math.atan2(f.y, Math.abs(f.x) < 0.05 ? fx * 0.05 : f.x);
+      const swing = b.sw > 0 ? (1 - b.sw / 0.28) * 2.4 - 1.2 : -0.9, ang = base + swing * fx;
+      const gx = b.x + fx * r * 0.95, gy = b.y - r * 0.15 + (b.sw > 0 ? -Math.cos((1 - b.sw / 0.28) * Math.PI) * r * 0.25 : 0);
+      const nx = gx + Math.cos(ang) * 50, ny = gy + Math.sin(ang) * 36;
+      g.strokeStyle = '#a8703a'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(gx - Math.cos(ang) * 8, gy - Math.sin(ang) * 6); g.lineTo(nx, ny); g.stroke(); g.lineCap = 'butt';
       g.strokeStyle = '#e8e8f0'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(nx + Math.cos(ang) * 12, ny + Math.sin(ang) * 8, 14, 10, ang, 0, 7); g.stroke();
       g.fillStyle = 'rgba(240,240,255,0.35)'; g.beginPath(); g.ellipse(nx + Math.cos(ang) * 16, ny + Math.sin(ang) * 10 + 6, 11, 13, ang, 0, 7); g.fill();
-      if (b.sw > 0) { g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3; g.beginPath(); g.arc(hx, hy, 50, ang - 0.8 * (f.x >= 0 ? 1 : -1), ang); g.stroke(); }
+      if (b.sw > 0) { g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 3; g.beginPath(); g.arc(gx, gy, 54, ang - 0.8 * fx, ang); g.stroke(); }
+      // the glove wrapped round the handle
+      const C = CLAN[p.el.id] || {}; g.fillStyle = C.glove || '#fff'; g.beginPath(); g.arc(gx, gy, r * 0.24, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = C.cuff || '#ddd'; g.beginPath(); g.arc(gx - fx * r * 0.18, gy + r * 0.05, r * 0.12, 0, 7); g.fill();
     } }));
     ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
     g.drawImage(dk, 0, 0, 1280, 720);

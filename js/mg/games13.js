@@ -26,7 +26,7 @@
 
   MG.def({
     id: 'traitors', name: 'The Traitors', type: 'Deduction', controls: 'Move + A & B buttons', thumbT: 10, noPadSkip: true,
-    how: 'The castle has secretly chosen one TRAITOR. THE WAVE: everyone quietly presses A — if your character doesn\'t wave, YOU are the Traitor: press B instead (nobody can tell the difference). THE MISSION: fill vials at the moon-wells and pour them into the cauldron (A) — everyone must pour their own 9 before time runs out, or they can\'t share the prize. Once, at a random moment, the Traitor gives away one tiny tell for a split second… keep half an eye on everyone! THE VOTE: one secret vote — press the button shown at the seat you suspect (gamepad Y top · B right · A bottom · X left, keyboard arrows). Catch the Traitor and every Faithful who finished their mission wins; if the Traitor survives, the Traitor wins.',
+    how: 'The castle has secretly chosen one TRAITOR. THE WAVE: everyone quietly presses A — if your character doesn\'t wave, YOU are the Traitor: press B instead (nobody can tell the difference). THE MISSION: fill vials at the moon-wells and walk up to the cauldron and they pour in by themselves — everyone must pour their own 9 before time runs out, or they can\'t share the prize. Once, at a random moment, the Traitor gives away one tiny tell for a split second… keep half an eye on everyone! THE VOTE: one secret vote — press the button shown at the seat you suspect (gamepad Y top · B right · A bottom · X left, keyboard arrows). Catch the Traitor and every Faithful who finished their mission wins; if the Traitor survives, the Traitor wins.',
     wins: 'Faithful who filled their quota, if the Traitor is voted out; otherwise the Traitor.',
     init(m, S) {
       S.traitor = R.int(0, 3);
@@ -84,7 +84,7 @@
         const dx = P.x - CAUL.x, dy = P.y - CAUL.y, d = Math.hypot(dx, dy) || 1; if (d < 74) { P.x = CAUL.x + dx / d * 74; P.y = CAUL.y + dy / d * 74; }
         const w = WELLS.find(w => Math.hypot(w.x - P.x, w.y - P.y) < 62);
         if (w && !P.carry) { P.fill += dt; if (P.fill >= FILL) { P.carry = 1; P.fill = 0; if (!m.bot(i)) Sfx.tone(880, 0.06, 'triangle', 0.05); } } else if (!w) P.fill = 0;
-        if (P.carry && d < 120 && (m.pressed(i, 'a') || m.pressed(i, 'b'))) this.pour(m, S, i);
+        if (P.carry && d < 110) this.pour(m, S, i); // walk up to the cauldron and it pours by itself
       });
       MGH.collide(S.P, 0.4);
       // the one tell: it waits (a little) until it can actually show — e.g. a vial tell needs a vial in hand
@@ -142,7 +142,6 @@
       }
       if (P.goal) { P.goal = null; if (Math.random() < 0.15) { P.idle = R.range(0.2, 0.7); return; } }
       if (Math.hypot(CAUL.x - P.x, CAUL.y - P.y) > 105) { this.go(v, P, CAUL); return; }
-      v.a = !m.prev[i].a;
     },
     go(v, P, t) { const dx = t.x - P.x, dy = t.y - P.y, d = Math.hypot(dx, dy) || 1; v.ax = dx / d * P.spd; v.ay = dy / d * P.spd; },
     // ---------------------------------------------------------------- scoring
