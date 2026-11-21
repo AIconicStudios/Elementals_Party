@@ -292,82 +292,111 @@ MG.def({
   },
 });
 
-// 25 ---------------------------------------------------------------- Lowest Unique
+// 25 ---------------------------------------------------------------- Highest Unique (secret ABXY picks)
+const ABXY_POS = [[640, 220], [860, 380], [640, 540], [420, 380]], ABXY_KEY = [['Y', '#e8b82e'], ['B', '#e8453c'], ['A', '#3fc35a'], ['X', '#3f8ee8']];
+const abxyPress = (m, i) => m.pressed(i, 'y') || m.pressed(i, 'up') ? 0 : m.pressed(i, 'b') || m.pressed(i, 'right') ? 1 : m.pressed(i, 'a') || m.pressed(i, 'down') ? 2 : m.pressed(i, 'x') || m.pressed(i, 'left') ? 3 : -1;
+const abxyBot = (m, i, d) => { const v = m.vin[i]; ['a', 'b', 'x', 'y'].forEach(k => { v[k] = false; }); if (d >= 0) v[['y', 'b', 'a', 'x'][d]] = true; };
+const abxyBadge = (g, d, x, y, r = 22) => { g.fillStyle = ABXY_KEY[d][1]; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke(); MGH.text(g, ABXY_KEY[d][0], x, y + r * 0.36, r * 1.1, '#fff', 'center', 'bold'); };
 MG.def({
-  id: 'lowest', name: 'Lowest Unique', type: 'Bluff', controls: 'Pick',
-  how: 'Everyone secretly picks a number from 1 to 10 within 8 seconds. The lowest number nobody else picked wins the round. Three rounds.',
-  wins: 'Most rounds.',
-  init(m, S) { S.pts = [0, 0, 0, 0]; S.round = 1; S.win = -1; PickR.start(S, 10, 8, 0); },
+  id: 'lowest', name: 'Highest Unique', type: 'Bluff', controls: 'A B X Y', dur: 0, noPadSkip: true,
+  rows: [['abxy', 'Secretly pick a number']],
+  how: 'Four numbers sit on the buttons: Y = 4, B = 3, X = 2, A = 1. Everyone secretly presses one. The HIGHEST number that nobody else picked scores its value — pick 4 and someone copies you, you both get nothing! Six rounds.',
+  wins: 'Most points after six rounds.',
+  VAL: [4, 3, 1, 2],
+  init(m, S) { S.pts = [0, 0, 0, 0]; S.round = 0; S.hist = [[], [], [], []]; this.next(S); },
+  next(S) { S.round++; S.pick = [-1, -1, -1, -1]; S.phase = 'pick'; S.pt = 0; S.win = -1; S.bAt = [0, 1, 2, 3].map(() => R.range(0.8, 3.2)); },
   update(m, S, dt) {
+    S.pt += dt;
     if (S.phase === 'pick') {
-      if (PickR.update(m, S, dt, 5, () => R.weighted([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], k => [6, 8, 7, 5, 3, 2, 1, 1, 0.5, 0.5][k]))) {
-        const picks = S.P.map(p => p.locked ? p.idx : -1);
-        S.win = -1;
-        for (let v = 0; v < 10; v++) { const who = picks.map((x, i) => x === v ? i : -1).filter(i => i >= 0); if (who.length === 1) { S.win = who[0]; break; } }
-        if (S.win >= 0) S.pts[S.win]++;
-        S.mood = [0, 1, 2, 3].map(i => i === S.win ? 'cheer' : 'neutral');
-        S.phase = 'reveal'; S.t = 0;
+      m.players.forEach((p, i) => { if (S.pick[i] >= 0) return; const d = abxyPress(m, i); if (d >= 0) { S.pick[i] = d; Sfx.click(); } });
+      if (S.pick.every(p => p >= 0) || S.pt > 8) {
+        S.pick = S.pick.map(p => p >= 0 ? p : R.int(0, 3)); S.phase = 'reveal'; S.pt = 0; Sfx.drum(0);
+        const vals = S.pick.map(d => this.VAL[d]);
+        for (const v of [4, 3, 2, 1]) { const who = vals.map((x, i) => x === v ? i : -1).filter(i => i >= 0); if (who.length === 1) { S.win = who[0]; S.pts[S.win] += v; break; } }
+        vals.forEach((v, i) => S.hist[i].push(v));
+        if (S.win >= 0) Sfx.coin(); else Sfx.bad();
       }
-    } else { S.t += dt; if (S.t > 2.5) { if (S.round >= 3) m.finish(S.pts.slice()); else { S.round++; PickR.start(S, 10, 8, 0); } } }
+    } else if (S.pt > 3) { if (S.round >= 6) m.finish(this.score(m, S)); else this.next(S); }
+  },
+  bot(m, S, i) {
+    if (S.phase !== 'pick' || S.pick[i] >= 0 || S.pt < S.bAt[i]) { abxyBot(m, i, -1); return; }
+    const v = R.weighted([4, 3, 2, 1], k => [2.2, 3, 2.4, 1.6][4 - k]);
+    abxyBot(m, i, this.VAL.indexOf(v));
   },
   score(m, S) { return S.pts.slice(); },
-  hud(m, S, i) { return S.pts[i]; },
+  fmt(s) { return `${s} pts`; },
+  hud(m, S, i) { return `${S.pts[i]} pts` + (S.phase === 'pick' && S.pick[i] >= 0 ? ' ✔' : ''); },
   draw(m, S, g) {
     MGH.scene(g, 'night', m.t);
-    MGH.label(g, `Round ${S.round} / 3 — lowest number nobody else picked wins`, 640, 140, 22, '#dde');
-    PickR.drawOptions(m, S, g, ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'], 240, 200, 150, 120, 5, S.phase === 'reveal');
-    if (S.phase === 'reveal') MGH.label(g, S.win >= 0 ? `${m.players[S.win].name} wins with ${S.P[S.win].idx + 1}!` : 'No unique number!', 640, 560, 32, S.win >= 0 ? m.players[S.win].color : '#fff');
-    PickR.drawStatus(m, S, g);
+    MGH.label(g, `Round ${S.round} of 6 — the highest number nobody else picked scores`, 640, 100, 22, '#dde');
+    ABXY_POS.forEach(([x, y], d) => {
+      const v = this.VAL[d];
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.arc(x, y, 66, 0, 7); g.fill();
+      g.fillStyle = MGH.grad(g, y - 58, y + 58, ['#ffe680', '#e8a83a']); g.beginPath(); g.arc(x, y, 58, 0, 7); g.fill();
+      MGH.text(g, String(v), x, y + 22, 64, '#5a3a10', 'center', 'bold');
+      abxyBadge(g, d, x + 50, y - 50, 18);
+      if (S.phase === 'reveal') { const who = [0, 1, 2, 3].filter(i => S.pick[i] === d); who.forEach((i, k) => { Char.draw(g, x + (k - (who.length - 1) / 2) * 46, y + 100, 18, m.players[i].el.id, m.players[i].color, { mood: i === S.win ? 'cheer' : who.length > 1 ? 'shock' : 'sad', seed: i * 1.7 }); }); if (who.length > 1) MGH.text(g, 'CLASH!', x, y - 74, 20, '#ff6b6b', 'center', 'bold'); }
+    });
+    m.players.forEach((p, i) => {
+      const x = 110 + (i % 2) * 1060, y = 220 + Math.floor(i / 2) * 300;
+      Char.draw(g, x, y, 40, p.el.id, p.color, { mood: S.phase === 'pick' ? (S.pick[i] >= 0 ? 'smug' : 'nervous') : i === S.win ? 'cheer' : 'determined', seed: i * 1.7, look: { x: x < 640 ? 1 : -1, y: 0 } });
+      MGH.text(g, `${p.name}  ${S.pts[i]}`, x, y + 80, 20, p.color, 'center', 'bold');
+      if (S.phase === 'pick') MGH.text(g, S.pick[i] >= 0 ? '✔ picked' : 'choosing…', x, y - 76, 16, S.pick[i] >= 0 ? '#7f7' : '#ddd', 'center', 'bold');
+      MGH.text(g, S.hist[i].join(' · '), x, y + 104, 14, 'rgba(255,255,255,0.6)', 'center');
+    });
+    if (S.phase === 'reveal') MGH.label(g, S.win >= 0 ? `${m.players[S.win].name} scores ${this.VAL[S.pick[S.win]]}!` : 'Nobody was unique!', 640, 690, 28, S.win >= 0 ? m.players[S.win].color : '#fff');
+    else MGH.text(g, `${Math.max(0, 8 - S.pt).toFixed(0)}s`, 640, 690, 22, '#fff', 'center', 'bold');
   },
 });
 
-// 28 ---------------------------------------------------------------- Standoff
+// 28 ---------------------------------------------------------------- Standoff (secret ABXY picks)
 MG.def({
-  id: 'standoff', name: 'Standoff', type: 'Bluff', controls: 'Pick',
-  how: 'Each round everyone secretly chooses Reload, Block or Shoot (naming a target). Shooting needs ammo from a Reload. A shot player who isn’t blocking is out.',
-  wins: 'Last one alive.',
-  init(m, S) { S.names = m.players.map(p => p.name); S.chosen = [null, null, null, null]; S.alive = [true, true, true, true]; S.ammo = [0, 0, 0, 0]; S.blocks = [0, 0, 0, 0]; S.round = 0; S.outR = [0, 0, 0, 0]; this.start(S); },
-  opts(S, i) {
-    const o = [{ k: 'reload', l: '🔄 Reload' }];
-    if (S.blocks[i] < 2) o.push({ k: 'block', l: '🛡️ Block' });
-    if (S.ammo[i] > 0) for (let j = 0; j < 4; j++) if (j !== i && S.alive[j]) o.push({ k: 'shoot', t: j, l: `🔫 Shoot ${S.names ? S.names[j] : 'P' + (j + 1)}` });
-    return o;
-  },
-  start(S) { S.round++; S.P = [0, 1, 2, 3].map(() => ({ idx: 0, locked: false })); S.t = 0; S.phase = 'pick'; S.botAt = [0, 1, 2, 3].map(() => R.range(0.8, 3)); S.log = []; },
+  id: 'standoff', name: 'Standoff', type: 'Bluff', controls: 'A B X Y', dur: 0, noPadSkip: true,
+  rows: [['abxy', 'Y reload · A block · X shoot · B big blast']],
+  how: 'Everyone secretly presses a button. Y = RELOAD (+1 ammo). A = BLOCK (not three times in a row). X = SHOOT (1 ammo): it knocks out everyone who is RELOADING. B = BIG BLAST (3 ammo): it knocks out everyone who isn\'t blasting too — even blockers! A shot with no ammo just clicks.',
+  wins: 'Last one standing.',
+  init(m, S) { S.alive = [true, true, true, true]; S.ammo = [0, 0, 0, 0]; S.blocks = [0, 0, 0, 0]; S.round = 0; S.outR = [0, 0, 0, 0]; S.ch = []; this.start(S); },
+  start(S) { S.round++; S.pick = S.alive.map(a => a ? -1 : 9); S.t = 0; S.phase = 'pick'; S.bAt = [0, 1, 2, 3].map(() => R.range(0.8, 3)); S.log = []; },
+  NAMES: ['reload', 'blast', 'block', 'shoot'],
   update(m, S, dt) {
     S.t += dt;
     if (S.phase === 'pick') {
-      for (let i = 0; i < 4; i++) {
-        if (!S.alive[i]) { S.P[i].locked = true; continue; }
-        const o = this.opts(S, i), P = S.P[i];
-        if (m.bot(i)) {
-          if (!P.locked && S.t > S.botAt[i]) {
-            const threat = S.ammo.some((a, j) => j !== i && S.alive[j] && a > 0);
-            let pick;
-            const shots = o.filter(y => y.k === 'shoot');
-            if (S.ammo[i] > 0 && shots.length && Math.random() < 0.6) pick = o.indexOf(R.pick(shots));
-            else if (threat && S.blocks[i] < 2 && Math.random() < 0.55) pick = o.findIndex(x => x.k === 'block');
-            else pick = 0;
-            P.idx = Math.max(0, pick); P.locked = true;
-          }
-        } else { P.idx = Math.min(P.idx, o.length - 1); MGH.pick(m, i, P, o.length, o.length); }
-      }
-      if (S.P.every(p => p.locked) || S.t > 20) {
-        const ch = S.P.map((P, i) => S.alive[i] ? this.opts(S, i)[P.locked ? P.idx : 0] : null);
-        const shot = [false, false, false, false];
-        S.chosen = ch.map(c => c ? (c.k === 'reload' ? '🔄' : c.k === 'block' ? '🛡️' : '🔫→' + S.names[c.t]) : null);
-        ch.forEach((c, i) => {
-          if (!c) return;
-          if (c.k === 'reload') { S.ammo[i]++; S.blocks[i] = 0; S.log.push(`${m.players[i].name} reloads`); }
-          if (c.k === 'block') { S.blocks[i]++; S.log.push(`${m.players[i].name} blocks`); } else S.blocks[i] = c.k === 'reload' ? 0 : S.blocks[i];
-          if (c.k === 'shoot') { S.ammo[i]--; S.blocks[i] = 0; S.log.push(`${m.players[i].name} shoots ${m.players[c.t].name}`); if (!(ch[c.t] && ch[c.t].k === 'block')) shot[c.t] = true; }
+      m.players.forEach((p, i) => { if (S.pick[i] !== -1) return; const d = abxyPress(m, i); if (d >= 0) { S.pick[i] = d; Sfx.click(); } });
+      if (S.pick.every(p => p !== -1) || S.t > 10) {
+        const act = S.pick.map((d, i) => { if (!S.alive[i]) return null; let a = d < 0 ? 'reload' : this.NAMES[d]; if (a === 'block' && S.blocks[i] >= 2) a = 'fumble'; if (a === 'shoot' && S.ammo[i] < 1) a = 'click'; if (a === 'blast' && S.ammo[i] < 3) a = 'click'; return a; });
+        S.ch = act;
+        const out = [false, false, false, false], shoot = act.some(a => a === 'shoot'), blast = act.some(a => a === 'blast');
+        act.forEach((a, i) => {
+          if (!a) return;
+          if (a === 'reload') { S.ammo[i] = Math.min(3, S.ammo[i] + 1); S.log.push(`${m.players[i].name} reloads`); }
+          if (a === 'shoot') { S.ammo[i]--; S.log.push(`${m.players[i].name} shoots!`); }
+          if (a === 'blast') { S.ammo[i] -= 3; S.log.push(`${m.players[i].name} BIG BLAST!`); }
+          if (a === 'block') S.log.push(`${m.players[i].name} blocks`);
+          if (a === 'click') S.log.push(`${m.players[i].name}: click… no ammo!`);
+          if (a === 'fumble') S.log.push(`${m.players[i].name} is too tired to block`);
+          S.blocks[i] = a === 'block' ? S.blocks[i] + 1 : 0;
         });
-        shot.forEach((s, i) => { if (s && S.alive[i]) { MGH.burst(160 + i * 320, 190, ['#ff4d6d', '#fff', '#ffd34d'], 34, { speed: 380 }); MGH.shake(12); S.alive[i] = false; S.outR[i] = S.round; S.log.push(`💀 ${m.players[i].name} is out`); Sfx.boom(); } });
+        act.forEach((a, i) => {
+          if (!a) return;
+          if (blast && a !== 'blast' && act.some((b, j) => j !== i && b === 'blast')) out[i] = true;
+          else if (shoot && (a === 'reload' || a === 'click' || a === 'fumble') && act.some((b, j) => j !== i && b === 'shoot')) out[i] = true;
+        });
+        out.forEach((o, i) => { if (o && S.alive[i]) { MGH.burst(160 + i * 320, 220, ['#ff4d6d', '#fff', '#ffd34d'], 34, { speed: 380 }); MGH.shake(12); S.alive[i] = false; S.outR[i] = S.round; S.log.push(`💥 ${m.players[i].name} is out`); Sfx.boom(); } });
         S.phase = 'reveal'; S.t = 0;
       }
-    } else if (S.t > 2.6) {
-      if (S.alive.filter(a => a).length <= 1 || S.round >= 8) m.finish(this.score(m, S)); else this.start(S);
+    } else if (S.t > 3) {
+      if (S.alive.filter(a => a).length <= 1 || S.round >= 12) m.finish(this.score(m, S)); else this.start(S);
     }
+  },
+  bot(m, S, i) {
+    if (S.phase !== 'pick' || S.pick[i] !== -1 || S.t < S.bAt[i]) { abxyBot(m, i, -1); return; }
+    const rivalsAmmo = S.ammo.filter((a, j) => j !== i && S.alive[j]), threat = rivalsAmmo.some(a => a > 0), big = rivalsAmmo.some(a => a >= 3);
+    let a;
+    if (S.ammo[i] >= 3 && Math.random() < 0.6) a = 'blast';
+    else if (S.ammo[i] > 0 && Math.random() < 0.4) a = 'shoot';
+    else if ((threat || big) && S.blocks[i] < 2 && Math.random() < (big ? 0.4 : 0.55)) a = 'block';
+    else a = 'reload';
+    abxyBot(m, i, this.NAMES.indexOf(a));
   },
   score(m, S) { return S.alive.map((a, i) => a ? 100 : S.outR[i]); },
   fmt(s) { return s >= 100 ? 'Survived' : `out in round ${s}`; },
@@ -378,25 +407,22 @@ MG.def({
     MGH.emoji(g, '🌵', 60, 600, 70); MGH.emoji(g, '🌵', 1220, 560, 60);
     const tw = (m.t * 60) % 1500 - 100; MGH.emoji(g, '🌾', tw, 650, 30, m.t * 6);
     MGH.label(g, `Round ${S.round}`, 640, 90, 24, '#fff');
+    const ICON = { reload: '🔄 Reload', block: '🛡️ Block', shoot: '💦 Shoot', blast: '💥 BIG BLAST', click: '…click', fumble: '😩 tired' };
     for (let i = 0; i < 4; i++) {
       const x = 160 + i * 320, p = m.players[i];
       MGH.shadow(g, x, 290, 44, 0.35);
-      MGH.av(g, m, i, x, 248, 30, !S.alive[i] ? 'out' : (S.phase === 'reveal' ? 'scared' : S.ammo[i] > 0 ? 'smug' : 'determined'), { prop: S.alive[i] && S.ammo[i] > 0 ? '🔫' : null });
+      MGH.av(g, m, i, x, 248, 30, !S.alive[i] ? 'out' : (S.phase === 'reveal' ? 'scared' : S.ammo[i] > 0 ? 'smug' : 'determined'));
       MGH.text(g, p.name, x, 314, 20, p.color, 'center', 'bold');
-      if (S.phase === 'reveal' && S.chosen[i]) MGH.label(g, S.chosen[i], x, 170, 22, '#ffe680');
-      for (let k = 0; k < 3; k++) { g.fillStyle = k < S.ammo[i] ? '#ffd34d' : 'rgba(255,255,255,0.15)'; MGH.rr(g, x - 30 + k * 22, 322, 14, 20, 5); g.fill(); }
-      if (S.alive[i] && S.phase === 'pick' && !m.bot(i)) {
-        const o = this.opts(S, i);
-        o.forEach((op, k) => {
-          const y = 352 + k * 46, sel = S.P[i].idx === k && MGH.peek(m, i);
-          g.fillStyle = sel ? p.color : 'rgba(0,0,0,0.45)'; MGH.rr(g, x - 125, y, 250, 40, 10); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.stroke();
-          MGH.text(g, op.l, x, y + 27, 18, sel ? '#000' : '#fff', 'center', 'bold');
-        });
-        if (S.P[i].locked) MGH.emoji(g, '🔒', x + 140, 372, 24);
-      }
+      if (S.phase === 'reveal' && S.ch[i]) MGH.label(g, ICON[S.ch[i]], x, 160, 22, '#ffe680');
+      for (let k = 0; k < 3; k++) { g.fillStyle = k < S.ammo[i] ? '#5ac8ff' : 'rgba(255,255,255,0.15)'; MGH.rr(g, x - 30 + k * 22, 322, 14, 20, 5); g.fill(); }
+      if (S.blocks[i] >= 2 && S.alive[i]) MGH.text(g, 'can\'t block', x, 364, 14, '#ffb13d', 'center', 'bold');
+      if (S.phase === 'pick' && S.alive[i]) MGH.text(g, S.pick[i] >= 0 ? '✔ ready' : 'choosing…', x, 392, 16, S.pick[i] >= 0 ? '#7f7' : '#ddd', 'center', 'bold');
     }
-    if (S.phase === 'reveal') S.log.forEach((l, k) => MGH.label(g, l, 640, 400 + k * 40, 22, '#ffe680'));
-    else PickR.drawStatus(m, { P: S.P, phase: 'pick', pickT: 20, t: S.t }, g);
+    if (S.phase === 'reveal') S.log.forEach((l, k) => MGH.label(g, l, 640, 440 + k * 36, 20, '#ffe680'));
+    else {
+      // the button legend (same for everyone)
+      [[0, 'Reload'], [3, 'Shoot (1)'], [2, 'Block'], [1, 'Big blast (3)']].forEach(([d, l], k) => { const x = 250 + k * 260; abxyBadge(g, d, x - 70, 560, 20); MGH.text(g, l, x + 10, 568, 20, '#fff', 'center', 'bold'); });
+      MGH.text(g, `${Math.max(0, 10 - S.t).toFixed(0)}s`, 640, 640, 22, '#fff', 'center', 'bold');
+    }
   },
 });
-
