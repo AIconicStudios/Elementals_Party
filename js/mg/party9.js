@@ -239,10 +239,10 @@ MG.def({
 
 // ======================================================================== GHOST HUNT (1 vs 3)
 MG.def({
-  id: 'ghosthunt', name: 'Ghost Hunt', type: 'Stealth', mode: '1v3', controls: 'Move + button', dur: 60,
+  id: 'ghosthunt', name: 'Ghost Hunt', type: 'Stealth', mode: '1v3', controls: 'Move + button', dur: 0,
   rows: [['stick', 'Move'], ['a', 'Hunters: zap · Ghost: BOO!'], ['b', 'Ghost: vanish (when the meter is full)']],
   how: 'One player is an invisible GHOST haunting a dark mansion; three hunters carry torches. HUNTERS: the ghost only shows up inside your torch beam — keep it in YOUR beam until the lock-on ring closes, then press A to zap (4 zaps wins). GHOST: you can only be seen in the beams — and your VANISH meter fills up over time: when it\'s full, press B to disappear completely for 2 seconds, even inside a beam! Sneak up behind a hunter and press A to BOO! them — six scares and the ghost wins. Creaking floorboards give a running ghost away!',
-  wins: 'Hunters: 4 zaps. Ghost: 6 scares.',
+  wins: 'Hunters: 4 zaps. Ghost: 6 scares. At the 60-second bell, whoever is further along their own goal wins (a tie goes to sudden death).',
   init(m, S) {
     S.ghost = m.players.findIndex((p, i) => m.teamOf(i) === 0);
     S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(i === S.ghost ? 640 : 300 + i * 200, i === S.ghost ? 170 : 620, 22), { cd: 0, stun: 0, fx: 0 }));
@@ -274,6 +274,11 @@ MG.def({
     S.creak.forEach(c => { c.t += dt; }); S.creak = S.creak.filter(c => c.t < 1);
     if (S.zaps >= 4) { S.win = 1; m.finish(this.score(m, S)); }
     else if (S.scares >= 6) { S.win = 0; m.finish(this.score(m, S)); }
+    else if (m.t >= 60) { // the bell: compare progress toward each side's own goal (zaps out of 4 vs scares out of 6)
+      const h = S.zaps / 4, gh = S.scares / 6;
+      if (Math.abs(h - gh) > 1e-6) { S.win = h > gh ? 1 : 0; m.finish(this.score(m, S)); }
+      else { if (!S.sudden) { S.sudden = true; Sfx.whistle(); } if (m.t > 85) { S.win = Math.random() < 0.5 ? 1 : 0; m.finish(this.score(m, S)); } }
+    }
   },
   bot(m, S, i) {
     const b = S.b[i], v = m.vin[i], G = S.b[S.ghost]; v.a = v.b = false;
@@ -295,7 +300,7 @@ MG.def({
     if (ck && Math.random() < 0.02) b.wp = { x: ck.x, y: ck.y }; const t = b.wp; MGH.aim(m, i, t.x, t.y, b, 10);
     if (this.lit(S) && G.stun <= 0) { const dx = G.x - b.x, dy = G.y - b.y, d = Math.hypot(dx, dy); MGH.aim(m, i, G.x, G.y, b, 4); if (d < 230 && (dx * b.face.x + dy * b.face.y) / d > 0.9 && b.cd <= 0 && (G.inv || 0) <= 0 && b.lock >= 0.7 && Math.random() < 0.08) v.a = true; }
   },
-  score(m, S) { const hW = S.win === 1 || (S.win < 0 && S.zaps * 2 > S.scares); return m.players.map((p, i) => (i === S.ghost) !== hW ? 1 : 0); },
+  score(m, S) { const hW = S.win === 1 || (S.win < 0 && S.zaps / 4 > S.scares / 6); return m.players.map((p, i) => (i === S.ghost) !== hW ? 1 : 0); },
   fmt(s) { return s ? 'WIN' : '—'; },
   hud(m, S, i) { return i === S.ghost ? `👻 scares ${S.scares}/6` : `🔦 zaps ${S.zaps}/4`; },
   draw(m, S, g) {
@@ -331,7 +336,16 @@ MG.def({
       }
     });
     g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, 440, 60, 400, 34, 12); g.fill();
-    MGH.text(g, `🔦 zaps ${S.zaps}/4        👻 scares ${S.scares}/6`, 640, 84, 20, '#fff', 'center', 'bold');
+    { // fair tug-of-war: each side's share of its own goal
+      const h = S.zaps / 4, gh = S.scares / 6, x0 = 440, w = 320, y = 70;
+      g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, x0 - 100, y - 22, w + 200, 60, 18); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.12)'; MGH.rr(g, x0, y - 8, w, 18, 9); g.fill();
+      g.fillStyle = '#ffd34d'; MGH.rr(g, x0, y - 8, w / 2 * h, 18, 9); g.fill();
+      g.fillStyle = '#b88aff'; MGH.rr(g, x0 + w - w / 2 * gh, y - 8, w / 2 * gh, 18, 9); g.fill();
+      g.fillStyle = '#fff'; g.fillRect(x0 + w / 2 - 1.5, y - 14, 3, 30);
+      MGH.text(g, `🔦 ${S.zaps}/4`, x0 - 50, y + 7, 20, '#ffd34d', 'center', 'bold'); MGH.text(g, `👻 ${S.scares}/6`, x0 + w + 50, y + 7, 20, '#d8c0ff', 'center', 'bold');
+      MGH.text(g, S.sudden ? '⚡ SUDDEN DEATH — next point wins!' : `⏱ ${Math.max(0, 60 - m.t).toFixed(0)}s`, x0 + w / 2, y + 30, 15, S.sudden ? '#ff9a8a' : '#fff', 'center', 'bold');
+    }
     { const c = G.cloak || 0; g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, 880, 64, 180, 26, 10); g.fill(); g.fillStyle = c >= 1 ? '#c8b8ff' : '#7a6aaa'; MGH.rr(g, 884, 68, 172 * c, 18, 8); g.fill(); MGH.text(g, G.hide > 0 ? 'VANISHED!' : c >= 1 ? 'B = VANISH' : 'vanish', 970, 83, 13, '#fff', 'center', 'bold'); }
   },
 });

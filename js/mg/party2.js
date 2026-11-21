@@ -24,11 +24,11 @@ function segHit(ax, ay, bx, by, cx, cy, dx, dy) { // do segments AB and CD cross
 MG.def({
   id: 'pool', name: 'Pocket Pool', type: 'Skill', controls: 'Move + hold', dur: 0, sport: true,
   rows: [['lr', 'Aim (▲▼ fine)'], ['a', 'Hold for power, let go']],
-  how: 'Each hero owns two balls in their colour. Take turns shooting the white cue ball: aim with LEFT/RIGHT (UP/DOWN for fine aim), hold A to swing the power bar and let go to shoot. Every coloured ball that drops scores a point for its OWNER — so sink yours and keep the others safe! Sink your own ball and you shoot again. Pot the white ball and you lose a point. Four shots each.',
+  how: 'Each hero owns two balls in their colour. A roulette picks the turn order at the start (it stays the same all game). Take turns shooting the white cue ball: aim with LEFT/RIGHT (UP/DOWN for fine aim), hold A to swing the power bar and let go to shoot. Every coloured ball that drops scores a point for its OWNER — so sink yours and keep the others safe! Sink your own ball and you shoot again. Pot the white ball and you lose a point. Four shots each.',
   wins: 'Most balls of your colour potted.',
   T: { x0: 190, y0: 140, w: 900, h: 450 },
   init(m, S) {
-    const T = this.T; S.pts = [0, 0, 0, 0]; S.order = R.shuffle([0, 1, 2, 3]); S.oi = 0; S.turn = S.order[0]; S.shots = [0, 0, 0, 0]; S.MAX = 4; S.phase = 'aim'; S.pt = 0; S.hold = -1; S.ang = 0; S.msg = '';
+    const T = this.T; S.pts = [0, 0, 0, 0]; S.order = R.shuffle([0, 1, 2, 3]); S.oi = 0; S.turn = S.order[0]; S.shots = [0, 0, 0, 0]; S.MAX = 4; S.phase = 'spin'; S.spinHi = 0; S.spinStep = 0; S.pt = 0; S.hold = -1; S.ang = 0; S.msg = '';
     S.balls = [{ x: T.x0 + T.w * 0.25, y: T.y0 + T.h / 2, vx: 0, vy: 0, own: -1, in: false }];
     const rack = [[0, 0], [1, -0.5], [1, 0.5], [2, -1], [2, 0], [2, 1], [3, -0.5], [3, 0.5]], own = R.shuffle([0, 0, 1, 1, 2, 2, 3, 3]);
     rack.forEach(([c, r], k) => S.balls.push({ x: T.x0 + T.w * 0.68 + c * 22, y: T.y0 + T.h / 2 + r * 25, vx: 0, vy: 0, own: own[k], in: false }));
@@ -54,6 +54,13 @@ MG.def({
   },
   update(m, S, dt) {
     S.pt += dt; const i = S.turn, cue = S.balls[0];
+    if (S.phase === 'spin') { // turn-order roulette: a light races round the players, then each place is revealed
+      const SPIN = 2.4, REVEAL = 0.75;
+      if (S.pt < SPIN) { S.spinStep -= dt; if (S.spinStep <= 0) { S.spinHi = (S.spinHi + 1) % 4; S.spinStep = 0.05 + S.pt * 0.05; Sfx.tone(500 + S.spinHi * 90, 0.04, 'triangle', 0.03); } }
+      else { const k = Math.floor((S.pt - SPIN) / REVEAL); if (k !== S.revealed && k < 4) { S.revealed = k; Sfx.tone(700 + k * 120, 0.15, 'triangle', 0.06); } }
+      if (S.pt > SPIN + REVEAL * 4 + 0.8) { S.phase = 'aim'; S.pt = 0; Sfx.whistle(); }
+      return;
+    }
     if (S.phase === 'aim') {
       S.ang = aimTurn(m, i, S.ang, dt);
       if (m.held(i, 'a')) { if (S.hold < 0) S.hold = 0; S.hold += dt; }
@@ -67,7 +74,7 @@ MG.def({
         if (scratch) { S.pts[i]--; S.msg = `${m.players[i].name} potted the white! −1`; Sfx.bad(); cue.in = false; cue.x = this.T.x0 + this.T.w * 0.25; cue.y = this.T.y0 + this.T.h / 2; again = false; while (S.balls.some(b => b !== cue && !b.in && Math.hypot(b.x - cue.x, b.y - cue.y) < 26)) cue.y += 26; }
         else if (again) { S.msg = `${m.players[i].name} shoots again!`; Sfx.coin(); } else S.msg = '';
         const left = S.balls.filter(b => b.own >= 0 && !b.in).length;
-        if (!again) { let k = 0; do { S.oi++; if (S.oi >= 4) { S.oi = 0; S.order = R.shuffle([0, 1, 2, 3]); } S.turn = S.order[S.oi]; k++; } while (S.shots[S.turn] >= S.MAX && k < 9); }
+        if (!again) { let k = 0; do { S.oi++; if (S.oi >= 4) S.oi = 0; S.turn = S.order[S.oi]; k++; } while (S.shots[S.turn] >= S.MAX && k < 9); }
         if (left === 0 || S.shots.every(s => s >= S.MAX) && !again) { m.finish(this.score(m, S)); return; }
         if (again && S.shots[i] >= S.MAX) S.shots[i]--; // a bonus shot never runs out
         S.phase = 'aim'; S.pt = 0; S.ang = Math.atan2(this.T.y0 + this.T.h / 2 - cue.y, this.T.x0 + this.T.w * 0.7 - cue.x);
@@ -98,6 +105,30 @@ MG.def({
   fmt(s) { return `${s} ball${s === 1 ? '' : 's'}`; },
   hud(m, S, i) { return `${S.pts[i]}` + (S.turn === i && S.phase === 'aim' ? ' 🎱' : '') + ` (${Math.max(0, S.MAX - S.shots[i])} shots)`; },
   draw(m, S, g) {
+    this.drawTable(m, S, g);
+    if (S.phase === 'spin') this.drawSpin(m, S, g); else this.drawOrder(m, S, g);
+  },
+  drawSpin(m, S, g) {
+    const SPIN = 2.4, REVEAL = 0.75;
+    g.fillStyle = 'rgba(10,6,4,0.72)'; g.fillRect(0, 0, 1280, 720);
+    MGH.label(g, S.pt < SPIN ? '🎲 Picking the turn order…' : 'Turn order', 640, 130, 40, '#ffe680');
+    const shown = S.pt < SPIN ? -1 : Math.min(3, Math.floor((S.pt - SPIN) / REVEAL));
+    m.players.forEach((p, i) => {
+      const x = 220 + i * 280, y = 330, place = S.order.indexOf(i), hi = S.pt < SPIN && S.spinHi === i, rev = place <= shown;
+      g.fillStyle = hi ? 'rgba(255,230,120,0.35)' : 'rgba(255,255,255,0.08)'; MGH.rr(g, x - 110, y - 120, 220, 300, 24); g.fill();
+      g.strokeStyle = hi ? '#ffe680' : rev ? p.color : 'rgba(255,255,255,0.25)'; g.lineWidth = hi || rev ? 6 : 2; g.stroke();
+      if (hi) MGH.glow(g, x, y, 150, 'rgba(255,230,120,0.35)');
+      Char.draw(g, x, y, 46, p.el.id, p.color, { mood: MGH.persona(rev && place === 0 ? 'cheer' : hi ? 'happy' : 'neutral', p.el.id), seed: i * 1.7 });
+      MGH.text(g, p.name, x, y + 100, 24, p.color, 'center', 'bold');
+      if (rev) { const k = Math.min(1, (S.pt - SPIN - place * REVEAL) / 0.25); g.save(); g.translate(x, y - 150); g.scale(k, k); g.fillStyle = ['#ffd34d', '#d8dce4', '#e0a060', '#8ac8ff'][place]; g.beginPath(); g.arc(0, 0, 40, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke(); MGH.text(g, ['1st', '2nd', '3rd', '4th'][place], 0, 10, 28, '#2a1a10', 'center', 'bold'); g.restore(); }
+    });
+    if (shown >= 3) MGH.label(g, `${m.players[S.order[0]].name} breaks!`, 640, 620, 34, m.players[S.order[0]].color);
+  },
+  drawOrder(m, S, g) {
+    g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, 8, 46, 150, 134, 14); g.fill(); MGH.text(g, 'Turn order', 83, 66, 16, '#ffe680', 'center', 'bold');
+    S.order.forEach((i, k) => { const p = m.players[i], cur = S.turn === i; if (cur) { g.fillStyle = 'rgba(255,230,120,0.25)'; MGH.rr(g, 14, 72 + k * 26, 138, 24, 7); g.fill(); } MGH.text(g, `${k + 1}. ${p.name}${cur ? ' 🎱' : ''}`, 24, 90 + k * 26, 15, p.color, 'left', 'bold'); });
+  },
+  drawTable(m, S, g) {
     const T = this.T;
     g.fillStyle = MGH.grad(g, 0, 720, ['#3a2418', '#5a3a26', '#2a1810']); g.fillRect(0, 0, 1280, 720);
     for (let k = 0; k < 3; k++) { MGH.glow(g, 340 + k * 300, 60, 260, 'rgba(255,230,170,0.18)'); g.fillStyle = '#1a1a1a'; g.fillRect(332 + k * 300, 0, 16, 40); g.fillStyle = '#2a5a3a'; g.beginPath(); g.moveTo(300 + k * 300, 70); g.lineTo(380 + k * 300, 70); g.lineTo(360 + k * 300, 40); g.lineTo(320 + k * 300, 40); g.fill(); }
