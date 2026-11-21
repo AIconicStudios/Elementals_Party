@@ -93,7 +93,7 @@ MG.def({
   id: 'tumble', name: 'Tumble Tower', type: 'Strategy', controls: 'Move + button', dur: 0,
   rows: [['pad', 'Pick a block'], ['a', 'Pick it, then stop the slider']],
   how: 'Take turns pulling a block from the tower. Pick a block with the stick and press A — then a slider zooms back and forth along a colour bar: press A again to stop it. GREEN = a clean pull that steadies the tower (wobble goes DOWN a level). YELLOW = it comes out, but the tower wobbles a level MORE. RED = CRASH — you topple it and lose! The wobblier the tower, the faster the slider (level 5 is crazy — and has no yellow at all). Risky blocks (a lonely block, or one low down with lots on top) have a smaller green zone, so choose carefully!',
-  wins: 'Don\'t topple it! Survivors rank by clean pulls.',
+  wins: 'Don\'t topple it! Survivors rank by clean pulls (the game ends after 40 pulls).',
   BW: 70, BH: 26, BASE: 600, CX: 640,
   init(m, S) {
     S.L = []; for (let k = 0; k < 14; k++) S.L.push([1, 1, 1]); S.top = [0, 0, 0];
@@ -110,6 +110,7 @@ MG.def({
     if (S.ph === 'fall') { S.fall.forEach(b => { b.vy += 1400 * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.a += b.va * dt; if (b.y > 640) { b.y = 640; b.vy *= -0.3; b.vx *= 0.7; b.va *= 0.6; } }); if (S.pt > 3) m.finish(this.score(m, S)); return; }
     const i = S.turn;
     if (S.ph === 'pick') {
+      if (!this.options(S).length) { S.msg = 'The tower stands! No more blocks to pull'; S.msgT = 3; m.finish(this.score(m, S)); return; }
       const a = m.axis(i), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : a.y < -0.6 ? 'up' : a.y > 0.6 ? 'down' : '';
       const d = (m.bot(i) ? null : ['left', 'right', 'up', 'down'].find(k => m.pressed(i, k))) || (now && now !== S.ax ? now : null); S.ax = now;
       if (d === 'up') S.sel.r = Math.min(S.L.length - 2, S.sel.r + 1); if (d === 'down') S.sel.r = Math.max(0, S.sel.r - 1);
@@ -132,6 +133,7 @@ MG.def({
       }
       return;
     }
+    if (S.ph === 'pause' && S.pt > 0.9 && S.pulls.reduce((a, b) => a + b, 0) >= 40) { S.msg = 'The tower survived 40 pulls!'; S.msgT = 3; m.finish(this.score(m, S)); return; }
     if (S.ph === 'pause' && S.pt > 0.9) { S.turn = (S.turn + 1) % 4; S.ph = 'pick'; S.pt = 0; S.sel = { r: Math.min(S.sel.r, S.L.length - 2), c: 1 }; this.botPlan(S); }
   },
   topple(m, S) {
