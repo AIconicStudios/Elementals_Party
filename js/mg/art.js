@@ -19,12 +19,12 @@ Object.assign(MGH, {
       const hh = h * s * hs * (1 + 0.16 * Math.sin(t * (12 + k * 2.3) + seed + k + ph) + 0.09 * Math.sin(t * (23 + k) + seed * 3 + ph)), ww = w * s * ws * (1 + 0.07 * Math.sin(t * 17 + seed + k + ph));
       const tip = x0 + sway * (1 + k * 0.15) * hs + Math.sin(t * 7 + ph) * 2 * s;
       const gr = g.createLinearGradient(0, y, 0, y - hh); gr.addColorStop(0, c + a + ')'); gr.addColorStop(0.65, c + (a * 0.7) + ')'); gr.addColorStop(1, c + '0)');
-      g.shadowColor = k < 2 ? 'rgba(255,120,30,0.7)' : 'rgba(0,0,0,0)'; g.shadowBlur = k < 2 ? 14 * s : 0;
       g.fillStyle = gr; g.beginPath(); g.moveTo(x0 - ww, y);
       g.bezierCurveTo(x0 - ww * 1.05, y - hh * 0.45, tip - ww * 0.35, y - hh * 0.78, tip, y - hh);
       g.bezierCurveTo(tip + ww * 0.35, y - hh * 0.78, x0 + ww * 1.05, y - hh * 0.45, x0 + ww, y);
       g.quadraticCurveTo(x0, y + ww * 0.5, x0 - ww, y); g.fill();
     });
+    this.glow(g, x, y - 18 * s, 34 * s, 'rgba(255,120,30,0.45)'); // soft halo (cheap stand-in for a blur shadow)
     tongue(x - 9 * s, 0.6, 0.5, 1.7); tongue(x + 9 * s, 0.68, 0.5, 3.1); tongue(x, 1, 0.82, 0);
     g.shadowBlur = 0;
     // embers
