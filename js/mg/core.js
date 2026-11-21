@@ -659,7 +659,14 @@ const MGH = {
   drawBody(g, b, p, extra, mood) {
     const sp = Math.hypot(b.vx || 0, b.vy || 0);
     if (!mood) mood = b.mood || (!b.alive ? 'out' : ((b.stun > 0 || b.frozen > 0) ? 'dizzy' : sp > 160 ? 'determined' : 'happy'));
-    Char.draw(g, b.x, b.y, b.r * 1.3, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? 1 : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
+    // lively motion: lean into the run, squash on sudden stops, dust puffs at speed
+    const r = b.r * 1.3, fy = b.y + r * 1.25, vx = b.vx || 0;
+    b._lean = (b._lean || 0) + (clamp(vx / 1100, -0.2, 0.2) - (b._lean || 0)) * 0.2;
+    const acc = (b._psp !== undefined ? b._psp - sp : 0); b._psp = sp; b._sq = Math.max((b._sq || 0) * 0.85, acc > 25 ? Math.min(0.12, acc / 600) : 0);
+    if (sp > 170 && b.alive !== false && !Settings.test) { const ph = (performance.now() / 1000 * 3 + (p.i || 0) * 0.3) % 1; g.fillStyle = `rgba(200,190,170,${0.35 * (1 - ph)})`; g.beginPath(); g.arc(b.x - vx / sp * (10 + ph * 26), fy - ph * 10, 4 + ph * 8, 0, 7); g.fill(); }
+    g.save(); g.translate(b.x, fy); g.rotate(b._lean); g.scale(1 + b._sq, 1 - b._sq);
+    Char.draw(g, 0, -r * 1.25, r, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? Math.min(1, sp / 160) : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
+    g.restore();
     if (extra) { g.save(); g.font = `${Math.round(b.r * 0.9)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(extra, b.x, b.y - b.r * 1.75); g.restore(); }
   },
   // draw player i's character
