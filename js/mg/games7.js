@@ -42,7 +42,7 @@
     how: A.how || 'The ultimate brawl! Move, A = jump (tap for a short hop, jump again in the air). B = your clan power: TAP for a strike, HOLD and release for a charged shot, UP+B to fly back to the arena, DOWN+B for a slam. Hold DOWN on the main stage to brace. Damage % makes you fly further — get knocked out of the arena and you lose one of your 6 lives. Watch out for meteors, lightning, gales and crystal rain!',
     wins: 'Last fighter standing (or most lives when time runs out).',
     init(m, S) {
-      S.f = m.players.map((p, i) => this.spawn({ i, el: p.el.id, lives: A.lives || 6, pct: 0, place: 0, kos: 0 }, i, true));
+      S.f = m.players.map((p, i) => this.spawn({ i, el: EL_BASE[p.el.id], lives: A.lives || 6, pct: 0, place: 0, kos: 0 }, i, true));
       SOFT.forEach(p => { p.offT = 0; }); S.sw = (A.switches || []).map(w => Object.assign({ cd: 2, glow: 0, pull: 0 }, w)); S.traps = [];
       S.proj = []; S.areas = []; S.pillars = []; S.parts = []; S.warn = []; S.texts = [];
       S.cam = { x: 800, y: 470, z: 0.95 }; S.shake = 0; S.flash = 0; S.slow = 0; S.endT = -1;

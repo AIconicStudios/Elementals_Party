@@ -6,7 +6,20 @@ const ELEMENTS = [
   { id: 1, key: 'water', mascot: 'Drip',  name: 'Water', hold: 'Tidehold',  people: 'Tideborn',  color: '#4f8dff', dark: '#1f3f9a', glyph: '🌊', ult: 'washout' },
   { id: 2, key: 'fire', mascot: 'Pyra',   name: 'Fire',  hold: 'Emberhold', people: 'Emberkin',  color: '#ff6a3d', dark: '#a82a10', glyph: '🔥', ult: 'inferno' },
   { id: 3, key: 'earth', mascot: 'Pebble',  name: 'Earth', hold: 'Stonehold', people: 'Rootbound', color: '#7ccf4a', dark: '#3f7a1c', glyph: '⛰️', ult: 'hollow' },
+  { id: 4, key: 'smoke', mascot: 'Wisp', name: 'Smoke', color: '#a7acb8', dark: '#4a4e58', glyph: '💨' },
+  { id: 5, key: 'rain', mascot: 'Mizzle', name: 'Rain', color: '#ffd23a', dark: '#3f5a7a', glyph: '🌧️' },
+  { id: 6, key: 'rock', mascot: 'Flint', name: 'Rock', color: '#b0a690', dark: '#5a5448', glyph: '🪨' },
+  { id: 7, key: 'plant', mascot: 'Blossom', name: 'Plant', color: '#ff8ab8', dark: '#a83a6a', glyph: '🌷' },
+  { id: 8, key: 'ice', mascot: 'Frost', name: 'Ice', color: '#bfe8ff', dark: '#4a7fa8', glyph: '❄️' },
+  { id: 9, key: 'lightning', mascot: 'Volt', name: 'Lightning', color: '#ffe03a', dark: '#7a3cc8', glyph: '⚡' },
+  { id: 10, key: 'sand', mascot: 'Dune', name: 'Sand', color: '#e0c48a', dark: '#8a6a3a', glyph: '🏜️' },
+  { id: 11, key: 'magma', mascot: 'Cinder', name: 'Magma', color: '#ff8a3a', dark: '#5a2a1a', glyph: '🌋' },
+  { id: 12, key: 'light', mascot: 'Lumi', name: 'Light', color: '#ffe9a0', dark: '#b08a20', glyph: '✨' },
+  { id: 13, key: 'night', mascot: 'Nyx', name: 'Night', color: '#8a7aff', dark: '#2a2f6a', glyph: '🌙' },
+  { id: 14, key: 'metal', mascot: 'Rivet', name: 'Metal', color: '#9aa6b4', dark: '#4a5666', glyph: '⚙️' },
 ];
+// behaviour base for each hero (0 air, 1 water, 2 fire, 3 earth): idle style, poses, celebration
+const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3];
 
 // Space types on the Crossing (main board)
 const SPACE = {

@@ -3,40 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Fourfold</title>
+<title>Fourfold Minigame Party</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="app">
-  <canvas id="board" width="1600" height="900"></canvas>
-  <div id="pc0" class="pc"></div><div id="pc1" class="pc"></div><div id="pc2" class="pc"></div><div id="pc3" class="pc"></div>
-  <div id="ctrl"><div class="logo">THE FOURFOLD</div><span id="roundPill"></span>
-    <button id="muteBtn" title="Sound">🔊 Sound</button><button id="speedBtn" title="Animation speed">⏩ Speed</button><button id="quitBtn" title="Quit to menu">✖ Menu</button><button id="musicBtn" title="Music on/off">🎵 Music</button><br><button id="mapBtn" title="Map of the Holds (M / gamepad Y)">🗺️ Map <small>M · Y</small></button><button id="logBtn" title="Show or hide the event log">📜 Log</button><button id="helpBtn" title="Help: spaces, items, rules (H / gamepad X)">❓ Help <small>H · X</small></button></div>
-  <div id="action"><div id="actTitle">Welcome</div><div id="actText"></div><div id="actOpts"></div></div>
-  <div id="log"></div>
-  <button id="viewBtn" class="hidden" title="Switch between the whole board and a close-up (V / gamepad LB or LT)">🔍 Close-up <small>V · LB</small></button>
-  <div id="banner"></div>
+  <canvas id="shell" width="1280" height="720"></canvas>
   <div id="mgLayer" class="hidden"><canvas id="mg" width="1280" height="720"></canvas>
     <button id="mgPauseBtn" class="hidden" title="Pause (Esc / gamepad Start)">⏸ Pause</button>
     <div id="mgPause" class="hidden"><h2>⏸ Paused</h2><button id="mgResume">▶ Resume</button><button id="mgSkipPr" class="hidden">⏭ End practice — play for real</button><button id="mgRestart">↻ Restart minigame</button><button id="mgQuit">✖ Quit minigame</button>
-      <p>Esc or gamepad Start to resume · up/down + action to choose.<br>Quitting during a game ends this Moot with no winner and no reward.</p></div></div>
-  <div id="boardPause" class="hidden"><div class="panel"><h2>⏸ Paused</h2><button id="bpResume" data-back="1">▶ Resume</button><button id="bpHelp">❓ Help</button><button id="bpMenu">✖ Quit to main menu</button><p>Start / Esc to resume</p></div></div>
-  <div id="wipe"><div class="wt"></div></div>
-  <div id="overlay"></div>
-  <div id="helpOv" class="hidden"></div>
+      <p>Esc or gamepad Start to resume · up/down + A to choose.<br>Quitting ends this minigame with no result.</p></div></div>
 </div>
 <script src="js/util.js"></script>
 <script src="js/music.js"></script>
 <script src="js/data.js"></script>
 <script src="js/input.js"></script>
 <script src="js/chars.js"></script>
-<script src="js/render.js"></script>
-<script src="js/world.js"></script>
-<script src="js/stage.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/game.js"></script>
-<script src="js/simple.js"></script>
 <script src="js/mg/core.js"></script>
 <script src="js/mg/art.js"></script>
 <script src="js/mg/games1.js"></script>
@@ -54,7 +36,7 @@
 <script src="js/mg/games9.js"></script>
 <script src="js/mg/games10.js"></script>
 <script src="js/mg/games11.js"></script>
-<script src="js/nav.js"></script>
+<script src="js/shell.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

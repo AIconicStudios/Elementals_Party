@@ -1,58 +1,18 @@
 'use strict';
-// Entry point
-let currentGame = null;
-
-function startGame(cfg) {
-  if (currentGame) currentGame.aborted = true;
-  Input.setHumans(cfg.seats);
-  const g = cfg.simple ? new SimpleGame(cfg) : new Game(cfg);
-  document.getElementById('viewBtn').classList.remove('hidden');
-  Music.play('board');
-  currentGame = g;
-  UI.game = g; Render.game = g; Render.disp = {}; Render.floats = [];
-  document.getElementById('log').innerHTML = '';
-  g.run().catch(e => { if (!g.aborted) console.error(e); });
-  return g;
-}
-
+// Entry point: input, the minigame engine and the menu shell
 window.addEventListener('load', () => {
-  Input.init();
-  UI.init();
-  Render.init(document.getElementById('board'));
-  MG.init(document.getElementById('mg'));
   const q = id => document.getElementById(id);
-  q('muteBtn').onclick = () => { Settings.sound = !Settings.sound; q('muteBtn').textContent = Settings.sound ? '🔊 Sound' : '🔇 Muted'; };
-  const speeds = [1, 0.5, 0.15];
-  q('speedBtn').onclick = () => { const k = (speeds.indexOf(Settings.speed) + 1) % speeds.length; Settings.speed = speeds[k]; q('speedBtn').textContent = ['⏩ Speed', '⏩⏩ Fast', '⏩⏩⏩ Faster'][k]; };
-  window.quitToMenu = () => {
-    {
-      UI.togglePause(false);
-      Music.back = 'title'; Music.play('title');
-      if (currentGame) { currentGame.aborted = true; if (UI.pending) UI.pending(null); }
-      currentGame = null; UI.game = null; UI.toggleMap(false); Render.mapMode = false; document.getElementById('app').classList.remove('mapmode');
-      [0, 1, 2, 3].forEach(i => { document.getElementById('pc' + i).innerHTML = ''; }); Render.die = null;
-      document.getElementById('viewBtn').classList.add('hidden'); Render.toggleZoom(false);
-      UI.showMenu();
-    }
-  };
-  q('quitBtn').onclick = () => { if (!currentGame || confirm('Quit this game and return to the menu?')) window.quitToMenu(); };
-  q('bpResume').onclick = () => UI.togglePause(false);
-  q('bpHelp').onclick = () => { UI.togglePause(false); UI.toggleHelp(true); };
-  q('bpMenu').onclick = () => window.quitToMenu();
+  const fit = () => { const s = Math.min(window.innerWidth / 1600, window.innerHeight / 900); q('app').style.transform = `translate(-50%,-50%) scale(${s})`; };
+  window.addEventListener('resize', fit); fit();
+  Input.init();
+  MG.init(q('mg'));
   q('mgRestart').onclick = () => MG.onRestartClick && MG.onRestartClick();
-  q('mapBtn').onclick = () => UI.toggleMap();
-  q('logBtn').onclick = () => { document.getElementById('app').classList.toggle('showlog'); Sfx.click(); };
-  q('viewBtn').onclick = () => Render.toggleZoom();
   q('mgPauseBtn').onclick = () => MG.onPauseClick && MG.onPauseClick();
   q('mgResume').onclick = () => { MG.paused = false; MG.pauseUI(false); };
   q('mgSkipPr').onclick = () => MG.onSkipPractice && MG.onSkipPractice();
   q('mgQuit').onclick = () => MG.onQuitClick && MG.onQuitClick();
-  q('helpBtn').onclick = () => UI.toggleHelp();
-  Nav.init();
-  q('musicBtn').onclick = () => { Settings.music = !Settings.music; q('musicBtn').textContent = Settings.music ? '🎵 Music' : '🔇 Music'; Music.refresh(); };
   // browsers only start audio after a click or key press
   const unlock = () => { Sfx.init(); if (Sfx.ctx && Sfx.ctx.state === 'suspended') Sfx.ctx.resume(); Music.refresh(); };
   window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
-  Music.play('title');
-  UI.showMenu();
+  Shell.init(q('shell'));
 });

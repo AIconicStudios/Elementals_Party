@@ -12,8 +12,12 @@ const MG = {
     window.addEventListener('keydown', e => { if (e.code === 'Escape' && !document.getElementById('mgLayer').classList.contains('hidden')) { this._escQueued = true; e.preventDefault(); } });
   },
 
-  makeCtx(game, players) {
+  TEAMC: ['#ff5a5a', '#4f8dff'], TEAMN: ['Red', 'Blue'],
+  makeCtx(game, players, opts = {}) {
     const m = {
+      teams: opts.teams || null, mode: opts.mode || game.mode || 'ffa',
+      teamOf(i) { return this.teams ? this.teams[i] : i; },
+      mates(i) { return this.teams ? this.players.map((p, j) => j).filter(j => j !== i && this.teams[j] === this.teams[i]) : []; },
       W: this.W, H: this.H, t: 0, dt: 0, game,
       players: players.map((p, i) => Object.assign({}, p, { i })),
       vin: players.map(() => ({ up: false, down: false, left: false, right: false, a: false, b: false })),
@@ -84,14 +88,16 @@ const MG = {
   },
 
   // ---------------------------------------------------------- run
-  async run(id, players, order) {
+  async run(id, players, order, opts = {}) {
+    if (!opts.mode) opts = Object.assign(this.defOpts(this.byId[id]), opts);
+    this.lastOpts = opts;
     const game = this.byId[id];
-    if (Settings.test) return this.simulate(game, players, order);
+    if (Settings.test) return this.simulate(game, players, order, opts.mode ? opts : this.defOpts(game));
     const layer = document.getElementById('mgLayer');
     const quiet = game.type === 'Rhythm' || game.quietMusic;
     Music.play(Music.nextMini()); Music.setDuck(0.6, 0.3); // mild background music under the minigame sounds
     layer.classList.remove('hidden');
-    let m = this.makeCtx(game, players);
+    let m = this.makeCtx(game, players, opts);
     let S = {};
     let pm = null, pS = null; const skip = players.map(p => !p.human), skipPrev = players.map(() => false);
     this.fx = []; this.shakeAmt = 0;
@@ -108,7 +114,7 @@ const MG = {
       document.getElementById('mgPauseBtn').classList.remove('hidden');
       this.onPauseClick = () => { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); };
       // restart: fresh round straight into the countdown
-      this.onRestartClick = () => { m = this.makeCtx(game, players); S = {}; game.init(m, S); phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0; this.paused = false; this.pauseUI(false); if (quiet) Music.setDuck(0.18, 0.5); };
+      this.onRestartClick = () => { m = this.makeCtx(game, players, opts); S = {}; game.init(m, S); phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0; this.paused = false; this.pauseUI(false); if (quiet) Music.setDuck(0.18, 0.5); };
       // from the pause menu during practice: everyone is ready, start the real round
       this.onSkipPractice = () => { if (phase === 'practice') skip.fill(true); this.paused = false; this.pauseUI(false); };
       this.onQuitClick = () => { this.paused = false; finishWith({ winners: [], winner: null, scores: null, quit: true }); };
@@ -156,10 +162,11 @@ const MG = {
           this.drawCard(g, game, m, phaseT, ready, demo, dt);
           if (this.openT === undefined) this.openT = 0; this.openT += dt; if (this.openT < 0.7) this.iris(g, this.openT / 0.7);
           const humans = m.players.some(p => p.human);
-          if (humans && ready.every(r => r)) {
+          if (humans && ready.every(r => r) && Settings.practice === false) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0.18, 1.2); }
+          else if (humans && ready.every(r => r)) {
             // a short practice round so everyone gets the hang of it before it counts
             phase = 'practice'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
-            pm = this.makeCtx(game, players); pm.practice = true; pS = {}; game.init(pm, pS);
+            pm = this.makeCtx(game, players, opts); pm.practice = true; pS = {}; game.init(pm, pS);
             if (quiet) Music.setDuck(0.18, 1.2);
             Sfx.tone(520, 0.15, 'triangle', 0.07);
           } else if (!humans && phaseT > 4) { phase = 'count'; phaseT = 0; this.fx = []; if (quiet) Music.setDuck(0.18, 1.2); }
@@ -176,11 +183,11 @@ const MG = {
           if (!pm.done) { pm.t += dt; game.update(pm, pS, dt); if (game.dur && pm.t >= game.dur && !pm.done) pm.finish(game.score(pm, pS)); }
           this.drawGame(g, game, pm, pS, dt);
           // no timer: practise as long as you like; a finished practice game simply starts again
-          if (pm.done) { pm = this.makeCtx(game, players); pm.practice = true; pS = {}; game.init(pm, pS); MGH.pop('Again!', 640, 300, '#ffe680', 40); }
+          if (pm.done) { pm = this.makeCtx(game, players, opts); pm.practice = true; pS = {}; game.init(pm, pS); MGH.pop('Again!', 640, 300, '#ffe680', 40); }
           this.drawPractice(g, m, 0, skip, false);
           if (skip.every(v => v)) {
             // fresh start for the real thing
-            m = this.makeCtx(game, players); S = {}; game.init(m, S);
+            m = this.makeCtx(game, players, opts); S = {}; game.init(m, S);
             phase = 'count'; phaseT = 0; this.fx = []; this.shakeAmt = 0;
             Sfx.tone(880, 0.12, 'triangle', 0.07);
           }
@@ -320,7 +327,7 @@ const MG = {
     const v = g.createRadialGradient(640, 380, 380, 640, 380, 820);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
     g.fillStyle = v; g.fillRect(0, 0, 1280, 720);
-    if (!frozen) Render.bloom(g, 1280, 720, 0.14);
+    if (!frozen && typeof Render !== 'undefined') Render.bloom(g, 1280, 720, 0.14);
     this.hud(m, S, game, g);
   },
 
@@ -328,7 +335,7 @@ const MG = {
   makeDemo(game, players) {
     if (!this.demoCanvas) { this.demoCanvas = document.createElement('canvas'); this.demoCanvas.width = 1280; this.demoCanvas.height = 720; }
     const d = { g: this.demoCanvas.getContext('2d'), game, players: players.map(p => Object.assign({}, p, { human: false })), fx: [] };
-    d.reset = () => { d.m = this.makeCtx(game, d.players); d.S = {}; game.init(d.m, d.S); d.fx = []; d.end = 0; };
+    d.reset = () => { d.m = this.makeCtx(game, d.players, this.lastOpts || this.defOpts(game)); d.S = {}; game.init(d.m, d.S); d.fx = []; d.end = 0; };
     d.reset();
     return d;
   },
@@ -358,7 +365,7 @@ const MG = {
     const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const g = c.getContext('2d');
     try {
       const pl = [0, 1, 2, 3].map(i => ({ id: i, name: ['Zephi', 'Drip', 'Pyra', 'Pebble'][i], color: ELEMENTS[i].color, human: false, el: ELEMENTS[i] }));
-      const m = this.makeCtx(game, pl), S = {}; game.init(m, S); m.dt = 1 / 30;
+      const m = this.makeCtx(game, pl, this.defOpts(game)), S = {}; game.init(m, S); m.dt = 1 / 30;
       if (S.phase === 'intro') { S.phase = 'play'; S.pt = 0; S.stageT = 0; }
       Settings.test = true;
       const secs = game.thumbT || (game.finale ? 6 : 3.2);
@@ -370,8 +377,10 @@ const MG = {
     const t = document.createElement('canvas'); t.width = 320; t.height = 180; t.getContext('2d').drawImage(c, 0, 40, 1280, 680, 0, 0, 320, 180);
     return (this.thumbs[id] = t.toDataURL('image/jpeg', 0.82));
   },
-  simulate(game, players, order) {
-    const m = this.makeCtx(game, players.map(p => Object.assign({}, p, { human: false })));
+  // default teams for a team game (used by previews and tests): 2v2 = seats 1+2 vs 3+4, 1v3 = seat 1 alone
+  defOpts(game) { const md = game.mode || 'ffa'; return { mode: md, teams: md === '2v2' ? [0, 0, 1, 1] : md === '1v3' ? [0, 1, 1, 1] : null }; },
+  simulate(game, players, order, opts) {
+    const m = this.makeCtx(game, players.map(p => Object.assign({}, p, { human: false })), opts || this.defOpts(game));
     const S = {}; game.init(m, S);
     m.dt = 1 / 30;
     for (let k = 0; k < 30 * 400 && !m.done; k++) {
@@ -393,7 +402,8 @@ const MG = {
     // title row
     MGH.text(g, game.name, 640, 64, 48, '#fff', 'center', 'bold');
     const tw = 150; g.fillStyle = 'rgba(123,92,255,0.35)'; MGH.rr(g, 40, 30, tw, 34, 17); g.fill();
-    MGH.text(g, `#${game.n} · ${game.type}`, 40 + tw / 2, 53, 16, '#d8ccff', 'center', 'bold');
+    MGH.text(g, `${game.type}`, 40 + tw / 2, 53, 16, '#d8ccff', 'center', 'bold');
+    if (m.mode !== 'ffa') { g.fillStyle = 'rgba(255,90,90,0.35)'; MGH.rr(g, 1090, 30, 150, 34, 17); g.fill(); MGH.text(g, m.mode === '2v2' ? '2 vs 2' : '1 vs 3', 1165, 53, 18, '#fff', 'center', 'bold'); }
     // big live demo
     this.stepDemo(demo, dt);
     const dx = 250, dy = 96, dw = 780, dh = 439;
@@ -416,6 +426,7 @@ const MG = {
     } else { g.globalAlpha = 0.75; MGH.text(g, 'press  Ⓑ  for how to play', 640, 560, 15, '#b6a9e0'); g.globalAlpha = 1; }
     m.players.forEach((p, i) => {
       const x = 160 + i * 320, y0 = 585, w = 296, h = 118;
+      if (m.teams) { const tc = this.TEAMC[m.teams[i]]; g.fillStyle = tc; MGH.rr(g, x - 60, y0 - 26, 120, 24, 12); g.fill(); MGH.text(g, m.mode === '1v3' ? (m.players.filter((q, j) => m.teams[j] === m.teams[i]).length === 1 ? 'SOLO' : 'TEAM OF 3') : 'TEAM ' + this.TEAMN[m.teams[i]].toUpperCase(), x, y0 - 8, 15, '#fff', 'center', 'bold'); }
       g.fillStyle = p.color; MGH.rr(g, x - w / 2, y0, w, h, 14); g.globalAlpha = ready[i] && p.human ? 0.32 : 0.14; g.fill(); g.globalAlpha = 1;
       g.strokeStyle = p.color; g.lineWidth = ready[i] && p.human ? 4 : 2; g.stroke();
       Char.draw(g, x - 104, y0 + 50, 28, p.el.id, p.color, { mood: ready[i] && p.human ? 'cheer' : (p.human ? 'happy' : 'neutral'), seed: i * 1.7, look: { x: 0.5, y: 0 } });
@@ -495,7 +506,9 @@ const MG = {
     const W = winners.map(i => m.players[i]), e = Math.min(1, t / 0.4), bounce = Math.max(0.05, 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2));
     W.forEach((w, k) => { const x = 640 + (k - (W.length - 1) / 2) * 150; g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, 214, 60, 14, 0, 0, 7); g.fill(); Char.draw(g, x, 150 - Math.abs(Math.sin(t * 5 + k)) * 18, 56 * bounce, w.el.id, w.color, { mood: 'cheer', seed: k }); });
     if (Math.random() < 0.5) MGH.burst(R.range(200, 1080), -10, ['#ff6a8a', '#5fb8ff', '#ffd34d', '#6fdc8c'], 2, { speed: 60, grav: 260, life: 2.2, size: 4 });
-    MGH.label(g, '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!'), 640, 268, W.length > 2 ? 36 : 46, W[0].color, 'rgba(0,0,0,0.55)');
+    const teamWin = m.teams && winners.length && winners.every(i => m.teams[i] === m.teams[winners[0]]) && winners.length === m.players.filter((p, j) => m.teams[j] === m.teams[winners[0]]).length;
+    const label = teamWin ? (m.mode === '1v3' && winners.length === 1 ? `🏆 ${W[0].name} wins solo!` : `🏆 Team ${this.TEAMN[m.teams[winners[0]]]} wins!`) : '🏆 ' + W.map(w => w.name).join(' & ') + (W.length > 1 ? ' tie!' : ' wins!');
+    MGH.label(g, label, 640, 268, W.length > 2 && !teamWin ? 36 : 46, teamWin ? this.TEAMC[m.teams[winners[0]]] : W[0].color, 'rgba(0,0,0,0.55)');
     const medal = ['🥇', '🥈', '🥉', ''], coins = { 1: 3, 2: 2, 3: 1 };
     ranking.forEach((r, k) => {
       const p = m.players[r.i], win = winners.includes(r.i), y = 330 + k * 86, slide = Math.max(0, 1 - (t - 0.15 * k) / 0.35) * 600;
@@ -506,8 +519,8 @@ const MG = {
       Char.draw(g, 385, y + 4, 24, p.el.id, p.color, { mood: win ? 'cheer' : place === 4 ? 'sad' : 'happy', seed: r.i * 1.7 });
       MGH.text(g, `${medal[place - 1] || place + '.'} ${p.name}`, 430, y + 10, 28, p.color, 'left', 'bold');
       MGH.text(g, game.fmt ? game.fmt(r.s) : String(Math.round(r.s * 100) / 100), 760, y + 10, 22, '#fff', 'center');
-      const cn = game.coinGame ? clamp(Math.round(r.s), 0, 20) : coins[place];
-      if (cn) { MGH.coin(g, 880, y + 2, 14, t * 3 + k); MGH.text(g, '+' + cn, 915, y + 11, 24, '#ffe680', 'center', 'bold'); }
+      if (m.teams) { g.fillStyle = this.TEAMC[m.teams[r.i]]; MGH.rr(g, 860, y - 14, 70, 26, 13); g.fill(); MGH.text(g, this.TEAMN[m.teams[r.i]], 895, y + 5, 16, '#fff', 'center', 'bold'); }
+      else { const st = [3, 2, 1, 0][place - 1] || 0; for (let q = 0; q < st; q++) MGH.text(g, '★', 870 + q * 26, y + 12, 26, '#ffd34d', 'center', 'bold'); }
       g.restore();
     });
   },
@@ -633,7 +646,7 @@ const MGH = {
   // each clan has its own personality: Air laughs it off, Water is emotional, Fire is fiery, Earth is steady
   persona(mood, el) {
     const P = { cheer: ['laugh', 'starry', 'evil', 'proud'], hurt: ['shock', 'cry', 'angry', 'sad'], scared: ['shock', 'nervous', 'scared', 'nervous'], determined: ['determined', 'determined', 'determined', 'determined'] }[mood];
-    return P && el >= 0 ? P[el] : mood;
+    return P && el >= 0 ? P[EL_BASE[el]] : mood;
   },
   // seat-to-bot "near" helpers
   nearest(b, others) { let best = null, bd = 1e9; for (const o of others) { if (o === b || !o.alive) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < bd) { bd = d; best = o; } } return best; },

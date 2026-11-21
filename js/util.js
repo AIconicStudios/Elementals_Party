@@ -293,11 +293,11 @@ const Voice = {
     return (this.voice = vs[0]);
   },
   say(el, text) {
-    if (!this.ok() || el < 0 || el > 3 || !text) return;
+    if (!this.ok() || el < 0 || el > 14 || !text) return;
     try {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text), p = this.P[el];
-      u.pitch = p.pitch; u.rate = p.rate; u.volume = 0.85; const v = this.pick(); if (v) u.voice = v;
+      const u = new SpeechSynthesisUtterance(text), p = this.P[EL_BASE[el]], tw = el > 3 ? ((el % 3) - 1) * 0.12 : 0; // each newer hero a touch higher or lower than its base
+      u.pitch = Math.max(0.5, Math.min(2, p.pitch + tw)); u.rate = p.rate; u.volume = 0.85; const v = this.pick(); if (v) u.voice = v;
       speechSynthesis.speak(u);
     } catch (e) { /* no speech on this computer: stay quiet */ }
   },
@@ -306,6 +306,6 @@ const Voice = {
     if (!this.ok() || !text) return;
     try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.pitch = 1.25; u.rate = 1.05; u.volume = 0.9; const v = this.pick(); if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
   },
-  line(el, kind) { const L = this.LINES[kind]; if (L && L[el]) this.say(el, R.pick(L[el])); },
+  line(el, kind) { const L = this.LINES[kind], b = el >= 0 ? EL_BASE[el] : el; if (L && L[b]) this.say(el, R.pick(L[b])); },
 };
 if (typeof speechSynthesis !== 'undefined') try { speechSynthesis.onvoiceschanged = () => { Voice.voice = null; }; } catch (e) { /* ignore */ }

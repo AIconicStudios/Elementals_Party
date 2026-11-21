@@ -10,7 +10,21 @@ const CLAN = [
   { wrap: '#3f7fd8', wrap2: '#ffffff', hem: '#2a5fa8', pattern: 'wave', glove: '#4a8fe0', cuff: '#ffffff', shoe: '#4a8fe0', sole: '#2a5fa8', lace: '#9fd0ff', boot: true },  // Water
   { wrap: '#e8432a', wrap2: '#ffc23a', hem: '#ffc23a', pattern: 'flame', glove: '#e8432a', cuff: '#ffc23a', shoe: '#e0442b', sole: '#ffffff', lace: '#ffd34d' },           // Fire
   { wrap: '#7a4f2a', wrap2: '#6fae3c', hem: '#5a3a1a', pattern: 'leaf', glove: '#4f8a2c', cuff: '#7a4f2a', shoe: '#7a4a24', sole: '#4a2c14', lace: '#c9a36b', boot: true }, // Earth
+  { wrap: '#6a6e78', wrap2: '#d0d4dc', hem: '#4a4e58', pattern: 'smoke', orn: 'chimney', glove: '#a0a6b0', cuff: '#4a4e58', shoe: '#5a5e68', sole: '#2a2c32', lace: '#c8ccd6' },              // Wisp (Smoke)
+  { wrap: '#4a6a8f', wrap2: '#bfe4ff', hem: '#ffd23a', pattern: 'rain', orn: 'raincloud', glove: '#ffd23a', cuff: '#4a6a8f', shoe: '#ffd23a', sole: '#3f5a7a', lace: '#ffffff', boot: true }, // Mizzle (Rain)
+  { wrap: '#8a8478', wrap2: '#4a443a', hem: '#5a5448', pattern: 'crack', orn: 'crystal', glove: '#a89a82', cuff: '#5a4a3a', shoe: '#6a5a48', sole: '#2e2820', lace: '#ffcc40', boot: true },   // Flint (Rock)
+  { wrap: '#ff8ab8', wrap2: '#ffffff', hem: '#5fae4a', pattern: 'petal', orn: 'tulip', glove: '#ffd0e2', cuff: '#5fae4a', shoe: '#ff8ab8', sole: '#5fae4a', lace: '#ffffff' },                  // Blossom (Plant)
+  { wrap: '#dff4ff', wrap2: '#6ac8f0', hem: '#ffffff', pattern: 'snow', orn: 'icecrystal', glove: '#9fd8ff', cuff: '#ffffff', shoe: '#bfe8ff', sole: '#5f7fa8', lace: '#ffffff', boot: true }, // Frost (Ice)
+  { wrap: '#ffd93a', wrap2: '#7a3cc8', hem: '#7a3cc8', pattern: 'zigzag', orn: 'bolt', glove: '#ffe03a', cuff: '#7a3cc8', shoe: '#7a3cc8', sole: '#ffe03a', lace: '#ffffff' },                   // Volt (Lightning)
+  { wrap: '#e0c48a', wrap2: '#b08a4a', hem: '#c8a060', pattern: 'dune', orn: 'cactus', glove: '#c8a060', cuff: '#8a6a3a', shoe: '#a07a48', sole: '#5a4024', lace: '#fff1c8', boot: true },    // Dune (Sand)
+  { wrap: '#3a2e2c', wrap2: '#ff7a2a', hem: '#ff7a2a', pattern: 'lava', orn: 'lavadrop', glove: '#3a2e2c', cuff: '#ff7a2a', shoe: '#2b2426', sole: '#ff7a2a', lace: '#ffb03a' },              // Cinder (Magma)
+  { wrap: '#fffaf0', wrap2: '#ffcf3a', hem: '#ffcf3a', pattern: 'star', orn: 'star', glove: '#ffffff', cuff: '#ffcf3a', shoe: '#fffaf0', sole: '#e0b23a', lace: '#ffcf3a' },                   // Lumi (Light)
+  { wrap: '#2a2f6a', wrap2: '#fff3b0', hem: '#c8b8ff', pattern: 'moon', orn: 'moon', glove: '#3a3f80', cuff: '#c8b8ff', shoe: '#1a1d40', sole: '#c8b8ff', lace: '#fff3b0' },                   // Nyx (Night)
+  { wrap: '#9aa6b4', wrap2: '#5a6676', hem: '#5a6676', pattern: 'rivet', orn: 'gear', glove: '#ffb03a', cuff: '#5a6676', shoe: '#5a6676', sole: '#2a2e36', lace: '#ffb03a', boot: true },      // Rivet (Metal)
 ];
+// resting / game-face personality per hero: 0 curious, 1 sweet, 2 confident, 3 calm
+const PERSONA = [0, 1, 2, 3, 3, 1, 2, 1, 0, 0, 3, 2, 1, 3, 0];
+const STOIC = { 3: true, 6: true }; // Pebble and Flint never go bubbly
 const GENERIC = { wrap: '#9aa0ad', wrap2: '#cfd3dc', hem: '#cfd3dc', pattern: 'none', glove: '#cfd3dc', cuff: '#9aa0ad', shoe: '#8a8f99', sole: '#5a5f69', lace: '#cfd3dc' };
 const SKIN = { light: '#fff0d6', mid: '#ffc07a', dark: '#f39a4e', rim: '#e07f3a', line: '#8c4520', blush: 'rgba(255,96,110,0.5)', sss: 'rgba(255,90,70,0.2)' };
 
@@ -25,7 +39,7 @@ const Char = {
     const seed = o.seed || 0;
     let mood = o.mood || 'happy';
     // Pebble (Earth) never goes bubbly: wins are a stoic nod, losses turn into a scowl or feisty anger
-    if (el === 3 && PEBBLE_MOOD[mood]) mood = PEBBLE_MOOD[mood];
+    if (STOIC[el] && PEBBLE_MOOD[mood]) mood = PEBBLE_MOOD[mood];
     const walk = o.walk || 0;
     const out = mood === 'out';
     const C = CLAN[el] || GENERIC;
@@ -94,6 +108,17 @@ const Char = {
     { top: '#f6f9ff', trim: '#24468f', bottoms: '#24468f', tie: '#5fb8ff' },   // Drip: sailor suit
     { top: '#d8362a', trim: '#ffc23a', bottoms: '#2b2b38', stripe: '#ffc23a' }, // Pyra: varsity jacket
     { top: '#6cb83c', trim: '#4f8a2c', bottoms: '#7a5230' },                    // Pebble: gardener overalls
+    { style: 4, top: '#8a8f9a', trim: '#d0d4dc', bottoms: '#4a4e58' },          // Wisp: smoky hoodie
+    { style: 5, top: '#ffd23a', trim: '#e0a800', bottoms: '#3f5a7a' },          // Mizzle: yellow raincoat
+    { style: 8, top: '#c8bca8', trim: '#6a5a48', bottoms: '#5a4a3a', stripe: '#ffcc40' }, // Flint: miner's vest
+    { style: 9, top: '#ffb3d1', trim: '#ffffff', bottoms: '#5fae4a', dots: '#ffffff' }, // Blossom: flowery smock
+    { style: 6, top: '#bfe8ff', trim: '#ffffff', bottoms: '#5f7fa8' },          // Frost: puffy parka
+    { style: 2, top: '#7a3cc8', trim: '#ffe03a', bottoms: '#2b2b38', stripe: '#ffe03a', patch: 'bolt' }, // Volt: purple varsity
+    { style: 0, top: '#d8b878', trim: '#fff1c8', bottoms: '#8a6a3a', badge: '#c8902a' }, // Dune: explorer khakis
+    { style: 4, top: '#2b2426', trim: '#ff7a2a', bottoms: '#3a3036' },          // Cinder: lava hoodie
+    { style: 1, top: '#fffaf0', trim: '#e0b23a', bottoms: '#e0b23a', tie: '#ffd34d' }, // Lumi: white-and-gold sailor
+    { style: 7, top: '#2a2f6a', trim: '#c8b8ff', bottoms: '#1a1d40' },          // Nyx: starry cloak
+    { style: 3, top: '#ff8a3a', trim: '#4f6a8a', bottoms: '#4f6a8a', patch: 'gear' }, // Rivet: mechanic overalls
   ],
   fullBody(g, r, el, C, skin, mood, faceMood, o, t, seed, walk, out, squash, face, idle, color) {
     const h = r * 0.7, hy = -r * 0.32, tx = r * 0.01, ty = hy + h * 1.3, ground = r * 1.25;
@@ -110,7 +135,7 @@ const Char = {
         this.shoe(g, sr, C, !near); g.restore();
       }
     }
-    if (el === 0) this.cape(g, h, tx, ty, t, seed);
+    if (el === 0 || el === 13) this.cape(g, h, tx, ty, t, seed, el === 13 ? ['#3a3f80', '#1a1d40', '#c8b8ff'] : null);
     // torso with the clan outfit (breathes a little)
     const sq = 1 + (squash - 1) * 0.5;
     g.save(); g.translate(tx, ty); g.scale(1 / Math.sqrt(sq), sq); this.outfit(g, h, el); g.restore();
@@ -124,7 +149,7 @@ const Char = {
     if (!o.flat) this.lightPass(g, h, -face * idle.flip);
     g.restore();
     // Drip's neckerchief hangs just under the chin, in front of the body
-    if (el === 1) { const O = this.OUTFIT[1], rx = h * 0.68, ry = h * 0.6; g.fillStyle = O.tie; g.strokeStyle = '#2a6fb0'; g.lineWidth = Math.max(0.8, h * 0.02); g.beginPath(); g.moveTo(tx - rx * 0.42, ty - ry * 0.62); g.lineTo(tx - rx * 0.62, ty - ry * 0.05); g.lineTo(tx - rx * 0.32, ty - ry * 0.2); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(tx - rx * 0.44, ty - ry * 0.6, h * 0.07, h * 0.055, 0, 0, 7); g.fill(); g.stroke(); }
+    if (this.OUTFIT[el] && this.OUTFIT[el].tie) { const O = this.OUTFIT[el], rx = h * 0.68, ry = h * 0.6; g.fillStyle = O.tie; g.strokeStyle = '#2a6fb0'; g.lineWidth = Math.max(0.8, h * 0.02); g.beginPath(); g.moveTo(tx - rx * 0.42, ty - ry * 0.62); g.lineTo(tx - rx * 0.62, ty - ry * 0.05); g.lineTo(tx - rx * 0.32, ty - ry * 0.2); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(tx - rx * 0.44, ty - ry * 0.6, h * 0.07, h * 0.055, 0, 0, 7); g.fill(); g.stroke(); }
     if (P) {
       if (P.wave && h > 9) { g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = h * 0.035; g.lineCap = 'round'; for (const k of [0, 1]) { g.beginPath(); g.arc(tx + P.n.x * h, ty + P.n.y * h, h * (0.34 + k * 0.1), -Math.PI * 0.95, -Math.PI * 0.62); g.stroke(); } }
       this.floatHand(g, h, C, tx + P.n.x * h, ty + P.n.y * h, P.n, true, faceMood);
@@ -185,17 +210,17 @@ const Char = {
     if (mood === 'cheer') { const hop = Math.max(0, Math.sin(t * 7)) * 0.12; return [{ x: -0.2, lift: hop, tip: hop * 2.5 }, { x: 0.24, lift: hop * 1.3, tip: hop * 3 }]; }
     return [{ x: -0.22, lift: 0, tip: 0 }, { x: 0.26, lift: 0, tip: 0 }];
   },
-  cape(g, h, tx, ty, t, seed) {
+  cape(g, h, tx, ty, t, seed, cc) {
     const rx = h * 0.68, ry = h * 0.6, w = Math.sin(t * 3 + seed) * h * 0.06;
-    const cg = g.createLinearGradient(tx, ty - ry, tx + rx * 1.6, ty + ry); cg.addColorStop(0, '#ffffff'); cg.addColorStop(1, '#cfe3f2');
-    g.fillStyle = cg; g.strokeStyle = '#8fa6bf'; g.lineWidth = Math.max(0.8, h * 0.03);
+    const cg = g.createLinearGradient(tx, ty - ry, tx + rx * 1.6, ty + ry); cg.addColorStop(0, cc ? cc[0] : '#ffffff'); cg.addColorStop(1, cc ? cc[1] : '#cfe3f2');
+    g.fillStyle = cg; g.strokeStyle = cc ? cc[2] : '#8fa6bf'; g.lineWidth = Math.max(0.8, h * 0.03);
     g.beginPath(); g.moveTo(tx + rx * 0.2, ty - ry * 0.95); g.quadraticCurveTo(tx + rx * 1.15, ty - ry * 0.9 + w, tx + rx * 1.45, ty + ry * 0.2 + w);
     g.quadraticCurveTo(tx + rx * 1.25, ty + ry * 0.35, tx + rx * 1.12, ty + ry * 0.55); g.quadraticCurveTo(tx + rx * 0.95, ty + ry * 0.3, tx + rx * 0.75, ty + ry * 0.45);
     g.quadraticCurveTo(tx + rx * 0.6, ty - ry * 0.3, tx + rx * 0.2, ty - ry * 0.95); g.closePath(); g.fill(); g.stroke();
   },
   // torso and outfit, centred on the origin; r = head radius. Seen from the side like the head: hems curve round the body.
   outfit(g, r, el) {
-    const O = this.OUTFIT[el], sh = (c, a) => this.shade(c, a), rx = r * 0.68, ry = r * 0.6, hi = r > 9;
+    const O = this.OUTFIT[el], st = O.style !== undefined ? O.style : el, sh = (c, a) => this.shade(c, a), rx = r * 0.68, ry = r * 0.6, hi = r > 9;
     const body = () => { g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, 7); };
     g.save(); body(); g.clip();
     const cloth = (col, path) => { if (hi) { const cg = g.createLinearGradient(-rx, -ry, rx, ry); cg.addColorStop(0, sh(col, 0.3)); cg.addColorStop(0.55, col); cg.addColorStop(1, sh(col, -0.3)); g.fillStyle = cg; } else g.fillStyle = col; path(); g.fill(); };
@@ -204,7 +229,7 @@ const Char = {
     const below = yy => () => { g.beginPath(); g.moveTo(-rx * 1.2, yy); g.quadraticCurveTo(0, yy + sag * 2, rx * 1.2, yy); g.lineTo(rx * 1.2, ry * 1.5); g.lineTo(-rx * 1.2, ry * 1.5); g.closePath(); };
     const band = (yy, hh, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(-rx * 1.2, yy); g.quadraticCurveTo(0, yy + sag * 2, rx * 1.2, yy); g.lineTo(rx * 1.2, yy + hh); g.quadraticCurveTo(0, yy + hh + sag * 2, -rx * 1.2, yy + hh); g.closePath(); g.fill(); };
     cloth(O.top, full);
-    if (el === 0) { // sky scout: zip down the front, white trim, swirl badge, shorts
+    if (st === 0) { // sky scout: zip down the front, white trim, swirl badge, shorts
       g.strokeStyle = '#ffffff'; g.lineWidth = r * 0.06; g.beginPath(); g.ellipse(0, 0, rx * 0.93, ry * 0.93, 0, Math.PI * 0.62, Math.PI * 1.3); g.stroke();
       if (hi) { g.strokeStyle = '#7f8fa8'; g.lineWidth = Math.max(0.6, r * 0.02); g.setLineDash([r * 0.02, r * 0.02]); g.beginPath(); g.ellipse(0, 0, rx * 0.93, ry * 0.93, 0, Math.PI * 0.64, Math.PI * 1.28); g.stroke(); g.setLineDash([]); }
       g.fillStyle = '#ffffff'; g.beginPath(); g.arc(-rx * 0.15, -ry * 0.1, r * 0.13, 0, 7); g.fill();
@@ -212,13 +237,13 @@ const Char = {
       band(ry * 0.4, r * 0.08, '#ffffff');
       cloth(O.bottoms, below(ry * 0.4 + r * 0.075));
     }
-    if (el === 1) { // sailor: navy shorts with gold buttons, collar flap at the back
+    if (st === 1) { // sailor: navy shorts with gold buttons, collar flap at the back
       cloth(O.bottoms, below(ry * 0.42));
       g.fillStyle = '#ffd34d'; for (const k of [0, 1]) { g.beginPath(); g.arc(-rx * 0.62, ry * (0.62 + k * 0.2), r * 0.035, 0, 7); g.fill(); }
       g.fillStyle = O.trim; g.beginPath(); g.moveTo(rx * 0.05, -ry * 1.05); g.lineTo(rx * 1.2, -ry * 1.05); g.lineTo(rx * 1.2, -ry * 0.2); g.lineTo(rx * 0.45, -ry * 0.2); g.closePath(); g.fill();
       g.strokeStyle = '#ffffff'; g.lineWidth = r * 0.025; g.beginPath(); g.moveTo(rx * 0.2, -ry * 0.95); g.lineTo(rx * 0.52, -ry * 0.3); g.lineTo(rx * 1.2, -ry * 0.3); g.stroke();
     }
-    if (el === 2) { // varsity: yellow ribbed hem, flame patch on the side, zip at the front, shorts with a side stripe
+    if (st === 2) { // varsity: yellow ribbed hem, flame patch on the side, zip at the front, shorts with a side stripe
       const hy = ry * 0.34;
       cloth(O.bottoms, below(hy + r * 0.09));
       g.save(); below(hy)(); g.clip(); g.strokeStyle = O.stripe; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(0, 0, rx * 0.84, ry * 0.98, 0, 0.1, 1.0); g.stroke(); g.restore();
@@ -230,15 +255,52 @@ const Char = {
       g.strokeStyle = '#a82a10'; g.lineWidth = Math.max(0.6, r * 0.02);
       g.beginPath(); g.moveTo(-r * 0.14, r * 0.14); g.quadraticCurveTo(-r * 0.17, -r * 0.06, 0, -r * 0.26); g.quadraticCurveTo(r * 0.02, -r * 0.06, r * 0.08, -r * 0.1); g.quadraticCurveTo(r * 0.2, r * 0.02, r * 0.14, r * 0.14); g.closePath(); g.fill(); if (hi) g.stroke(); g.restore();
     }
-    if (el === 3) { // overalls over a green tee: bib, strap with a button, leaf patch pocket
+    if (st === 3) { // overalls over a green tee: bib, strap with a button, leaf patch pocket
       const den = O.bottoms;
       cloth(den, () => { g.beginPath(); g.moveTo(-rx * 0.95, -ry * 0.3); g.lineTo(rx * 0.3, -ry * 0.3); g.lineTo(rx * 0.42, ry * 0.25); g.lineTo(rx * 1.2, ry * 0.25); g.lineTo(rx * 1.2, ry * 1.2); g.lineTo(-rx * 1.2, ry * 1.2); g.closePath(); });
       if (hi) { g.strokeStyle = sh(den, 0.4); g.lineWidth = Math.max(0.6, r * 0.015); g.setLineDash([r * 0.03, r * 0.025]); g.beginPath(); g.moveTo(-rx * 0.9, -ry * 0.22); g.lineTo(rx * 0.25, -ry * 0.22); g.lineTo(rx * 0.36, ry * 0.3); g.stroke(); g.setLineDash([]); }
       g.strokeStyle = den; g.lineWidth = r * 0.1; g.lineCap = 'butt'; g.beginPath(); g.moveTo(rx * 0.2, -ry * 0.3); g.lineTo(rx * 0.35, -ry * 1.1); g.stroke();
       g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(rx * 0.2, -ry * 0.2, r * 0.04, 0, 7); g.fill();
       g.fillStyle = sh(den, -0.18); g.beginPath(); rrPath(g, -rx * 0.62, -ry * 0.12, rx * 0.5, ry * 0.36, r * 0.04); g.fill();
-      g.save(); g.translate(-rx * 0.37, ry * 0.06); g.rotate(-0.5); g.fillStyle = '#9fe06a'; g.beginPath(); g.moveTo(-r * 0.1, 0); g.quadraticCurveTo(0, -r * 0.08, r * 0.1, 0); g.quadraticCurveTo(0, r * 0.08, -r * 0.1, 0); g.fill(); g.restore();
+      if (!O.patch) { g.save(); g.translate(-rx * 0.37, ry * 0.06); g.rotate(-0.5); g.fillStyle = '#9fe06a'; g.beginPath(); g.moveTo(-r * 0.1, 0); g.quadraticCurveTo(0, -r * 0.08, r * 0.1, 0); g.quadraticCurveTo(0, r * 0.08, -r * 0.1, 0); g.fill(); g.restore(); }
     }
+    if (st === 4) { // hoodie: kangaroo pocket, drawstrings, ribbed hem
+      cloth(O.bottoms, below(ry * 0.46));
+      band(ry * 0.36, r * 0.1, O.trim);
+      g.fillStyle = sh(O.top, -0.15); g.beginPath(); rrPath(g, -rx * 0.7, ry * 0.0, rx * 0.75, ry * 0.32, r * 0.06); g.fill();
+      g.strokeStyle = O.trim; g.lineWidth = r * 0.03; for (const dx of [-0.48, -0.32]) { g.beginPath(); g.moveTo(rx * dx, -ry * 0.7); g.lineTo(rx * dx - r * 0.02, -ry * 0.2); g.stroke(); g.fillStyle = O.trim; g.beginPath(); g.arc(rx * dx - r * 0.02, -ry * 0.16, r * 0.03, 0, 7); g.fill(); }
+    }
+    if (st === 5) { // raincoat: toggles down the front, glossy sheen, long hem
+      cloth(O.bottoms, below(ry * 0.62));
+      g.strokeStyle = O.trim; g.lineWidth = r * 0.035; g.beginPath(); g.moveTo(-rx * 0.78, -ry * 0.75); g.lineTo(-rx * 0.86, ry * 0.6); g.stroke();
+      g.fillStyle = '#7a5a20'; for (const y of [-0.4, 0, 0.36]) { g.beginPath(); g.ellipse(-rx * 0.72, ry * y, r * 0.06, r * 0.025, 0.2, 0, 7); g.fill(); }
+      if (hi) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.ellipse(-rx * 0.2, -ry * 0.35, rx * 0.35, ry * 0.12, -0.4, 0, 7); g.fill(); }
+    }
+    if (st === 6) { // puffy parka: quilted bands, fur trim hem, zip
+      cloth(O.bottoms, below(ry * 0.5));
+      g.strokeStyle = sh(O.top, -0.2); g.lineWidth = Math.max(0.8, r * 0.02); for (const y of [-0.35, 0.05]) { g.beginPath(); g.moveTo(-rx * 1.2, ry * y); g.quadraticCurveTo(0, ry * y + sag * 2, rx * 1.2, ry * y); g.stroke(); }
+      g.fillStyle = O.trim; for (let k = 0; k < 12; k++) { const xx = -rx + k * rx * 0.18; g.beginPath(); g.arc(xx, yc(xx, ry * 0.46), r * 0.07, 0, 7); g.fill(); }
+      g.strokeStyle = sh(O.top, -0.35); g.lineWidth = r * 0.025; g.beginPath(); g.moveTo(-rx * 0.88, -ry * 0.7); g.lineTo(-rx * 0.94, ry * 0.4); g.stroke();
+    }
+    if (st === 7) { // cloak: a deep collar drape with a clasp and tiny stars
+      cloth(O.bottoms, below(ry * 0.5));
+      g.fillStyle = sh(O.top, 0.15); g.beginPath(); g.moveTo(-rx * 1.2, -ry * 0.6); g.quadraticCurveTo(0, -ry * 0.05, rx * 1.2, -ry * 0.6); g.lineTo(rx * 1.2, -ry * 1.2); g.lineTo(-rx * 1.2, -ry * 1.2); g.closePath(); g.fill();
+      g.fillStyle = O.trim; g.beginPath(); g.arc(-rx * 0.62, -ry * 0.42, r * 0.06, 0, 7); g.fill();
+      g.fillStyle = '#fff3b0'; for (const [x, y] of [[0.1, 0.1], [0.45, -0.1], [-0.25, 0.25], [0.6, 0.3]]) { g.beginPath(); g.arc(rx * x, ry * y, r * 0.022, 0, 7); g.fill(); }
+    }
+    if (st === 8) { // vest over a tee: open front, hi-vis stripes, pocket
+      cloth(O.bottoms, below(ry * 0.46));
+      cloth(O.trim, () => { g.beginPath(); g.moveTo(-rx * 0.45, -ry * 1.2); g.lineTo(rx * 1.2, -ry * 1.2); g.lineTo(rx * 1.2, ry * 0.5); g.lineTo(-rx * 0.55, ry * 0.5); g.closePath(); });
+      g.fillStyle = O.stripe; g.fillRect(-rx * 0.5, ry * 0.05, rx * 1.7, r * 0.07);
+      g.fillStyle = sh(O.trim, -0.2); g.fillRect(-rx * 0.2, -ry * 0.3, rx * 0.35, ry * 0.25);
+    }
+    if (st === 9) { // flowery smock: polka flowers, frilly hem
+      cloth(O.bottoms, below(ry * 0.52));
+      g.fillStyle = O.dots; for (const [x, y] of [[-0.6, -0.4], [-0.1, -0.2], [0.4, -0.45], [-0.4, 0.15], [0.25, 0.2], [0.7, 0.0]]) { for (let k = 0; k < 5; k++) { const a = k * 1.256; g.beginPath(); g.arc(rx * x + Math.cos(a) * r * 0.04, ry * y + Math.sin(a) * r * 0.04, r * 0.03, 0, 7); g.fill(); } }
+      g.fillStyle = O.trim; for (let k = 0; k < 10; k++) { const xx = -rx + k * rx * 0.22; g.beginPath(); g.arc(xx, yc(xx, ry * 0.5), r * 0.06, 0, Math.PI); g.fill(); }
+    }
+    if (O.patch === 'bolt') { g.fillStyle = '#ffe03a'; g.beginPath(); g.moveTo(rx * 0.5, -ry * 0.45); g.lineTo(rx * 0.32, -ry * 0.05); g.lineTo(rx * 0.46, -ry * 0.05); g.lineTo(rx * 0.36, ry * 0.3); g.lineTo(rx * 0.62, -ry * 0.15); g.lineTo(rx * 0.48, -ry * 0.15); g.closePath(); g.fill(); }
+    if (O.patch === 'gear') { g.fillStyle = '#c8d0da'; g.beginPath(); g.arc(-rx * 0.37, ry * 0.06, r * 0.07, 0, 7); g.fill(); g.fillStyle = O.bottoms; g.beginPath(); g.arc(-rx * 0.37, ry * 0.06, r * 0.03, 0, 7); g.fill(); }
     // the big head shades the top of the body; a soft rim of sky light on the back
     const sd = g.createLinearGradient(0, -ry, 0, -ry * 0.35); sd.addColorStop(0, 'rgba(60,20,20,0.35)'); sd.addColorStop(1, 'rgba(60,20,20,0)'); g.fillStyle = sd; g.fillRect(-rx, -ry, rx * 2, ry * 0.7);
     if (hi) { g.strokeStyle = 'rgba(255,250,230,0.25)'; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(0, 0, rx * 0.95, ry * 0.95, 0, -0.5, 0.6); g.stroke(); }
@@ -273,7 +335,7 @@ const Char = {
     g.fillStyle = 'rgba(255,255,255,0.75)'; g.beginPath(); g.ellipse(nx - nr * 0.35, ny - nr * 0.45, nr * 0.28, nr * 0.2, -0.5, 0, 7); g.fill();
   },
 
-  IRIS: ['#4fb3c8', '#2f7fe8', '#e08a2a', '#6f8f2c'],
+  IRIS: ['#4fb3c8', '#2f7fe8', '#e08a2a', '#6f8f2c', '#8a6ad8', '#3fb0a8', '#b07a30', '#e0508a', '#5ac8f0', '#d8a800', '#c8902a', '#ff5020', '#e8b020', '#9a7aff', '#5a7a9a'],
   // modern cartoon eye: shaded sclera, gradient iris with limbal ring, pupil, lid shadow and twin highlights
   eyeball(g, ex, ey, ew, eh, pr, lid, pdx, pdy, skin, r) {
     const ink = '#2a1410';
@@ -338,6 +400,39 @@ const Char = {
     } else if (C.pattern === 'swirl') {
       g.strokeStyle = C.wrap2;
       for (let k = -2; k <= 2; k++) { g.beginPath(); g.arc(k * r * 0.45, -r * 0.68, r * 0.13, 0, Math.PI * 1.5); g.stroke(); }
+    } else if (C.pattern === 'smoke') {
+      g.strokeStyle = C.wrap2; g.globalAlpha *= 0.85;
+      for (let k = -3; k <= 3; k++) { const x = k * r * 0.32 + Math.sin(t + k) * r * 0.03; g.beginPath(); g.moveTo(x - r * 0.1, -r * 0.55); g.bezierCurveTo(x - r * 0.15, -r * 0.7, x + r * 0.12, -r * 0.68, x + r * 0.04, -r * 0.82); g.stroke(); }
+      g.globalAlpha /= 0.85;
+    } else if (C.pattern === 'rain') {
+      g.fillStyle = C.wrap2; for (let k = -5; k <= 5; k++) for (let j = 0; j < 2; j++) { const x = k * r * 0.22 + j * r * 0.11, y = -r * (0.6 + j * 0.2) + ((t * 0.4 + k * 0.13) % 0.1) * r; g.beginPath(); g.ellipse(x, y, r * 0.03, r * 0.05, 0.3, 0, 7); g.fill(); }
+    } else if (C.pattern === 'crack') {
+      g.strokeStyle = C.wrap2; g.lineWidth = Math.max(1, r * 0.035);
+      for (let k = -2; k <= 2; k++) { const x = k * r * 0.42; g.beginPath(); g.moveTo(x, -r * 0.5); g.lineTo(x + r * 0.08, -r * 0.62); g.lineTo(x - r * 0.04, -r * 0.72); g.lineTo(x + r * 0.06, -r * 0.88); g.stroke(); }
+      g.fillStyle = 'rgba(255,255,255,0.15)'; for (let k = -3; k <= 3; k++) { g.beginPath(); g.arc(k * r * 0.3 + r * 0.12, -r * 0.62, r * 0.05, 0, 7); g.fill(); }
+    } else if (C.pattern === 'petal') {
+      for (let k = -3; k <= 3; k++) { const x = k * r * 0.32, y = -r * (0.62 + (k % 2) * 0.14); g.fillStyle = C.wrap2; for (let p = 0; p < 5; p++) { const a = p * 1.256 + t * 0.3; g.beginPath(); g.ellipse(x + Math.cos(a) * r * 0.06, y + Math.sin(a) * r * 0.06, r * 0.05, r * 0.035, a, 0, 7); g.fill(); } g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(x, y, r * 0.035, 0, 7); g.fill(); }
+    } else if (C.pattern === 'snow') {
+      g.strokeStyle = C.wrap2; g.lineWidth = Math.max(1, r * 0.025);
+      for (let k = -3; k <= 3; k++) { const x = k * r * 0.32, y = -r * (0.62 + (k % 2) * 0.14); for (let a = 0; a < 3; a++) { const an = a * Math.PI / 3; g.beginPath(); g.moveTo(x - Math.cos(an) * r * 0.07, y - Math.sin(an) * r * 0.07); g.lineTo(x + Math.cos(an) * r * 0.07, y + Math.sin(an) * r * 0.07); g.stroke(); } }
+    } else if (C.pattern === 'zigzag') {
+      g.strokeStyle = C.wrap2; g.lineWidth = Math.max(1.5, r * 0.07); g.lineJoin = 'miter';
+      g.beginPath(); for (let k = 0; k <= 12; k++) { const x = -r * 1.1 + k * r * 0.19; g.lineTo(x, -r * (k % 2 ? 0.58 : 0.72)); } g.stroke(); g.lineJoin = 'round';
+    } else if (C.pattern === 'dune') {
+      g.strokeStyle = C.wrap2; g.lineWidth = Math.max(1, r * 0.04);
+      for (const y of [-0.58, -0.76]) { g.beginPath(); for (let k = 0; k <= 22; k++) { const x = -r * 1.1 + k * r * 0.1; g.lineTo(x, r * y + Math.sin(k * 0.8 + y * 9) * r * 0.035); } g.stroke(); }
+      g.fillStyle = C.wrap2; for (let k = -4; k <= 4; k++) { g.beginPath(); g.arc(k * r * 0.25, -r * 0.9, r * 0.018, 0, 7); g.fill(); }
+    } else if (C.pattern === 'lava') {
+      const glow = 0.7 + 0.3 * Math.sin(t * 3 + seed); g.strokeStyle = `rgba(255,${120 + glow * 60},40,${glow})`; g.lineWidth = Math.max(1, r * 0.045);
+      for (let k = -2; k <= 2; k++) { const x = k * r * 0.42; g.beginPath(); g.moveTo(x - r * 0.12, -r * 0.52); g.lineTo(x, -r * 0.66); g.lineTo(x - r * 0.05, -r * 0.8); g.moveTo(x, -r * 0.66); g.lineTo(x + r * 0.14, -r * 0.7); g.stroke(); }
+    } else if (C.pattern === 'star') {
+      g.fillStyle = C.wrap2;
+      for (let k = -3; k <= 3; k++) { const x = k * r * 0.32, y = -r * (0.62 + (k % 2) * 0.15), q = r * (0.06 + 0.015 * Math.sin(t * 3 + k)); g.beginPath(); for (let a = 0; a < 8; a++) { const rr = a % 2 ? q * 0.35 : q, an = a * Math.PI / 4; g.lineTo(x + Math.cos(an) * rr, y + Math.sin(an) * rr); } g.closePath(); g.fill(); }
+    } else if (C.pattern === 'moon') {
+      for (let k = -3; k <= 3; k++) { const x = k * r * 0.32, y = -r * (0.62 + (k % 2) * 0.15); if (k % 2) { g.fillStyle = C.wrap2; g.beginPath(); g.arc(x, y, r * 0.06, 0, 7); g.fill(); g.fillStyle = C.wrap; g.beginPath(); g.arc(x + r * 0.03, y - r * 0.02, r * 0.05, 0, 7); g.fill(); } else { g.fillStyle = C.wrap2; g.beginPath(); g.arc(x, y, r * 0.018, 0, 7); g.fill(); } }
+    } else if (C.pattern === 'rivet') {
+      g.strokeStyle = C.wrap2; g.lineWidth = Math.max(1, r * 0.03); g.beginPath(); g.moveTo(-r * 1.1, -r * 0.7); g.quadraticCurveTo(0, -r * 0.8, r * 1.1, -r * 0.66); g.stroke();
+      for (let k = -4; k <= 4; k++) { const x = k * r * 0.25; g.fillStyle = C.wrap2; g.beginPath(); g.arc(x, -r * 0.6, r * 0.035, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(x - r * 0.01, -r * 0.61, r * 0.012, 0, 7); g.fill(); }
     }
     if (hi) {
       // fabric volume: lit crown, shaded underside, sphere falloff, a few soft folds toward the knot
@@ -408,8 +503,69 @@ const Char = {
       g.fillStyle = '#f4f6fa';
       for (let k = 0; k < 3; k++) { g.rotate(Math.PI * 2 / 3); g.beginPath(); g.ellipse(r * 0.17, 0, r * 0.17, r * 0.06, 0, 0, 7); g.fill(); g.stroke(); }
       g.fillStyle = '#b9c4d4'; g.beginPath(); g.arc(0, 0, r * 0.05, 0, 7); g.fill();
-    }
+    } else if (C.orn) this.ornament(g, r, C.orn, t, seed);
     g.restore();
+  },
+
+  // headwrap ornaments of the newer heroes (drawn at the top-back of the head, local origin)
+  ornament(g, r, kind, t, seed) {
+    const lw = Math.max(1, r * 0.04); g.lineWidth = lw; g.lineJoin = 'round'; g.lineCap = 'round';
+    if (kind === 'chimney') { // a little smokestack puffing rings
+      g.fillStyle = '#5a5e68'; g.strokeStyle = '#2a2c32'; g.beginPath(); rrPath(g, -r * 0.09, -r * 0.3, r * 0.18, r * 0.3, r * 0.03); g.fill(); g.stroke();
+      g.fillStyle = '#7a7e88'; g.fillRect(-r * 0.12, -r * 0.34, r * 0.24, r * 0.07);
+      for (let k = 0; k < 3; k++) { const ph = (t * 0.7 + k / 3 + seed * 0.1) % 1; g.fillStyle = `rgba(220,224,232,${0.85 * (1 - ph)})`; g.beginPath(); g.arc(Math.sin(ph * 5 + k) * r * 0.08 + ph * r * 0.15, -r * 0.4 - ph * r * 0.5, r * (0.07 + ph * 0.1), 0, 7); g.fill(); }
+    } else if (kind === 'raincloud') {
+      for (let k = 0; k < 3; k++) { const ph = (t * 1.4 + k / 3) % 1; g.fillStyle = `rgba(120,190,255,${1 - ph})`; g.beginPath(); g.ellipse((k - 1) * r * 0.1, -r * 0.12 + ph * r * 0.35, r * 0.025, r * 0.045, 0, 0, 7); g.fill(); }
+      g.fillStyle = '#eef3fa'; g.strokeStyle = '#8a9ab0'; g.beginPath(); g.arc(-r * 0.1, -r * 0.22, r * 0.1, 0, 7); g.arc(r * 0.04, -r * 0.28, r * 0.13, 0, 7); g.arc(r * 0.16, -r * 0.2, r * 0.09, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.8)'; g.beginPath(); g.arc(0, -r * 0.33, r * 0.05, 0, 7); g.fill();
+    } else if (kind === 'crystal') {
+      const gl = 0.6 + 0.4 * Math.sin(t * 2 + seed); g.fillStyle = '#b48aff'; g.strokeStyle = '#5a3a9a';
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(-r * 0.1, -r * 0.18); g.lineTo(-r * 0.02, -r * 0.42); g.lineTo(r * 0.09, -r * 0.2); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = `rgba(255,255,255,${0.5 * gl})`; g.beginPath(); g.moveTo(-r * 0.05, -r * 0.18); g.lineTo(-r * 0.02, -r * 0.36); g.lineTo(r * 0.02, -r * 0.2); g.closePath(); g.fill();
+      g.fillStyle = '#8a7aa8'; g.beginPath(); g.moveTo(r * 0.04, 0); g.lineTo(r * 0.12, -r * 0.2); g.lineTo(r * 0.16, -r * 0.02); g.closePath(); g.fill();
+    } else if (kind === 'tulip') {
+      const sw = Math.sin(t * 2.2 + seed) * 0.15; g.save(); g.rotate(sw);
+      g.strokeStyle = '#4f9a2a'; g.lineWidth = Math.max(1, r * 0.05); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -r * 0.3); g.stroke();
+      g.fillStyle = '#6cc040'; g.beginPath(); g.ellipse(r * 0.08, -r * 0.12, r * 0.1, r * 0.04, -0.6, 0, 7); g.fill();
+      g.fillStyle = '#ff5a9a'; g.strokeStyle = '#a82a5a'; g.lineWidth = lw; g.beginPath(); g.moveTo(-r * 0.12, -r * 0.32); g.quadraticCurveTo(-r * 0.13, -r * 0.52, -r * 0.06, -r * 0.5); g.lineTo(0, -r * 0.42); g.lineTo(r * 0.06, -r * 0.5); g.quadraticCurveTo(r * 0.13, -r * 0.52, r * 0.12, -r * 0.32); g.quadraticCurveTo(0, -r * 0.22, -r * 0.12, -r * 0.32); g.fill(); g.stroke();
+      g.restore();
+    } else if (kind === 'icecrystal') {
+      g.save(); g.translate(0, -r * 0.22); g.rotate(Math.sin(t * 1.5 + seed) * 0.2);
+      g.strokeStyle = '#3f9fd8'; g.lineWidth = Math.max(1.5, r * 0.06);
+      for (let a = 0; a < 3; a++) { g.save(); g.rotate(a * Math.PI / 3); g.beginPath(); g.moveTo(0, -r * 0.2); g.lineTo(0, r * 0.2); for (const s2 of [-1, 1]) { g.moveTo(0, s2 * r * 0.12); g.lineTo(r * 0.06, s2 * r * 0.18); g.moveTo(0, s2 * r * 0.12); g.lineTo(-r * 0.06, s2 * r * 0.18); } g.stroke(); g.restore(); }
+      g.strokeStyle = '#e8f8ff'; g.lineWidth = Math.max(0.8, r * 0.025); for (let a = 0; a < 3; a++) { g.save(); g.rotate(a * Math.PI / 3); g.beginPath(); g.moveTo(0, -r * 0.19); g.lineTo(0, r * 0.19); g.stroke(); g.restore(); }
+      g.restore();
+    } else if (kind === 'bolt') {
+      const fl = ((t * 2 + seed) % 2.2) < 0.12;
+      if (fl) { g.fillStyle = 'rgba(255,255,180,0.6)'; g.beginPath(); g.arc(0, -r * 0.22, r * 0.3, 0, 7); g.fill(); }
+      g.fillStyle = '#ffe03a'; g.strokeStyle = '#a87800'; g.beginPath(); g.moveTo(r * 0.06, 0); g.lineTo(-r * 0.1, -r * 0.2); g.lineTo(0, -r * 0.2); g.lineTo(-r * 0.06, -r * 0.44); g.lineTo(r * 0.12, -r * 0.18); g.lineTo(r * 0.02, -r * 0.18); g.closePath(); g.fill(); g.stroke();
+    } else if (kind === 'cactus') {
+      g.fillStyle = '#c86a3a'; g.beginPath(); g.ellipse(0, -r * 0.02, r * 0.13, r * 0.06, 0, 0, 7); g.fill();
+      g.fillStyle = '#5fae4a'; g.strokeStyle = '#2f6a22'; g.beginPath(); rrPath(g, -r * 0.06, -r * 0.4, r * 0.12, r * 0.38, r * 0.06); g.fill(); g.stroke();
+      g.beginPath(); rrPath(g, r * 0.06, -r * 0.3, r * 0.1, r * 0.06, r * 0.03); g.fill(); g.beginPath(); rrPath(g, r * 0.1, -r * 0.38, r * 0.06, r * 0.12, r * 0.03); g.fill();
+      g.fillStyle = '#ff6a9a'; g.beginPath(); g.arc(0, -r * 0.42, r * 0.04, 0, 7); g.fill();
+    } else if (kind === 'lavadrop') {
+      g.fillStyle = '#2b2426'; g.beginPath(); g.ellipse(0, -r * 0.06, r * 0.14, r * 0.1, 0, 0, 7); g.fill();
+      const b = Math.sin(t * 4 + seed) * 0.5 + 0.5, gr = g.createRadialGradient(0, -r * 0.18, 0, 0, -r * 0.18, r * 0.16); gr.addColorStop(0, '#fff3b0'); gr.addColorStop(0.5, '#ff9a2a'); gr.addColorStop(1, '#e8432a');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, -r * (0.16 + b * 0.04), r * (0.09 + b * 0.02), 0, 7); g.fill();
+      const ph = (t * 0.8 + seed) % 1; g.fillStyle = `rgba(255,140,40,${1 - ph})`; g.beginPath(); g.arc(r * 0.05, -r * 0.3 - ph * r * 0.3, r * 0.035 * (1 - ph * 0.5), 0, 7); g.fill();
+    } else if (kind === 'star') {
+      const k = 1 + 0.08 * Math.sin(t * 3 + seed); g.save(); g.translate(0, -r * 0.24); g.rotate(Math.sin(t + seed) * 0.25); g.scale(k, k);
+      const gl = g.createRadialGradient(0, 0, 0, 0, 0, r * 0.35); gl.addColorStop(0, 'rgba(255,240,160,0.6)'); gl.addColorStop(1, 'rgba(255,240,160,0)'); g.fillStyle = gl; g.beginPath(); g.arc(0, 0, r * 0.35, 0, 7); g.fill();
+      g.fillStyle = '#ffd34d'; g.strokeStyle = '#b08a20'; g.beginPath(); for (let a = 0; a < 10; a++) { const rr = a % 2 ? r * 0.08 : r * 0.19, an = -Math.PI / 2 + a * Math.PI / 5; g.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } g.closePath(); g.fill(); g.stroke();
+      g.restore();
+    } else if (kind === 'moon') {
+      g.save(); g.translate(0, -r * 0.24); g.rotate(-0.4 + Math.sin(t * 1.2 + seed) * 0.1);
+      g.fillStyle = '#fff3b0'; g.strokeStyle = '#b8a040'; g.beginPath(); g.arc(0, 0, r * 0.17, 0.6, Math.PI * 2 - 0.6); g.arc(r * 0.1, -r * 0.03, r * 0.13, Math.PI * 2 - 0.9, 0.9, true); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#ffffff'; const tw = 0.5 + 0.5 * Math.sin(t * 5 + seed); g.globalAlpha *= tw; g.beginPath(); g.arc(r * 0.2, -r * 0.16, r * 0.03, 0, 7); g.fill(); g.globalAlpha /= Math.max(0.01, tw);
+      g.restore();
+    } else if (kind === 'gear') {
+      g.save(); g.translate(0, -r * 0.22); g.rotate(t * 1.5 + seed);
+      g.fillStyle = '#b8c2ce'; g.strokeStyle = '#4a5666';
+      g.beginPath(); for (let a = 0; a < 16; a++) { const rr = a % 2 ? r * 0.13 : r * 0.18, an = a * Math.PI / 8; g.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#4a5666'; g.beginPath(); g.arc(0, 0, r * 0.05, 0, 7); g.fill();
+      g.restore();
+    }
   },
 
   // Idle behaviour per clan. Returns body lift, squash, paper-flip (for Air's twirl), pose and face override.
@@ -418,6 +574,7 @@ const Char = {
   //   Fire (Pyra): bounces on its toes like a boxer, fist-pumps.
   //   Earth (Pebble): slow sturdy breathing, stomps the ground then flexes.
   idle(r, el, mood, walk, out, t, seed, o) {
+    if (el >= 4) el = EL_BASE[el];
     const res = { lift: 0, sq: 0, flip: 1, pose: null, pp: -1, face: null };
     const calm = !out && walk < 0.1 && !o.noIdle && !o.noFeet && el >= 0 && (mood === 'happy' || mood === 'neutral' || mood === 'determined' || mood === 'sleepy');
     if (!calm) return res;
@@ -473,6 +630,7 @@ const Char = {
   },
   // celebration flourish for strong happy emotions, unique per clan
   flourish(g, r, el, mood, t, seed) {
+    if (el >= 4) el = EL_BASE[el];
     if (!['cheer', 'laugh', 'starry', 'proud', 'love'].includes(mood) || el < 0) return;
     g.save();
     if (el === 0) { g.strokeStyle = 'rgba(225,240,255,0.75)'; g.lineWidth = Math.max(1.5, r * 0.06); g.lineCap = 'round'; for (let k = 0; k < 3; k++) { const a = t * 5 + k * 2.1; g.beginPath(); g.ellipse(0, -r * 0.1, r * 1.45, r * 0.5, -0.2, a, a + 1.6); g.stroke(); } }
@@ -527,7 +685,7 @@ const Char = {
       const lashes = (n, sc = 1) => { g.strokeStyle = ink; g.lineWidth = Math.max(0.8, r * 0.035); for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + 0.25 + k * 0.32; g.beginPath(); g.moveTo(ex + Math.cos(a) * ew * sc, ey + Math.sin(a) * eh * sc); g.lineTo(ex + Math.cos(a) * ew * sc * 1.45 + r * 0.02, ey + Math.sin(a) * eh * sc * 1.3); g.stroke(); } };
       const lineMouth = (pts) => { g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(mx + pts[0] * r, my + pts[1] * r); g.quadraticCurveTo(mx + pts[2] * r, my + pts[3] * r, mx + pts[4] * r, my + pts[5] * r); g.stroke(); };
       const look = Math.sin(t * 0.7 + seed * 2.3) * 0.12; // eyes drift around a little
-      switch (this._el) {
+      switch (PERSONA[this._el]) {
         case 0: // Zephi (Air): curious and cute - big round eye, lifted brow, pursed "o" lips
           blush(0.8);
           if (blink) shut(); else { eye(1.12, 0.6, 0, -0.3 + look, -0.05); lashes(2, 1.12); }
@@ -568,7 +726,7 @@ const Char = {
     if (mood === 'determined' && this._el >= 0) {
       const blink = ((t + seed * 1.7) % 3.6) < 0.12;
       const shut = () => { g.strokeStyle = ink; g.lineWidth = Math.max(1.2, r * 0.06); g.beginPath(); g.moveTo(ex - ew, ey + eh * 0.2); g.lineTo(ex + ew, ey + eh * 0.2); g.stroke(); };
-      switch (this._el) {
+      switch (PERSONA[this._el]) {
         case 0: { // Zephi: happy-go-lucky - bright smiling eye, carefree arched brow, big joyful open smile
           blush(1.2);
           if (blink) shut(); else {
@@ -944,6 +1102,7 @@ const Char = {
   },
 
   flair(g, r, el, t, seed) {
+    if (el >= 4) el = EL_BASE[el];
     for (let k = 0; k < 3; k++) {
       const ph = ((t * 0.55 + k / 3 + seed * 0.17) % 1), a = k * 2.1 + seed;
       const x = Math.cos(a) * r * 1.35, y = -r * 0.3 - ph * r * 0.9 + Math.sin(a) * r * 0.3;
