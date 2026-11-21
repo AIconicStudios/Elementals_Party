@@ -462,8 +462,24 @@ const MG = {
     const CTL = { coinshower: { a: 'Dash' }, goldclaw: { a: 'Fire claw' }, pinata: { pad: 'Run', a: 'Whack' }, coinrun: { a: 'Jump' }, trail: { a: 'Open', b: 'Bank' }, traitors: { pad: 'Walk', a: 'Pour', b: 'Pour' }, hammer: { a: 'Hold, let go' }, burrow: { lr: 'Steer', a: 'Dig (beat)' }, counterfeit: { pad: 'Hop', a: 'Pick' }, constellation: { pad: 'Hop', a: 'Link' }, swing: { a: 'Leap' }, rally: { lr: 'Ride / flip' }, whack: { lr: 'Bop' }, fireball: { pad: 'Move', a: 'Fire' } };
     const lab = Object.assign({}, CTL[game.id] || {}, game.ctl || {}), aWord = /hold/i.test(c) ? 'Hold, let go' : /jump/i.test(c) ? 'Jump' : /dash/i.test(c) ? 'Dash' : /fire/i.test(c) ? 'Fire' : /push/i.test(c) ? 'Push' : /grab/i.test(c) ? 'Grab' : /dig/i.test(c) ? 'Dig' : /pass/i.test(c) ? 'Pass' : /Pick/i.test(c) ? 'Choose' : 'Action';
     const words = { lr: lab.lr || 'Move', pad: lab.pad || 'Move', a: lab.a || (game.type === 'Brawl' ? 'Jump' : aWord), b: lab.b || (game.type === 'Brawl' ? 'Power' : 'Alt'), cursor: 'Aim' };
-    const gap = 126, y0 = y - (rows.length - 1) * gap / 2;
+    // a game can list its controls exactly: rows: [['lb', 'Left flag'], ['abxy', 'Pick a door'], ...]
+    if (game.rows) { rows.length = 0; game.rows.forEach(([r, w]) => { rows.push(r); words[r] = w; }); }
+    const gap = rows.length > 3 ? 104 : 126, y0 = y - (rows.length - 1) * gap / 2;
+    const face = (x0, y0, r, col, letter, press) => { g.fillStyle = col; g.beginPath(); g.arc(x0, y0 + (press ? 2 : 0), r, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2; g.stroke(); MGH.text(g, letter, x0, y0 + r * 0.38 + (press ? 2 : 0), r * 1.05, '#fff', 'center', 'bold'); };
+    const shoulder = (x0, y0, label, press) => { g.fillStyle = press ? '#9a9ab0' : '#5a5a70'; MGH.rr(g, x0 - 34, y0 - 16 + (press ? 3 : 0), 68, 32, 12); g.fill(); g.strokeStyle = '#ddd'; g.lineWidth = 2; g.stroke(); MGH.text(g, label, x0, y0 + 7 + (press ? 3 : 0), 18, '#fff', 'center', 'bold'); };
     rows.forEach((r, k) => {
+      if (['x', 'y', 'lb', 'rb', 'abxy', 'stick'].includes(r)) {
+        const yy = y0 + k * gap - 8, press = (t * 2 + k * 0.3) % 1 < 0.2;
+        g.fillStyle = 'rgba(255,255,255,0.06)'; MGH.rr(g, x - 95, yy - 46, 190, gap - 10, 18); g.fill();
+        MGH.text(g, words[r] || '', x, yy + gap - 70, 16, '#ffe680', 'center', 'bold');
+        if (r === 'x') face(x, yy - 2, 24, '#3f8ee8', 'X', press);
+        if (r === 'y') face(x, yy - 2, 24, '#e8b82e', 'Y', press);
+        if (r === 'lb') shoulder(x, yy - 4, 'LB', press);
+        if (r === 'rb') shoulder(x, yy - 4, 'RB', press);
+        if (r === 'abxy') { const q = Math.floor(t * 2) % 4; face(x, yy - 30, 14, '#e8b82e', 'Y', q === 0); face(x + 26, yy - 6, 14, '#e8453c', 'B', q === 1); face(x, yy + 18, 14, '#3fc35a', 'A', q === 2); face(x - 26, yy - 6, 14, '#3f8ee8', 'X', q === 3); }
+        if (r === 'stick') { g.fillStyle = '#333'; g.beginPath(); g.arc(x, yy - 4, 26, 0, 7); g.fill(); g.fillStyle = '#777'; g.beginPath(); g.arc(x + Math.cos(t * 3) * 10, yy - 4 + Math.sin(t * 3) * 10, 15, 0, 7); g.fill(); }
+        return;
+      }
       const yy = y0 + k * gap - 8;
       g.fillStyle = 'rgba(255,255,255,0.06)'; MGH.rr(g, x - 95, yy - 52, 190, 118, 18); g.fill();
       MGH.text(g, words[r], x, yy + 60, 16, '#ffe680', 'center', 'bold');
