@@ -1,0 +1,468 @@
+'use strict';
+// Graphics pass 1: shared drawing helpers and redrawn scenes for games that asked for a visual upgrade.
+// Each block replaces only a game's draw (and sometimes hud) so gameplay stays exactly as tuned.
+const GX = {
+  // a hero swimming: body tilts toward the stroke, limbs flutter, bubbles trail behind
+  swimmer(g, m, i, b, mood, o = {}) {
+    const p = m.players[i], sp = Math.hypot(b.vx || 0, b.vy || 0), s = Math.min(1, sp / 110);
+    if (Math.abs(b.vx || 0) > 12) b.fc = b.vx > 0 ? 1 : -1; const f = b.fc || 1;
+    const want = f * (1.25 + clamp((b.vy || 0) / 260, -0.75, 0.75)) * s + f * 0.12 * (1 - s);
+    b.ang = b.ang === undefined ? want : b.ang + (want - b.ang) * 0.18;
+    const r = (o.r || b.r) * 1.3;
+    g.save(); g.translate(b.x, b.y); g.rotate(b.ang + Math.sin(m.t * 9 + i) * 0.06 * s);
+    Char.draw(g, 0, 0, r, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: { x: f, y: 0 }, walk: 0.4 + s * 0.6, t: m.t * (1 + s * 0.6), seed: i * 1.7, noShadow: true, alpha: o.alpha });
+    g.restore();
+    // bubble trail from the mouth/feet
+    for (let k = 0; k < 4; k++) {
+      const ph = (m.t * 1.3 + k * 0.25 + i * 0.13) % 1, bx = b.x - f * (r * 0.9) * (1 - ph) + Math.sin(ph * 9 + k) * 5, by = b.y - ph * 60 - r * 0.3;
+      g.strokeStyle = `rgba(230,250,255,${0.7 * (1 - ph)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(bx, by, 2 + k % 3 + ph * 3, 0, 7); g.stroke();
+    }
+  },
+  // soft ellipse shadow
+  shadow(g, x, y, rx, a = 0.3) { g.save(); g.translate(x, y); g.scale(1, 0.32); const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, `rgba(10,10,30,${a})`); gr.addColorStop(1, 'rgba(10,10,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx, 0, 7); g.fill(); g.restore(); },
+  // vertical gradient fill of a rect
+  vfill(g, x, y, w, h, stops) { const gr = g.createLinearGradient(0, y, 0, y + h); stops.forEach((c, k) => gr.addColorStop(k / (stops.length - 1), c)); g.fillStyle = gr; g.fillRect(x, y, w, h); },
+  // pretty wooden plank with grain and nails
+  plank(g, x, y, w, h, base = '#b07a44', dark = '#7a4e26', seed = 0) {
+    const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, Char.shade(base, 0.18)); gr.addColorStop(1, Char.shade(base, -0.12));
+    g.fillStyle = gr; MGH.rr(g, x, y, w, h, Math.min(5, h / 3)); g.fill();
+    g.strokeStyle = dark; g.lineWidth = 1.5; g.stroke();
+    g.save(); g.globalAlpha = 0.35; g.strokeStyle = dark; g.lineWidth = 1;
+    for (let k = 1; k < 3; k++) { const yy = y + h * k / 3 + Math.sin(seed + k) * 2; g.beginPath(); g.moveTo(x + 4, yy); g.bezierCurveTo(x + w * 0.3, yy - 3, x + w * 0.6, yy + 3, x + w - 4, yy); g.stroke(); }
+    g.restore();
+    g.fillStyle = '#4a3a2a'; [x + 6, x + w - 6].forEach(nx => { g.beginPath(); g.arc(nx, y + h / 2, 2, 0, 7); g.fill(); });
+  },
+  // shiny pearl
+  pearl(g, x, y, r) { const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, 0, x, y, r); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.6, '#f2ecff'); gr.addColorStop(1, '#c8b8e0'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); MGH.glow(g, x, y, r * 2.2, 'rgba(255,240,255,0.5)'); },
+};
+
+// ===================================================================== Pearl Dive: real swimming
+MG.byId.pearls && (MG.byId.pearls.draw = function (m, S, g) {
+  // sky + sea
+  GX.vfill(g, 0, 0, 1280, 150, ['#7cc8f8', '#bfe8ff', '#e6f7ff']);
+  MGH.cloud && [[180, 50, 1], [960, 36, 0.8]].forEach(([x, y, s]) => MGH.cloud(g, x + Math.sin(m.t * 0.1) * 20, y, 34 * s));
+  GX.vfill(g, 0, 140, 1280, 580, ['#3ec0f0', '#1f84cc', '#0f4a96', '#082a60']);
+  MGH.surface(g, 140, m.t);
+  // god rays
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 7; k++) { const x = 120 + k * 180 + Math.sin(m.t * 0.4 + k) * 40; const gr = g.createLinearGradient(0, 140, 0, 700); gr.addColorStop(0, 'rgba(180,240,255,0.16)'); gr.addColorStop(1, 'rgba(180,240,255,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(x - 25, 140); g.lineTo(x + 25, 140); g.lineTo(x + 90, 700); g.lineTo(x - 10, 700); g.fill(); }
+  g.restore();
+  // caustic shimmer on the sea floor
+  g.fillStyle = MGH.grad(g, 640, 720, ['#e8cf96', '#c8a86a', '#a08250']); g.beginPath(); g.moveTo(0, 720); for (let x = 0; x <= 1280; x += 20) g.lineTo(x, 662 + Math.sin(x * 0.018) * 16 + Math.sin(x * 0.05) * 4); g.lineTo(1280, 720); g.fill();
+  g.save(); g.globalAlpha = 0.18; g.strokeStyle = '#fff'; g.lineWidth = 2;
+  for (let k = 0; k < 16; k++) { const x = (k * 97 + m.t * 20) % 1300 - 10, y = 680 + (k % 3) * 12; g.beginPath(); g.ellipse(x, y, 22 + Math.sin(m.t * 2 + k) * 6, 5, 0, 0, 7); g.stroke(); }
+  g.restore();
+  // rocks + coral + kelp
+  [[90, 676, 36, '#6a6a80'], [430, 684, 28, '#5a6078'], [1010, 678, 40, '#6a6a80'], [1200, 686, 26, '#58607a']].forEach(([x, y, r, c]) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, r * 1.3, r * 0.8, 0, Math.PI, 0); g.fill(); g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.ellipse(x - r * 0.3, y - r * 0.45, r * 0.5, r * 0.18, -0.2, 0, 7); g.fill(); });
+  [[250, '#ff7a8a'], [700, '#ffb04a'], [1120, '#c87aff']].forEach(([x, c]) => { g.strokeStyle = c; g.lineCap = 'round'; for (let b = -2; b <= 2; b++) { g.lineWidth = 7 - Math.abs(b); g.beginPath(); g.moveTo(x, 690); g.quadraticCurveTo(x + b * 14, 660, x + b * 22 + Math.sin(m.t + b) * 3, 636 + Math.abs(b) * 8); g.stroke(); } });
+  for (let k = 0; k < 11; k++) { const x = 40 + k * 122; const h = 5 + (k % 3); g.strokeStyle = k % 2 ? '#2f9a52' : '#23804a'; g.lineCap = 'round'; g.lineWidth = 9; g.beginPath(); g.moveTo(x, 692); for (let s = 1; s <= h; s++) g.lineTo(x + Math.sin(m.t * 1.4 + s * 0.7 + k) * (4 + s * 2.5), 692 - s * 22); g.stroke(); }
+  // fish school
+  for (let k = 0; k < 7; k++) { const x = ((m.t * 40 + k * 31) % 1500) - 110, y = 300 + Math.sin(m.t + k) * 10 + (k % 3) * 16; g.fillStyle = 'rgba(255,200,80,0.8)'; g.beginPath(); g.ellipse(x, y, 10, 5, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(x - 9, y); g.lineTo(x - 16, y - 5); g.lineTo(x - 16, y + 5); g.fill(); }
+  // boat with hull planks, rope ladder and flag
+  const by = 112 + Math.sin(m.t * 1.6) * 3;
+  g.save(); g.translate(0, by - 112);
+  g.fillStyle = 'rgba(0,30,60,0.3)'; g.beginPath(); g.ellipse(640, 150, 190, 10, 0, 0, 7); g.fill();
+  const hull = g.createLinearGradient(0, 108, 0, 152); hull.addColorStop(0, '#a8683a'); hull.addColorStop(1, '#5e3418'); g.fillStyle = hull;
+  g.beginPath(); g.moveTo(462, 108); g.lineTo(818, 108); g.quadraticCurveTo(800, 150, 760, 154); g.lineTo(520, 154); g.quadraticCurveTo(480, 150, 462, 108); g.fill();
+  g.strokeStyle = 'rgba(40,20,10,0.5)'; g.lineWidth = 2; [122, 136].forEach(y => { g.beginPath(); g.moveTo(474, y); g.lineTo(806, y); g.stroke(); });
+  g.fillStyle = '#e0a868'; MGH.rr(g, 456, 100, 368, 12, 5); g.fill(); g.fillStyle = '#f6f2e8'; g.fillRect(470, 113, 340, 4);
+  g.strokeStyle = '#5a3a20'; g.lineWidth = 7; g.beginPath(); g.moveTo(640, 102); g.lineTo(640, 14); g.stroke();
+  g.fillStyle = '#fffaf0'; g.beginPath(); g.moveTo(646, 20); g.quadraticCurveTo(700 + Math.sin(m.t * 2) * 6, 50, 730, 74); g.lineTo(646, 94); g.fill(); g.strokeStyle = '#d8ccb0'; g.lineWidth = 2; g.stroke();
+  g.fillStyle = '#ff5a5a'; g.beginPath(); g.moveTo(640, 14); g.lineTo(670 + Math.sin(m.t * 6) * 3, 20); g.lineTo(640, 27); g.fill();
+  g.strokeStyle = '#c8a060'; g.lineWidth = 3; [790, 806].forEach(x => { g.beginPath(); g.moveTo(x, 110); g.lineTo(x - 4, 190); g.stroke(); }); for (let y = 122; y < 190; y += 14) { g.beginPath(); g.moveTo(790 - (y - 110) * 0.05, y); g.lineTo(806 - (y - 110) * 0.05, y); g.stroke(); }
+  // banked pearl basket
+  g.fillStyle = '#c89a5a'; MGH.rr(g, 560, 86, 50, 18, 6); g.fill(); g.strokeStyle = '#7a5530'; g.lineWidth = 2; g.stroke();
+  const tot = S.d.reduce((a, d) => a + d.bank, 0); for (let k = 0; k < Math.min(7, tot); k++) GX.pearl(g, 568 + k * 6, 86 - (k % 2) * 4, 5);
+  Char.npc(g, 520, 80, 18, 'guard', { mood: 'happy', t: m.t });
+  g.restore();
+  // giant clams with ridged shells
+  S.clams.forEach(c => {
+    const o = Math.max(0, Math.sin(c.ph)) * 0.85, closing = Math.sin(c.ph) > 0 && Math.cos(c.ph) < -0.6;
+    g.save(); g.translate(c.x, c.y);
+    GX.shadow(g, 0, 16, 52, 0.35);
+    const shellC = (top) => { const gr = g.createLinearGradient(0, top ? -30 : 0, 0, top ? 0 : 22); gr.addColorStop(0, '#ffd8ec'); gr.addColorStop(1, '#d58ab8'); return gr; };
+    g.fillStyle = shellC(false); g.beginPath(); g.moveTo(-46, 0); g.quadraticCurveTo(0, 34, 46, 0); g.closePath(); g.fill(); g.strokeStyle = '#a85a8a'; g.lineWidth = 2; g.stroke();
+    g.fillStyle = '#7a2a5a'; g.beginPath(); g.ellipse(0, 0, 40, 7, 0, 0, 7); g.fill(); // inside
+    if (c.pearl) GX.pearl(g, 0, -6, 10);
+    g.translate(42, 0); g.rotate(-o); g.translate(-42, 0);
+    g.fillStyle = shellC(true); g.beginPath(); g.moveTo(-46, 0); for (let k = 0; k <= 8; k++) { const a = Math.PI + k / 8 * Math.PI; g.lineTo(Math.cos(a) * 46, Math.sin(a) * 30 - (k % 2 ? 3 : 0)); } g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(160,70,120,0.55)'; g.lineWidth = 1.5; for (let k = 1; k < 8; k++) { const a = Math.PI + k / 8 * Math.PI; g.beginPath(); g.moveTo(0, -2); g.lineTo(Math.cos(a) * 42, Math.sin(a) * 27); g.stroke(); }
+    g.restore();
+    if (closing && c.pearl) { g.fillStyle = 'rgba(255,90,90,0.9)'; g.font = 'bold 18px Georgia'; g.textAlign = 'center'; g.fillText('!', c.x, c.y - 44); }
+  });
+  // rising bubbles
+  for (let k = 0; k < 22; k++) { const ph = (m.t * 0.25 + MGH.hash(k)) % 1; g.strokeStyle = `rgba(255,255,255,${0.5 * (1 - ph)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(MGH.hash(k + 4) * 1280 + Math.sin(ph * 12 + k) * 6, 700 - ph * 560, 2 + k % 4, 0, 7); g.stroke(); }
+  // divers
+  S.d.forEach((d, i) => {
+    const mood = d.stuck > 0 ? 'hurt' : d.air < 0.3 ? 'scared' : 'determined';
+    if (d.y < 150) { // treading water at the surface
+      const p = m.players[i]; Char.draw(g, d.x, d.y + Math.sin(m.t * 3 + i) * 3, d.r * 1.3, p.el.id, p.color, { mood: MGH.persona(d.carry ? 'cheer' : 'happy', p.el.id), walk: 0.5, seed: i * 1.7, noShadow: true, look: { x: d.vx > 0 ? 1 : -1, y: 0 } });
+      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2; g.beginPath(); g.ellipse(d.x, d.y + 22, 28 + Math.sin(m.t * 4) * 3, 6, 0, 0, 7); g.stroke();
+    } else GX.swimmer(g, m, i, d, mood);
+    // carried pearls in a net bag
+    for (let k = 0; k < d.carry; k++) GX.pearl(g, d.x - 12 + k * 12, d.y - 40, 6);
+    if (d.y > 150) { g.fillStyle = 'rgba(0,20,50,0.5)'; MGH.rr(g, d.x - 28, d.y + 36, 56, 9, 4); g.fill(); g.fillStyle = d.air < 0.3 ? '#ff4a3a' : '#8fe8ff'; MGH.rr(g, d.x - 27, d.y + 37, 54 * d.air, 7, 3); g.fill(); g.font = '12px "Segoe UI Emoji"'; g.textAlign = 'right'; g.fillText('🫧', d.x - 30, d.y + 45); }
+  });
+});
+
+// a proper fish (or boot): body gradient, tail, fins, eye
+GX.fish = function (g, x, y, len, col, ang = 0, t = 0, boot = false) {
+  g.save(); g.translate(x, y); g.rotate(ang);
+  if (boot) {
+    g.fillStyle = '#6a4a2a'; g.beginPath(); g.moveTo(-len * 0.3, -len * 0.5); g.lineTo(len * 0.15, -len * 0.5); g.lineTo(len * 0.15, 0); g.quadraticCurveTo(len * 0.6, 0, len * 0.6, len * 0.22); g.lineTo(-len * 0.3, len * 0.22); g.closePath(); g.fill();
+    g.fillStyle = '#3a2614'; g.fillRect(-len * 0.32, len * 0.18, len * 0.94, len * 0.08); g.strokeStyle = '#c8a878'; g.lineWidth = 1.5; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(-len * 0.05, -len * 0.4 + k * len * 0.12); g.lineTo(len * 0.12, -len * 0.4 + k * len * 0.12); g.stroke(); }
+    g.restore(); return;
+  }
+  const w = len * 0.42, wag = Math.sin(t * 10) * 0.25;
+  g.fillStyle = Char.shade(col, -0.2);
+  g.save(); g.translate(len * 0.45, 0); g.rotate(wag); g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(len * 0.25, -w * 0.9, len * 0.32, -w * 0.8); g.quadraticCurveTo(len * 0.2, 0, len * 0.32, w * 0.8); g.quadraticCurveTo(len * 0.25, w * 0.9, 0, 0); g.fill(); g.restore();
+  g.beginPath(); g.moveTo(-len * 0.05, -w * 0.45); g.quadraticCurveTo(len * 0.12, -w * 1.15, len * 0.28, -w * 0.4); g.fill();
+  const gr = g.createLinearGradient(0, -w / 2, 0, w / 2); gr.addColorStop(0, Char.shade(col, -0.15)); gr.addColorStop(0.55, col); gr.addColorStop(1, Char.shade(col, 0.45));
+  g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, len * 0.5, w / 2, 0, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1.2; g.beginPath(); g.arc(-len * 0.28, 0, w * 0.42, -1.1, 1.1); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.ellipse(-len * 0.05, -w * 0.18, len * 0.28, w * 0.1, 0, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(-len * 0.34, -w * 0.1, w * 0.17, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(-len * 0.36, -w * 0.1, w * 0.09, 0, 7); g.fill();
+  g.restore();
+};
+
+// ===================================================================== Fishing Frenzy: lakeside at golden hour
+MG.byId.fishing && (MG.byId.fishing.draw = function (m, S, g) {
+  GX.vfill(g, 0, 0, 1280, 300, ['#6fb8f0', '#b8dcf4', '#ffe0b0']);
+  MGH.glow(g, 1040, 230, 160, 'rgba(255,230,150,0.55)'); g.fillStyle = '#fff4cc'; g.beginPath(); g.arc(1040, 230, 34, 0, 7); g.fill();
+  [[220, 70], [700, 50], [1100, 90]].forEach(([x, y], k) => MGH.cloud(g, (x + m.t * (4 + k)) % 1400 - 60, y, 28 + k * 4));
+  // layered hills with pine trees
+  const hill = (y0, amp, col, seed, trees) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, 300); for (let x = 0; x <= 1280; x += 20) g.lineTo(x, y0 - Math.abs(Math.sin(x * 0.004 + seed)) * amp - Math.sin(x * 0.013 + seed) * amp * 0.2); g.lineTo(1280, 300); g.fill();
+    if (trees) for (let k = 0; k < 40; k++) { const x = MGH.hash(k + seed * 10) * 1280, b = y0 - Math.abs(Math.sin(x * 0.004 + seed)) * amp - Math.sin(x * 0.013 + seed) * amp * 0.2 + 4, h = 18 + MGH.hash(k + 3) * 16; g.fillStyle = Char.shade(col, -0.25); g.beginPath(); g.moveTo(x, b - h); g.lineTo(x - h * 0.35, b); g.lineTo(x + h * 0.35, b); g.fill(); } };
+  hill(250, 70, '#8ab8a8', 1.2, false); hill(286, 50, '#4f8a5a', 3.1, true);
+  // water with reflections and sparkles
+  GX.vfill(g, 0, 298, 1280, 422, ['#5fa8d0', '#2f7ab8', '#1a4a88']);
+  g.save(); g.globalAlpha = 0.25; g.fillStyle = '#ffe8a0'; for (let k = 0; k < 14; k++) { const y = 310 + k * 14, w = 60 - k * 3 + Math.sin(m.t * 2 + k) * 8; g.fillRect(1040 - w / 2 + Math.sin(m.t + k) * 6, y, w, 3); } g.restore();
+  for (let k = 0; k < 30; k++) { const x = (k * 97 + m.t * 10) % 1320 - 20, y = 320 + (k * 53) % 380, a = 0.15 + 0.15 * Math.sin(m.t * 2 + k); g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 10, y); g.quadraticCurveTo(x, y - 4, x + 10, y); g.stroke(); }
+  // lily pads + reeds
+  [[60, 360], [1230, 420], [640, 340]].forEach(([x, y]) => { g.fillStyle = '#4a9a4a'; g.beginPath(); g.ellipse(x, y, 26, 9, 0, 0.3, 6.0); g.lineTo(x, y); g.fill(); });
+  for (let k = 0; k < 9; k++) { const x = (k < 5 ? 10 + k * 9 : 1240 + (k - 5) * 9); g.strokeStyle = '#5a7a3a'; g.lineWidth = 3; g.beginPath(); g.moveTo(x, 720); g.quadraticCurveTo(x + Math.sin(m.t + k) * 6, 600, x + Math.sin(m.t * 1.3 + k) * 8, 520 + k * 6); g.stroke(); g.fillStyle = '#7a4a2a'; MGH.rr(g, x - 3 + Math.sin(m.t * 1.3 + k) * 8, 520 + k * 6, 7, 22, 3); g.fill(); }
+  // fish shadows gliding under the surface
+  for (let k = 0; k < 6; k++) { const dir = k % 2 ? 1 : -1, x = dir > 0 ? (m.t * 30 + k * 220) % 1400 - 60 : 1340 - (m.t * 25 + k * 210) % 1400, y = 470 + (k * 37) % 180; g.save(); g.globalAlpha = 0.18; g.fillStyle = '#0a2040'; g.translate(x, y); g.scale(-dir, 1); g.beginPath(); g.ellipse(0, 0, 22, 8, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(18, 0); g.lineTo(32, -7); g.lineTo(32, 7); g.fill(); g.restore(); }
+  S.p.forEach((p, i) => {
+    const x = 160 + i * 320, dockY = 560, pl = m.players[i];
+    // pier: posts into the water with ripples, plank deck
+    for (const dx of [-58, 58]) { g.fillStyle = '#5a3a1e'; g.fillRect(x + dx - 7, dockY + 10, 14, 120); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 2; g.beginPath(); g.ellipse(x + dx, dockY + 128 > 715 ? 700 : dockY + 100, 14 + Math.sin(m.t * 2 + dx) * 2, 4, 0, 0, 7); g.stroke(); }
+    for (let k = 0; k < 4; k++) GX.plank(g, x - 78 + k * 39, dockY - 2, 38, 26, '#b8844c', '#6a4422', k + i);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x - 78, dockY + 24, 156, 6);
+    // bucket with the catch
+    const bx = x - 62; g.fillStyle = '#8a9aa8'; g.beginPath(); g.moveTo(bx - 14, dockY - 26); g.lineTo(bx + 14, dockY - 26); g.lineTo(bx + 11, dockY); g.lineTo(bx - 11, dockY); g.fill(); g.strokeStyle = '#5a6a78'; g.lineWidth = 2; g.stroke(); g.beginPath(); g.arc(bx, dockY - 26, 14, Math.PI, 0); g.stroke();
+    p.haul.slice(-3).forEach((f, k) => GX.fish(g, bx - 6 + k * 6, dockY - 30 - k * 3, 18, f.col, -1.3 + k * 0.4, m.t + k, !f.v));
+    // angler sitting on the pier edge
+    const reel = p.st === 'reel', ten = reel ? p.ten : 0;
+    Char.draw(g, x - 10, dockY - 40 + (reel ? Math.sin(m.t * 20) * ten * 2 : 0), 30, pl.el.id, pl.color, { mood: reel ? (p.ten > 0.8 ? 'scared' : 'determined') : p.st === 'bite' ? 'shock' : p.msgT > 0 && p.msg.includes('+') ? 'cheer' : 'happy', seed: i, look: { x: 1, y: -0.3 }, hands: { n: { x: -1.1, y: -0.6, d: -140, o: false, m: false }, f: { x: -0.6, y: -0.2, d: 170, o: false, m: false } } });
+    // bending rod: the more tension, the more it curves
+    const hx = x + 18, hy = dockY - 48, bend = reel ? 30 + ten * 50 : p.st === 'bite' ? 30 : 6;
+    const tip = { x: x + 78 - bend * 0.3, y: dockY - 140 + bend * 0.9 };
+    g.strokeStyle = '#3a2412'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(hx, hy); g.quadraticCurveTo(x + 60, dockY - 120 + bend * 0.2, tip.x, tip.y); g.stroke();
+    g.strokeStyle = '#c8a060'; g.lineWidth = 2.5; g.stroke();
+    g.fillStyle = '#9aa0a8'; g.beginPath(); g.arc(hx + 6, hy + 4, 6, 0, 7); g.fill(); g.strokeStyle = '#5a6068'; g.lineWidth = 2; g.beginPath(); g.moveTo(hx + 6, hy + 4); g.lineTo(hx + 6 + Math.cos(m.t * (reel && m.held && m.held(i, 'a') ? 20 : 0)) * 6, hy + 4 + Math.sin(m.t * (reel ? 20 : 0)) * 6); g.stroke();
+    if (p.st !== 'idle') {
+      const fx = x + 40 + (p.bx || 0) * 0.5 + (reel ? p.dist * 40 : 40), dip = p.st === 'bite' ? 14 : p.st === 'wait' && (p.t % p.nib) < 0.15 ? 5 : 0, fy = 420 + dip + Math.sin(m.t * 3 + i) * 2;
+      g.strokeStyle = reel && p.ten > 0.8 ? 'rgba(255,140,140,0.95)' : 'rgba(255,255,255,0.85)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(tip.x, tip.y); g.quadraticCurveTo((tip.x + fx) / 2, reel ? (tip.y + fy) / 2 : fy - 60, fx, fy); g.stroke();
+      if (reel) {
+        const fs = 40 * p.fish.s, fyy = fy + 26 + p.dist * 70, ang = Math.sin(m.t * 8 + i) * 0.4;
+        g.strokeStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx, fyy - 8); g.stroke();
+        GX.fish(g, fx + Math.sin(m.t * 6) * 8, fyy, fs, p.fish.col, -1.2 + ang, m.t * 1.5, !p.fish.v);
+        for (let k = 0; k < 4; k++) { const a = m.t * 9 + k * 1.6; g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(fx + Math.cos(a) * 20, fy - 2 - Math.abs(Math.sin(a)) * 12, 2.5, 0, 7); g.fill(); }
+      }
+      g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(fx, fy + 3, 12 + (m.t * 20 % 10), 3.5, 0, 0, 7); g.stroke();
+      g.fillStyle = '#e8323e'; g.beginPath(); g.arc(fx, fy - 4, 8, Math.PI, 0); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(fx, fy - 4, 8, 0, Math.PI); g.fill(); g.fillStyle = '#333'; g.fillRect(fx - 1, fy - 18, 2, 8);
+      if (p.st === 'bite') { MGH.glow(g, fx, fy - 34, 36, 'rgba(255,80,60,0.5)'); MGH.text(g, '!', fx, fy - 30, 48, '#ff4a3a', 'center', 'bold'); g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 3; g.beginPath(); g.ellipse(fx, fy + 4, 26, 7, 0, 0, 7); g.stroke(); }
+      if (p.st === 'wait' && dip) { g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2; g.beginPath(); g.ellipse(fx, fy + 4, 18, 5, 0, 0, 7); g.stroke(); }
+    }
+    if (reel) { g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, x - 72, 296, 144, 20, 10); g.fill(); g.fillStyle = 'rgba(255,74,58,0.35)'; g.fillRect(x - 66 + 132 * 0.8, 300, 132 * 0.2, 12); const tg = g.createLinearGradient(x - 66, 0, x + 66, 0); tg.addColorStop(0, '#7cf06a'); tg.addColorStop(0.6, '#ffe680'); tg.addColorStop(1, '#ff4a3a'); g.fillStyle = tg; MGH.rr(g, x - 66, 300, 132 * Math.min(1, p.ten), 12, 6); g.fill(); MGH.text(g, '🎣 tension', x, 290, 14, '#fff', 'center', 'bold'); }
+    if (p.msgT > 0) MGH.text(g, p.msg, x, 268, 18, p.msg.includes('+') ? '#ffe680' : '#fff', 'center', 'bold');
+    g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, x - 70, 684, 140, 30, 15); g.fill();
+    MGH.text(g, `${pl.name} ${p.pts}`, x, 706, 18, pl.color, 'center', 'bold');
+  });
+});
+
+// ===================================================================== Laser Limbo: neon stage with real laser bars and a proper crouch
+MG.byId.limbo && (MG.byId.limbo.draw = function (m, S, g) {
+  GX.vfill(g, 0, 0, 1280, 720, ['#0c0620', '#22104a', '#3a145a']);
+  // back wall: LED panel grid pulsing to the beat
+  for (let r = 0; r < 7; r++) for (let c = 0; c < 26; c++) { const v = 0.5 + 0.5 * Math.sin(m.t * 3 + c * 0.5 + r * 0.8); g.fillStyle = `rgba(${c % 3 ? 120 : 255},${60 + r * 10},${200 + (c % 2) * 50},${0.05 + v * 0.1})`; MGH.rr(g, 8 + c * 49, 30 + r * 42, 44, 36, 5); g.fill(); }
+  // sweeping spotlights
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 6; k++) { const a = Math.sin(m.t * 0.7 + k * 1.3) * 0.5, sx = 120 + k * 208, col = ['255,60,160', '60,160,255', '255,220,80'][k % 3]; const gr = g.createLinearGradient(sx, 0, sx, 640); gr.addColorStop(0, `rgba(${col},0.35)`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(sx - 8, 0); g.lineTo(sx + 8, 0); g.lineTo(sx + Math.sin(a) * 600 + 70, 640); g.lineTo(sx + Math.sin(a) * 600 - 70, 640); g.fill(); }
+  g.restore();
+  // host on a podium
+  g.fillStyle = '#2a2050'; MGH.rr(g, 590, 150, 100, 40, 8); g.fill(); g.fillStyle = '#ff3aa0'; g.fillRect(590, 150, 100, 4);
+  Char.npc(g, 640, 118, 28, 'host', { mood: 'cheer', t: m.t });
+  // crowd silhouettes at the front
+  // stage floor: glossy perspective grid
+  GX.vfill(g, 0, 630, 1280, 90, ['#2a1a50', '#140a2a']);
+  g.save(); g.strokeStyle = 'rgba(255,60,200,0.35)'; g.lineWidth = 1.5;
+  for (let k = -10; k <= 10; k++) { g.beginPath(); g.moveTo(640 + k * 60, 630); g.lineTo(640 + k * 170, 720); g.stroke(); }
+  for (let k = 0; k < 4; k++) { const y = 630 + k * k * 7 + k * 6; g.beginPath(); g.moveTo(0, y); g.lineTo(1280, y); g.stroke(); }
+  g.restore();
+  g.fillStyle = '#ff3aa0'; g.fillRect(0, 628, 1280, 3); MGH.glow(g, 640, 630, 600, 'rgba(255,60,180,0.08)');
+  // laser bars: emitter pods with a crackling beam between them
+  S.beams.forEach(b => {
+    const y = b.low ? 606 : 474, col = b.low ? '255,50,60' : '60,150,255', L = 110, x0 = b.x - L / 2, x1 = b.x + L / 2;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const gl = g.createLinearGradient(0, y - 18, 0, y + 18); gl.addColorStop(0, `rgba(${col},0)`); gl.addColorStop(0.5, `rgba(${col},0.55)`); gl.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gl; g.fillRect(x0, y - 18, L, 36);
+    g.strokeStyle = `rgb(${col})`; g.lineWidth = 6; g.beginPath(); g.moveTo(x0, y); for (let s = 1; s <= 10; s++) g.lineTo(x0 + L * s / 10, y + (s < 10 ? Math.sin(m.t * 60 + s * 2.1) * 1.5 : 0)); g.stroke();
+    g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+    // motion trail
+    const tr = g.createLinearGradient(b.x - b.dir * 140, 0, b.x, 0); tr.addColorStop(0, `rgba(${col},0)`); tr.addColorStop(1, `rgba(${col},0.25)`); g.fillStyle = tr; g.fillRect(Math.min(b.x - b.dir * 140, b.x), y - 4, 140, 8);
+    g.restore();
+    [x0, x1].forEach(px => { const pg = g.createRadialGradient(px - 3, y - 4, 1, px, y, 13); pg.addColorStop(0, '#e8e8f8'); pg.addColorStop(1, '#4a4a68'); g.fillStyle = pg; g.beginPath(); g.arc(px, y, 12, 0, 7); g.fill(); g.fillStyle = `rgb(${col})`; g.beginPath(); g.arc(px, y, 4, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1; g.beginPath(); g.arc(px, y - 14, 6, 0.4, 2.7); g.stroke(); });
+    // little hover thrusters
+    MGH.glow(g, b.x, y + 16, 20, `rgba(${col},0.35)`);
+  });
+  S.p.forEach((p, i) => {
+    const x = 200 + i * 290, pl = m.players[i], out = p.hearts <= 0;
+    // floor spot
+    g.save(); g.globalCompositeOperation = 'lighter'; MGH.glow(g, x, 632, 70, `rgba(255,255,255,${out ? 0.03 : 0.1})`); g.restore();
+    GX.shadow(g, x, 632, 34 - Math.min(20, p.y * 0.08), 0.45);
+    if (p.duck && !out) {
+      // real crouch: drop low and lean forward, gloves over the head
+      g.save(); g.translate(x, 600); g.rotate(-0.28);
+      Char.draw(g, 0, 0, 30, pl.el.id, pl.color, { mood: 'scared', seed: i, noShadow: true, hands: { n: { x: -0.4, y: -1.25, d: 0, o: true, m: false }, f: { x: 0.35, y: -1.2, d: 0, o: true, m: false } } });
+      g.restore();
+    } else {
+      const air = p.y > 0, tuck = air ? Math.min(1, p.vy > 0 ? 0.6 : 1) : 0;
+      g.save(); g.translate(x, 560 - p.y); if (air) g.rotate(Math.sin(Math.min(1, p.y / 120) * Math.PI) * 0.25 * (i % 2 ? 1 : -1));
+      Char.draw(g, 0, 0, 32, pl.el.id, pl.color, { mood: out ? 'out' : p.hit > 0 ? 'hurt' : air ? 'cheer' : 'determined', seed: i, alpha: out ? 0.4 : 1, noShadow: true, walk: air ? 0.3 * tuck : 0 });
+      g.restore();
+    }
+    if (p.hit > 0) { g.save(); g.globalCompositeOperation = 'lighter'; MGH.glow(g, x, 560, 60 * p.hit, 'rgba(255,80,80,0.6)'); g.restore(); }
+    g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, x - 50, 658, 100, 26, 13); g.fill();
+    for (let h = 0; h < 3; h++) MGH.heart(g, x - 24 + h * 24, 671, 1.1, h < p.hearts ? '#ff4d6d' : 'rgba(255,255,255,0.2)');
+    MGH.text(g, pl.name, x, 708, 16, pl.color, 'center', 'bold');
+  });
+});
+
+// classic patched football with spin
+GX.ball = function (g, x, y, r, rot = 0) {
+  g.save(); g.translate(x, y);
+  const gr = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.7, '#eeeeee'); gr.addColorStop(1, '#a8a8b0');
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+  g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip(); g.rotate(rot); g.fillStyle = '#222';
+  const pent = (cx, cy, s) => { g.beginPath(); for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 - Math.PI / 2; g.lineTo(cx + Math.cos(a) * s, cy + Math.sin(a) * s); } g.closePath(); g.fill(); };
+  pent(0, 0, r * 0.32); for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + Math.PI / 2; pent(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9, r * 0.26); }
+  g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + Math.PI / 2; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3); g.lineTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7); g.stroke(); }
+  g.restore(); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke();
+  g.restore();
+};
+
+// ===================================================================== Penalty Kicks: floodlit stadium, run-up and dive
+MG.byId.penalty && (MG.byId.penalty.draw = function (m, S, g) {
+  GX.vfill(g, 0, 0, 1280, 210, ['#070c24', '#14204a', '#24386a']);
+  for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(255,255,255,${0.3 + 0.3 * Math.sin(m.t * 2 + k)})`; g.fillRect(MGH.hash(k) * 1280, MGH.hash(k + 9) * 70, 2, 2); }
+  // stands + crowd + ad boards
+  GX.vfill(g, 0, 70, 1280, 140, ['#1a1a30', '#2a2a48']);
+  MGH.crowd(g, m.t, 180, 40);
+  [[0, '#e8323e'], [320, '#2a6ae8'], [640, '#ffb000'], [960, '#2aa84a']].forEach(([x, c], k) => { g.fillStyle = c; g.fillRect(x, 186, 320, 22); g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = 'bold 15px Georgia'; g.textAlign = 'center'; g.fillText(['FOURFOLD CUP', 'ELEMENTAL FC', 'GOAL!', 'PARTY LEAGUE'][k], x + 160 + Math.sin(m.t + k) * 0, 202); });
+  // floodlight towers
+  [[70, 30], [1210, 30]].forEach(([x, y]) => { g.fillStyle = '#3a3a50'; g.fillRect(x - 3, y, 6, 160); g.fillStyle = '#5a5a70'; MGH.rr(g, x - 34, y - 14, 68, 28, 4); g.fill(); for (let k = 0; k < 4; k++) { g.fillStyle = '#fffbe0'; g.beginPath(); g.arc(x - 24 + k * 16, y, 6, 0, 7); g.fill(); } MGH.glow(g, x, y, 140, 'rgba(255,250,210,0.3)'); });
+  // pitch with mowed stripes and gentle vignette
+  for (let k = 0; k < 9; k++) { g.fillStyle = k % 2 ? '#3c9c40' : '#45aa48'; g.fillRect(0, 208 + k * 58, 1280, 58); }
+  const vg = g.createRadialGradient(640, 450, 200, 640, 450, 900); vg.addColorStop(0, 'rgba(255,255,220,0.08)'); vg.addColorStop(1, 'rgba(0,0,0,0.3)'); g.fillStyle = vg; g.fillRect(0, 208, 1280, 512);
+  // box lines
+  g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 420); g.lineTo(1280, 420); g.stroke();
+  g.beginPath(); g.moveTo(250, 420); g.lineTo(200, 700); g.lineTo(1080, 700); g.lineTo(1030, 420); g.stroke();
+  g.beginPath(); g.moveTo(400, 420); g.lineTo(385, 500); g.lineTo(895, 500); g.lineTo(880, 420); g.stroke();
+  g.beginPath(); g.ellipse(640, 700, 120, 30, 0, Math.PI, 0); g.stroke();
+  g.fillStyle = '#fff'; g.beginPath(); g.ellipse(640, 600, 7, 3, 0, 0, 7); g.fill();
+  // goal: back net in perspective, side nets, shaded posts
+  const L = 380, Rt = 900, T = 210, B = 420, bk = 30;
+  g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.moveTo(L + bk, T + bk * 0.6); g.lineTo(Rt - bk, T + bk * 0.6); g.lineTo(Rt - bk * 0.4, B - 6); g.lineTo(L + bk * 0.4, B - 6); g.fill();
+  const bulge = S.ph === 'kick' && !S.saved && S.pt > 0.6 ? Math.max(0, 1 - (S.pt - 0.6) * 1.5) : 0, [bx0, by0] = this.spot(S.ps >= 0 ? S.ps : 0);
+  g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1.2;
+  for (let x = L + bk; x <= Rt - bk; x += 18) { g.beginPath(); for (let y = T + bk * 0.6; y <= B; y += 10) { const d = Math.hypot(x - bx0, y - by0), o = bulge * Math.max(0, 1 - d / 120) * 18; g.lineTo(x + (x - 640) * 0.0 , y - o); } g.stroke(); }
+  for (let y = T + bk * 0.6; y <= B; y += 16) { g.beginPath(); for (let x = L + bk; x <= Rt - bk; x += 12) { const d = Math.hypot(x - bx0, y - by0), o = bulge * Math.max(0, 1 - d / 120) * 18; g.lineTo(x, y - o); } g.stroke(); }
+  [[L, L + bk], [Rt, Rt - bk]].forEach(([a, b]) => { for (let k = 0; k <= 6; k++) { const y = T + k * (B - T) / 6; g.beginPath(); g.moveTo(a, y); g.lineTo(b, T + bk * 0.6 + k * (B - T - bk * 0.6) / 6); g.stroke(); } });
+  g.lineCap = 'round'; g.strokeStyle = '#c8ccd8'; g.lineWidth = 12; g.beginPath(); g.moveTo(L, B); g.lineTo(L, T); g.lineTo(Rt, T); g.lineTo(Rt, B); g.stroke();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.beginPath(); g.moveTo(L - 2, B); g.lineTo(L - 2, T - 2); g.lineTo(Rt - 2, T - 2); g.lineTo(Rt - 2, B); g.stroke(); g.lineCap = 'butt';
+  GX.shadow(g, 640, B + 4, 280, 0.25);
+  if (S.ph === 'pick') [0, 1, 2, 3].forEach(d => { const [x, y] = this.spot(d), pu = 1 + Math.sin(m.t * 4 + d) * 0.06; g.fillStyle = 'rgba(255,255,255,0.14)'; g.beginPath(); g.arc(x, y, 36 * pu, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.setLineDash([6, 6]); g.stroke(); g.setLineDash([]); abxyBadge(g, d, x, y, 16); });
+  // keeper: crouched sway while waiting, full-stretch dive with after-images
+  const kp = m.players[S.keep], kk = S.ph === 'kick' ? Math.min(1, S.pt / 0.4) : 0, [dx, dy] = S.ph === 'kick' ? this.spot(S.pk) : [640, 360];
+  const ease = 1 - (1 - kk) * (1 - kk), sway = S.ph === 'pick' ? Math.sin(m.t * 3) * 18 : 0;
+  const kx = 640 + sway + (dx - 640) * ease, ky = 350 + (dy - 350) * ease - Math.sin(Math.PI * kk) * (S.pk === 0 ? 40 : 20), rot = S.ph === 'kick' ? (S.pk === 1 ? 1 : S.pk === 3 ? -1 : 0) * ease * 1.25 : 0;
+  GX.shadow(g, kx, B - 10, 40, 0.3);
+  const keeper = (x, y, a, al) => { g.save(); g.translate(x, y); g.rotate(a); Char.draw(g, 0, 0, 36, kp.el.id, kp.color, { mood: MGH.persona(S.ph === 'kick' && S.pt > 0.6 ? (S.saved ? 'cheer' : 'hurt') : 'determined', kp.el.id), seed: S.keep * 1.7, look: { x: 0, y: 1 }, alpha: al, noShadow: true, walk: S.ph === 'pick' ? 0.3 : 0, hands: { n: { x: -1.3, y: -1.2, d: -130, o: true, m: true }, f: { x: 1.3, y: -1.2, d: -50, o: true, m: false } } }); g.restore(); };
+  if (S.ph === 'kick' && kk < 1) for (let k = 3; k >= 1; k--) { const e2 = Math.max(0, ease - k * 0.12); keeper(640 + (dx - 640) * e2, 350 + (dy - 350) * e2, rot * e2 / Math.max(0.01, ease), 0.15); }
+  keeper(kx, ky, rot, 1);
+  // shooter: run-up then strike
+  const sp = m.players[S.sh], run = S.ph === 'kick' ? Math.min(1, S.pt / 0.15) : 0;
+  const shX = S.ph === 'pick' ? 560 + Math.sin(m.t * 2) * 4 : 560 + run * 50, shY = S.ph === 'pick' ? 680 : 680 - run * 30;
+  const k = S.ph === 'kick' ? Math.min(1, S.pt / 0.6) : 0, [tx, ty] = this.spot(S.ps >= 0 ? S.ps : 0);
+  let ball = [640, 600], sc = 1;
+  if (S.ph === 'kick') { if (S.saved && S.pt > 0.6) ball = [tx + (S.pt - 0.6) * 300 * (tx > 640 ? 1 : -1), ty + (S.pt - 0.6) * 200 - Math.sin(Math.min(1, (S.pt - 0.6) * 2) * Math.PI) * 60]; else { const kk2 = Math.min(1, k); ball = [640 + (tx - 640) * kk2, 600 + (ty - 600) * kk2 - Math.sin(Math.PI * kk2) * 40]; if (!S.saved && S.pt > 0.6) ball = [tx + Math.sin(S.pt * 20) * 2 * Math.max(0, 1 - S.pt), ty + Math.min(40, (S.pt - 0.6) * 80)]; } sc = 1 - Math.min(1, k) * 0.45; }
+  GX.shadow(g, ball[0], S.ph === 'kick' ? 600 + (Math.min(B + 6, ty + 60) - 600) * Math.min(1, k) : 606, 16 * sc, 0.4);
+  Char.draw(g, shX, shY, 40, sp.el.id, sp.color, { mood: MGH.persona(S.ph === 'kick' && S.pt > 0.6 ? (S.saved ? 'hurt' : 'cheer') : 'determined', sp.el.id), seed: S.sh * 1.7, look: { x: 0.4, y: -1 }, walk: S.ph === 'kick' && run < 1 ? 1 : 0 });
+  if (S.ph === 'kick' && S.pt < 0.6) { g.save(); g.globalAlpha = 0.5 * (1 - k); g.strokeStyle = '#fff'; g.lineWidth = 3; for (let s = 1; s <= 3; s++) { const kb = Math.max(0, k - s * 0.06); g.beginPath(); g.arc(640 + (tx - 640) * kb, 600 + (ty - 600) * kb - Math.sin(Math.PI * kb) * 40, 14 * (1 - kb * 0.45), 0, 7); g.stroke(); } g.restore(); }
+  GX.ball(g, ball[0], ball[1], 15 * sc, S.ph === 'kick' ? S.pt * 18 : 0);
+  if (S.ph === 'kick' && S.pt > 0.6) MGH.label(g, S.saved ? (S.tip ? 'FINGERTIP SAVE!' : 'SAVED!') : 'GOAL!', 640, 140, 48, S.saved ? '#9fe0ff' : '#ffe680');
+  // scoreboard
+  g.fillStyle = 'rgba(10,14,30,0.75)'; MGH.rr(g, 1030, 440, 200, 190, 16); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.2)'; g.lineWidth = 2; g.stroke();
+  for (let q = 0; q < 9; q++) { const r = S.log[q], cx = 1090 + (q % 3) * 40, cy = 540 + Math.floor(q / 3) * 34; if (r === 1) GX.ball(g, cx, cy, 12, q); else { g.fillStyle = r === 0 ? '#5ab8ff' : 'rgba(255,255,255,0.15)'; g.beginPath(); g.arc(cx, cy, 12, 0, 7); g.fill(); if (r === 0) MGH.text(g, '🧤', cx, cy + 5, 13, '#fff'); } }
+  MGH.text(g, `Goals ${S.goals}/6`, 1130, 474, 20, '#ffe680', 'center', 'bold'); MGH.text(g, `Saves ${S.saves}/4`, 1130, 500, 20, '#9fe0ff', 'center', 'bold');
+  if (S.ph === 'pick') { MGH.label(g, `${sp.name} shoots${S.ps >= 0 ? ' ✔' : '…'}`, 170, 560, 20, sp.color); MGH.label(g, `${kp.name} keeps${S.pk >= 0 ? ' ✔' : '…'}`, 1130, 410, 20, kp.color); }
+});
+
+// ===================================================================== Tag-Team Sumo: a real dohyo and lively wrestlers
+MG.byId.tagsumo && (MG.byId.tagsumo.draw = function (m, S, g) {
+  const CX = this.CX, CY = this.CY, RR = this.RR;
+  GX.vfill(g, 0, 0, 1280, 720, ['#2a1a12', '#4a2e1a', '#2a1a10']);
+  // arena lanterns + crowd
+  for (let k = 0; k < 10; k++) { const x = 64 + k * 128, y = 66 + Math.sin(m.t + k) * 2; MGH.glow(g, x, y, 50, 'rgba(255,170,80,0.35)'); g.fillStyle = '#e8483a'; MGH.rr(g, x - 12, y - 16, 24, 32, 10); g.fill(); g.fillStyle = '#2a1a10'; g.fillRect(x - 8, y - 19, 16, 4); g.fillRect(x - 8, y + 15, 16, 4); }
+  MGH.crowd(g, m.t, 150, 34, ['#6a3a2a', '#3a4a6a', '#5a5a2a', '#4a2a4a']);
+  // raised clay platform (square, seen from above at an angle)
+  g.fillStyle = '#7a5434'; g.beginPath(); g.moveTo(CX - RR - 90, CY - RR - 30); g.lineTo(CX + RR + 90, CY - RR - 30); g.lineTo(CX + RR + 130, CY + RR + 80); g.lineTo(CX - RR - 130, CY + RR + 80); g.fill();
+  g.fillStyle = '#5a3a22'; g.beginPath(); g.moveTo(CX - RR - 130, CY + RR + 80); g.lineTo(CX + RR + 130, CY + RR + 80); g.lineTo(CX + RR + 130, CY + RR + 110); g.lineTo(CX - RR - 130, CY + RR + 110); g.fill();
+  const clay = g.createRadialGradient(CX, CY, 40, CX, CY, RR + 80); clay.addColorStop(0, '#e8cf98'); clay.addColorStop(1, '#c8a46a'); g.fillStyle = clay;
+  g.beginPath(); g.moveTo(CX - RR - 70, CY - RR - 18); g.lineTo(CX + RR + 70, CY - RR - 18); g.lineTo(CX + RR + 104, CY + RR + 70); g.lineTo(CX - RR - 104, CY + RR + 70); g.fill();
+  // swept sand ring inside
+  const sand = g.createRadialGradient(CX - 60, CY - 60, 20, CX, CY, RR); sand.addColorStop(0, '#f6e6bc'); sand.addColorStop(1, '#e2c88e'); g.fillStyle = sand; g.beginPath(); g.arc(CX, CY, RR, 0, 7); g.fill();
+  g.save(); g.globalAlpha = 0.08; g.strokeStyle = '#7a5a2a'; g.lineWidth = 2; for (let k = 1; k < 8; k++) { g.beginPath(); g.arc(CX, CY, k * RR / 8, 0, 7); g.stroke(); } g.restore();
+  // straw bales around the edge
+  for (let k = 0; k < 28; k++) { const a = k / 28 * Math.PI * 2, x = CX + Math.cos(a) * (RR + 8), y = CY + Math.sin(a) * (RR + 8); g.save(); g.translate(x, y); g.rotate(a + Math.PI / 2); const bg = g.createLinearGradient(0, -8, 0, 8); bg.addColorStop(0, '#e8d08a'); bg.addColorStop(1, '#a8884a'); g.fillStyle = bg; MGH.rr(g, -30, -9, 58, 18, 8); g.fill(); g.strokeStyle = 'rgba(90,60,20,0.6)'; g.lineWidth = 1.5; for (let s = -18; s <= 18; s += 12) { g.beginPath(); g.moveTo(s, -8); g.lineTo(s, 8); g.stroke(); } g.restore(); }
+  // starting lines
+  g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 5; g.lineCap = 'round'; [[-40], [40]].forEach(([dx]) => { g.beginPath(); g.moveTo(CX + dx, CY - 22); g.lineTo(CX + dx, CY + 22); g.stroke(); }); g.lineCap = 'butt';
+  // hanging roof tassels in the corners
+  [['#3a7ae8', CX - RR - 70, CY - RR - 18], ['#e84a3a', CX + RR + 70, CY - RR - 18]].forEach(([c, x, y], k) => { const sw = Math.sin(m.t * 1.5 + k) * 4; g.strokeStyle = c; g.lineWidth = 4; g.beginPath(); g.moveTo(x, y - 90); g.lineTo(x + sw, y - 20); g.stroke(); g.fillStyle = c; g.beginPath(); g.moveTo(x + sw - 12, y - 20); g.lineTo(x + sw + 12, y - 20); g.lineTo(x + sw + 6, y + 14); g.lineTo(x + sw - 6, y + 14); g.fill(); g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(x + sw - 10, y - 20, 4, 30); });
+  // scoreboard banners
+  [[0, 440], [1, 840]].forEach(([tm, x]) => { g.fillStyle = MG.TEAMC[tm]; g.beginPath(); g.moveTo(x - 56, 44); g.lineTo(x + 56, 44); g.lineTo(x + 56, 110); g.lineTo(x, 124); g.lineTo(x - 56, 110); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.stroke(); MGH.text(g, `${S.ko[tm]}`, x, 104, 48, '#fff', 'center', 'bold'); MGH.text(g, MG.TEAMN[tm], x, 62, 16, '#fff', 'center', 'bold'); });
+  const ents = S.b.map((b, i) => ({ y: b.y, f: () => {
+    const p = m.players[i], r = b.r * 1.3;
+    if (b.out > 0) { // launched out of the ring: arc up, spin, shrink into the crowd
+      if (b.fall > 1.3) return; const k = b.fall / 1.3, ox = b.vx * 0.15 * k, oy = -Math.sin(k * Math.PI) * 140 + k * 60;
+      g.save(); g.globalAlpha = 1 - k * 0.8; g.translate(b.x + ox, b.y + oy); g.rotate(b.fall * 9); g.scale(1 - k * 0.5, 1 - k * 0.5);
+      Char.draw(g, 0, 0, r, p.el.id, p.color, { mood: MGH.persona('hurt', p.el.id), seed: i * 1.7, noShadow: true }); g.restore();
+      if (k < 0.3) MGH.star && MGH.star(g, b.x, b.y, 30 * (1 - k * 3), '#ffe680'); return;
+    }
+    const sp = Math.hypot(b.vx, b.vy), dc = dist(b.x, b.y, CX, CY), teeter = dc > RR - 34 && b.dash <= 0;
+    GX.shadow(g, b.x, b.y + r * 1.25, 34, 0.35);
+    g.fillStyle = MG.TEAMC[b.tm]; g.globalAlpha = 0.55; g.beginPath(); g.ellipse(b.x, b.y + r * 1.25, 30, 9, 0, 0, 7); g.fill(); g.globalAlpha = 1;
+    // charge: crouch back, tremble, dust stomps, filling ring
+    let lean = 0, tx = 0, mood = 'happy';
+    if (b.ch > 0) { const a = Math.atan2(b.face ? b.face.y : 0, b.face ? b.face.x : 1); lean = -Math.cos(a) * 0.25 * b.ch; tx = Math.sin(m.t * 60) * 2 * b.ch; mood = 'effort';
+      g.strokeStyle = `rgba(255,200,80,${0.5 + b.ch * 0.5})`; g.lineWidth = 5; g.beginPath(); g.arc(b.x, b.y + r * 1.25, 34, -Math.PI / 2, -Math.PI / 2 + b.ch * Math.PI * 2); g.stroke();
+      for (let k = 0; k < 3; k++) { const ph = (m.t * 2 + k / 3) % 1; g.fillStyle = `rgba(200,170,120,${0.5 * (1 - ph)})`; g.beginPath(); g.arc(b.x + (k - 1) * 22 + ph * (k - 1) * 14, b.y + r * 1.2 - ph * 14, 5 + ph * 8, 0, 7); g.fill(); } }
+    else if (b.dash > 0) { lean = clamp(b.vx / 700, -0.5, 0.5); mood = 'determined';
+      for (let k = 1; k <= 3; k++) { g.save(); g.globalAlpha = 0.18; Char.draw(g, b.x - b.vx * 0.025 * k, b.y - b.vy * 0.025 * k, r, p.el.id, p.color, { mood: 'determined', seed: i * 1.7, noShadow: true, look: { x: b.vx > 0 ? 1 : -1, y: 0 } }); g.restore(); }
+      g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; const n = Math.hypot(b.vx, b.vy) || 1; for (let k = -1; k <= 1; k++) { const px = -b.vy / n * k * 18, py = b.vx / n * k * 18; g.beginPath(); g.moveTo(b.x + px - b.vx / n * 40, b.y + py - b.vy / n * 40); g.lineTo(b.x + px - b.vx / n * 90, b.y + py - b.vy / n * 90); g.stroke(); } }
+    else if (teeter) { lean = Math.sin(m.t * 14 + i) * 0.22; mood = 'scared'; }
+    else if (sp > 60) { lean = clamp(b.vx / 900, -0.2, 0.2); mood = 'determined'; }
+    if (b.inv > 0 && Math.floor(m.t * 12) % 2) g.globalAlpha = 0.55;
+    g.save(); g.translate(b.x + tx, b.y + r * 1.25); g.rotate(lean);
+    const look = b.ch > 0 || b.dash > 0 ? { x: (b.face && b.face.x) || (b.vx > 0 ? 1 : -1), y: 0 } : b.face;
+    Char.draw(g, 0, -r * 1.25, r, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), seed: i * 1.7, noShadow: true, look, walk: sp > 40 ? 1 : 0, hands: teeter ? { n: { x: -1.4, y: -1.0 + Math.sin(m.t * 18) * 0.4, d: -90, o: true, m: false }, f: { x: 1.3, y: -1.0 + Math.cos(m.t * 18) * 0.4, d: -90, o: true, m: false } } : undefined });
+    g.restore(); g.globalAlpha = 1;
+    if (teeter) MGH.text(g, '!', b.x, b.y - r * 1.6, 28, '#ff6a4a', 'center', 'bold');
+  } }));
+  ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
+});
+
+// ===================================================================== Critter Count: proper bunnies, ducks and frogs (all face left, the way the parade moves)
+MG.byId.critters && (MG.byId.critters.critter = function (g, k, x, y, s, t) {
+  const ph = (t * 1.5) % 1;
+  g.save();
+  if (k === 0) { // bunny: crouch, leap with stretched body, land
+    const hop = Math.sin(ph * Math.PI), stretch = hop * 0.25;
+    GX.shadow(g, x, y + 24 * s, 22 * s * (1 - hop * 0.3), 0.3);
+    g.translate(x, y - hop * 26 * s); g.scale(s, s); g.rotate(-0.25 * Math.cos(ph * Math.PI));
+    const fur = g.createRadialGradient(-6, -6, 2, 0, 0, 26); fur.addColorStop(0, '#ffffff'); fur.addColorStop(1, '#d8d4e0');
+    g.fillStyle = '#e8e4ee'; g.beginPath(); g.ellipse(14 + stretch * 10, 16, 9, 5 + stretch * 4, 0.4, 0, 7); g.fill(); // hind foot
+    g.fillStyle = fur; g.beginPath(); g.ellipse(4, 2, 22 * (1 + stretch), 17 * (1 - stretch * 0.4), 0, 0, 7); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(25 + stretch * 6, -2, 7, 0, 7); g.fill(); // cotton tail
+    g.fillStyle = '#e8e4ee'; g.beginPath(); g.ellipse(-16 - stretch * 8, 14, 7, 4, -0.3, 0, 7); g.fill(); // front paw
+    g.fillStyle = fur; g.beginPath(); g.arc(-16, -10, 13, 0, 7); g.fill(); // head
+    [[-14, 0.15], [-8, 0.45]].forEach(([ex, a], q) => { g.save(); g.translate(ex, -20); g.rotate(a + Math.sin(t * 6 + q) * 0.08 + hop * 0.3); g.fillStyle = q ? '#e0dce8' : '#fff'; g.beginPath(); g.ellipse(0, -14, 5.5, 15, 0, 0, 7); g.fill(); g.fillStyle = '#ffb0c8'; g.beginPath(); g.ellipse(0, -13, 2.5, 10, 0, 0, 7); g.fill(); g.restore(); });
+    g.fillStyle = '#2a1a2a'; g.beginPath(); g.arc(-21, -13, 2.8, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(-22, -14, 1, 0, 7); g.fill();
+    g.fillStyle = '#ff8ab8'; g.beginPath(); g.arc(-28.5, -8, 2.2, 0, 7); g.fill(); g.fillStyle = 'rgba(255,140,170,0.4)'; g.beginPath(); g.arc(-18, -5, 3.5, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(120,100,120,0.5)'; g.lineWidth = 0.8; for (let w = -1; w <= 1; w++) { g.beginPath(); g.moveTo(-27, -7); g.lineTo(-36, -7 + w * 3); g.stroke(); }
+  } else if (k === 1) { // duck: waddle side to side with paddling feet
+    const wad = Math.sin(t * 10);
+    GX.shadow(g, x, y + 24 * s, 22 * s, 0.3);
+    g.translate(x, y); g.scale(s, s); g.rotate(wad * 0.1);
+    g.fillStyle = '#ff9a2a'; [[-6, wad], [6, -wad]].forEach(([fx, w]) => { g.beginPath(); g.moveTo(fx, 14); g.lineTo(fx - 7 + w * 3, 22 - Math.max(0, w) * 4); g.lineTo(fx + 5 + w * 3, 22 - Math.max(0, w) * 4); g.fill(); });
+    const bd = g.createRadialGradient(-4, -2, 2, 0, 4, 26); bd.addColorStop(0, '#fff3a8'); bd.addColorStop(1, '#f0c838'); g.fillStyle = bd;
+    g.beginPath(); g.moveTo(-18, 2); g.quadraticCurveTo(-20, 18, 2, 18); g.quadraticCurveTo(22, 18, 26, -2); g.lineTo(30, -8); g.quadraticCurveTo(20, -4, 10, -6); g.quadraticCurveTo(-4, -8, -18, 2); g.fill();
+    g.fillStyle = '#f0c030'; g.beginPath(); g.ellipse(6, 4, 12, 7, -0.2 + Math.sin(t * 20) * 0.05, 0, 7); g.fill(); g.strokeStyle = 'rgba(180,130,20,0.6)'; g.lineWidth = 1; g.beginPath(); g.arc(8, 4, 7, 0.2, 2.2); g.stroke();
+    g.fillStyle = bd; g.beginPath(); g.arc(-14, -14, 11, 0, 7); g.fill();
+    g.fillStyle = '#ff8a2a'; g.beginPath(); g.moveTo(-23, -15); g.quadraticCurveTo(-34, -16, -35, -11); g.quadraticCurveTo(-30, -8, -22, -10); g.fill(); g.strokeStyle = '#c85a10'; g.lineWidth = 1; g.beginPath(); g.moveTo(-34, -12); g.lineTo(-24, -12); g.stroke();
+    g.fillStyle = '#2a1a10'; g.beginPath(); g.arc(-17, -17, 2.6, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(-18, -18, 0.9, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,130,80,0.35)'; g.beginPath(); g.arc(-12, -10, 3, 0, 7); g.fill();
+    g.fillStyle = '#ffe680'; g.beginPath(); g.moveTo(-12, -25); g.quadraticCurveTo(-9, -32, -6, -26); g.fill();
+  } else { // frog: crouch, big leap with legs kicked out
+    const hop = Math.sin(ph * Math.PI), air = hop > 0.15;
+    GX.shadow(g, x, y + 22 * s, 22 * s * (1 - hop * 0.4), 0.3);
+    g.translate(x, y - hop * 30 * s); g.scale(s, s); g.rotate(air ? -0.15 : 0);
+    g.fillStyle = '#4a9a2a';
+    if (air) { g.beginPath(); g.ellipse(24, 10, 16, 4, 0.3, 0, 7); g.fill(); g.beginPath(); g.ellipse(-22, 12, 9, 3, -0.6, 0, 7); g.fill(); }
+    else { g.beginPath(); g.ellipse(14, 12, 12, 8, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-12, 14, 6, 4, 0, 0, 7); g.fill(); }
+    const fb = g.createRadialGradient(-4, -6, 2, 0, 2, 26); fb.addColorStop(0, '#a8ea6a'); fb.addColorStop(1, '#4fa82e'); g.fillStyle = fb;
+    g.beginPath(); g.ellipse(0, 4, 24, 15 + (air ? -2 : 1), 0, 0, 7); g.fill();
+    g.fillStyle = '#f4f0c0'; g.beginPath(); g.ellipse(-4, 12, 16, 6, 0, 0, Math.PI); g.fill();
+    g.fillStyle = 'rgba(40,110,30,0.6)'; [[6, -2, 4], [14, 4, 3], [-2, -6, 2.5]].forEach(([sx, sy, sr]) => { g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fill(); });
+    g.fillStyle = fb; [[-14, -10], [-2, -12]].forEach(([ex, ey]) => { g.beginPath(); g.arc(ex, ey, 8, 0, 7); g.fill(); });
+    [[-14, -11], [-2, -13]].forEach(([ex, ey]) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(ex, ey, 5.5, 0, 7); g.fill(); g.fillStyle = '#1a1a1a'; g.beginPath(); g.ellipse(ex - 1, ey, 2.5, 3.5, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(ex - 2, ey - 1.5, 1, 0, 7); g.fill(); });
+    g.strokeStyle = '#2a6a1a'; g.lineWidth = 1.6; g.beginPath(); g.arc(-12, 0, 9, 0.3, 1.9); g.stroke();
+    g.fillStyle = 'rgba(255,120,120,0.35)'; g.beginPath(); g.arc(-18, 1, 3, 0, 7); g.fill();
+  }
+  g.restore();
+});
+
+// ===================================================================== Marble Maze: smooth, weighty tilt with depth, raised walls and moving shadows
+MG.byId.marble && (MG.byId.marble.draw = function (m, S, g) {
+  GX.vfill(g, 0, 0, 1280, 720, ['#4a2e20', '#5a3a28', '#2e1c12']);
+  // table top with planks
+  for (let k = 0; k < 6; k++) GX.plank(g, -10, 480 + k * 42, 1300, 40, '#6a4428', '#3a2414', k);
+  MGH.glow(g, 640, 300, 700, 'rgba(255,220,160,0.12)');
+  const MZ = typeof MAZES !== 'undefined' ? MAZES : [];
+  for (let i = 0; i < 4; i++) {
+    const P = S.p[i], p = m.players[i], ox = this.ox(i), Z = MZ[P.mz % 3], a = m.axis(i);
+    P.sx = (P.sx || 0) + (a.x - (P.sx || 0)) * Math.min(1, m.dt * 7 || 0.12); P.sy = (P.sy || 0) + (a.y - (P.sy || 0)) * Math.min(1, m.dt * 7 || 0.12);
+    const sx = P.sx, sy = P.sy, cx = ox + 160, cy = 310, fx = 0.94 * (1 - Math.abs(sx) * 0.12), fy = 0.94 * (1 - Math.abs(sy) * 0.16), kx = sx * 0.13, ky = sy * 0.13;
+    const T = (u, v) => [cx + fx * ((u - 160) + kx * (v - 160)), cy + fy * (ky * (u - 160) + (v - 160))];
+    // gimbal frame + knobs
+    g.fillStyle = '#3a2414'; MGH.rr(g, cx - 168, cy - 168, 336, 336 + 24, 10); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); const sh = [T(0, 0), T(320, 0), T(320, 320), T(0, 320)].map(([x, y]) => [x + 10 + sx * 8, y + 14 + sy * 8]); sh.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.fill();
+    // board thickness (front + one side, depending on tilt)
+    const D = 14 + sy * 8, [blx, bly] = T(0, 320), [brx, bry] = T(320, 320), [trx, try_] = T(320, 0), [tlx, tly] = T(0, 0);
+    g.fillStyle = '#8a6434'; g.beginPath(); g.moveTo(blx, bly); g.lineTo(brx, bry); g.lineTo(brx, bry + D); g.lineTo(blx, bly + D); g.fill();
+    if (sx > 0.05) { g.fillStyle = '#6a4a24'; g.beginPath(); g.moveTo(tlx, tly); g.lineTo(blx, bly); g.lineTo(blx - sx * 10, bly + D); g.lineTo(tlx - sx * 10, tly + D * 0.6); g.fill(); }
+    if (sx < -0.05) { g.fillStyle = '#6a4a24'; g.beginPath(); g.moveTo(trx, try_); g.lineTo(brx, bry); g.lineTo(brx - sx * 10, bry + D); g.lineTo(trx - sx * 10, try_ + D * 0.6); g.fill(); }
+    g.save(); g.translate(cx, cy); g.scale(fx, fy); g.transform(1, ky, kx, 1, 0, 0); g.translate(-160, -160);
+    // top surface: wood with a light sheen that slides with the tilt
+    g.fillStyle = MGH.grad(g, 0, 320, ['#e2c48c', '#c8a466']); g.fillRect(0, 0, 320, 320);
+    for (let k = 0; k < 10; k++) { g.strokeStyle = 'rgba(120,80,40,0.13)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 16 + k * 32); g.bezierCurveTo(100, 10 + k * 32, 200, 24 + k * 32, 320, 18 + k * 32); g.stroke(); }
+    const sheen = g.createRadialGradient(160 - sx * 120, 160 - sy * 120, 10, 160 - sx * 120, 160 - sy * 120, 220); sheen.addColorStop(0, 'rgba(255,250,230,0.35)'); sheen.addColorStop(1, 'rgba(255,250,230,0)'); g.fillStyle = sheen; g.fillRect(0, 0, 320, 320);
+    const dark = g.createLinearGradient(160 + sx * 160, 160 + sy * 160, 160 - sx * 160, 160 - sy * 160); dark.addColorStop(0, `rgba(40,20,0,${0.18 * Math.hypot(sx, sy)})`); dark.addColorStop(1, 'rgba(40,20,0,0)'); g.fillStyle = dark; g.fillRect(0, 0, 320, 320);
+    g.strokeStyle = '#6a4a24'; g.lineWidth = 9; g.strokeRect(0, 0, 320, 320); g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.strokeRect(5, 5, 310, 310);
+    if (Z) {
+      Z.holes.forEach(([hx, hy]) => { const hg = g.createRadialGradient(hx + 3, hy + 3, 2, hx, hy, 16); hg.addColorStop(0, '#000'); hg.addColorStop(0.8, '#1a0e08'); hg.addColorStop(1, '#6a4a2a'); g.fillStyle = hg; g.beginPath(); g.arc(hx, hy, 15, 0, 7); g.fill(); g.strokeStyle = '#8a6a3a'; g.lineWidth = 2; g.stroke(); });
+      const ex = -sx * 3 - 2, ey = -sy * 3 - 5; // raised walls: shadow, side, top
+      Z.walls.forEach(([wx, wy, ww, wh]) => { g.fillStyle = 'rgba(40,20,0,0.35)'; g.fillRect(wx + 4 + sx * 4, wy + 5 + sy * 4, ww, wh); });
+      Z.walls.forEach(([wx, wy, ww, wh]) => { g.fillStyle = '#6a4a22'; g.fillRect(wx, wy, ww, wh); g.fillStyle = MGH.grad(g, wy + ey, wy + ey + wh, ['#b08a54', '#94703e']); g.fillRect(wx + ex, wy + ey, ww, wh); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(wx + ex, wy + ey, ww, 3); });
+    }
+    MGH.glow(g, 295, 25, 34 + Math.sin(m.t * 4) * 4, 'rgba(255,220,100,0.7)'); MGH.star(g, 295, 25, 15, '#ffd34d', m.t);
+    g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2; g.setLineDash([4, 4]); g.beginPath(); g.arc(30, 290, 16, 0, 7); g.stroke(); g.setLineDash([]);
+    // marble: contact shadow that shifts with tilt, glossy body, rolling stripe
+    const sc = P.fall > 0 ? P.fall / 0.8 : 1;
+    if (sc > 0.05) {
+      g.fillStyle = 'rgba(30,15,0,0.35)'; g.beginPath(); g.ellipse(P.x + 4 + sx * 3, P.y + 5 + sy * 3, 10 * sc, 7 * sc, 0, 0, 7); g.fill();
+      const gr = g.createRadialGradient(P.x - 3 - sx * 2, P.y - 4 - sy * 2, 1, P.x, P.y, 11 * sc); gr.addColorStop(0, '#fff'); gr.addColorStop(0.35, p.color); gr.addColorStop(1, Char.shade(p.color, -0.6)); g.fillStyle = gr; g.beginPath(); g.arc(P.x, P.y, 11 * sc, 0, 7); g.fill();
+      g.save(); g.beginPath(); g.arc(P.x, P.y, 11 * sc, 0, 7); g.clip(); g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2.5; const roll = (P.x + P.y) * 0.15; g.beginPath(); g.ellipse(P.x, P.y, 11 * sc * Math.abs(Math.cos(roll)), 11 * sc, Math.atan2(P.vy, P.vx), 0, 7); g.stroke(); g.restore();
+    }
+    g.restore();
+    // knobs on the frame turn with the tilt
+    [[cx - 120, sx], [cx + 120, sy]].forEach(([kx2, v]) => { const ky2 = cy + 176; g.fillStyle = '#c8a060'; g.beginPath(); g.arc(kx2, ky2, 14, 0, 7); g.fill(); g.strokeStyle = '#5a3a1a'; g.lineWidth = 3; g.beginPath(); g.moveTo(kx2, ky2); g.lineTo(kx2 + Math.sin(v * 1.4) * 12, ky2 - Math.cos(v * 1.4) * 12); g.stroke(); });
+    // the player leans into the tilt
+    g.save(); g.translate(ox + 160, 610); g.rotate(sx * 0.16);
+    Char.draw(g, 0, -50, 34, p.el.id, p.color, { mood: MGH.persona(P.fall > 0 ? 'hurt' : Math.hypot(P.vx, P.vy) > 150 ? 'scared' : 'determined', p.el.id), seed: i * 1.7, look: { x: a.x, y: -0.5 }, hands: { n: { x: -1.1 + sx * 0.2, y: -1.2 - sx * 0.2, d: -120, o: false, m: true }, f: { x: 1.1 + sx * 0.2, y: -1.2 + sx * 0.2, d: -60, o: false, m: false } } });
+    g.restore();
+    g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, ox + 85, 670, 150, 32, 16); g.fill();
+    MGH.text(g, `${p.name}  🏁 ${P.goals}`, ox + 160, 693, 19, p.color, 'center', 'bold');
+  }
+});
