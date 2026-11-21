@@ -193,7 +193,7 @@ MG.def({
     S.p.forEach((P, i) => {
       P.fxT -= dt; P.flash = P.flash.map(f => Math.max(0, f - dt));
       const a = m.axis(i), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : a.y < -0.6 ? 'up' : a.y > 0.6 ? 'down' : '';
-      const presses = this.DIRS.filter(k => m.pressed(i, k)); if (now && now !== P.ax && !presses.includes(now)) presses.push(now); P.ax = now;
+      const presses = m.bot(i) ? [] : this.DIRS.filter(k => m.pressed(i, k)); if (now && now !== P.ax && !presses.includes(now)) presses.push(now); P.ax = now;
       presses.forEach(k => {
         const d = this.DIRS.indexOf(k); P.flash[d] = 0.15;
         const n = S.notes.findIndex((q, j) => q.d === d && !P.hit.has(j) && Math.abs(q.t - t) < 0.18);

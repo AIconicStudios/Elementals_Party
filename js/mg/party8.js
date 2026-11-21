@@ -288,7 +288,7 @@ MG.def({
     S.p.forEach((P, i) => {
       P.fx.forEach(f => { f.t += dt; }); P.fx = P.fx.filter(f => f.t < 0.5);
       const a = m.axis(i), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : a.y > 0.6 ? 'down' : '';
-      let d = ['left', 'down', 'right'].find(k => m.pressed(i, k)) || (now && now !== P.ax ? now : null); P.ax = now;
+      let d = (m.bot(i) ? null : ['left', 'down', 'right'].find(k => m.pressed(i, k))) || (now && now !== P.ax ? now : null); P.ax = now;
       S.seq.forEach((q, n) => { if (!P.done.has(n) && t >= q.t && this.y(S, q, t) > 700) { P.done.add(n); P.fx.push({ txt: 'lost', col: '#ffb13d', t: 0 }); } });
       if (!d) return;
       const n = S.seq.findIndex((q, n) => !P.done.has(n) && t >= q.t && Math.abs(this.y(S, q, t) - this.ZONE) < 70);

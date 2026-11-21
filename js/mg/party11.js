@@ -377,7 +377,7 @@ MG.def({
     S.tm.forEach((T, tm) => {
       const R_ = this.roles(S, tm), cx = tm ? 960 : 320; T.cd -= dt;
       const a = m.axis(R_.shake), now = a.x < -0.6 ? 'left' : a.x > 0.6 ? 'right' : a.y < -0.6 ? 'up' : '';
-      let d = ['left', 'up', 'right'].find(k => m.pressed(R_.shake, k)) || (now && now !== T.ax ? now : null); T.ax = now;
+      let d = (m.bot(R_.shake) ? null : ['left', 'up', 'right'].find(k => m.pressed(R_.shake, k))) || (now && now !== T.ax ? now : null); T.ax = now;
       if (d && T.cd <= 0) { const br = ['left', 'up', 'right'].indexOf(d); T.cd = 0.35; T.shook = { br, t: 0.3 }; T.drops.push({ x: cx + this.BR[br] + R.range(-20, 20), y: 220, vy: 0, bad: br !== T.glow }); if (br === T.glow) { T.glow = R.pick([0, 1, 2].filter(k => k !== br)); Sfx.tone(700, 0.05, 'triangle', 0.03); } else Sfx.tone(200, 0.1, 'square', 0.03); }
       if (T.shook) { T.shook.t -= dt; if (T.shook.t <= 0) T.shook = null; }
       T.bx = clamp(T.bx + m.axis(R_.catch).x * 420 * dt, -220, 220);
