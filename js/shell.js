@@ -88,7 +88,7 @@ const Shell = {
     this.screen = screen; this.st = 0; this.sel = 0; this.confirm = false; this.msg = '';
     if (screen === 'title') { Music.back = 'title'; Music.play('title'); this.titleCast = R.shuffle([...Array(15).keys()]); }
     else if (Music.cur !== 'board') { Music.back = 'board'; Music.play('board'); }
-    if (screen === 'select') Voice.announce('Choose your heroes!');
+    if (screen === 'select') Voice.announce('Select your avatar!');
   },
   frame(dt) {
     this.t += dt; this.st += dt;
@@ -226,7 +226,7 @@ const Shell = {
   gridPos(c) { const col = c % 5, row = Math.floor(c / 5); return { x: 255 + col * 154, y: 84 + row * 120, w: 140, h: 110 }; },
   takenBy(c, except) { return this.seats.findIndex((s, i) => i !== except && s.picked && s.char === c); },
   scr_select(g) {
-    this.text(g, 'Choose your heroes!', 640, 60, 42, '#ffe680');
+    this.text(g, 'Select your avatar!', 640, 60, 42, '#ffe680');
     // join / move / pick per device
     for (const id in this.ev) {
       if (id === 'esc') continue;
@@ -284,7 +284,7 @@ const Shell = {
         return;
       }
       const c = s.picked ? s.char : s.cur;
-      this.hero(g, x + 70, y + 102, 44, c, { mood: s.picked ? 'cheer' : 'happy', t: this.t + i, look: { x: 0.6, y: 0 } });
+      if (s.picked) { s.pickT = s.pickT || this.t; Char.win(g, x + 66, y + 96, 40, c, this.t - s.pickT); } else { s.pickT = 0; this.hero(g, x + 70, y + 102, 44, c, { mood: 'happy', t: this.t + i, look: { x: 0.6, y: 0 } }); }
       this.text(g, ELEMENTS[c].mascot, x + 190, y + 50, 28, ELEMENTS[c].color, 'center', 'bold');
       this.text(g, ELEMENTS[c].glyph + ' ' + ELEMENTS[c].name, x + 190, y + 78, 17, '#fff', 'center', '', null);
       this.wrap(g, BIO[c], x + 190, y + 102, 170, 18, 14, '#d8ccff', 'center');
@@ -336,14 +336,14 @@ const Shell = {
       { label: '🏆 Challenge', sub: this.ch ? `Game ${Math.min(this.ch.idx + 1, this.ch.order.length)} of ${this.ch.order.length}` : 'Every game once — who’s the champ?', fn: () => this.go('challenge'), col: '#ffcc33' },
       { label: '🎮 Free Play', sub: `${MG.list.length} minigames`, fn: () => { this.tab = this.tab || 0; this.go('browse'); }, col: '#7cf06a' },
       { label: '📜 Records', sub: 'Wins, champions, favourites', fn: () => this.go('records'), col: '#8fd8ff' },
-      { label: '🙂 Change heroes', sub: 'Back to hero select', fn: () => { this.seats.forEach(s => { s.picked = false; }); this.go('select'); }, col: '#ff9ad0' },
+      { label: '🙂 Change avatars', sub: 'Back to avatar select', fn: () => { this.seats.forEach(s => { s.picked = false; }); this.go('select'); }, col: '#ff9ad0' },
       { label: '⚙️ Settings', sub: 'Sound, voices, controls', fn: () => this.go('settings'), col: '#c8b8ff' },
     ];
     this.menuList(g, items, 90, 200, 470, 78, 92);
     this.panel(g, 620, 210, 600, 380);
     this.text(g, 'Today’s party', 920, 254, 26, '#ffe680');
     this.lineup(g, 700, 380, 146, 50);
-    this.hints(g, [['A', 'Choose'], ['B', 'Hero select']]);
+    this.hints(g, [['A', 'Choose'], ['B', 'Avatar select']]);
     if (this.any('b')) { this.seats.forEach(s => { s.picked = false; }); this.go('select'); }
   },
 
@@ -429,7 +429,7 @@ const Shell = {
     if (!this.saidChamp) { this.saidChamp = true; Voice.announce(`${champs.map(i => ELEMENTS[this.seats[i].char].mascot).join(' and ')} ${champs.length > 1 ? 'are' : 'is'} the champion!`); setTimeout(() => Voice.line(this.seats[champs[0]].char, 'win'), 2200); if (!ch.recorded) { ch.recorded = true; this.rec.champs.unshift({ who: champs.map(i => this.seats[i].char), pts: top, games: ch.order.length, date: Date.now() }); this.rec.champs = this.rec.champs.slice(0, 20); this.save('rec'); this.save('ch'); } }
     g.save(); g.translate(640, 230); g.rotate(this.t * 0.3); for (let k = 0; k < 16; k++) { g.rotate(Math.PI / 8); g.fillStyle = k % 2 ? 'rgba(255,230,128,0.1)' : 'rgba(255,255,255,0.05)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-80, -900); g.lineTo(80, -900); g.fill(); } g.restore();
     this.text(g, '👑 CHALLENGE CHAMPION 👑', 640, 80, 46, '#ffe680');
-    champs.forEach((i, k) => this.hero(g, 640 + (k - (champs.length - 1) / 2) * 200, 250 - Math.abs(Math.sin(this.t * 4 + k)) * 20, 80, this.seats[i].char, { mood: 'cheer', t: this.t }));
+    champs.forEach((i, k) => Char.win(g, 620 + (k - (champs.length - 1) / 2) * 260, 230, 76, this.seats[i].char, this.t + k));
     this.text(g, champs.map(i => ELEMENTS[this.seats[i].char].mascot).join(' & ') + ` — ★ ${top}`, 640, 400, 40, '#fff');
     order.forEach((i, k) => this.text(g, `${k + 1}. ${ELEMENTS[this.seats[i].char].mascot}  ★ ${ch.pts[i]}`, 640, 460 + k * 40, 26, ELEMENTS[this.seats[i].char].color));
     for (let k = 0; k < 2; k++) if (Math.random() < 0.5) { /* confetti drift */ }
@@ -576,6 +576,7 @@ const Shell = {
         this.text(g, game.fmt ? game.fmt(res.scores[i]) : String(Math.round(res.scores[i] * 100) / 100), 600, y + 46, 22, '#fff', 'center', '', null);
         if (ch && L.stars) this.text(g, L.stars[i] ? '+' + '★'.repeat(L.stars[i]) : '', 720, y + 48, 26, '#ffd34d', 'center', 'bold');
       });
+      if (!ch) { const w = order[0]; this.panel(g, 820, 110, 420, 330); Char.win(g, 1010, 250, 70, this.seats[w].char, this.t); this.text(g, `${ELEMENTS[this.seats[w].char].mascot} wins!`, 1030, 420, 26, ELEMENTS[this.seats[w].char].color); }
       if (ch && this.ch) {
         this.panel(g, 820, 110, 420, 330); this.text(g, 'Challenge standings', 1030, 150, 22, '#ffe680');
         const pts = this.ch.pts; [0, 1, 2, 3].sort((a, b) => pts[b] - pts[a] || a - b).forEach((i, k) => { this.hero(g, 870, 200 + k * 62, 20, this.seats[i].char, { t: this.t + i }); this.text(g, ELEMENTS[this.seats[i].char].mascot, 910, 208 + k * 62, 22, ELEMENTS[this.seats[i].char].color, 'left', 'bold'); this.text(g, '★ ' + pts[i], 1180, 208 + k * 62, 24, '#ffd34d', 'center', 'bold'); });
