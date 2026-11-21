@@ -1,5 +1,5 @@
 'use strict';
-// Party batch 8: Lily Hop, Wobbly Tower, Spotlight Dance, Mole Patrol (1v3), Balloon Ride, Combo Cook
+// Party batch 8: Lily Hop, Spotlight Dance, Mole Patrol (1v3), Balloon Ride, Combo Cook
 
 // ======================================================================== LILY HOP (one-button frog race across drifting pads)
 MG.def({
@@ -60,50 +60,6 @@ MG.def({
       g.globalAlpha = 1;
     });
     MGH.text(g, 'FAR SHORE', 640, this.rowY(this.ROWS) + 20, 18, '#2a5a1a', 'center', 'bold');
-  },
-});
-
-// ======================================================================== WOBBLY TOWER (take turns pulling blocks)
-MG.def({
-  id: 'wobbly', name: 'Wobbly Tower', type: 'Timing', controls: '1 button', dur: 0,
-  rows: [['a', 'Pull the block (on your turn)']],
-  how: 'A tall tower of blocks sways back and forth. On your turn, a marker slides along the block you\'re pulling — press A while it\'s in the GREEN to slide it out cleanly. Outside the green, the tower wobbles harder. Pull too clumsily when it\'s already wobbling and it all comes CRASHING down — that player is out and the tower is rebuilt. Last builder standing wins!',
-  wins: 'Last one in.',
-  init(m, S) { S.alive = [true, true, true, true]; S.order = []; S.turn = R.int(0, 3); this.rebuild(S); },
-  rebuild(S) { S.wob = 0; S.h = 18; S.ph = 'turn'; S.pt = 0; S.mk = 0; S.md = 1; S.zone = 0.22; S.bTgt = R.range(-0.08, 0.08); },
-  next(S) { do S.turn = (S.turn + 1) % 4; while (!S.alive[S.turn]); S.ph = 'turn'; S.pt = 0; S.mk = R.range(-1, 1); S.zone = Math.max(0.1, 0.22 - (18 - S.h) * 0.008); S.bTgt = R.range(-0.1, 0.1) * (Math.random() < 0.25 ? 3 : 1); },
-  update(m, S, dt) {
-    S.pt += dt; S.wob = Math.max(0, S.wob - dt * 0.03);
-    if (S.ph === 'turn') {
-      S.mk += S.md * dt * (1.4 + (18 - S.h) * 0.06); if (S.mk > 1) { S.mk = 1; S.md = -1; } if (S.mk < -1) { S.mk = -1; S.md = 1; }
-      if (m.pressed(S.turn, 'a') || S.pt > 6) {
-        const off = Math.abs(S.mk), add = (off < S.zone ? 0.08 : off < S.zone * 2.2 ? 0.3 : 0.55) + (18 - S.h) * 0.01;
-        S.wob += add; S.h--; Sfx.tone(off < S.zone ? 900 : 400, 0.06, 'triangle', 0.04);
-        if (S.wob >= 1) { S.ph = 'crash'; S.pt = 0; S.alive[S.turn] = false; S.order.push(S.turn); Sfx.boom(); MGH.shake(10); }
-        else { S.ph = 'pause'; S.pt = 0; S.last = add; }
-      }
-      return;
-    }
-    if (S.ph === 'pause' && S.pt > 0.5) this.next(S);
-    if (S.ph === 'crash' && S.pt > 1.8) { if (S.alive.filter(a => a).length <= 1) m.finish(this.score(m, S)); else { this.rebuild(S); this.next(S); } }
-  },
-  bot(m, S, i) { const v = m.vin[i]; v.a = S.ph === 'turn' && S.turn === i && S.pt > 0.5 && Math.abs(S.mk - S.bTgt) < 0.05; },
-  score(m, S) { return [0, 1, 2, 3].map(i => S.alive[i] ? 10 : S.order.indexOf(i) + 1); },
-  fmt(s) { return s >= 10 ? 'Last builder!' : `out #${s}`; },
-  hud(m, S, i) { return !S.alive[i] ? 'out' : S.turn === i && S.ph === 'turn' ? '👉 YOUR TURN' : ''; },
-  draw(m, S, g) {
-    g.fillStyle = MGH.grad(g, 0, 720, ['#ffe8c8', '#f4c898']); g.fillRect(0, 0, 1280, 720);
-    g.fillStyle = '#c8905a'; g.fillRect(0, 620, 1280, 100);
-    const sway = Math.sin(m.t * (2 + S.wob * 4)) * S.wob * 0.08;
-    g.save(); g.translate(640, 620);
-    if (S.ph === 'crash') { const k = Math.min(1, S.pt / 0.8); for (let b = 0; b < S.h; b++) { const a = (b % 2 ? 1 : -1) * k * (1 + b * 0.1); g.save(); g.translate(Math.sin(b * 7) * k * 300, -b * 24 + k * b * 22); g.rotate(a); g.fillStyle = ['#e8a060', '#d89050', '#f0b070'][b % 3]; MGH.rr(g, -60, -22, 120, 22, 4); g.fill(); g.restore(); } }
-    else for (let b = 0; b < S.h; b++) { g.save(); g.rotate(sway * b / S.h); g.translate(0, -b * 24); const pulled = b === S.h - 3 && S.ph === 'turn'; g.fillStyle = ['#e8a060', '#d89050', '#f0b070'][b % 3]; MGH.rr(g, -60 + (pulled ? S.mk * 6 : 0), -22, 120, 22, 4); g.fill(); g.strokeStyle = 'rgba(90,50,20,0.3)'; g.lineWidth = 2; g.stroke(); g.restore(); }
-    g.restore();
-    // the wobble meter
-    g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, 1040, 160, 40, 300, 12); g.fill(); g.fillStyle = S.wob > 0.7 ? '#ff4a4a' : S.wob > 0.4 ? '#ffb13d' : '#7cf06a'; g.fillRect(1044, 456 - 292 * Math.min(1, S.wob), 32, 292 * Math.min(1, S.wob)); MGH.text(g, 'wobble', 1060, 150, 16, '#5a3a1a', 'center', 'bold');
-    if (S.ph === 'turn') { const x0 = 440, w = 400; g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x0, 80, w, 24, 12); g.fill(); g.fillStyle = 'rgba(120,230,120,0.8)'; g.fillRect(640 - w / 2 * S.zone, 84, w * S.zone, 16); g.fillStyle = 'rgba(255,200,80,0.5)'; g.fillRect(640 - w / 2 * S.zone * 2.2, 84, w / 2 * S.zone * 1.2, 16); g.fillRect(640 + w / 2 * S.zone, 84, w / 2 * S.zone * 1.2, 16); g.fillStyle = '#fff'; g.fillRect(640 + S.mk * w / 2 - 3, 76, 6, 32); MGH.text(g, `${m.players[S.turn].name}: pull the block!`, 640, 140, 22, m.players[S.turn].color, 'center', 'bold'); }
-    if (S.ph === 'crash') MGH.label(g, `CRASH! ${m.players[S.order[S.order.length - 1]].name} is out`, 640, 120, 34, '#ff6b6b');
-    for (let i = 0; i < 4; i++) { const p = m.players[i], x = 160 + i * 320 - (i > 1 ? 0 : 0), xx = [160, 330, 950, 1120][i]; Char.draw(g, xx, 560, 36, p.el.id, p.color, { mood: MGH.persona(!S.alive[i] ? 'sad' : S.turn === i && S.ph === 'turn' ? 'nervous' : S.wob > 0.7 ? 'scared' : 'happy', p.el.id), seed: i * 1.7, look: { x: xx < 640 ? 1 : -1, y: -0.3 }, alpha: S.alive[i] ? 1 : 0.4 }); MGH.text(g, p.name, xx, 650, 18, p.color, 'center', 'bold'); if (S.turn === i && S.ph === 'turn') MGH.text(g, '▼', xx, 490, 24, '#ffb13d', 'center', 'bold'); }
   },
 });
 
