@@ -4,8 +4,8 @@
 // ======================================================================== TIGHTROPE GALE (1 vs 3)
 MG.def({
   id: 'tightrope', name: 'Tightrope Gale', type: 'Balance', mode: '1v3', controls: 'Move + button', dur: 55,
-  rows: [['a', 'Walkers: hold to walk · Fan: blow'], ['b', 'Walkers: brace (standing, in the green)'], ['lr', 'Walkers: balance'], ['pad', 'Fan: pick a rope (up/down)']],
-  how: 'Three walkers cross tightropes high above the circus floor; one player works the giant FAN. WALKERS: hold A to step forward and tilt LEFT/RIGHT to stay balanced — the wobble meter must stay in the middle. Standing still with the needle in the GREEN? Press B to BRACE: for a moment the fan cannot budge you (it needs a rest before you can brace again). Fall and you climb back on 30% further back. FAN: move UP/DOWN to pick a rope and press A to blast a gust at it (it takes a moment to spin up). Walkers win if two of them cross before time runs out!',
+  rows: [['a', 'Walkers: hold to walk · Fan: blow'], ['b', 'Walkers: brace (standing, in the green)'], ['lb', 'Walkers: lean left (LB/LT)'], ['rb', 'Walkers: lean right (RB/RT)'], ['pad', 'Fan: pick a rope (up/down)']],
+  how: 'Three walkers cross tightropes high above the circus floor; one player works the giant FAN. WALKERS: hold A to step forward and press LB/LT or RB/RT to lean left or right and stay balanced — the wobble meter must stay in the middle. Standing still with the needle in the GREEN? Press B to BRACE: for a moment the fan cannot budge you (it needs a rest before you can brace again). Fall and you climb back on 30% further back. FAN: move UP/DOWN to pick a rope and press A to blast a gust at it (it takes a moment to spin up). Walkers win if two of them cross before time runs out!',
   wins: 'Walkers: two crossings. Fan: stop them!',
   ROPE: [230, 400, 570],
   init(m, S) {
@@ -29,7 +29,7 @@ MG.def({
       if (m.pressed(i, 'b') && !walking && Math.abs(W.bal) < 0.3 && W.bcd <= 0) { W.brace = 1.4; W.bcd = 4; Sfx.tone(500, 0.1, 'triangle', 0.04); }
       const braced = W.brace > 0 && !walking;
       const gust = F.gust > 0 && F.gRope === W.rope && !braced ? F.dir * 9.5 : 0;
-      W.bv += (R.range(-1, 1) * (walking ? 3.2 : braced ? 0.3 : 1.4) + W.bal * (braced ? 0.6 : 2.4) + gust) * dt; W.bv -= m.axis(i).x * 6 * dt; W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
+      W.bv += (R.range(-1, 1) * (walking ? 3.2 : braced ? 0.3 : 1.4) + W.bal * (braced ? 0.6 : 2.4) + gust) * dt; W.bv -= ((m.held(i, 'rb') || m.held(i, 'rt') ? 1 : 0) - (m.held(i, 'lb') || m.held(i, 'lt') ? 1 : 0)) * 6 * dt; W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
       if (walking) W.x += (1 - Math.min(0.7, Math.abs(W.bal))) * 6.2 * dt;
       if (Math.abs(W.bal) > 1) { W.fall = 1.4; W.falls++; Sfx.bad(); MGH.burst(140 + W.x * 10, this.ROPE[W.rope] + 20, ['#fff', m.players[i].color], 12, { speed: 200, grav: 600 }); }
       if (W.x >= 100) { W.done = true; S.crossed++; Sfx.coin(); MGH.burst(1150, this.ROPE[W.rope], ['#ffe680', '#fff'], 20, { speed: 240 }); }
@@ -37,7 +37,7 @@ MG.def({
     if (S.crossed >= 2) { S.win = 1; m.finish(this.score(m, S)); }
   },
   bot(m, S, i, dt) {
-    const v = m.vin[i]; v.a = v.b = false; v.ax = v.ay = 0; v.up = v.down = false;
+    const v = m.vin[i]; v.a = v.b = false; v.ax = v.ay = 0; v.up = v.down = false; v.lb = v.rb = false;
     if (i === S.fan) {
       // blow at the walker closest to finishing (who isn't falling)
       const tg = S.w.filter(W => !W.done && W.fall <= 0).sort((a, b) => b.x - a.x)[0]; if (!tg) return;
@@ -48,7 +48,7 @@ MG.def({
     const W = S.w.find(W => W.i === i); if (!W || W.done || W.fall > 0) return;
     const gustSoon = S.f.spin > 0 && S.f.rope === W.rope;
     if (gustSoon && Math.abs(W.bal) < 0.3 && (W.bcd || 0) <= 0 && Math.random() < 0.06) { v.b = true; return; }
-    v.ax = clamp(W.bal * 1.4 + W.bv * 0.6 + R.range(-0.25, 0.25), -1, 1);
+    { const want = clamp(W.bal * 1.4 + W.bv * 0.6 + R.range(-0.25, 0.25), -1, 1); W.rl = (W.rl || 0) - 1 / 60; if (W.rl <= 0) { W.rl = R.range(0.05, 0.13); W.hb = want > 0.2 ? 1 : want < -0.2 ? -1 : 0; } v.rb = W.hb > 0; v.lb = W.hb < 0; }
     v.a = Math.abs(W.bal) < 0.45 && !gustSoon;
   },
   score(m, S) { const walkersWon = S.win === 1; return m.players.map((p, i) => (i === S.fan) !== walkersWon ? 1 : 0); },
@@ -212,20 +212,20 @@ MG.def({
 
 // ======================================================================== PENALTY KICKS (1 vs 3, secret A B X Y)
 MG.def({
-  id: 'penalty', name: 'Penalty Kicks', type: 'Bluff', mode: '1v3', sport: true, controls: 'A B X Y', dur: 0, noPadSkip: true,
-  rows: [['abxy', 'X left · Y top · B right · A low middle']],
-  how: 'Three shooters take turns against one keeper. Both pick secretly: X = LEFT corner, B = RIGHT corner, Y = TOP middle, A = LOW middle. If the keeper picks the same spot, it\'s SAVED! A diving keeper (X or B) also gets a fingertip to the middle-top shot one time in three. Nine kicks: the shooters need 6 goals to win.',
+  id: 'penalty', name: 'Penalty Kicks', type: 'Bluff', mode: '1v3', sport: true, controls: 'X Y B', dur: 0, noPadSkip: true,
+  rows: [['abxy', 'X left · Y middle · B right']],
+  how: 'Three shooters take turns against one keeper. Both pick secretly: X = LEFT corner, Y = MIDDLE, B = RIGHT corner. If the keeper picks the same spot, it\'s SAVED! Nine kicks: the shooters need 6 goals to win.',
   wins: 'Shooters: 6 goals of 9. Keeper: 4 saves.',
   init(m, S) { S.keep = m.players.findIndex((p, i) => m.teamOf(i) === 0); S.shooters = [0, 1, 2, 3].filter(i => i !== S.keep); S.k = 0; S.goals = 0; S.saves = 0; S.log = []; S.win = -1; this.next(S); },
   next(S) { S.sh = S.shooters[S.k % 3]; S.ph = 'pick'; S.pt = 0; S.ps = -1; S.pk = -1; S.bA = R.range(0.7, 2.4); S.bB = R.range(0.7, 2.4); },
   update(m, S, dt) {
     S.pt += dt;
     if (S.ph === 'pick') {
-      if (S.ps < 0) { const d = abxyPress(m, S.sh); if (d >= 0) { S.ps = d; Sfx.click(); } }
-      if (S.pk < 0) { const d = abxyPress(m, S.keep); if (d >= 0) { S.pk = d; Sfx.click(); } }
+      if (S.ps < 0) { const d = abxyPress(m, S.sh); if (d >= 0 && d !== 2) { S.ps = d; Sfx.click(); } }
+      if (S.pk < 0) { const d = abxyPress(m, S.keep); if (d >= 0 && d !== 2) { S.pk = d; Sfx.click(); } }
       if ((S.ps >= 0 && S.pk >= 0) || S.pt > 6) {
-        if (S.ps < 0) S.ps = R.int(0, 3); if (S.pk < 0) S.pk = R.int(0, 3);
-        const tip = S.ps === 0 && (S.pk === 1 || S.pk === 3) && Math.random() < 0.34;
+        if (S.ps < 0) S.ps = R.pick([0, 1, 3]); if (S.pk < 0) S.pk = R.pick([0, 1, 3]);
+        const tip = false;
         S.saved = S.ps === S.pk || tip; S.tip = tip; S.ph = 'kick'; S.pt = 0; Sfx.whoosh(true);
       }
       return;
@@ -243,8 +243,8 @@ MG.def({
   spot(d) { return [[640, 250], [820, 330], [640, 380], [460, 330]][d]; },
   bot(m, S, i) {
     if (S.ph !== 'pick') { abxyBot(m, i, -1); return; }
-    if (i === S.sh && S.ps < 0 && S.pt > S.bA) abxyBot(m, i, R.weighted([0, 1, 2, 3], k => [1, 1.3, 0.8, 1.3][k]));
-    else if (i === S.keep && S.pk < 0 && S.pt > S.bB) abxyBot(m, i, R.weighted([0, 1, 2, 3], k => [0.8, 1.3, 1, 1.3][k]));
+    if (i === S.sh && S.ps < 0 && S.pt > S.bA) abxyBot(m, i, R.weighted([0, 1, 3], k => [1, 1.3, 0, 1.3][k]));
+    else if (i === S.keep && S.pk < 0 && S.pt > S.bB) abxyBot(m, i, R.weighted([0, 1, 3], k => [0.9, 1.3, 0, 1.3][k]));
     else abxyBot(m, i, -1);
   },
   score(m, S) { const shootersWon = S.win === 1; return m.players.map((p, i) => (i === S.keep) !== shootersWon ? 1 : 0); },

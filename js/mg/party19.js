@@ -86,15 +86,15 @@ MG.def({
 MG.def({
   id: 'trapdoor', name: 'Trapdoor Trouble', type: 'Arena', mode: '1v3', controls: 'Move + button', dur: 45,
   rows: [['stick', 'Runners: move'], ['abxy', 'Trapper: open a trapdoor (Y B A X)']],
-  how: 'The castle hall has four big trapdoor zones, one per button: TOP = Y, RIGHT = B, BOTTOM = A, LEFT = X. RUNNERS grab gems scattered around the hall — collect 25 between you to win! The TRAPPER presses a button to open that trapdoor: it creaks and wobbles for a second (runners, get off!) then drops — anyone on it falls to the dungeon for a few seconds and loses a gem. Each trapdoor needs a rest after it opens.',
+  how: 'The castle hall has four big trapdoor zones, one per button: TOP = Y, RIGHT = B, BOTTOM = A, LEFT = X. RUNNERS grab gems scattered around the hall — collect 25 between you to win! The TRAPPER presses a button to open that trapdoor: it creaks and wobbles for a second (runners, get off!) then drops — anyone on it falls to the dungeon for a few seconds and the team loses 2 gems. Each trapdoor needs a rest after it opens.',
   wins: 'Runners: 25 gems. Trapper: stop them!',
   Z: [[440, 160, 400, 170], [860, 260, 300, 300], [440, 470, 400, 170], [120, 260, 300, 300]],
   init(m, S) { S.trap = m.players.findIndex((p, i) => m.teamOf(i) === 0); S.z = [0, 1, 2, 3].map(() => ({ st: 'shut', t: 0, cd: 0 })); S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(640 + (i % 2 ? 60 : -60), 400 + (i < 2 ? -40 : 40), 20), { fall: 0, gems: 0 })); S.gems = []; for (let k = 0; k < 6; k++) S.gems.push(this.gem()); S.tot = 0; S.win = -1; },
   gem() { return { x: R.range(150, 1130), y: R.range(180, 620) }; },
   inZ(x, y, k) { const [zx, zy, w, h] = this.Z[k]; return x > zx && x < zx + w && y > zy && y < zy + h; },
   update(m, S, dt) {
-    const d = abxyPress(m, S.trap); if (d >= 0 && S.z[d].st === 'shut' && S.z[d].cd <= 0) { S.z[d].st = 'warn'; S.z[d].t = 1.0; Sfx.tone(160, 0.6, 'sawtooth', 0.04, 40); }
-    S.z.forEach((z, k) => { z.cd -= dt; z.t -= dt; if (z.st === 'warn' && z.t <= 0) { z.st = 'open'; z.t = 1.2; Sfx.thud(); S.b.forEach((b, i) => { if (i !== S.trap && b.fall <= 0 && this.inZ(b.x, b.y, k)) { b.fall = 2.5; if (b.gems > 0) { b.gems--; S.tot--; } Sfx.bad(); } }); } else if (z.st === 'open' && z.t <= 0) { z.st = 'shut'; z.cd = 2.5; } });
+    const d = abxyPress(m, S.trap); if (d >= 0 && S.z[d].st === 'shut' && S.z[d].cd <= 0) { S.z[d].st = 'warn'; S.z[d].t = 0.9; Sfx.tone(160, 0.6, 'sawtooth', 0.04, 40); }
+    S.z.forEach((z, k) => { z.cd -= dt; z.t -= dt; if (z.st === 'warn' && z.t <= 0) { z.st = 'open'; z.t = 1.2; Sfx.thud(); S.b.forEach((b, i) => { if (i !== S.trap && b.fall <= 0 && this.inZ(b.x, b.y, k)) { b.fall = 2.6; const lose = Math.min(2, S.tot); S.tot -= lose; b.gems = Math.max(0, b.gems - lose); if (lose) MGH.pop(`−${lose} 💎`, b.x, b.y - 40, '#ff8a8a', 22); Sfx.bad(); } }); } else if (z.st === 'open' && z.t <= 0) { z.st = 'shut'; z.cd = 2.2; } });
     S.b.forEach((b, i) => {
       if (i === S.trap) return; b.fall -= dt; if (b.fall > 0) { b.vx = b.vy = 0; if (b.fall < 0.1) { b.x = 640; b.y = 400; } return; }
       const a = m.axis(i); MGH.steer(b, a.x, a.y, dt, 2000, 270, 7); MGH.integrate(b, dt, 110, 150, 1170, 650);

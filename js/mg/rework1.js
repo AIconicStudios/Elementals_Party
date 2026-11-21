@@ -4,13 +4,13 @@
 // ======================================================================== LILY HOP — spinning lily pads
 MG.def({
   id: 'lilyhop', name: 'Lily Hop', type: 'Race', controls: '1 button', dur: 0,
-  rows: [['a', 'Hop the way your lily pad points']],
-  how: 'Race your frog across the pond! Every lily pad has an arrow that keeps turning round: UP, RIGHT, DOWN, LEFT… Press A to hop the way YOUR pad is pointing right now — so wait for the arrow to face the way you want to go. Hop into open water and you splash back to the bank! Land on a pad where another frog sits and you BUMP them one pad further along (maybe into the water…). First frog to the far bank wins!',
+  rows: [['a', 'Hop the way your lily pad points'], ['lr', 'On the bank: step left / right']],
+  how: 'Race your frog across the pond! On the bank you can step LEFT and RIGHT, and the first row of the pond is all lily pads. Every lily pad has an arrow that keeps turning round: UP, RIGHT, DOWN, LEFT… Press A to hop the way YOUR pad is pointing right now — so wait for the arrow to face the way you want to go. Hop into open water and you splash back to the bank! Land on a pad where another frog sits and you BUMP them one pad further along (maybe into the water…). First frog to the far bank wins!',
   wins: 'First across the pond.',
   COLS: 9, ROWS: 6, CW: 120, RH: 82, OX: 100, OY: 590,
   init(m, S) {
     // carve the pond: water holes, but always a way through
-    let ok = false; while (!ok) { S.pad = []; for (let r = 0; r < this.ROWS; r++) { const row = []; for (let c = 0; c < this.COLS; c++) row.push(Math.random() < 0.72 ? { per: R.range(0.55, 0.95), off: R.int(0, 3), ph: R.range(0, 1) } : null); S.pad.push(row); } [1, 3, 5, 7].forEach(c => { if (!S.pad[0][c]) S.pad[0][c] = { per: R.range(0.55, 0.95), off: R.int(0, 3), ph: R.range(0, 1) }; }); ok = this.reach(S); }
+    let ok = false; while (!ok) { S.pad = []; for (let r = 0; r < this.ROWS; r++) { const row = []; for (let c = 0; c < this.COLS; c++) row.push(Math.random() < 0.72 ? { per: R.range(0.55, 0.95), off: R.int(0, 3), ph: R.range(0, 1) } : null); S.pad.push(row); } for (let c = 0; c < this.COLS; c++) if (!S.pad[0][c]) S.pad[0][c] = { per: R.range(0.55, 0.95), off: R.int(0, 3), ph: R.range(0, 1) }; ok = this.reach(S); }
     S.p = [0, 1, 2, 3].map(i => ({ r: -1, c: 1 + i * 2, hop: 0, from: null, splash: 0, fin: 0, bump: 0, react: R.range(0.1, 0.35), w: 0 })); S.order = [];
   },
   reach(S) { const seen = new Set(), q = []; for (let c = 0; c < this.COLS; c++) if (S.pad[0][c]) { q.push([0, c]); seen.add('0,' + c); } while (q.length) { const [r, c] = q.shift(); if (r === this.ROWS - 1) return true; for (const [dr, dc] of [[1, 0], [0, 1], [0, -1], [-1, 0]]) { const a = r + dr, b = c + dc; if (a >= 0 && a < this.ROWS && b >= 0 && b < this.COLS && S.pad[a][b] && !seen.has(a + ',' + b)) { seen.add(a + ',' + b); q.push([a, b]); } } } return false; },
@@ -24,6 +24,10 @@ MG.def({
       if (P.fin) return; P.bump -= dt;
       if (P.splash > 0) { P.splash -= dt; if (P.splash <= 0) { P.r = -1; } return; }
       if (P.hop > 0) { P.hop -= dt; if (P.hop <= 0) this.land(m, S, P, i); return; }
+      if (P.r < 0) { // on the bank: step sideways freely to line up with a pad
+        const ax = m.axis(i).x, now = ax < -0.6 ? -1 : ax > 0.6 ? 1 : 0, side = (m.bot(i) ? 0 : m.pressed(i, 'left') ? -1 : m.pressed(i, 'right') ? 1 : 0) || (now && now !== P.bx ? now : 0); P.bx = now;
+        if (side) { const nc = clamp(P.c + side, 0, this.COLS - 1); if (nc !== P.c && !S.p.some((q, j) => j !== i && q.r < 0 && q.c === nc && !q.fin)) { P.c = nc; Sfx.tone(600, 0.03, 'triangle', 0.02); } }
+      }
       if (!m.pressed(i, 'a')) return;
       let dr = 1, dc = 0;
       if (P.r >= 0) { const pd = S.pad[P.r][P.c], d = this.dirOf(pd, t); dr = [1, 0, -1, 0][d]; dc = [0, 1, 0, -1][d]; }

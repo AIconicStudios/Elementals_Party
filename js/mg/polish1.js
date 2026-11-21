@@ -282,7 +282,7 @@ MG.byId.penalty && (MG.byId.penalty.draw = function (m, S, g) {
   g.lineCap = 'round'; g.strokeStyle = '#c8ccd8'; g.lineWidth = 12; g.beginPath(); g.moveTo(L, B); g.lineTo(L, T); g.lineTo(Rt, T); g.lineTo(Rt, B); g.stroke();
   g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.beginPath(); g.moveTo(L - 2, B); g.lineTo(L - 2, T - 2); g.lineTo(Rt - 2, T - 2); g.lineTo(Rt - 2, B); g.stroke(); g.lineCap = 'butt';
   GX.shadow(g, 640, B + 4, 280, 0.25);
-  if (S.ph === 'pick') [0, 1, 2, 3].forEach(d => { const [x, y] = this.spot(d), pu = 1 + Math.sin(m.t * 4 + d) * 0.06; g.fillStyle = 'rgba(255,255,255,0.14)'; g.beginPath(); g.arc(x, y, 36 * pu, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.setLineDash([6, 6]); g.stroke(); g.setLineDash([]); abxyBadge(g, d, x, y, 16); });
+  if (S.ph === 'pick') [0, 1, 3].forEach(d => { const [x, y] = this.spot(d), pu = 1 + Math.sin(m.t * 4 + d) * 0.06; g.fillStyle = 'rgba(255,255,255,0.14)'; g.beginPath(); g.arc(x, y, 36 * pu, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 2; g.setLineDash([6, 6]); g.stroke(); g.setLineDash([]); abxyBadge(g, d, x, y, 16); });
   // keeper: crouched sway while waiting, full-stretch dive with after-images
   const kp = m.players[S.keep], kk = S.ph === 'kick' ? Math.min(1, S.pt / 0.4) : 0, [dx, dy] = S.ph === 'kick' ? this.spot(S.pk) : [640, 360];
   const ease = 1 - (1 - kk) * (1 - kk), sway = S.ph === 'pick' ? Math.sin(m.t * 3) * 18 : 0;
@@ -293,12 +293,13 @@ MG.byId.penalty && (MG.byId.penalty.draw = function (m, S, g) {
   keeper(kx, ky, rot, 1);
   // shooter: run-up then strike
   const sp = m.players[S.sh], run = S.ph === 'kick' ? Math.min(1, S.pt / 0.15) : 0;
-  const shX = S.ph === 'pick' ? 560 + Math.sin(m.t * 2) * 4 : 560 + run * 50, shY = S.ph === 'pick' ? 680 : 680 - run * 30;
+  const shX = S.ph === 'pick' ? 540 + Math.sin(m.t * 2) * 3 : 540 + run * 62, shY = S.ph === 'pick' ? 616 : 616 - run * 14;
+  GX.shadow(g, shX, shY + 44, 40, 0.4);
   const k = S.ph === 'kick' ? Math.min(1, S.pt / 0.6) : 0, [tx, ty] = this.spot(S.ps >= 0 ? S.ps : 0);
   let ball = [640, 600], sc = 1;
   if (S.ph === 'kick') { if (S.saved && S.pt > 0.6) ball = [tx + (S.pt - 0.6) * 300 * (tx > 640 ? 1 : -1), ty + (S.pt - 0.6) * 200 - Math.sin(Math.min(1, (S.pt - 0.6) * 2) * Math.PI) * 60]; else { const kk2 = Math.min(1, k); ball = [640 + (tx - 640) * kk2, 600 + (ty - 600) * kk2 - Math.sin(Math.PI * kk2) * 40]; if (!S.saved && S.pt > 0.6) ball = [tx + Math.sin(S.pt * 20) * 2 * Math.max(0, 1 - S.pt), ty + Math.min(40, (S.pt - 0.6) * 80)]; } sc = 1 - Math.min(1, k) * 0.45; }
   GX.shadow(g, ball[0], S.ph === 'kick' ? 600 + (Math.min(B + 6, ty + 60) - 600) * Math.min(1, k) : 606, 16 * sc, 0.4);
-  Char.draw(g, shX, shY, 40, sp.el.id, sp.color, { mood: MGH.persona(S.ph === 'kick' && S.pt > 0.6 ? (S.saved ? 'hurt' : 'cheer') : 'determined', sp.el.id), seed: S.sh * 1.7, look: { x: 0.4, y: -1 }, walk: S.ph === 'kick' && run < 1 ? 1 : 0 });
+  Char.draw(g, shX, shY, 36, sp.el.id, sp.color, { mood: MGH.persona(S.ph === 'kick' && S.pt > 0.6 ? (S.saved ? 'hurt' : 'cheer') : 'determined', sp.el.id), seed: S.sh * 1.7, look: { x: 0.4, y: -1 }, walk: S.ph === 'kick' && run < 1 ? 1 : 0, noShadow: true });
   if (S.ph === 'kick' && S.pt < 0.6) { g.save(); g.globalAlpha = 0.5 * (1 - k); g.strokeStyle = '#fff'; g.lineWidth = 3; for (let s = 1; s <= 3; s++) { const kb = Math.max(0, k - s * 0.06); g.beginPath(); g.arc(640 + (tx - 640) * kb, 600 + (ty - 600) * kb - Math.sin(Math.PI * kb) * 40, 14 * (1 - kb * 0.45), 0, 7); g.stroke(); } g.restore(); }
   GX.ball(g, ball[0], ball[1], 15 * sc, S.ph === 'kick' ? S.pt * 18 : 0);
   if (S.ph === 'kick' && S.pt > 0.6) MGH.label(g, S.saved ? (S.tip ? 'FINGERTIP SAVE!' : 'SAVED!') : 'GOAL!', 640, 140, 48, S.saved ? '#9fe0ff' : '#ffe680');
