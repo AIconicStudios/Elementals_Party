@@ -24,7 +24,7 @@
 
   // ---- 1) 100m dash
   const dash = {
-    name: '100m Dash', icon: '🏃', how: 'Wait for GO — a false start freezes you! Then run in RHYTHM: press A each time the marker on your stride bar crosses the green zone (gold = perfect). The faster you go, the faster the beat. No mashing!',
+    name: '100m Dash', icon: '🏃', how: 'Wait for GO — a false start freezes you! Then run by pressing A and B one after the other, like left and right feet. A STEADY rhythm is what makes you fast — slow and even beats frantic mashing. Pressing the same button twice makes you stumble.',
     init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, fin: 0, pen: 0, lastKey: null, fs: false })); T.go = 2.4; T.rate = [0, 1, 2, 3].map(() => R.range(6.8, 8.6)); },
     update(m, S, T, dt, t) {
       tickMsgs(T, dt);
@@ -32,12 +32,11 @@
         if (P.fin) return;
         if (t < T.go) { if ((m.pressed(i, 'a') || m.pressed(i, 'b')) && !P.fs) { P.fs = true; P.pen = 1.1; say(T, i, 'FALSE START!', '#ff6b6b'); Sfx.bad(); } return; }
         if (P.pen > 0 && t > T.go) { P.pen -= dt; return; }
-        const s = MGM.rhythm(m, i, P, dt, 1.25 + 0.8 * P.v / 12.4); if (s) P.v = Math.min(12.4, P.v + s * Math.max(0.6, 4.6 - P.v * 0.24));
-        P.v *= Math.exp(-0.5 * dt); P.d += P.v * dt;
+        const q = MGM.cadence(m, i, P, dt); P.v += (12 * q - P.v) * (q * 12 > P.v ? 1.6 : 2.4) * dt; P.d += P.v * dt;
         if (P.d >= 100) { P.fin = t - T.go; say(T, i, `${P.fin.toFixed(2)}s`, '#ffffff'); MGH.burst(1190, ln(i).mid, ['#ffe680', m.players[i].color, '#fff'], 18, { speed: 220 }); Sfx.coin(); }
       });
     },
-    bot(m, S, T, i, dt) { const t = S.stageT, v = m.vin[i]; v.a = v.b = false; if (t < T.go) { if (t > T.go - 0.05 && Math.random() < 0.004) v.a = true; return; } MGM.botRhythm(m, i, T.p[i]); },
+    bot(m, S, T, i, dt) { const t = S.stageT, v = m.vin[i]; v.a = v.b = false; if (t < T.go) { if (t > T.go - 0.05 && Math.random() < 0.004) v.a = true; return; } if (!T.p[i].fin) MGM.botCadence(m, i, T.p[i], dt); },
     done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 60; },
     result(m, S, T) { return T.p.map(P => P.fin ? -P.fin : -(60 + (100 - P.d))); },
     fmt: v => v > -60 ? `${(-v).toFixed(2)}s` : 'DNF',
@@ -53,10 +52,10 @@
         MGH.shadow(g, x, L.y1 - 6, 22, 0.25);
         runner(g, m, i, x, L.y1 - 8, 34, P.fin ? 'cheer' : P.pen > 0 && P.fs ? 'hurt' : P.v > 9 ? 'effort' : 'determined', P.v > 1 && !P.fin ? 1 : 0, { t: m.t * (0.5 + P.v * 0.08) });
         if (P.v > 6 && !P.fin) for (let k = 1; k < 4; k++) { g.fillStyle = `rgba(255,255,255,${0.2 - k * 0.05})`; g.fillRect(x - 30 - k * 18, L.y1 - 60 + k * 8, 14, 3); }
-        MGH.text(g, `${P.v.toFixed(1)} m/s`, 56, L.y1 - 14, 13, '#fff', 'center'); if (!P.fin) MGM.drawRhythm(g, 56, L.y0 + 34, P, 92);
+        MGH.text(g, `${P.v.toFixed(1)} m/s`, 56, L.y1 - 14, 13, '#fff', 'center'); if (!P.fin) MGM.drawCadence(g, 210, L.y0 + 30, P, 92);
       }
       drawMsgs(g, T, i => 110 + Math.min(100, T.p[i].d) * 10.8);
-      if (S.phase === 'play') { countdown(g, t, T.go); if (t > T.go && t < T.go + 4) MGH.label(g, 'Press A on the beat — in the green!', 640, 150, 22, '#fff'); }
+      if (S.phase === 'play') { countdown(g, t, T.go); if (t > T.go && t < T.go + 4) MGH.label(g, 'A, B, A, B… keep it STEADY — rhythm beats speed!', 640, 150, 22, '#fff'); }
     },
   };
 
@@ -76,7 +75,7 @@
         const h = P.air > 0 ? Math.sin(Math.PI * (1 - P.air / 0.55)) : 0;
         if (P.air > 0) P.air -= dt;
         for (const hd of HURD) if (pd < hd && P.d >= hd && !P.down.has(hd)) {
-          if (h > 0.45) { if (h > 0.86) { P.v += 0.9; say(T, i, 'PERFECT!', '#7cf06a'); } }
+          if (h > 0.55) { P.v += 1.8 * (h - 0.55) / 0.45; if (h > 0.9) say(T, i, 'PERFECT!', '#7cf06a'); }
           else { P.down.add(hd); P.v *= 0.35; P.stum = 0.45; say(T, i, 'CRASH!', '#ff6b6b'); Sfx.thud(); MGH.burst(140 + hd * 17.5, ln(i).y1 - 20, ['#fff', '#ff6b6b'], 10, { speed: 160, grav: 500 }); }
         }
         if (m.pressed(i, 'b') && !P.dip && P.d > 56.5) { P.dip = true; say(T, i, 'DIP!', '#9fe0ff'); }
@@ -86,7 +85,7 @@
     bot(m, S, T, i, dt) {
       const P = T.p[i], v = m.vin[i]; v.a = false; v.b = false; if (S.stageT < T.go || P.fin) return;
       const next = HURD.find(h => h > P.d + 0.05); const ideal = P.v * 0.275 + P.err;
-      if (next !== undefined && P.air <= 0 && next - P.d <= ideal && next - P.d > ideal - 0.6) { v.a = true; P.err = R.range(-0.3, 0.3); }
+      if (next !== undefined && P.air <= 0 && next - P.d <= ideal && next - P.d > ideal - 0.6) { v.a = true; P.err = R.range(-0.35, 0.35) * (Math.random() < 0.2 ? 2.6 : 1); }
       if (P.d > 57.2 && !P.dip && Math.random() < 0.3) v.b = true;
     },
     done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 60; },
@@ -116,66 +115,104 @@
   };
 
   // ---- 3) long jump (two attempts)
-  const RUNW = 30, BX = 640, RPX = (BX - 70) / RUNW, PPX = 62; // runway & pit scale
+  // ---- 3) triple jump (two attempts): hold A to sprint, let go to take off, then three slow-motion angle presses
+  const RUNW = 30, BX = 430, RPX = (BX - 70) / RUNW, PPX = 50, PIT = 6; // runway, board, metres → px, pit starts 6 m past the board
+  const PH = ['HOP', 'STEP', 'JUMP'], PHM = [4.6, 3.8, 5.6], AIDEAL = 42;
+  const angQ = a => Math.max(0, 1 - Math.abs(a - AIDEAL) / 26);
   const longjump = {
-    name: 'Long Jump', icon: '🦘', how: 'Sprint down the runway in RHYTHM: press A as the marker crosses the green zone of your stride bar. Hold UP to swing the angle meter and let go to jump — before the white board, or it’s a foul! About 40° is ideal. Two attempts, best one counts.',
-    init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ att: 0, st: 'ready', tt: 0, d: 0, v: 0, ang: 10, ad: 1, best: 0, marks: [], lastKey: null, jx: 0, dist: 0, foul: false, aimAt: R.range(27.5, 29.4), angT: R.range(34, 44), rate: R.range(7, 8.6) })); },
+    name: 'Triple Jump', icon: '🦘', how: 'HOLD A to sprint down the runway and LET GO to take off — as close to the white board as you dare (past it is a foul!). Time slows down: an arrow swings up and down — press A when it is in the GREEN for each of your three bounds: hop, step, jump. Two attempts, best counts.',
+    init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ att: 0, st: 'ready', tt: 0, d: 0, v: 0, ang: 10, ad: 1, ph: 0, q: [], best: 0, marks: [], jx: 0, dist: 0, foul: false, held: false, aimAt: R.range(28.2, 29.8), err: R.range(3, 11) })); },
     update(m, S, T, dt, t) {
       tickMsgs(T, dt);
       T.p.forEach((P, i) => {
         P.tt += dt;
-        if (P.st === 'ready') { if (P.tt > 0.9) { P.st = 'run'; P.tt = 0; P.d = 0; P.v = 0; } return; }
-        if (P.st === 'run' || P.st === 'aim') {
-          const s = MGM.rhythm(m, i, P, dt, 1.25 + 0.8 * P.v / 11.6); if (s && P.st === 'run') P.v = Math.min(11.6, P.v + s * Math.max(0.6, 4.6 - P.v * 0.26));
-          P.v *= Math.exp(-0.5 * dt); P.d += P.v * dt;
-          const up = m.axis(i).y < -0.5 || m.held(i, 'up');
-          if (P.st === 'run' && up && P.d > 4) { P.st = 'aim'; P.tt = 0; P.ang = 10; P.ad = 1; }
-          if (P.st === 'aim') { P.ang += P.ad * 105 * dt; if (P.ang > 70) { P.ang = 70; P.ad = -1; } if (P.ang < 10) { P.ang = 10; P.ad = 1; } if (!up || P.tt > 1.1) this.takeoff(m, T, P, i); }
-          if (P.st === 'run' && P.d > RUNW + 1.5) { P.foul = true; P.dist = 0; P.st = 'land'; P.tt = 0; say(T, i, 'FOUL — ran past!', '#ff6b6b'); Sfx.bad(); }
+        if (P.st === 'ready') { P.d = 0; P.v = 0; if (P.tt > 0.9 && m.held(i, 'a')) { P.st = 'run'; P.tt = 0; P.held = true; } else if (P.tt > 6) { P.st = 'run'; P.tt = 0; } return; }
+        if (P.st === 'run') {
+          const h = m.held(i, 'a');
+          if (h) P.v = Math.min(10.5, P.v + (6.2 - P.v * 0.32) * dt); else P.v *= Math.exp(-2 * dt);
+          P.d += P.v * dt;
+          if (!h && P.d > 6 && P.v > 3) { this.takeoff(m, T, P, i); return; }
+          if (P.d > RUNW + 2.5) { P.foul = true; P.dist = 0; P.st = 'land'; P.tt = 0; say(T, i, 'FOUL — ran past!', '#ff6b6b'); Sfx.bad(); }
           return;
         }
-        if (P.st === 'air') { if (P.tt > 0.95) { P.st = 'land'; P.tt = 0; if (!P.foul) { P.best = Math.max(P.best, P.dist); P.marks.push(P.dist); say(T, i, `${P.dist.toFixed(2)} m`, '#fff'); MGH.burst(BX + 20 + P.dist * PPX, ln(i).y1 - 14, ['#e8d4a0', '#c9b48a'], 14, { speed: 140, grav: 500 }); Sfx.thud(); } } return; }
-        if (P.st === 'land') { if (P.tt > 1.4) { P.att++; if (P.att < 2) { P.st = 'ready'; P.tt = 0; P.foul = false; } else P.st = 'done'; } }
+        if (P.st === 'bound') {
+          // slow motion: the arrow sweeps at a gentle pace
+          P.ang += P.ad * 62 * dt; if (P.ang > 72) { P.ang = 72; P.ad = -1; } if (P.ang < 8) { P.ang = 8; P.ad = 1; }
+          if (m.pressed(i, 'a') || P.tt > 3) {
+            const q = angQ(P.ang); P.q.push(q);
+            say(T, i, `${PH[P.ph]} ${q > 0.85 ? 'PERFECT' : q > 0.6 ? 'good' : 'weak'}`, q > 0.85 ? '#ffe680' : q > 0.6 ? '#9fffa0' : '#ff9a6b');
+            Sfx.tone(q > 0.85 ? 1180 : q > 0.6 ? 880 : 360, 0.06, 'triangle', 0.04);
+            P.ph++; P.tt = 0; P.ang = R.range(8, 20); P.ad = 1;
+            if (P.ph >= 3) this.finish(m, T, P, i);
+          }
+          return;
+        }
+        if (P.st === 'air') { if (P.tt > 1.1) { P.st = 'land'; P.tt = 0; if (!P.foul) { P.best = Math.max(P.best, P.dist); P.marks.push(P.dist); say(T, i, `${P.dist.toFixed(2)} m`, '#fff'); MGH.burst(BX + P.dist * PPX, ln(i).y1 - 14, ['#f4e2b0', '#d8c088'], 14, { speed: 160, grav: 400 }); Sfx.thud(); } } return; }
+        if (P.st === 'land') { if (P.tt > 1.4) { P.att++; if (P.att < 2) { P.st = 'ready'; P.tt = 0; P.foul = false; P.ph = 0; P.q = []; } else P.st = 'done'; } }
       });
     },
     takeoff(m, T, P, i) {
-      P.st = 'air'; P.tt = 0; P.jx = P.d; const th = P.ang * Math.PI / 180;
-      P.foul = P.d > RUNW;
-      P.dist = P.foul ? 0 : Math.max(0.5, (P.v * P.v * Math.sin(2 * th) / 9.81) * 0.95 - (RUNW - P.d));
-      if (P.foul) { say(T, i, 'FOUL!', '#ff6b6b'); Sfx.bad(); } else Sfx.whoosh(true);
+      P.jx = P.d; P.foul = P.d > RUNW;
+      if (P.foul) { P.st = 'land'; P.tt = 0; P.dist = 0; say(T, i, 'FOUL — over the board!', '#ff6b6b'); Sfx.bad(); return; }
+      P.st = 'bound'; P.tt = 0; P.ph = 0; P.q = []; P.ang = R.range(8, 20); P.ad = 1; Sfx.whoosh(true);
+    },
+    finish(m, T, P, i) {
+      const sp = P.v / 10.5, lost = RUNW - P.jx;
+      P.dist = Math.max(0.5, PHM.reduce((s, d, k) => s + d * sp * (0.45 + 0.55 * P.q[k]), 0) - lost);
+      P.st = 'air'; P.tt = 0;
     },
     bot(m, S, T, i, dt) {
-      const P = T.p[i], v = m.vin[i]; v.a = v.b = false;
-      if (P.st === 'run' || P.st === 'aim') {
-        MGM.botRhythm(m, i, P);
-        const hold = P.st === 'aim' ? !(P.ang >= P.angT - 3 && P.ad > 0) : P.d >= P.aimAt - P.v * 0.3;
-        v.ay = hold ? -1 : 0;
-        if (P.st === 'aim' && !hold) { P.aimAt = R.range(27.6, 29.5); P.angT = R.range(33, 46); }
-      } else v.ay = 0;
+      const P = T.p[i], v = m.vin[i]; v.a = false;
+      if (P.st === 'ready') { v.a = P.tt > R.range(0.95, 1.6); return; }
+      if (P.st === 'run') { v.a = P.d < P.aimAt - P.v * 0.05; if (!v.a) P.aimAt = R.range(28.2, 30.05); return; }
+      if (P.st === 'bound') { if (Math.abs(P.ang - AIDEAL) < P.err && P.tt > 0.4 && !m.prev[i].a) { v.a = true; P.err = R.range(2, 14); } }
     },
     done(m, S, T, t) { return T.p.every(P => P.st === 'done') || t > 180; },
     result(m, S, T) { return T.p.map(P => P.best); },
     fmt: v => v > 0 ? `${v.toFixed(2)} m` : 'no mark',
     draw(m, S, T, g) {
       MGM.stadium(g, m.t, '#7ccf4a');
+      const slow = T.p.some(P => P.st === 'bound');
       for (let i = 0; i < 4; i++) {
         const L = ln(i), P = T.p[i];
         trackLane(g, i, m, '#c4553a');
-        // sand pit with distance marks
-        g.fillStyle = MGH.grad(g, L.y0 + 30, L.y1, ['#f4e2b0', '#d8c088']); g.fillRect(BX + 20, L.y0 + 40, 1280 - BX - 20, L.h - 46);
-        for (let d = 1; d <= 9; d++) { const x = BX + 20 + d * PPX; g.fillStyle = 'rgba(120,90,40,0.5)'; g.fillRect(x, L.y1 - 14, 2, 8); MGH.text(g, `${d}m`, x, L.y1 - 18, 11, '#7a5a2a'); }
-        g.fillStyle = '#fff'; g.fillRect(BX, L.y0 + 20, 16, L.h - 26); g.fillStyle = '#e8432a'; g.fillRect(BX + 16, L.y0 + 20, 4, L.h - 26);
-        P.marks.forEach((d, k) => { const x = BX + 20 + d * PPX; g.fillStyle = m.players[i].color; g.fillRect(x - 1, L.y1 - 52, 3, 44); g.beginPath(); g.moveTo(x + 2, L.y1 - 52); g.lineTo(x + 18, L.y1 - 46); g.lineTo(x + 2, L.y1 - 40); g.fill(); });
+        const px0 = BX + PIT * PPX;
+        g.fillStyle = MGH.grad(g, L.y0 + 30, L.y1, ['#f4e2b0', '#d8c088']); g.fillRect(px0, L.y0 + 40, 1280 - px0, L.h - 46);
+        for (let d = PIT; d <= 17; d++) { const x = BX + d * PPX; g.fillStyle = 'rgba(120,90,40,0.5)'; g.fillRect(x, L.y1 - 14, 2, 8); MGH.text(g, `${d}m`, x, L.y1 - 18, 11, '#7a5a2a'); }
+        g.fillStyle = '#fff'; g.fillRect(BX - 16, L.y0 + 20, 16, L.h - 26); g.fillStyle = '#e8432a'; g.fillRect(BX, L.y0 + 20, 4, L.h - 26);
+        P.marks.forEach(d => { const x = BX + d * PPX; g.fillStyle = m.players[i].color; g.fillRect(x - 1, L.y1 - 52, 3, 44); g.beginPath(); g.moveTo(x + 2, L.y1 - 52); g.lineTo(x + 18, L.y1 - 46); g.lineTo(x + 2, L.y1 - 40); g.fill(); });
+        // bound landing spots so far (hop, step)
+        const sp = P.v / 10.5, segs = P.q.map((q, k) => PHM[k] * sp * (0.45 + 0.55 * q));
         let x, y = L.y1 - 8, mood = 'determined', walk = 0, fp;
-        if (P.st === 'air') { const k = Math.min(1, P.tt / 0.95); x = BX + (P.foul ? 0 : 20) + (P.foul ? 40 : P.dist * PPX) * k + (P.jx - RUNW) * RPX; y -= Math.sin(Math.PI * k) * (P.foul ? 20 : 30 + P.dist * 7); mood = 'cheer'; fp = [{ x: -0.5, lift: 0.1, tip: 0.3 }, { x: -0.3, lift: 0.25, tip: 0.2 }]; }
-        else if (P.st === 'land' || P.st === 'done') { x = P.foul ? BX + 40 : BX + 20 + (P.marks[P.marks.length - 1] || 0) * PPX; mood = P.foul ? 'hurt' : 'cheer'; }
-        else { x = 70 + Math.min(RUNW + 1.5, P.d) * RPX; walk = P.v > 1 ? 1 : 0; mood = P.st === 'aim' ? 'effort' : 'determined'; }
+        const bx = BX - (RUNW - P.jx) * RPX;
+        if (P.st === 'bound') {
+          // hang in the air above the latest bound, bobbing in slow motion
+          const sofar = segs.reduce((a, b) => a + b, 0), k = Math.min(1, P.tt / 0.6);
+          x = bx + (sofar + PHM[P.ph] * sp * 0.4 * k) * PPX; y -= 30 + Math.sin(Math.min(1, P.tt / 0.6) * Math.PI / 2) * 26 + Math.sin(m.t * 3) * 3; mood = 'effort';
+          fp = [{ x: -0.4, lift: 0.3, tip: 0.3 }, { x: 0.45, lift: 0.1, tip: -0.2 }];
+        } else if (P.st === 'air') {
+          const k = Math.min(1, P.tt / 1.1), x0 = bx + segs.slice(0, 2).reduce((a, b) => a + b, 0) * PPX, x1 = BX + P.dist * PPX;
+          x = x0 + (x1 - x0) * k; y -= Math.sin(Math.PI * k) * (40 + segs[2] * 6); mood = 'cheer'; fp = [{ x: -0.4, lift: 0.3, tip: 0.3 }, { x: 0.5, lift: 0.25, tip: 0.3 }];
+        } else if (P.st === 'land' || P.st === 'done') { x = P.foul ? BX + 30 : BX + (P.marks[P.marks.length - 1] || 0) * PPX; mood = P.foul ? 'hurt' : 'cheer'; }
+        else { x = 70 + Math.min(RUNW + 2.5, P.d) * RPX; walk = P.v > 1 ? 1 : 0; mood = P.v > 8 ? 'effort' : 'determined'; }
+        // footprints of the bounds
+        segs.forEach((d, k) => { const fx = bx + segs.slice(0, k + 1).reduce((a, b) => a + b, 0) * PPX; g.fillStyle = 'rgba(60,30,10,0.35)'; g.beginPath(); g.ellipse(fx, L.y1 - 9, 7, 3, 0, 0, 7); g.fill(); });
         if (P.st !== 'done' || P.att >= 2) { MGH.shadow(g, x, L.y1 - 6, 20, 0.25); runner(g, m, i, x, y, 30, mood, walk, { t: m.t * (0.5 + P.v * 0.08), feet: fp }); }
-        // angle meter
-        if (P.st === 'aim') { const cx = x + 40, cy = L.y1 - 70; g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, 40, -Math.PI / 2, 0); g.stroke(); g.strokeStyle = '#7cf06a'; g.lineWidth = 6; g.beginPath(); g.arc(cx, cy, 40, -45 * Math.PI / 180, -35 * Math.PI / 180); g.stroke(); const a = -P.ang * Math.PI / 180; g.strokeStyle = '#ffe680'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * 46, cy + Math.sin(a) * 46); g.stroke(); MGH.text(g, `${Math.round(P.ang)}°`, cx + 58, cy - 8, 15, '#fff'); }
-        MGH.text(g, `attempt ${Math.min(2, P.att + 1)}/2 · best ${P.best ? P.best.toFixed(2) + ' m' : '—'}`, 260, L.y0 + 24, 14, '#fff');
-        if (P.st === 'run') MGM.drawRhythm(g, 56, L.y0 + 34, P, 92);
+        // the slow-motion angle arrow
+        if (P.st === 'bound') {
+          const cx = x + 34, cy = y - 50, R0 = 46, rad = d => -d * Math.PI / 180;
+          g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R0 + 6, rad(80), rad(0)); g.closePath(); g.fill();
+          g.fillStyle = 'rgba(120,230,120,0.8)'; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R0, rad(AIDEAL + 10), rad(AIDEAL - 10)); g.closePath(); g.fill();
+          g.fillStyle = '#ffe680'; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R0, rad(AIDEAL + 4), rad(AIDEAL - 4)); g.closePath(); g.fill();
+          const th = rad(P.ang); g.strokeStyle = '#fff'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(th) * (R0 + 8), cy + Math.sin(th) * (R0 + 8)); g.stroke();
+          MGH.text(g, `${PH[P.ph]}!  press A`, cx + 20, cy - R0 - 10, 15, '#fff', 'center', 'bold');
+          [0, 1, 2].forEach(k => { g.fillStyle = k < P.ph ? (P.q[k] > 0.85 ? '#ffe680' : P.q[k] > 0.6 ? '#7cf06a' : '#ff9a6b') : k === P.ph ? '#fff' : 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(cx - 10 + k * 16, cy + 16, 5, 0, 7); g.fill(); });
+        }
+        if (P.st === 'ready' && P.tt > 0.9) MGH.text(g, 'HOLD A to run', 70 + 90, L.y1 - 70, 15, '#fff', 'center', 'bold');
+        if (P.st === 'run') { g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, 56, L.y0 + 28, 100, 10, 5); g.fill(); g.fillStyle = '#ffb13d'; MGH.rr(g, 56, L.y0 + 28, 100 * P.v / 10.5, 10, 5); g.fill(); MGH.text(g, 'let go at the board!', 106, L.y0 + 56, 12, '#fff', 'center'); }
+        MGH.text(g, `attempt ${Math.min(2, P.att + 1)}/2 · best ${P.best ? P.best.toFixed(2) + ' m' : '—'}`, 300, L.y0 + 24, 14, '#fff');
       }
+      if (slow) { g.fillStyle = 'rgba(40,60,120,0.12)'; g.fillRect(0, 0, 1280, 720); MGH.text(g, 'slow motion', 1200, 104, 14, 'rgba(255,255,255,0.7)', 'center', 'bold'); }
       drawMsgs(g, T, i => 900);
     },
   };
@@ -247,39 +284,43 @@
   };
 
   // ---- 5) 50m swim
-  const BEAT = 0.75;
+  // ---- 5) 50m swim: stroke & glide, two lengths with a tumble turn
+  const SZ0 = 0.52, SZ1 = 0.72, SG0 = 0.58, SG1 = 0.66; // stroke when your glide has slowed into this band (fraction of peak speed)
   const swim = {
-    name: '50m Swim', icon: '🏊', how: 'Stroke on the beat: press A when the shrinking ring meets the circle. Perfect timing = big speed, off-beat = a splash. Watch your air — press B (or UP) to take a breath before it runs out!',
-    init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, ph: 0, lastKey: null, air: 1, breathe: 0, fin: 0, combo: 0, stroke: 0, err: R.range(0.03, 0.1) })); T.go = 2.4; },
+    name: '50m Swim', icon: '🏊', how: 'Press A to take a stroke, then GLIDE. Watch your glide bar drain and stroke again when it reaches the GREEN band — too early wastes energy, too late you slow right down. Two lengths: press B just before the wall for a fast tumble turn!',
+    init(m, S, T) { T.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 0, peak: 0, en: 1, fin: 0, sk: 0, turned: false, turnQ: -1, wall: 0, stroke: 0, res: -1, fx: 0, err: R.range(0.02, 0.07), tw: R.range(0.3, 1.0) })); T.go = 2.4; },
     update(m, S, T, dt, t) {
       tickMsgs(T, dt);
       T.p.forEach((P, i) => {
         if (P.fin || t < T.go) return;
-        P.ph = (P.ph + dt / BEAT) % 1; P.stroke = Math.max(0, P.stroke - dt);
-        if (P.breathe > 0) { P.breathe -= dt; P.v *= Math.exp(-0.8 * dt); }
-        else {
-          if (m.pressed(i, 'b') || m.pressed(i, 'up') || (m.axis(i).y < -0.6 && !(P.upPrev))) { P.breathe = 0.45; P.air = 1; say(T, i, 'breath', '#9fe0ff'); }
-          else if (m.pressed(i, 'a') && P.stroke <= 0) {
-            P.stroke = 0.25;
-            const off = Math.min(P.ph, 1 - P.ph) * BEAT;
-            if (off < 0.08) { P.v += 1.1; P.combo++; if (P.combo % 4 === 0) say(T, i, `PERFECT x${P.combo}`, '#7cf06a'); }
-            else if (off < 0.16) { P.v += 0.65; P.combo = 0; }
-            else { P.v *= 0.65; P.combo = 0; say(T, i, 'splash!', '#ff9a6b'); }
-          }
+        P.stroke = Math.max(0, P.stroke - dt); P.fx = Math.max(0, P.fx - dt); P.en = Math.min(1, P.en + dt * 0.08);
+        if (P.wall > 0) { P.wall -= dt; if (P.wall <= 0) { P.v = P.turnQ > 0.8 ? 3.6 : P.turnQ > 0.4 ? 2.8 : 1.4; P.peak = P.v; } return; }
+        if (m.pressed(i, 'a') && P.stroke <= 0) {
+          const ratio = P.peak > 0 ? P.v / P.peak : 0; let eff;
+          if (P.peak <= 0 || P.v < 0.4) { eff = 0.8; P.res = -1; }
+          else if (ratio > SZ1) { eff = 0.45; P.en -= 0.09; P.res = 0; }
+          else if (ratio >= SG0 && ratio <= SG1) { eff = 1.08; P.res = 2; }
+          else if (ratio >= SZ0) { eff = 0.96; P.res = 1; }
+          else { eff = 0.9; P.res = 3; }
+          if (P.en < 0.15) eff *= 0.5;
+          P.v = Math.min(4.2, P.v + 1.25 * eff); P.peak = P.v; P.stroke = 0.18; P.fx = 0.4; P.en = Math.max(0, P.en - 0.03);
+          if (!m.bot(i)) Sfx.tone(P.res === 2 ? 1100 : P.res === 1 ? 840 : 380, 0.05, 'triangle', 0.035);
         }
-        P.upPrev = m.axis(i).y < -0.6;
-        P.air = Math.max(0, P.air - dt / 7);
-        P.v = Math.min(4.6, P.v) * Math.exp(-(P.air <= 0 ? 2.2 : 0.55) * dt);
+        P.v *= Math.exp(-1.35 * dt);
+        // tumble turn at the 25 m wall: B in the last 1.6 m
+        const tp = P.turned ? 99 : 25;
+        if (!P.turned && m.pressed(i, 'b') && 25 - P.d < 1.6 && P.d < 25) { P.turnQ = 25 - P.d < 0.7 ? 1 : 0.6; P.turned = true; P.d = 25; P.wall = 0.45; P.v = 0; say(T, i, P.turnQ > 0.8 ? 'PERFECT TURN!' : 'turn', P.turnQ > 0.8 ? '#ffe680' : '#9fffa0'); Sfx.whoosh(true); return; }
         P.d += P.v * dt;
-        if (P.d >= 50) { P.fin = t - T.go; say(T, i, `${P.fin.toFixed(2)}s`, '#fff'); Sfx.coin(); MGH.burst(1200, ln(i).mid, ['#bfe6ff', '#fff'], 18, { speed: 200 }); }
+        if (!P.turned && P.d >= tp) { P.turned = true; P.d = 25; P.turnQ = 0; P.wall = 0.7; P.v = 0; say(T, i, 'bump! slow turn', '#ff9a6b'); Sfx.thud(); }
+        if (P.d >= 50) { P.fin = t - T.go; say(T, i, `${P.fin.toFixed(2)}s`, '#fff'); Sfx.coin(); MGH.burst(105, ln(i).mid, ['#bfe6ff', '#fff'], 18, { speed: 200 }); }
       });
     },
     bot(m, S, T, i, dt) {
-      const P = T.p[i], v = m.vin[i]; v.a = v.b = false; v.ay = 0;
-      if (S.stageT < T.go || P.fin || P.breathe > 0) return;
-      if (P.air < 0.22 && !m.prev[i].b) { v.b = true; return; }
-      const off = Math.min(P.ph, 1 - P.ph) * BEAT;
-      if (off < P.err && P.stroke <= 0 && P.ph > 0.9 - P.err) { v.a = !m.prev[i].a; P.err = R.range(0.03, 0.12); }
+      const P = T.p[i], v = m.vin[i]; v.a = v.b = false;
+      if (S.stageT < T.go || P.fin || P.wall > 0) return;
+      if (!P.turned && P.d > 25 - P.tw && !m.prev[i].b) { v.b = true; P.tw = R.range(0.3, 1.0); return; }
+      const ratio = P.peak > 0 ? P.v / P.peak : 0, tgt = (SG0 + SG1) / 2 + P.err;
+      if (P.stroke <= 0 && (P.peak <= 0 || ratio <= tgt) && !m.prev[i].a) { v.a = true; P.err = R.range(-0.09, 0.1); }
     },
     done(m, S, T, t) { return T.p.every(P => P.fin) || t > T.go + 60; },
     result(m, S, T) { return T.p.map(P => P.fin ? -P.fin : -(60 + (50 - P.d))); },
@@ -289,29 +330,39 @@
       // indoor aquatic hall
       g.fillStyle = MGH.grad(g, 40, 120, ['#2a3a5a', '#3a5a7a']); g.fillRect(0, 40, 1280, 80); MGH.crowd(g, m.t, 112, 34);
       for (let k = 0; k < 8; k++) { g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(60 + k * 160, 44, 80, 10); }
-      const X = d => 110 + d * 21.6;
+      const X = d => d <= 25 ? 130 + d * 42 : 130 + (50 - d) * 42; // there and back
       for (let i = 0; i < 4; i++) {
         const L = ln(i), P = T.p[i];
         g.fillStyle = MGH.grad(g, L.y0, L.y1, ['#4fc0f0', '#2a90d8', '#1a6ab8']); g.fillRect(0, L.y0, 1280, L.h);
-        for (let k = 0; k < 10; k++) { g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 2; g.beginPath(); const yy = L.y0 + 20 + k * 13; for (let x = 0; x <= 1280; x += 40) g.lineTo(x, yy + Math.sin(x * 0.03 + m.t * 2 + k) * 3); g.stroke(); }
-        g.fillStyle = '#1a4a8a'; g.fillRect(0, L.y0 + L.h * 0.5 - 1, 1280, 2);
-        // lane rope
+        for (let k = 0; k < 10; k++) { g.strokeStyle = 'rgba(255,255,255,0.16)'; g.lineWidth = 2; g.beginPath(); const yy = L.y0 + 20 + k * 13; for (let x = 0; x <= 1280; x += 40) g.lineTo(x, yy + Math.sin(x * 0.03 + m.t * 2 + k) * 3); g.stroke(); }
+        g.fillStyle = '#1a4a8a'; g.fillRect(130, L.y0 + L.h * 0.5 + 18, 1050, 4); g.fillRect(1160, L.y0 + L.h * 0.5 + 4, 4, 32); g.fillRect(146, L.y0 + L.h * 0.5 + 4, 4, 32);
         for (let x = 0; x < 1280; x += 16) { g.fillStyle = (x / 16) % 2 ? '#ff4d4d' : '#ffffff'; g.beginPath(); g.arc(x + 8, L.y1 - 2, 5, 0, 7); g.fill(); }
-        g.fillStyle = '#e8eef4'; g.fillRect(96, L.y0, 14, L.h); g.fillRect(1190, L.y0, 14, L.h);
+        g.fillStyle = '#e8eef4'; g.fillRect(116, L.y0, 14, L.h); g.fillRect(1180, L.y0, 14, L.h);
+        // flags 5 m from the turning wall
+        g.fillStyle = 'rgba(255,230,120,0.6)'; g.fillRect(130 + 23.4 * 42, L.y0 + 4, 3, 12);
         g.fillStyle = m.players[i].color; MGH.rr(g, 8, L.y0 + 8, 30, 22, 6); g.fill(); MGH.text(g, String(i + 1), 23, L.y0 + 25, 16, '#fff', 'center', 'bold');
-        const x = X(Math.min(50, P.d)), y = L.mid + 8;
-        // swimmer: head and stroking gloves above the water, body below
-        const sw = P.stroke > 0 ? Math.sin((0.3 - P.stroke) / 0.3 * Math.PI) : 0, nearUp = P.lastKey === 'a';
-        const hands = { n: { x: -1.1 - sw * 0.4, y: nearUp ? -0.9 * sw - 0.1 : 0.4, d: nearUp ? -150 : 160, o: true, m: true }, f: { x: 0.9, y: !nearUp ? -0.9 * sw : 0.4, d: -30, o: true, m: false } };
-        g.save(); g.translate(x, y); g.rotate(0.15);
-        Char.draw(g, 0, -10, 26, m.players[i].el.id, m.players[i].color, { mood: P.air <= 0 ? 'scared' : P.breathe > 0 ? 'happy' : P.fin ? 'cheer' : 'effort', seed: i, look: { x: 1, y: 0 }, noFeet: true, hands, noShadow: true });
-        g.restore();
+        const back = P.turned && P.wall <= 0, x = X(Math.min(50, P.d)), y = L.mid + 8, dir = back ? -1 : 1;
+        const sw = P.stroke > 0 ? Math.sin(P.stroke / 0.18 * Math.PI) : 0;
+        if (P.wall > 0) { // tumble
+          g.save(); g.translate(x - 20, y); g.rotate((1 - P.wall / 0.6) * Math.PI * 2);
+          Char.draw(g, 0, 0, 24, m.players[i].el.id, m.players[i].color, { mood: P.turnQ > 0.8 ? 'cheer' : 'dizzy', seed: i, noFeet: true, noShadow: true }); g.restore();
+        } else {
+          const hands = { n: { x: -1.1 - sw * 0.5, y: -0.9 * sw + 0.3, d: sw > 0.2 ? -150 : 170, o: true, m: true }, f: { x: 0.9, y: 0.4, d: -30, o: true, m: false } };
+          g.save(); g.translate(x, y); g.rotate(0.15 * dir);
+          Char.draw(g, 0, -10, 26, m.players[i].el.id, m.players[i].color, { mood: P.fin ? 'cheer' : P.en < 0.15 ? 'sleepy' : P.res === 0 && P.fx > 0 ? 'hurt' : 'effort', seed: i, look: { x: dir, y: 0 }, noFeet: true, hands, noShadow: true });
+          g.restore();
+        }
         g.fillStyle = 'rgba(40,140,230,0.55)'; g.fillRect(x - 50, y + 4, 100, 30);
-        if (P.v > 1) for (let k = 0; k < 3; k++) { g.fillStyle = `rgba(255,255,255,${0.5 - k * 0.15})`; g.beginPath(); g.ellipse(x - 40 - k * 22, y + 6, 10 - k * 2, 4, 0, 0, 7); g.fill(); }
-        // beat ring and air meter
-        const rx = 60, ry = L.mid; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 3; g.beginPath(); g.arc(rx, ry + 10, 14, 0, 7); g.stroke();
-        if (S.phase === 'play' && t > T.go && !P.fin) { g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.beginPath(); g.arc(rx, ry + 10, 14 + (1 - P.ph) * 30, 0, 7); g.stroke(); }
-        g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(rx - 24, L.y1 - 18, 48, 8); g.fillStyle = P.air < 0.25 ? '#ff6b6b' : '#9fe0ff'; g.fillRect(rx - 24, L.y1 - 18, 48 * P.air, 8); MGH.text(g, 'air', rx, L.y1 - 22, 10, '#fff');
+        if (P.v > 1.2) for (let k = 0; k < 3; k++) { g.fillStyle = `rgba(255,255,255,${0.5 - k * 0.15})`; g.beginPath(); g.ellipse(x - dir * (40 + k * 22), y + 6, 10 - k * 2, 4, 0, 0, 7); g.fill(); }
+        // glide bar: fill = speed / peak; green band = stroke now
+        const gx = 470, gy = L.y0 + 14, gw = 200;
+        g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, gx - 4, gy - 4, gw + 8, 18, 8); g.fill();
+        g.fillStyle = 'rgba(120,230,120,0.55)'; g.fillRect(gx + gw * SZ0, gy, gw * (SZ1 - SZ0), 10); g.fillStyle = 'rgba(255,230,120,0.8)'; g.fillRect(gx + gw * SG0, gy, gw * (SG1 - SG0), 10);
+        const ratio = P.peak > 0 ? Math.min(1, P.v / P.peak) : 0; g.fillStyle = '#fff'; g.fillRect(gx + gw * ratio - 2, gy - 3, 4, 16);
+        MGH.text(g, 'glide', gx - 26, gy + 9, 11, '#fff', 'center');
+        g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(gx + gw + 30, gy, 60, 10); g.fillStyle = P.en < 0.25 ? '#ff6b6b' : '#9fe0ff'; g.fillRect(gx + gw + 30, gy, 60 * P.en, 10); MGH.text(g, 'energy', gx + gw + 60, gy - 2, 10, '#fff', 'center');
+        if (P.fx > 0) { g.globalAlpha = P.fx / 0.4; const r = P.res; MGH.text(g, r === 2 ? 'PERFECT' : r === 1 ? 'good' : r === 0 ? 'too early!' : r === 3 ? 'late' : 'go!', gx + gw / 2, gy + 30, 13, r === 2 ? '#ffe680' : r === 1 ? '#9fffa0' : '#ff9a6b', 'center', 'bold'); g.globalAlpha = 1; }
+        if (!P.turned && P.d > 21 && P.d < 25) MGH.text(g, 'B = turn!', 1120, L.y0 + 30, 16, '#ffe680', 'center', 'bold');
       }
       drawMsgs(g, T, i => X(Math.min(50, T.p[i].d)));
       if (S.phase === 'play') countdown(g, t, T.go);

@@ -47,6 +47,42 @@ const MGM = {
     g.fillStyle = P.rpUsed ? 'rgba(255,255,255,0.4)' : '#fff'; g.fillRect(mx - 2.5, y - 10, 5, 20);
     if (P.rpFx > 0) { g.globalAlpha = P.rpFx / 0.35; MGH.text(g, P.rpRes > 1 ? 'PERFECT' : P.rpRes >= 1 ? 'good' : 'off-beat', x, y - 14, 12, P.rpRes > 1 ? '#ffe680' : P.rpRes >= 1 ? '#9fffa0' : '#ff9a9a', 'center', 'bold'); g.globalAlpha = 1; }
   },
+  // the cadence run: alternate A and B like left/right feet. Speed comes mostly from how STEADY the beat is,
+  // not how fast — a calm 3 steps a second in time beats frantic uneven mashing. Same button twice = stumble.
+  cadence(m, i, P, dt) {
+    P.cT = (P.cT || 0) + dt; P.cFx = Math.max(0, (P.cFx || 0) - dt); if (P.rq === undefined) P.rq = 0;
+    if (P.cT > 0.9) P.rq = Math.max(0, P.rq - dt * 0.9);
+    const a = m.pressed(i, 'a'), b = m.pressed(i, 'b'); if (!a && !b) return P.rq;
+    const k = a ? 'a' : 'b';
+    if (k === P.lastKey) { P.rq *= 0.6; P.cRes = 0; P.cFx = 0.45; P.cT = 0; P.beat = 0; if (!m.bot(i)) Sfx.tone(220, 0.07, 'square', 0.03); return P.rq; }
+    P.lastKey = k; const iv = P.cT; P.cT = 0; let q;
+    if (!P.beat || iv > 0.9) { P.beat = Math.min(0.7, iv); q = 0.7; P.cRes = -1; }
+    else {
+      const err = Math.abs(iv - P.beat) / P.beat;
+      q = err < 0.14 ? 1 : err < 0.28 ? 0.82 : err < 0.45 ? 0.55 : 0.3; P.cRes = q; P.cFx = 0.35;
+      P.beat = P.beat * 0.6 + Math.min(0.7, iv) * 0.4;
+    }
+    const f = 1 / Math.max(0.05, P.beat);
+    const ff = f <= 1.4 ? 0.7 : f < 2.2 ? 0.7 + (f - 1.4) / 0.8 * 0.2 : f < 4.5 ? 0.9 + (f - 2.2) / 2.3 * 0.1 : f <= 7 ? 1 : Math.max(0.5, 1 - (f - 7) * 0.06);
+    P.rq += (q * ff - P.rq) * 0.4;
+    if (!m.bot(i) && P.cRes > 0) Sfx.tone(q >= 1 ? 1040 : q > 0.8 ? 820 : 420, 0.04, 'triangle', 0.03);
+    return P.rq;
+  },
+  botCadence(m, i, P, dt) {
+    const v = m.vin[i]; v.a = v.b = false;
+    if (!P.bIv) P.bIv = R.range(0.2, 0.3);
+    P.bt = (P.bt || 0) + dt;
+    if (P.bt >= (P.bNext || P.bIv)) { P.bt = 0; P.bk = P.bk === 'a' ? 'b' : 'a'; v[P.bk] = true; P.bNext = P.bIv * (1 + R.range(-0.16, 0.16) * (Math.random() < 0.15 ? 2.4 : 1)); }
+  },
+  drawCadence(g, x, y, P, w = 96) {
+    g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, x - w / 2 - 4, y - 9, w + 8, 18, 9); g.fill();
+    const q = Math.max(0, Math.min(1, P.rq || 0));
+    g.fillStyle = q > 0.9 ? '#ffe680' : q > 0.7 ? '#7cf06a' : q > 0.45 ? '#ffb13d' : '#ff6b6b'; MGH.rr(g, x - w / 2, y - 5, w * q, 10, 5); g.fill();
+    // feet: the one to press next glows
+    const nx = P.lastKey === 'a' ? 'B' : 'A';
+    ['A', 'B'].forEach((k, j) => { const fx = x - w / 2 - 22 + j * (w + 44), on = k === nx; g.fillStyle = on ? (k === 'A' ? '#5ad25a' : '#e84a4a') : 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(fx, y, 10, 0, 7); g.fill(); MGH.text(g, k, fx, y + 5, 13, on ? '#fff' : 'rgba(255,255,255,0.5)', 'center', 'bold'); });
+    if (P.cFx > 0) { g.globalAlpha = Math.min(1, P.cFx / 0.35); const r = P.cRes; MGH.text(g, r === 0 ? 'STUMBLE' : r >= 1 ? 'STEADY' : r > 0.8 ? 'good' : 'uneven', x, y - 14, 12, r === 0 ? '#ff6b6b' : r >= 1 ? '#ffe680' : r > 0.8 ? '#9fffa0' : '#ffb13d', 'center', 'bold'); g.globalAlpha = 1; }
+  },
   def(spec) {
     const stages = spec.stages;
     MG.def({
