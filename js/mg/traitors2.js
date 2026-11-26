@@ -369,11 +369,11 @@
       MGH.label(g, '📜 The votes are read out…', 640, 92, 30, '#ffe680');
       const tally = [0, 0, 0, 0];
       S.order.slice(0, S.shown).forEach((i, k) => {
-        const j = S.vote[i], w = this.weight(S, i); tally[j] += w;
+        const j = S.vote[i]; tally[j] += 1;
         const s = SEATS[i], fresh = k === S.shown - 1 ? Math.min(1, (S.t - k * 1.6) / 0.3) : 1, o = [{ x: 175, y: -20 }, { x: 0, y: -100 }, { x: 175, y: -20 }, { x: 0, y: -100 }][i];
         g.save(); g.translate(s.x + o.x, s.y + o.y); g.scale(fresh, fresh);
-        g.fillStyle = w > 1 ? '#ffd8d8' : '#f0e6d0'; MGH.rr(g, -76, -26, 152, 46, 8); g.fill(); g.strokeStyle = w > 1 ? '#a01a2a' : '#5a3418'; g.lineWidth = 3; g.stroke();
-        MGH.text(g, (w > 1 ? '🗡️×2 ' : '➜ ') + m.players[j].name, 0, 5, 19, Char.shade(m.players[j].color, -0.35), 'center', 'bold');
+        g.fillStyle = '#f0e6d0'; MGH.rr(g, -76, -26, 152, 46, 8); g.fill(); g.strokeStyle = '#5a3418'; g.lineWidth = 3; g.stroke();
+        MGH.text(g, '➜ ' + m.players[j].name, 0, 5, 19, Char.shade(m.players[j].color, -0.35), 'center', 'bold');
         g.restore();
       });
       S.P.forEach((P, j) => { if (!tally[j]) return; const s = SEATS[j]; MGH.label(g, '✖'.repeat(tally[j]), s.x, s.y + 76, 22, '#ff8a8a'); });
@@ -387,8 +387,7 @@
       if (tw) { this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); av(g, m, i, 640, 410, 52, 'evil'); MGH.text(g, S.allDead ? `${m.players[i].name} poisoned everyone — nobody was left to vote!` : `${m.players[i].name} was the Traitor — and got away with it!`, 640, 580, 26, '#fff', 'center', 'bold'); }
       else { const w = [0, 1, 2, 3].filter(j => j !== i); w.forEach((j, k) => { const x = 640 + (k - 1) * 230; this.cloak(g, x, 400, 1.3, m.players[j].color, m.t + j); const dead = S.P[j].dead, hop = dead ? 0 : Math.abs(Math.sin(m.t * 6 + k)) * 22; g.globalAlpha = dead ? 0.35 : 1; av(g, m, j, x, 410 - hop + (dead ? Math.sin(m.t * 2 + k) * 6 : 0), 40, dead ? 'sad' : 'cheer', dead ? {} : { hands: { n: { x: 0.8, y: -1.5, d: -90, o: true, m: true }, f: { x: -0.8, y: -1.5, d: -90, o: true, m: false } } }); g.globalAlpha = 1; MGH.text(g, dead ? '💀 poisoned — out' : '🎉 wins!', x, 500, 18, dead ? '#b8a8c8' : '#9fffa0', 'center', 'bold'); });
         for (let q = 0; q < 30; q++) { const cx = (q * 97 + m.t * 60 * (1 + q % 3)) % 1280, cy = (q * 53 + m.t * (90 + (q % 4) * 30)) % 680 + 40; g.fillStyle = ['#ffd34d', '#ff6b8a', '#5ac8ff', '#7cf06a'][q % 4]; g.save(); g.translate(cx, cy); g.rotate(m.t * 4 + q); g.fillRect(-4, -2, 8, 4); g.restore(); } MGH.text(g, `${m.players[i].name} the Traitor is caught!`, 640, 580, 26, '#fff', 'center', 'bold'); }
-      const used = S.power === 'b' ? 'The Traitor dropped a poison gem.' : S.power === 'y' ? (S.P[i].dagger ? 'The Traitor hid a dagger — and voted twice!' : 'The Traitor hid a dagger, but never picked it up.') : 'The Traitor used no tricks this time.';
-      MGH.text(g, `${used}  The blackout swapped two slabs on ${m.players[i].name}'s pillar.`, 640, 630, 17, '#d8c8f0', 'center');
+      MGH.text(g, `The blackout swapped two slabs on ${m.players[i].name}'s pillar — did you spot it?`, 640, 630, 17, '#d8c8f0', 'center');
     },
   }));
 })();
