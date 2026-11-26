@@ -387,7 +387,11 @@
       if (tw) { this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); av(g, m, i, 640, 410, 52, 'evil'); MGH.text(g, S.allDead ? `${m.players[i].name} poisoned everyone — nobody was left to vote!` : `${m.players[i].name} was the Traitor — and got away with it!`, 640, 580, 26, '#fff', 'center', 'bold'); }
       else { const w = [0, 1, 2, 3].filter(j => j !== i); w.forEach((j, k) => { const x = 640 + (k - 1) * 230; this.cloak(g, x, 400, 1.3, m.players[j].color, m.t + j); const dead = S.P[j].dead, hop = dead ? 0 : Math.abs(Math.sin(m.t * 6 + k)) * 22; g.globalAlpha = dead ? 0.35 : 1; av(g, m, j, x, 410 - hop + (dead ? Math.sin(m.t * 2 + k) * 6 : 0), 40, dead ? 'sad' : 'cheer', dead ? {} : { hands: { n: { x: 0.8, y: -1.5, d: -90, o: true, m: true }, f: { x: -0.8, y: -1.5, d: -90, o: true, m: false } } }); g.globalAlpha = 1; MGH.text(g, dead ? '💀 poisoned — out' : '🎉 wins!', x, 500, 18, dead ? '#b8a8c8' : '#9fffa0', 'center', 'bold'); });
         for (let q = 0; q < 30; q++) { const cx = (q * 97 + m.t * 60 * (1 + q % 3)) % 1280, cy = (q * 53 + m.t * (90 + (q % 4) * 30)) % 680 + 40; g.fillStyle = ['#ffd34d', '#ff6b8a', '#5ac8ff', '#7cf06a'][q % 4]; g.save(); g.translate(cx, cy); g.rotate(m.t * 4 + q); g.fillRect(-4, -2, 8, 4); g.restore(); } MGH.text(g, `${m.players[i].name} the Traitor is caught!`, 640, 580, 26, '#fff', 'center', 'bold'); }
-      MGH.text(g, `The blackout swapped two slabs on ${m.players[i].name}'s pillar — did you spot it?`, 640, 630, 17, '#d8c8f0', 'center');
+      const P = S.P[i], vic = [0, 1, 2, 3].filter(j => S.P[j].poisoned), saved = vic.filter(j => !S.P[j].dead);
+      const plan = S.power === 'b' ? `🧪 The Traitor's plan: a POISON gem${vic.length ? ` — picked up by ${vic.map(j => m.players[j].name).join(' & ')}${saved.length ? ' (but the shield saved them!)' : ''}` : ' — but nobody picked it up'}.`
+        : S.power === 'y' ? (P.dagger ? '🗡️ The Traitor\'s plan: a hidden DAGGER — they grabbed it and their vote counted twice!' : '🗡️ The Traitor\'s plan: a hidden DAGGER — but they never picked it up.') : '🤫 The Traitor\'s plan: no tricks at all — they just played it cool.';
+      MGH.text(g, plan, 640, 624, 18, '#ffe0f0', 'center', 'bold');
+      MGH.text(g, `The blackout swapped two slabs on ${m.players[i].name}'s pillar — did you spot it?`, 640, 652, 15, '#d8c8f0', 'center');
     },
   }));
 })();
