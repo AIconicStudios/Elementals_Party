@@ -241,7 +241,7 @@ MG.def({
 MG.def({
   id: 'ghosthunt', name: 'Ghost Hunt', type: 'Stealth', mode: '1v3', controls: 'Move + button', dur: 0,
   rows: [['stick', 'Move'], ['a', 'Hunters: zap · Ghost: BOO!'], ['b', 'Ghost: vanish (when the meter is full)']],
-  how: 'One player is an invisible GHOST haunting a dark mansion; three hunters carry torches. HUNTERS: the ghost only shows up inside your torch beam — keep it in YOUR beam until the lock-on ring closes, then press A to zap (4 zaps wins). GHOST: you can only be seen in the beams — and your VANISH meter fills up over time: when it\'s full, press B to disappear completely for 2 seconds, even inside a beam! Sneak up behind a hunter and press A to BOO! them — six scares and the ghost wins. Creaking floorboards give a running ghost away!',
+  how: 'One player is an invisible GHOST haunting a dark mansion; three hunters carry torches. HUNTERS: the ghost only shows up inside your torch beam — keep it in YOUR beam until the lock-on ring closes, then press A to zap (4 zaps wins). If ALL THREE hunters catch the ghost in their beams at the same time, that\'s an instant TEAM ZAP! GHOST: you can only be seen in the beams — and your VANISH meter fills up over time: when it\'s full, press B to disappear completely for 2 seconds, even inside a beam! Sneak up behind a hunter and press A to BOO! them — six scares and the ghost wins. Creaking floorboards give a running ghost away!',
   wins: 'Hunters: 4 zaps. Ghost: 6 scares. At the 60-second bell, whoever is further along their own goal wins (a tie goes to sudden death).',
   init(m, S) {
     S.ghost = m.players.findIndex((p, i) => m.teamOf(i) === 0);
@@ -271,6 +271,10 @@ MG.def({
         if (b.lock >= 0.7 && d < 240 && (G.hide || 0) <= 0 && (dx * b.face.x + dy * b.face.y) / (d || 1) > 0.9 && G.stun <= 0 && (G.inv || 0) <= 0) { S.zaps++; G.stun = 0.8; G.inv = 3; MGH.burst(G.x, G.y, ['#9fe0ff', '#fff'], 20, { speed: 260 }); Sfx.boom(); const far = [[140, 160], [1140, 160], [140, 640], [1140, 640]].sort((p, q) => Math.min(...[0, 1, 2, 3].filter(j => j !== S.ghost).map(j => dist(S.b[j].x, S.b[j].y, q[0], q[1]))) - Math.min(...[0, 1, 2, 3].filter(j => j !== S.ghost).map(j => dist(S.b[j].x, S.b[j].y, p[0], p[1]))))[0]; G.tx = far; }
       }
     });
+    // TEAM ZAP: when all three hunters have their torch beams on the ghost at once, it counts as a zap (no button needed)
+    { const H = [0, 1, 2, 3].filter(j => j !== S.ghost), on = H.every(j => { const h = S.b[j]; if (h.stun > 0) return false; const dx = G.x - h.x, dy = G.y - h.y, d = Math.hypot(dx, dy) || 1; return d < 255 && (dx * h.face.x + dy * h.face.y) / d > 0.86; });
+      S.team = on && G.stun <= 0 && (G.inv || 0) <= 0 && (G.hide || 0) <= 0 && m.t > 2 ? (S.team || 0) + dt : 0;
+      if (S.team >= 0.5) { S.team = 0; S.zaps++; G.stun = 0.8; G.inv = 3; MGH.burst(G.x, G.y, ['#ffe680', '#9fe0ff', '#fff'], 28, { speed: 300 }); Sfx.boom(); MGH.pop('TEAM ZAP!', G.x, G.y - 60, '#ffe680', 30); const far = [[140, 160], [1140, 160], [140, 640], [1140, 640]].sort((p, q) => Math.min(...H.map(j => dist(S.b[j].x, S.b[j].y, q[0], q[1]))) - Math.min(...H.map(j => dist(S.b[j].x, S.b[j].y, p[0], p[1]))))[0]; G.tx = far; } }
     S.creak.forEach(c => { c.t += dt; }); S.creak = S.creak.filter(c => c.t < 1);
     if (S.zaps >= 4) { S.win = 1; m.finish(this.score(m, S)); }
     else if (S.scares >= 6) { S.win = 0; m.finish(this.score(m, S)); }

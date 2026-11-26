@@ -409,9 +409,11 @@ const Shell = {
       if (this.st > 3.6 || (this.st > 2.6 && this.anyA())) { this.play(rv.id, { mode: game.mode || 'ffa', teams: rv.teams, challenge: true }); }
     }
   },
+  // teams rotate so everyone partners everyone: P1 with P2, then P3, then P4 … and the 1v3 solo seat takes turns
   randomTeams(mode) {
-    if (mode === '2v2') { const a = R.shuffle([0, 1, 2, 3]), t = [0, 0, 0, 0]; t[a[2]] = 1; t[a[3]] = 1; return t; }
-    if (mode === '1v3') { const solo = R.int(0, 3); return [0, 1, 2, 3].map(i => i === solo ? 0 : 1); }
+    const st = this.ch || (this._rot = this._rot || {}); st.pairK = st.pairK === undefined ? R.int(0, 2) : st.pairK; st.soloK = st.soloK === undefined ? R.int(0, 3) : st.soloK;
+    if (mode === '2v2') { const mate = 1 + (st.pairK % 3); st.pairK++; const t = [0, 1, 2, 3].map(i => (i === 0 || i === mate) ? 0 : 1); if (Math.random() < 0.5) return t.map(x => 1 - x); return t; }
+    if (mode === '1v3') { const solo = st.soloK % 4; st.soloK++; return [0, 1, 2, 3].map(i => i === solo ? 0 : 1); }
     return null;
   },
   drawTeams(g, mode, teams, y) {
@@ -540,6 +542,8 @@ const Shell = {
     this.cv.style.visibility = 'visible'; this.busy = false; this.mute = 12; this.escQ = false;
     this.last = { id, opts, res };
     if (res && !res.quit && res.scores) this.record(id, opts, res);
+    // quitting a challenge game skips it (no stars) so “Next game” really moves on
+    else if (opts.challenge && this.ch && this.ch.order[this.ch.idx] === id) { this.ch.log.push({ id, stars: [0, 0, 0, 0], skipped: true }); this.ch.idx++; this.save('ch'); }
     Music.back = 'board'; Music.play('board');
     this.go('post');
     const W = res && res.winners && res.winners.length ? res.winners : [];

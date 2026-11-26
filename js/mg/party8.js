@@ -18,17 +18,17 @@ MG.def({
     F.cd -= dt; F.sel -= dt;
     if (F.sel <= 0 && F.spin <= 0) { const ay = m.axis(fi).y; const up = m.pressed(fi, 'up') || ay < -0.6, dn = m.pressed(fi, 'down') || ay > 0.6; if (up && F.rope > 0) { F.rope--; F.sel = 0.2; } else if (dn && F.rope < 2) { F.rope++; F.sel = 0.2; } }
     F.y += (this.ROPE[F.rope] - F.y) * Math.min(1, dt * 10);
-    if (m.pressed(fi, 'a') && F.cd <= 0 && F.spin <= 0) { F.spin = 0.55; F.cd = 1.3; F.dir = R.pick([-1, 1]); Sfx.tone(120, 0.5, 'sawtooth', 0.03, 300); }
-    if (F.spin > 0) { F.spin -= dt; if (F.spin <= 0) { F.gust = 0.6; F.gRope = F.rope; Sfx.whoosh(true); } }
+    if (m.pressed(fi, 'a') && F.cd <= 0 && F.spin <= 0) { F.spin = 0.7; F.cd = 1.9; F.dir = R.pick([-1, 1]); Sfx.tone(120, 0.5, 'sawtooth', 0.03, 300); }
+    if (F.spin > 0) { F.spin -= dt; if (F.spin <= 0) { F.gust = 0.5; F.gRope = F.rope; Sfx.whoosh(true); } }
     if (F.gust > 0) F.gust -= dt;
     S.w.forEach(W => {
       if (W.done) return;
       if (W.fall > 0) { W.fall -= dt; if (W.fall <= 0) { W.x = Math.max(0, W.x - 30); W.bal = 0; W.bv = 0; } return; }
       const i = W.i, walking = m.held(i, 'a');
       W.brace = (W.brace || 0) - dt; W.bcd = (W.bcd || 0) - dt;
-      if (m.pressed(i, 'b') && !walking && Math.abs(W.bal) < 0.3 && W.bcd <= 0) { W.brace = 1.4; W.bcd = 4; Sfx.tone(500, 0.1, 'triangle', 0.04); }
+      if (m.pressed(i, 'b') && !walking && Math.abs(W.bal) < 0.3 && W.bcd <= 0) { W.brace = 1.6; W.bcd = 3; Sfx.tone(500, 0.1, 'triangle', 0.04); }
       const braced = W.brace > 0 && !walking;
-      const gust = F.gust > 0 && F.gRope === W.rope && !braced ? F.dir * 9.5 : 0;
+      const gust = F.gust > 0 && F.gRope === W.rope && !braced ? F.dir * 7.5 : 0;
       W.bv += (R.range(-1, 1) * (walking ? 3.2 : braced ? 0.3 : 1.4) + W.bal * (braced ? 0.6 : 2.4) + gust) * dt; W.bv -= ((m.held(i, 'rb') || m.held(i, 'rt') ? 1 : 0) - (m.held(i, 'lb') || m.held(i, 'lt') ? 1 : 0)) * 6 * dt; W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
       if (walking) W.x += (1 - Math.min(0.7, Math.abs(W.bal))) * 6.2 * dt;
       if (Math.abs(W.bal) > 1) { W.fall = 1.4; W.falls++; Sfx.bad(); MGH.burst(140 + W.x * 10, this.ROPE[W.rope] + 20, ['#fff', m.players[i].color], 12, { speed: 200, grav: 600 }); }
@@ -42,7 +42,7 @@ MG.def({
       // blow at the walker closest to finishing (who isn't falling)
       const tg = S.w.filter(W => !W.done && W.fall <= 0).sort((a, b) => b.x - a.x)[0]; if (!tg) return;
       if (tg.rope < S.f.rope) v.up = !m.prev[i].up; else if (tg.rope > S.f.rope) v.down = !m.prev[i].down;
-      else if (S.f.cd <= 0 && Math.random() < 0.07) v.a = true;
+      else if (S.f.cd <= 0 && Math.random() < 0.2) v.a = true;
       return;
     }
     const W = S.w.find(W => W.i === i); if (!W || W.done || W.fall > 0) return;

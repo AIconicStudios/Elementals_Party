@@ -18,7 +18,7 @@ const ppDX = (a, b) => { let d = b - a; if (d > 640) d -= 1280; if (d < -640) d 
 MG.def({
   id: 'pipepanic', name: 'Pipe Panic', type: 'Arena', controls: 'Move + A', dur: 90,
   rows: [['lr', 'Run'], ['a', 'Jump (hit a ledge from below to BUMP it)']],
-  how: 'Critters pour out of the pipes at the top and wander down the ledges! Jump up and BUMP the ledge right under a critter to flip it on its back — then touch it to KICK it away for 2 points. Do it fast: a flipped critter gets back up angrier and quicker. Crabs need two bumps, and flies can only be flipped while they\'re touching a ledge. Touch a critter that\'s on its feet and you\'re knocked out for a moment. Hit the POW block to flip everything on the ground at once (three uses), bump rivals from below to send them flying, and grab the coins that roll out of the pipes!',
+  how: 'Critters pour out of the pipes at the top and wander down the ledges! Jump up and BUMP the ledge right under a critter to flip it on its back — then touch it to KICK it away for 2 points. Do it fast: a flipped critter gets back up angrier and quicker. Crabs need two bumps, and flies can only be flipped while they\'re touching a ledge. Touch a critter that\'s on its feet (or the rare wicked fireball) and you\'re knocked out for a moment. Hit the POW block to flip everything on the ground at once (three uses), bump rivals from below to send them flying, and grab the coins that roll out of the pipes!',
   wins: 'Most points (2 per kicked critter, 1 per coin).',
   init(m, S) {
     S.b = [0, 1, 2, 3].map(i => ({ x: 240 + i * 270, y: 660, vx: 0, vy: 0, ground: 'ground', face: i < 2 ? 1 : -1, pts: 0, stun: 0, out: 0, inv: 1, jumpT: 0, kicks: 0 }));
@@ -103,6 +103,14 @@ MG.def({
       if (e.ground && e.y === 660 && (e.x < 50 || e.x > 1230)) { const side = e.x < 640 ? -1 : 1; e.x = side < 0 ? 1220 : 60; e.y = 210; e.dir = side < 0 ? -1 : 1; e.emerge = 0.8; e.sp *= 1.08; }
     });
     S.e = S.e.filter(e => !e.dead);
+    const walkers = S.e.filter(e => !e.gone && e.emerge <= 0 && e.flip <= 0 && e.ground);
+    for (let x = 0; x < walkers.length; x++) for (let y = x + 1; y < walkers.length; y++) { const A = walkers[x], B = walkers[y]; if (Math.abs(A.y - B.y) > 2) continue; const d = ppDX(A.x, B.x); if (Math.abs(d) < 34 && (A.bcd || 0) <= 0 && (B.bcd || 0) <= 0 && Math.sign(d) === A.dir) { A.dir *= -1; B.dir *= -1; A.bcd = B.bcd = 0.4; A.x = ppW(A.x - Math.sign(d) * 4); B.x = ppW(B.x + Math.sign(d) * 4); } }
+    S.e.forEach(e => { e.bcd = (e.bcd || 0) - dt; });
+    // a rare wicked fireball drifts in from a corner, bouncing diagonally — dodge it!
+    S.fbT = (S.fbT === undefined ? R.range(14, 22) : S.fbT) - dt;
+    if (S.fbT <= 0 && !S.fb) { const c = R.int(0, 3); S.fb = { x: c % 2 ? 1250 : 30, y: c < 2 ? 140 : 600, vx: (c % 2 ? -1 : 1) * 190, vy: (c < 2 ? 1 : -1) * 150, t: 0 }; S.fbT = R.range(16, 26); Sfx.tone(180, 0.4, 'sawtooth', 0.04, -80); }
+    if (S.fb) { const F = S.fb; F.t += dt; F.x += F.vx * dt; F.y += F.vy * dt; if (F.y < 120 || F.y > 640) F.vy *= -1; if (F.t > 9 || F.x < -40 || F.x > 1320) S.fb = null;
+      else S.b.forEach(b => { if (b.out <= 0 && b.inv <= 0 && Math.abs(ppDX(b.x, F.x)) < 26 && Math.abs(b.y - 26 - F.y) < 34) { b.out = 1.8; b.vy = -500; b.pts = Math.max(0, b.pts - 1); Sfx.bad(); MGH.pop('BURNT −1', b.x, b.y - 70, '#ff8a4a', 22); b.koY = b.y; b.koX = b.x; } }); }
     // ---- coins roll along like critters
     S.coins.forEach(c => { c.t += dt; if (c.emerge > 0) { c.emerge -= dt; return; } c.x = ppW(c.x + c.dir * 90 * dt); const py = c.y; c.vy += 1500 * dt; c.y += c.vy * dt; const p = c.vy >= 0 && PP.PL.find(p => py <= p[2] + 1 && c.y >= p[2] && ppW(c.x) >= p[0] && ppW(c.x) <= p[1]); if (p) { c.y = p[2]; c.vy = 0; } if (c.y === 660 && (c.x < 50 || c.x > 1230)) c.got = true; });
     S.coins = S.coins.filter(c => !c.got);
@@ -173,7 +181,7 @@ MG.def({
       g.strokeStyle = '#2a2a2a'; g.lineWidth = 2; [-5, 5].forEach(lx => { g.beginPath(); g.moveTo(lx, -2); g.lineTo(lx + walk * 3, 4); g.stroke(); });
     }
     g.restore();
-    if (flip) { const k2 = e.flip / 5; g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, e.x - 20, e.y + 4, 40, 6, 3); g.fill(); g.fillStyle = e.flip < 1.5 ? '#ff6a4a' : '#ffe680'; MGH.rr(g, e.x - 20, e.y + 4, 40 * k2, 6, 3); g.fill(); MGH.star(g, e.x + Math.cos(t * 6) * 16, e.y - 30 + Math.sin(t * 6) * 4, 5, '#ffe680', t * 4, false); }
+    if (flip) { MGH.star(g, e.x + Math.cos(t * 6) * 16, e.y - 30 + Math.sin(t * 6) * 4, 5, '#ffe680', t * 4, false); }
   },
   pipe(g, x, y, w, h, dir, t) {
     const pg = g.createLinearGradient(0, y, 0, y + h); pg.addColorStop(0, '#7ae86a'); pg.addColorStop(0.5, '#3aa83a'); pg.addColorStop(1, '#1f7a2a');
@@ -209,6 +217,7 @@ MG.def({
     S.coins.forEach(c => { if (c.emerge > 0) return; const sx = Math.abs(Math.cos(c.t * 6)); MGH.glow(g, c.x, c.y - 16, 22, 'rgba(255,220,80,0.4)'); g.fillStyle = '#ffd34d'; g.beginPath(); g.ellipse(c.x, c.y - 16, 12 * sx + 2, 13, 0, 0, 7); g.fill(); g.strokeStyle = '#b8862a'; g.lineWidth = 2; g.stroke(); });
     // critters (also drawn across the wrap edge)
     S.e.forEach(e => { if (e.emerge > 0) return; this.critter(g, e, t); if (e.x < 40) this.critter(g, Object.assign({}, e, { x: e.x + 1280 }), t); if (e.x > 1240) this.critter(g, Object.assign({}, e, { x: e.x - 1280 }), t); });
+    if (S.fb) { const F = S.fb; for (let q = 1; q <= 5; q++) { g.fillStyle = `rgba(255,${120 + q * 20},40,${0.4 - q * 0.07})`; g.beginPath(); g.arc(F.x - F.vx * 0.02 * q, F.y - F.vy * 0.02 * q, 16 - q * 2, 0, 7); g.fill(); } MGH.glow(g, F.x, F.y, 40, 'rgba(255,120,40,0.6)'); const fg = g.createRadialGradient(F.x - 4, F.y - 4, 2, F.x, F.y, 17); fg.addColorStop(0, '#fff6b0'); fg.addColorStop(0.5, '#ff9a2a'); fg.addColorStop(1, '#c8301a'); g.fillStyle = fg; g.beginPath(); g.arc(F.x, F.y, 16, 0, 7); g.fill(); g.fillStyle = '#2a0a0a'; g.beginPath(); g.arc(F.x - 5, F.y - 2, 2.5, 0, 7); g.arc(F.x + 5, F.y - 2, 2.5, 0, 7); g.fill(); g.strokeStyle = '#2a0a0a'; g.lineWidth = 2; g.beginPath(); g.arc(F.x, F.y + 5, 5, 0.2, 2.9); g.stroke(); }
     // heroes
     S.b.forEach((b, i) => {
       const p = m.players[i];

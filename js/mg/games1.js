@@ -370,27 +370,38 @@ MG.def({
 // 8 ---------------------------------------------------------------- Rising Tide
 MG.def({
   id: 'tide', name: 'Rising Tide', type: 'Survival', controls: 'Move + jump', dur: 50,
-  how: 'Climb as the water rises all the way to the sky. Platforms crumble about a second after anyone stands on them and come back later, so keep hopping upward. Pure climbing: jump with A, no attacks, no power-ups.',
+  how: 'Climb as the water rises all the way to the sky. Platforms crumble about a second after anyone stands on them — and they also break by themselves every few seconds and grow back somewhere else — so you\'re always on the move. Pure climbing: jump with A, no attacks, no power-ups.',
   wins: 'Last one alive.',
   init(m, S) {
     S.plats = [{ x: 0, y: 690, w: 1280, floor: true, load: 0, st: 'ok', tt: 0 }];
     for (let y = 600; y > 80; y -= 92) {
       const n = R.int(3, 4);
-      for (let k = 0; k < n; k++) S.plats.push({ x: k * (1280 / n) + R.range(0, 1280 / n - 190), y: y + R.range(-12, 12), w: R.range(130, 185), load: 0, st: 'ok', tt: 0 });
+      for (let k = 0; k < n; k++) S.plats.push({ x: k * (1280 / n) + R.range(0, 1280 / n - 190), y: y + R.range(-12, 12), band: y, w: R.range(130, 185), load: 0, st: 'ok', tt: 0, life: R.range(5, 13) });
     }
     S.b = [0, 1, 2, 3].map(i => ({ x: 220 + i * 280, y: 690, vx: 0, vy: 0, ground: true, alive: true, outT: 0, on: null, dir: i < 2 ? 1 : -1 }));
     S.water = 800; S.wall = 0;
   },
   solid(p) { return p.st === 'ok' || p.st === 'crack'; },
+  // a crumbled platform grows back somewhere else in its own height band (never overlapping another, never under the water)
+  respawn(S, p) {
+    if (p.y > S.water - 70) { p.tt = 1; return; }
+    const lo = S.wall + 20, hi = 1280 - S.wall - 20 - p.w;
+    for (let k = 0; k < 14; k++) {
+      const x = R.range(lo, Math.max(lo, hi)), y = p.band + R.range(-14, 14);
+      if (S.plats.some(o => o !== p && !o.floor && o.st !== 'gone' && Math.abs(o.y - y) < 60 && x < o.x + o.w + 40 && x + p.w > o.x - 40)) continue;
+      p.x = x; p.y = y; p.st = 'ok'; p.load = 0; p.life = R.range(6, 12); MGH.ring(p.x + p.w / 2, p.y, '#ffe680', 10, 60, 0.5); return;
+    }
+    p.tt = 0.5; // no room right now — try again in a moment
+  },
   update(m, S, dt) {
     S.water = 800 - m.t * 15.2; S.wall = Math.min(240, m.t * 5);
     // platform life cycle: ok -> (stood on 1.1s) crack 0.6s -> gone 4.5s -> back
     for (const p of S.plats) {
       if (p.floor) continue;
       const stood = S.b.some(b => b.alive && b.on === p);
-      if (p.st === 'ok') { if (stood) p.load += dt; else p.load = Math.max(0, p.load - dt * 0.5); if (p.load > 1.1) { p.st = 'crack'; p.tt = 0.6; } }
-      else if (p.st === 'crack') { p.tt -= dt; if (p.tt <= 0) { p.st = 'gone'; p.tt = 4.5; MGH.burst(p.x + p.w / 2, p.y, ['#9b7b55', '#6b5233', '#c9a36b'], 18, { speed: 160, grav: 700 }); } }
-      else if (p.st === 'gone') { p.tt -= dt; if (p.tt <= 0 && p.y < S.water - 60) { p.st = 'ok'; p.load = 0; MGH.ring(p.x + p.w / 2, p.y, '#ffe680', 10, 60, 0.5); } }
+      if (p.st === 'ok') { p.life -= dt; if (stood) p.load += dt; else p.load = Math.max(0, p.load - dt * 0.5); if (p.load > 1.1 || p.life <= 0) { p.st = 'crack'; p.tt = 1.0; } }
+      else if (p.st === 'crack') { p.tt -= dt; if (p.tt <= 0) { p.st = 'gone'; p.tt = R.range(1.2, 2.2); MGH.burst(p.x + p.w / 2, p.y, ['#9b7b55', '#6b5233', '#c9a36b'], 18, { speed: 160, grav: 700 }); } }
+      else if (p.st === 'gone') { p.tt -= dt; if (p.tt <= 0) this.respawn(S, p); }
     }
     for (let i = 0; i < 4; i++) {
       const b = S.b[i]; if (!b.alive) continue;

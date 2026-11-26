@@ -659,6 +659,7 @@ const MGH = {
       }
     }
   },
+  HELD: new Set(['🖌️', '🏮', '🔦', '🔨', '🪓', '🏏', '🎣', '🧹', '🪄', '🥄']),
   drawBody(g, b, p, extra, mood) {
     const sp = Math.hypot(b.vx || 0, b.vy || 0);
     if (!mood) mood = b.mood || (!b.alive ? 'out' : ((b.stun > 0 || b.frozen > 0) ? 'dizzy' : sp > 160 ? 'determined' : 'happy'));
@@ -670,7 +671,12 @@ const MGH = {
     g.save(); g.translate(b.x, fy); g.rotate(b._lean); g.scale(1 + b._sq, 1 - b._sq);
     Char.draw(g, 0, -r * 1.25, r, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? Math.min(1, sp / 160) : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
     g.restore();
-    if (extra) { g.save(); g.font = `${Math.round(b.r * 0.9)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(extra, b.x, b.y - b.r * 1.75); g.restore(); }
+    if (extra && MGH.HELD.has(extra)) { // tools are held in the hand, not floating over the head
+      const f = b.face && b.face.x < -0.25 ? -1 : 1, sw = Math.sin(performance.now() / 160 + (p.i || 0)) * 0.15;
+      g.save(); g.translate(b.x + f * r * 0.95, b.y + r * 0.25); g.rotate(f * (0.5 + sw)); g.scale(f, 1); g.font = `${Math.round(b.r * 1.05)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(extra, 0, -r * 0.2); g.restore();
+      const C = typeof CLAN !== 'undefined' ? CLAN[p.el.id] : null; g.fillStyle = (C && C.glove) || '#fff'; g.beginPath(); g.arc(b.x + f * r * 0.95, b.y + r * 0.25, r * 0.22, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 1.2; g.stroke();
+    }
+    else if (extra) { g.save(); g.font = `${Math.round(b.r * 0.9)}px "Segoe UI Emoji", Georgia`; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(extra, b.x, b.y - b.r * 1.75); g.restore(); }
   },
   // draw player i's character
   // minigame characters are drawn 60% bigger, growing upward so their feet stay on the ground

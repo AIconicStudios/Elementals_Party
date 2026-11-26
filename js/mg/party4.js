@@ -189,13 +189,14 @@ MG.def({
 MG.def({
   id: 'kart', name: 'Kart Dash', type: 'Race', controls: 'Left/Right + button', dur: 0, sport: true,
   rows: [['lr', 'Steer'], ['a', 'Accelerate (hold)']],
-  how: 'Three laps round the island track! HOLD A to drive and steer with LEFT/RIGHT. Stay on the tarmac — the grass slows you right down. Zoom over the yellow arrow pads for a speed boost. Bump rivals out of the way!',
+  how: 'Three laps round the island track! Drive through all three checkpoint gates in order for a lap to count. HOLD A to drive and steer with LEFT/RIGHT. Stay on the tarmac — the grass slows you right down. Zoom over the yellow arrow pads for a speed boost. Bump rivals out of the way!',
   wins: 'First to finish three laps.',
   PTS: [[260, 180], [640, 140], [1020, 180], [1130, 360], [1020, 560], [760, 600], [640, 460], [520, 600], [260, 560], [150, 360]],
   init(m, S) {
-    const P = this.PTS; S.k = [0, 1, 2, 3].map(i => { const k = { x: P[0][0] - 30 - (i % 2) * 40, y: P[0][1] + (i < 2 ? -18 : 18) + (i % 2) * 12, a: 0.05, v: 0, seg: 0, lap: -1, done: 0, prog: 0, boost: 0 }; k.prog = this.segDist(k.x, k.y).prog; return k; });
+    const P = this.PTS; S.k = [0, 1, 2, 3].map(i => { const k = { x: P[0][0] - 30 - (i % 2) * 40, y: P[0][1] + (i < 2 ? -18 : 18) + (i % 2) * 12, a: 0.05, v: 0, seg: 0, lap: -1, done: 0, prog: 0, boost: 0, next: 3 }; k.prog = this.segDist(k.x, k.y).prog; return k; });
     S.pads = [[640, 140], [1130, 360], [640, 460]];
   },
+  CP: [2.5, 5.0, 7.5],
   segDist(x, y) { // distance to the track centre line and progress along it
     const P = this.PTS; let best = { d: 1e9, prog: 0 };
     for (let k = 0; k < P.length; k++) { const a = P[k], b = P[(k + 1) % P.length], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy, t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / L2, 0, 1), d = Math.hypot(x - a[0] - dx * t, y - a[1] - dy * t); if (d < best.d) best = { d, prog: k + t }; }
@@ -205,12 +206,15 @@ MG.def({
     S.k.forEach((k, i) => {
       if (k.done) { k.v *= 0.95; k.x += Math.cos(k.a) * k.v * dt; k.y += Math.sin(k.a) * k.v * dt; return; }
       const ax = m.axis(i).x, gas = m.held(i, 'a');
-      k.a += ax * 2.6 * dt * clamp(k.v / 200, 0.3, 1);
-      const sd = this.segDist(k.x, k.y), off = sd.d > 46, top = (off ? 150 : 340) + (k.boost > 0 ? 160 : 0);
+      k.a += ax * 3.1 * dt * clamp(k.v / 200, 0.35, 1);
+      const sd = this.segDist(k.x, k.y), off = sd.d > 58, top = (off ? 220 : 340) + (k.boost > 0 ? 160 : 0);
       k.v += ((gas ? top : 0) - k.v) * (gas ? 1.6 : 1.2) * dt; k.boost -= dt;
       k.x += Math.cos(k.a) * k.v * dt; k.y += Math.sin(k.a) * k.v * dt; k.x = clamp(k.x, 20, 1260); k.y = clamp(k.y, 60, 700);
       S.pads.forEach(p => { if (dist(k.x, k.y, p[0], p[1]) < 30 && k.boost < 0.5) { k.boost = 1; if (!m.bot(i)) Sfx.whoosh(); } });
-      const N = this.PTS.length; let pr = sd.prog; if (pr < 1 && k.prog > N - 1.5) { k.lap++; if (k.lap >= 3) { k.done = m.t; Sfx.crowd('cheer'); } } else if (pr > N - 1.5 && k.prog < 1 && k.lap > 0) k.lap--;
+      const N = this.PTS.length; let pr = sd.prog;
+      // checkpoints must be passed in order; only then does crossing the line count as a lap
+      if (k.next < 3 && Math.abs(pr - this.CP[k.next]) < 0.6 && sd.d < 90) { k.next++; if (!m.bot(i)) Sfx.tone(700 + k.next * 120, 0.06, 'triangle', 0.04); }
+      if (pr < 1 && k.prog > N - 1.5) { if (k.next >= 3) { k.lap++; k.next = 0; if (k.lap >= 3) { k.done = m.t; Sfx.crowd('cheer'); } } }
       k.prog = pr;
     });
     for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) { if (S.k[a].done || S.k[b].done) continue; const p = S.k[a], q = S.k[b], d = dist(p.x, p.y, q.x, q.y); if (d < 34 && d > 0) { const nx = (q.x - p.x) / d, ny = (q.y - p.y) / d; p.x -= nx * (34 - d) / 2; p.y -= ny * (34 - d) / 2; q.x += nx * (34 - d) / 2; q.y += ny * (34 - d) / 2; p.v *= 0.995; q.v *= 0.995; } }
@@ -234,6 +238,11 @@ MG.def({
     const P = this.PTS, path = () => { g.beginPath(); P.forEach((p, k) => { const q = P[(k + 1) % P.length], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2; if (!k) g.moveTo(mx, my); else g.quadraticCurveTo(p[0], p[1], mx, my); }); const p0 = P[0], q0 = P[1]; g.quadraticCurveTo(p0[0], p0[1], (p0[0] + q0[0]) / 2, (p0[1] + q0[1]) / 2); g.closePath(); };
     g.lineJoin = 'round'; g.strokeStyle = '#e8323e'; g.lineWidth = 104; path(); g.stroke(); g.strokeStyle = '#fff'; g.setLineDash([22, 22]); g.stroke(); g.setLineDash([]);
     g.strokeStyle = '#4a4a54'; g.lineWidth = 92; path(); g.stroke(); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 2; g.setLineDash([18, 18]); path(); g.stroke(); g.setLineDash([]);
+    // checkpoint gates (numbered arches across the road)
+    this.CP.forEach((cp, n) => { const P2 = this.PTS, a = P2[Math.floor(cp) % P2.length], b = P2[(Math.floor(cp) + 1) % P2.length], f = cp % 1, x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f, ang = Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2, ux = Math.cos(ang) * 62, uy = Math.sin(ang) * 62;
+      g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4; g.setLineDash([10, 8]); g.beginPath(); g.moveTo(x - ux, y - uy); g.lineTo(x + ux, y + uy); g.stroke(); g.setLineDash([]);
+      [[-1], [1]].forEach(([sd]) => { g.fillStyle = '#3a3a48'; g.beginPath(); g.arc(x + ux * sd, y + uy * sd, 7, 0, 7); g.fill(); g.fillStyle = ['#ff6a4a', '#ffd34d', '#5ac8ff'][n]; g.beginPath(); g.arc(x + ux * sd, y + uy * sd - 4, 5, 0, 7); g.fill(); });
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.beginPath(); g.arc(x + ux * 1.35, y + uy * 1.35, 12, 0, 7); g.fill(); MGH.text(g, String(n + 1), x + ux * 1.35, y + uy * 1.35 + 5, 14, '#fff', 'center', 'bold'); });
     // start line
     g.save(); g.translate(P[0][0], P[0][1]); for (let r = 0; r < 2; r++) for (let c = 0; c < 9; c++) { g.fillStyle = (r + c) % 2 ? '#fff' : '#111'; g.fillRect(-6 + r * 6, -46 + c * 10.2, 6, 10.2); } g.restore();
     S.pads.forEach(p => { g.fillStyle = '#ffd34d'; MGH.rr(g, p[0] - 24, p[1] - 18, 48, 36, 8); g.fill(); MGH.text(g, '»', p[0], p[1] + 10, 30, '#e8701a', 'center', 'bold'); });

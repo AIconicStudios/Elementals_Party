@@ -9,7 +9,8 @@ MG.def({
   wins: 'Last one jumping.',
   CX: 640, CY: 430, RX: 330, RY: 170,
   init(m, S) {
-    S.arm = [0.4, 0.4 + Math.PI]; S.w = 1.6; S.target = 1.6; S.dir = 1; S.two = false; S.alive = [true, true, true, true]; S.order = []; S.j = [0, 0, 0, 0]; S.count = 0; S.go = 2.4; S.t = 0; S.paceT = 5; S.flip = 0;
+    // the rope starts just PAST a random player and slowly, so the first jump is never a surprise
+    const a0 = this.ang(R.int(0, 3)) + 0.25; S.arm = [a0, a0 + Math.PI]; S.w = 1.0; S.target = 1.5; S.dir = 1; S.two = false; S.alive = [true, true, true, true]; S.order = []; S.j = [0, 0, 0, 0]; S.count = 0; S.go = 2.4; S.t = 0; S.paceT = 5; S.flip = 0;
     S.err = [0, 1, 2, 3].map(() => R.range(-0.05, 0.05));
   },
   ang(i) { return i * Math.PI / 2 + Math.PI / 4; },

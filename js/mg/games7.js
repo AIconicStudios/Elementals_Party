@@ -516,7 +516,7 @@
         if (f.x > c.x1 - 26) { f.x = c.x1 - 26; if (f.vx > 0) { if (hard && f.vx > 500) this.wallHit(S, f, 'x'); f.vx = hard ? -f.vx * 0.45 : 0; } }
         if (f.y - 84 < c.y0) { f.y = c.y0 + 84; if (f.vy < 0) { if (hard && f.vy < -500) this.wallHit(S, f, 'y'); f.vy = hard ? -f.vy * 0.4 : 0; } }
         if (f.pct >= A.stamina && f.hs <= 0) this.ko(m, S, f);
-      } else if (f.x < BLAST.x0 || f.x > BLAST.x1 || f.y > BLAST.y1 || (f.y < BLAST.y0 && f.state === 'hit')) this.ko(m, S, f); // KO: out of the arena
+      } else if (f.x < BLAST.x0 || f.x > BLAST.x1 || f.y > BLAST.y1 || f.y < (BLAST.y0 > -1000 ? -380 : BLAST.y0)) this.ko(m, S, f); // KO: out of the arena — flying (or powering) off the top of the sky counts too
     },
     collide(m, S, f, dt) {
       const px = f.x, py = f.y;
