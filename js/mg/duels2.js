@@ -47,17 +47,47 @@ MG.def({
     S.d.forEach((i, j) => {
       const ox = j * 640, p = m.players[i], sd = S.side[j];
       g.save(); g.beginPath(); g.rect(ox, 40, 640, 680); g.clip(); g.translate(ox, 0);
-      // stadium: night sky, lights, stands, grass and dirt
-      GX.vfill(g, 0, 40, 640, 300, ['#1a2a5a', '#3a5a9a']); MGH.crowd(g, t, 250, 18);
-      [[80, 70], [560, 70]].forEach(([x, y]) => { g.fillStyle = '#4a4a5a'; g.fillRect(x - 3, y, 6, 150); MGH.glow(g, x, y, 110, 'rgba(255,250,210,0.35)'); g.fillStyle = '#fffbe0'; MGH.rr(g, x - 22, y - 8, 44, 16, 4); g.fill(); });
-      for (let k = 0; k < 8; k++) { g.fillStyle = k % 2 ? '#3c9c40' : '#45aa48'; g.fillRect(0, 330 + k * 50, 640, 50); }
-      g.fillStyle = '#c8945a'; g.beginPath(); g.ellipse(170, 600, 150, 46, 0, 0, 7); g.fill(); g.fillStyle = '#c8945a'; g.beginPath(); g.ellipse(520, 590, 60, 20, 0, 0, 7); g.fill();
-      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(150, 600); g.lineTo(170, 590); g.lineTo(190, 600); g.lineTo(190, 608); g.lineTo(150, 608); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 3; g.beginPath(); g.moveTo(170, 600); g.lineTo(640, 360); g.stroke();
+      // stadium: starry night, light towers, tiered stands with fans, outfield wall, striped grass
+      const half = (key, fn) => g.drawImage(GX.bake(key, fn), 0, 0, 1280, 1440, 0, 0, 640, 720);
+      half('slugger_sky', b => {
+        GX.vfill(b, 0, 40, 640, 300, ['#0a1430', '#1a2a5a', '#3a4a8a']); for (let k = 0; k < 50; k++) { b.fillStyle = `rgba(255,255,255,${0.3 + MGH.hash(k) * 0.6})`; b.fillRect(MGH.hash(k + 3) * 640, 44 + MGH.hash(k + 7) * 120, 2, 2); }
+        b.fillStyle = '#f4f0d8'; b.beginPath(); b.arc(330, 90, 22, 0, 7); b.fill(); b.fillStyle = '#1a2a5a'; b.beginPath(); b.arc(340, 84, 19, 0, 7); b.fill();
+        // jumbotron
+        b.fillStyle = '#2a2a3a'; b.fillRect(250, 120, 140, 70); b.fillRect(316, 190, 8, 40); b.fillStyle = '#0a1a2a'; b.fillRect(256, 126, 128, 58); b.fillStyle = '#ffd34d'; b.font = 'bold 18px Georgia'; b.textAlign = 'center'; b.fillText('⚾ SLUGGERS', 320, 152); b.fillStyle = '#5ac8ff'; b.fillText('HOME RUN!', 320, 176);
+        // tiered stands
+        for (let r = 0; r < 4; r++) { b.fillStyle = r % 2 ? '#2a3a6a' : '#22305a'; b.fillRect(0, 200 + r * 32, 640, 32); b.fillStyle = 'rgba(255,255,255,0.06)'; b.fillRect(0, 200 + r * 32, 640, 3); }
+      });
+      [[60, 66], [580, 66]].forEach(([x, y]) => { g.fillStyle = '#4a4a5a'; g.fillRect(x - 3, y, 6, 150); g.fillStyle = '#3a3a48'; g.fillRect(x - 30, y - 18, 60, 28); for (let q = 0; q < 6; q++) { g.fillStyle = '#fffbe0'; g.beginPath(); g.arc(x - 22 + (q % 3) * 22, y - 10 + Math.floor(q / 3) * 12, 5, 0, 7); g.fill(); } MGH.glow(g, x, y - 4, 130, 'rgba(255,250,210,0.3)'); });
+      MGH.crowd(g, t, 262, 18);
+      half('slugger_field', b => {
+        // outfield wall with ads and distance markers
+        b.fillStyle = '#1a5a3a'; b.fillRect(0, 300, 640, 36); b.fillStyle = '#ffd34d'; b.fillRect(0, 300, 640, 4);
+        [['#e8323e', 'PIE CO.'], ['#2a6ae8', 'ZAP COLA'], ['#ff8a2a', 'YUPPIES']].forEach(([c, txt], k) => { b.fillStyle = c; MGH.rr(b, 30 + k * 210, 306, 170, 26, 6); b.fill(); b.fillStyle = '#fff'; b.font = 'bold 15px Georgia'; b.textAlign = 'center'; b.fillText(txt, 115 + k * 210, 324); });
+        // mowed grass with a checker of light and dark
+        for (let k = 0; k < 8; k++) for (let c = 0; c < 8; c++) { b.fillStyle = (k + c) % 2 ? '#3c9c40' : '#48ac4a'; b.fillRect(c * 80, 336 + k * 48, 80, 48); }
+        [110, 230, 380].forEach((d, k) => { b.fillStyle = 'rgba(255,255,255,0.75)'; b.font = 'bold 14px Georgia'; b.textAlign = 'center'; b.fillText(`${d} m`, 200 + k * 160, 296); });
+        // infield dirt, base paths, mound, batter's box
+        b.fillStyle = '#c8945a'; b.beginPath(); b.ellipse(170, 600, 160, 50, 0, 0, 7); b.fill(); b.fillStyle = 'rgba(0,0,0,0.08)'; b.beginPath(); b.ellipse(170, 604, 140, 40, 0, 0, 7); b.fill();
+        b.fillStyle = '#c8945a'; b.beginPath(); b.ellipse(520, 590, 62, 20, 0, 0, 7); b.fill(); b.fillStyle = '#fff'; b.fillRect(512, 586, 16, 4);
+        b.strokeStyle = 'rgba(255,255,255,0.8)'; b.lineWidth = 2; b.strokeRect(118, 584, 30, 40); b.strokeRect(192, 584, 30, 40);
+        b.fillStyle = '#fff'; b.beginPath(); b.moveTo(150, 600); b.lineTo(170, 590); b.lineTo(190, 600); b.lineTo(190, 608); b.lineTo(150, 608); b.fill();
+        b.strokeStyle = 'rgba(255,255,255,0.7)'; b.lineWidth = 3; b.beginPath(); b.moveTo(170, 600); b.lineTo(640, 360); b.stroke();
+        // a dugout bench in the corner
+        b.fillStyle = '#2a3a5a'; MGH.rr(b, -20, 650, 130, 70, 10); b.fill(); b.fillStyle = '#1a2440'; b.fillRect(0, 668, 100, 40); b.fillStyle = '#8a5a32'; b.fillRect(0, 694, 100, 8);
+      });
       // pitching robot
       const wind = S.ph === 'wind' ? Math.min(1, S.pt / 0.9) : 0;
-      g.save(); g.translate(520, 560); g.fillStyle = '#8a92a8'; MGH.rr(g, -24, -70, 48, 70, 10); g.fill(); g.fillStyle = '#5a6278'; g.fillRect(-28, -6, 56, 10); g.fillStyle = '#b8c0d8'; MGH.rr(g, -18, -98, 36, 30, 8); g.fill(); g.fillStyle = '#ff5a5a'; g.beginPath(); g.arc(-7, -84, 4, 0, 7); g.arc(7, -84, 4, 0, 7); g.fill();
-      g.save(); g.translate(18, -56); g.rotate(-0.4 - wind * 2.2 + (S.ph === 'pitch' && S.pt < 1.1 ? 2.6 : 0)); g.fillStyle = '#6a7290'; MGH.rr(g, -5, -4, 40, 9, 4); g.fill(); g.restore(); g.restore();
+      g.save(); g.translate(520, 560 + Math.sin(t * 3) * 1.5);
+      GX.shadow(g, 0, 8, 40, 0.35); g.fillStyle = '#3a3a48'; MGH.rr(g, -30, -8, 60, 16, 8); g.fill(); for (let q = 0; q < 4; q++) { g.fillStyle = '#6a6a7a'; g.beginPath(); g.arc(-21 + q * 14, 0, 5, 0, 7); g.fill(); }
+      const rb = g.createLinearGradient(-24, 0, 24, 0); rb.addColorStop(0, '#9aa8c8'); rb.addColorStop(0.5, '#dce4f4'); rb.addColorStop(1, '#8a98b8'); g.fillStyle = rb; MGH.rr(g, -24, -72, 48, 66, 14); g.fill();
+      g.fillStyle = '#2a3a5a'; MGH.rr(g, -14, -58, 28, 22, 5); g.fill(); for (let q = 0; q < 3; q++) { g.fillStyle = (Math.floor(t * 4) + q) % 3 === 0 ? '#7cf06a' : '#ffd34d'; g.beginPath(); g.arc(-7 + q * 7, -47, 3, 0, 7); g.fill(); }
+      g.fillStyle = rb; MGH.rr(g, -20, -104, 40, 34, 12); g.fill(); g.fillStyle = '#1a2440'; MGH.rr(g, -15, -96, 30, 16, 8); g.fill();
+      const blink = (t % 3) < 0.12; g.fillStyle = '#5ae8ff'; if (!blink) { g.beginPath(); g.arc(-6, -88, 4, 0, 7); g.arc(6, -88, 4, 0, 7); g.fill(); } else { g.fillRect(-10, -89, 8, 2); g.fillRect(2, -89, 8, 2); }
+      g.fillStyle = 'rgba(255,140,170,0.6)'; g.beginPath(); g.arc(-13, -76, 3.5, 0, 7); g.arc(13, -76, 3.5, 0, 7); g.fill();
+      g.strokeStyle = '#6a7290'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -104); g.lineTo(0, -116); g.stroke(); g.fillStyle = Math.sin(t * 6) > 0 ? '#ff5a5a' : '#ff9a9a'; g.beginPath(); g.arc(0, -118, 4, 0, 7); g.fill();
+      g.fillStyle = '#e8323e'; MGH.rr(g, -22, -110, 44, 8, 4); g.fill(); g.fillRect(4, -106, 22, 4);
+      g.save(); g.translate(20, -56); g.rotate(-0.4 - wind * 2.2 + (S.ph === 'pitch' && S.pt < 1.1 ? 2.6 : 0)); g.fillStyle = '#7a86a8'; MGH.rr(g, -5, -5, 40, 10, 5); g.fill(); g.fillStyle = '#c8a050'; g.beginPath(); g.arc(38, 0, 8, 0, 7); g.fill(); g.restore();
+      g.fillStyle = '#7a86a8'; MGH.rr(g, -32, -60, 12, 30, 6); g.fill(); g.restore();
       // the ball (shared pitch timing, same for both sides)
       if (S.ph === 'pitch' && !(sd.res === 'hit' || sd.res === 'boom')) { const k = clamp((S.pt - 0.9) / P.T, 0, 1.3), bx = 520 - (520 - 180) * k, by = 500 + (P.kind === 'curve' ? Math.sin(k * Math.PI) * 30 : -Math.sin(k * Math.PI) * 18) + k * 30;
         if (P.kind === 'bomb') { g.fillStyle = '#1a1a1a'; g.beginPath(); g.arc(bx, by, 11, 0, 7); g.fill(); g.strokeStyle = '#c8a060'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx + 6, by - 8); g.lineTo(bx + 10, by - 16); g.stroke(); MGH.glow(g, bx + 10, by - 17, 10, 'rgba(255,170,60,0.9)'); }

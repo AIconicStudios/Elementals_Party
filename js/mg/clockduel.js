@@ -31,6 +31,9 @@
       g.fillStyle = MGH.grad(g, 0, 720, ['#1a1028', '#2a1a2a', '#3a2418']); g.fillRect(0, 0, 1280, 720);
       // tall arched windows with moonlight
       for (const x of [140, 1140]) { g.fillStyle = '#20345a'; g.beginPath(); g.moveTo(x - 60, 520); g.lineTo(x - 60, 160); g.arc(x, 160, 60, Math.PI, 0); g.lineTo(x + 60, 520); g.fill(); g.strokeStyle = '#6a4a2a'; g.lineWidth = 6; g.stroke(); g.beginPath(); g.moveTo(x, 100); g.lineTo(x, 520); g.moveTo(x - 60, 300); g.lineTo(x + 60, 300); g.stroke(); MGH.glow(g, x, 240, 120, 'rgba(160,190,255,0.18)'); }
+      // moonbeams through the windows, with floating dust
+      g.save(); g.globalAlpha = 0.1; g.fillStyle = '#cfe0ff'; for (const x of [140, 1140]) { g.beginPath(); g.moveTo(x - 50, 120); g.lineTo(x + 50, 120); g.lineTo(x + (x < 640 ? 340 : -140), 720); g.lineTo(x + (x < 640 ? 140 : -340), 720); g.fill(); } g.restore();
+      for (let k = 0; k < 26; k++) { const x = (MGH.hash(k) * 1280 + Math.sin(t * 0.3 + k) * 30), y = (MGH.hash(k + 9) * 600 + t * (8 + k % 5)) % 640 + 60; g.fillStyle = `rgba(255,240,210,${0.25 + 0.25 * Math.sin(t * 2 + k)})`; g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); }
       // background gears turning
       gear(g, 240, 640, 150, 18, C.gearA * 0.5, '#5a3e22'); gear(g, 1060, 120, 120, 14, -C.gearA * 0.7, '#5a3e22'); gear(g, 1180, 560, 90, 12, C.gearA, '#6a4a28'); gear(g, 90, 200, 70, 10, -C.gearA * 1.3, '#6a4a28');
     },
@@ -48,6 +51,9 @@
       // the hands point at the two gondolas
       [0, 1].forEach(k => { const a = C.a + k * Math.PI; g.strokeStyle = '#2a1a10'; g.lineWidth = k ? 14 : 10; g.lineCap = 'round'; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx + Math.cos(a) * (RAD - 10), fy + Math.sin(a) * (RAD - 10)); g.stroke(); });
       gear(g, fx, fy, 34, 10, C.gearA * 2, '#c8a04a', '#7a5a2a');
+      // the cuckoo house on top of the clock: the bird pops out when the bell tolls
+      g.fillStyle = '#6a3a1e'; g.beginPath(); g.moveTo(fx - 50, fy - 290); g.lineTo(fx, fy - 340); g.lineTo(fx + 50, fy - 290); g.fill(); g.fillStyle = '#8a5a2e'; g.fillRect(fx - 40, fy - 292, 80, 22); g.fillStyle = '#2a1a10'; g.fillRect(fx - 12, fy - 314, 24, 22);
+      const ck = Math.max(0, Math.min(1, (C.bell || 0) / 0.3)) * (C.bell > 0 ? 1 : 0); if (ck > 0) { const bx = fx, by = fy - 304 + 0 - ck * 0; g.save(); g.translate(bx + ck * 26, by); g.fillStyle = '#ffd34d'; g.beginPath(); g.ellipse(0, 0, 14, 10, 0, 0, 7); g.fill(); g.beginPath(); g.arc(10, -8, 7, 0, 7); g.fill(); g.fillStyle = '#ff8a2a'; g.beginPath(); g.moveTo(16, -10); g.lineTo(26, -8 + Math.sin(t * 30) * 2); g.lineTo(16, -5); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(12, -10, 1.6, 0, 7); g.fill(); g.restore(); g.strokeStyle = '#8a6a3a'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + ck * 26 - 10, by); g.stroke(); }
       // the pendulum (rests high to the side between swings)
       const pa = C.pend, bx = PIV.x + Math.sin(pa) * PLEN, by = PIV.y + Math.cos(pa) * PLEN, live = C.ev === 'pendulum';
       g.strokeStyle = '#8a6a3a'; g.lineWidth = 10; g.beginPath(); g.moveTo(PIV.x, PIV.y); g.lineTo(bx, by); g.stroke(); g.strokeStyle = '#c8a04a'; g.lineWidth = 3; g.beginPath(); g.moveTo(PIV.x, PIV.y); g.lineTo(bx, by); g.stroke();
