@@ -148,7 +148,8 @@
       S.P.forEach((P, i) => {
         const a = m.axis(i);
         MGH.steer(P, a.x, a.y, dt, 2300, 265, 8); MGH.integrate(P, dt, 40, 80, 1240, 660);
-        const dx = P.x - ALIN.x, dy = P.y - ALIN.y, d = Math.hypot(dx, dy) || 1; if (d < 62) { P.x = ALIN.x + dx / d * 62; P.y = ALIN.y + dy / d * 62; }
+        const dx = P.x - ALIN.x, dy = P.y - ALIN.y, d = Math.hypot(dx, dy) || 1;
+        { const ex = (P.x - ALIN.x) / 112, ey = (P.y - ALIN.y - 30) / 52, e = Math.hypot(ex, ey) || 0.001; if (e < 1) { P.x = ALIN.x + ex / e * 112; P.y = ALIN.y + 30 + ey / e * 52; } } // Alin's stage is solid
         PIL.forEach(pp => { const ex = P.x - pp.x, ey = P.y - pp.y, e = Math.hypot(ex, ey) || 1; if (e < 64) { P.x = pp.x + ex / e * 64; P.y = pp.y + ey / e * 64; } });
         if (m.pressed(i, 'a')) {
           if (P.carry && d < 125) { P.gems++; P.carry = null; S.alinWave = 0.8; Sfx.tone(820, 0.07, 'triangle', 0.05); for (let k = 0; k < 10; k++) S.sparks.push({ x: ALIN.x + R.range(-20, 20), y: ALIN.y - 30, vx: R.range(-130, 130), vy: R.range(-280, -100), t: 0, life: R.range(0.4, 0.8), c: R.pick(['#ffc0e4', '#fff', '#ffe680']) }); }
@@ -280,11 +281,13 @@
       for (let q = 0; q < 16; q++) { const a = q / 16 * 6.28 + t * 0.6; g.fillStyle = q % 2 ? '#ffe680' : '#fff'; g.beginPath(); g.arc(ALIN.x + Math.cos(a) * 88, ALIN.y + 42 + Math.sin(a) * 26, 2.5, 0, 7); g.fill(); }
       // her treasure chest (no counts shown — just a glow that grows)
       const tot = S.P.reduce((a, P) => a + P.gems, 0); g.fillStyle = '#7a4a1a'; MGH.rr(g, ALIN.x + 34, ALIN.y + 14, 40, 26, 4); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(ALIN.x + 34, ALIN.y + 22, 40, 4); MGH.glow(g, ALIN.x + 54, ALIN.y + 14, 20 + Math.min(30, tot), 'rgba(255,200,240,0.5)');
-      alin(g, ALIN.x - 12, ALIN.y - 22, t, 'happy', S.alinWave);
       for (let k = 0; k < 4; k++) this.drawPillar(m, S, g, k);
-      S.gems.forEach(G => { const pop = Math.min(1, G.t / 0.35); g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(G.x, G.y + 18, 14 * pop, 4 * pop, 0, 0, 7); g.fill(); MGH.glow(g, G.x, G.y + 4, 30, 'rgba(255,255,255,0.35)'); gem(g, G.x, G.y - (1 - pop) * 30, G.hue, t, 1.4 * pop); });
+      S.gems.forEach(G => { const pop = Math.min(1, G.t / 0.35); g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(G.x, G.y + 18, 14 * pop, 4 * pop, 0, 0, 7); g.fill(); if (pop > 0.05) MGH.glow(g, G.x, G.y + 4, 30 * pop, `rgba(255,255,255,${0.35 * pop})`); gem(g, G.x, G.y - (1 - pop) * 30, G.hue, t, 1.4 * pop); });
       if (S.dag) { g.save(); g.translate(S.dag.x, S.dag.y); g.rotate(0.6); MGH.glow(g, 0, 0, 20, 'rgba(255,60,90,0.35)'); g.fillStyle = '#d8d8e8'; g.beginPath(); g.moveTo(0, -18); g.lineTo(4, 4); g.lineTo(-4, 4); g.closePath(); g.fill(); g.fillStyle = '#6a2a3a'; g.fillRect(-8, 4, 16, 3); g.fillRect(-2, 7, 4, 9); g.restore(); }
+      // depth order: anyone standing behind Alin is drawn before her, anyone in front after
+      let alinDone = false; const drawAlin = () => { if (!alinDone) { alinDone = true; alin(g, ALIN.x - 12, ALIN.y - 22, t, 'happy', S.alinWave); } };
       [0, 1, 2, 3].filter(i => !S.P[i].dead || S.phase === 'mission').sort((a, b) => S.P[a].y - S.P[b].y).forEach(i => {
+        if (S.P[i].y > ALIN.y + 40) drawAlin();
         const P = S.P[i], col = m.players[i].color;
         g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(P.x, P.y + 24, 24, 7, 0, 0, 7); g.fill();
         this.cloak(g, P.x, P.y - 6, 1, col, t + i);
@@ -293,6 +296,7 @@
         if (day) { g.fillStyle = 'rgba(30,20,40,0.55)'; MGH.rr(g, P.x - 32, P.y + 31, 64, 17, 8); g.fill(); }
         MGH.text(g, m.players[i].name, P.x, P.y + 44, 13, col, 'center', 'bold');
       });
+      drawAlin();
       if (S.phase === 'mission') { const left = Math.max(0, MISSION - S.mT); MGH.label(g, `⏳ ${Math.ceil(left)}s`, 1200, 74, 20, left < 10 ? '#ff8a8a' : '#fff'); }
     },
     drawShield(m, S, g) {
