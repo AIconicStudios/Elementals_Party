@@ -22,6 +22,8 @@ const MG = {
   makeCtx(game, players, opts = {}) {
     const m = {
       teams: opts.teams || null, mode: opts.mode || game.mode || 'ffa',
+      // duels: the two players on teams 0 and 1 face off, everyone else watches (team -1)
+      duel: (opts.mode || game.mode) === 'duel' ? (() => { const t = opts.teams || [0, 1, -1, -1]; return [t.indexOf(0), t.indexOf(1)]; })() : null,
       teamOf(i) { return this.teams ? this.teams[i] : i; },
       mates(i) { return this.teams ? this.players.map((p, j) => j).filter(j => j !== i && this.teams[j] === this.teams[i]) : []; },
       W: this.W, H: this.H, t: 0, dt: 0, game,
@@ -387,7 +389,7 @@ const MG = {
     return (this.thumbs[id] = t.toDataURL('image/jpeg', 0.82));
   },
   // default teams for a team game (used by previews and tests): 2v2 = seats 1+2 vs 3+4, 1v3 = seat 1 alone
-  defOpts(game) { const md = game.mode || 'ffa'; return { mode: md, teams: md === '2v2' ? [0, 0, 1, 1] : md === '1v3' ? [0, 1, 1, 1] : null }; },
+  defOpts(game) { const md = game.mode || 'ffa'; return { mode: md, teams: md === '2v2' ? [0, 0, 1, 1] : md === '1v3' ? [0, 1, 1, 1] : md === 'duel' ? [0, 1, -1, -1] : null }; },
   simulate(game, players, order, opts) {
     const m = this.makeCtx(game, players.map(p => Object.assign({}, p, { human: false })), opts || this.defOpts(game));
     const S = {}; game.init(m, S);
@@ -435,7 +437,8 @@ const MG = {
     } else { g.globalAlpha = 0.75; MGH.text(g, 'press  Ⓑ  for how to play', 640, 560, 15, '#b6a9e0'); g.globalAlpha = 1; }
     m.players.forEach((p, i) => {
       const x = 160 + i * 320, y0 = 585, w = 296, h = 118;
-      if (m.teams) { const tc = this.TEAMC[m.teams[i]]; g.fillStyle = tc; MGH.rr(g, x - 60, y0 - 26, 120, 24, 12); g.fill(); MGH.text(g, m.mode === '1v3' ? (m.players.filter((q, j) => m.teams[j] === m.teams[i]).length === 1 ? 'SOLO' : 'TEAM OF 3') : 'TEAM ' + this.TEAMN[m.teams[i]].toUpperCase(), x, y0 - 8, 15, '#fff', 'center', 'bold'); }
+      if (m.teams && m.mode === 'duel') { const on = m.teams[i] >= 0; g.fillStyle = on ? this.TEAMC[m.teams[i]] : 'rgba(120,110,150,0.6)'; MGH.rr(g, x - 60, y0 - 26, 120, 24, 12); g.fill(); MGH.text(g, on ? '⚔️ DUELIST' : 'WATCHING', x, y0 - 9, 13, '#fff', 'center', 'bold'); }
+      else if (m.teams) { const tc = this.TEAMC[m.teams[i]]; g.fillStyle = tc; MGH.rr(g, x - 60, y0 - 26, 120, 24, 12); g.fill(); MGH.text(g, m.mode === '1v3' ? (m.players.filter((q, j) => m.teams[j] === m.teams[i]).length === 1 ? 'SOLO' : 'TEAM OF 3') : 'TEAM ' + this.TEAMN[m.teams[i]].toUpperCase(), x, y0 - 8, 15, '#fff', 'center', 'bold'); }
       g.fillStyle = p.color; MGH.rr(g, x - w / 2, y0, w, h, 14); g.globalAlpha = ready[i] && p.human ? 0.32 : 0.14; g.fill(); g.globalAlpha = 1;
       g.strokeStyle = p.color; g.lineWidth = ready[i] && p.human ? 4 : 2; g.stroke();
       Char.draw(g, x - 104, y0 + 50, 28, p.el.id, p.color, { mood: ready[i] && p.human ? 'cheer' : (p.human ? 'happy' : 'neutral'), seed: i * 1.7, look: { x: 0.5, y: 0 } });

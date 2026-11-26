@@ -14,6 +14,7 @@ const CATS = [
   { k: 'ffa', n: 'Free-for-all', f: g => (g.mode || 'ffa') === 'ffa' && !Shell.isBrawl(g) && g.type !== 'Marathon' },
   { k: '2v2', n: '2 vs 2', f: g => g.mode === '2v2' },
   { k: '1v3', n: '1 vs 3', f: g => g.mode === '1v3' },
+  { k: 'duel', n: 'Duels', f: g => g.mode === 'duel' },
   { k: 'sport', n: 'Sports', f: g => !!g.sport },
   { k: 'brawl', n: 'Brawl', f: g => Shell.isBrawl(g) },
   { k: 'mara', n: 'Marathon', f: g => g.type === 'Marathon' },
@@ -414,6 +415,7 @@ const Shell = {
     const st = this.ch || (this._rot = this._rot || {}); st.pairK = st.pairK === undefined ? R.int(0, 2) : st.pairK; st.soloK = st.soloK === undefined ? R.int(0, 3) : st.soloK;
     if (mode === '2v2') { const mate = 1 + (st.pairK % 3); st.pairK++; const t = [0, 1, 2, 3].map(i => (i === 0 || i === mate) ? 0 : 1); if (Math.random() < 0.5) return t.map(x => 1 - x); return t; }
     if (mode === '1v3') { const solo = st.soloK % 4; st.soloK++; return [0, 1, 2, 3].map(i => i === solo ? 0 : 1); }
+    if (mode === 'duel') { const P = [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]]; st.duelK = st.duelK === undefined ? R.int(0, 5) : st.duelK; const [a, b] = P[st.duelK % 6]; st.duelK++; return [0, 1, 2, 3].map(i => i === a ? 0 : i === b ? 1 : -1); }
     return null;
   },
   drawTeams(g, mode, teams, y) {
@@ -507,6 +509,7 @@ const Shell = {
   // ------------------------------------------------------------------ TEAM SETUP (2 vs 2, 1 vs 3)
   scr_teams(g) {
     const T = this.teamSet, gm = MG.byId[T.id], mode = T.mode;
+    if (mode === 'duel') return this.scr_duelpick(g);
     this.text(g, gm.name, 640, 60, 40, '#ffe680');
     this.text(g, mode === '2v2' ? 'Two teams of two — arrange them or shuffle!' : 'One hero against three — who goes solo?', 640, 96, 20, '#d8ccff', 'center', '', null);
     if (this.any('up')) T.row = (T.row + 3) % 4; if (this.any('down')) T.row = (T.row + 1) % 4;
@@ -530,6 +533,29 @@ const Shell = {
     this.button(g, 490, 590, 300, 64, '▶ Start!', true, '#7cf06a'); this.hit(490, 590, 300, 64, () => this.play(T.id, { mode, teams: T.teams.slice() }));
     this.hints(g, [['A', 'Start'], ['Y', 'Random teams'], ['B', 'Back']]);
     if (this.any('a') || this.any('start')) this.play(T.id, { mode, teams: T.teams.slice() });
+    if (this.any('b')) this.go('browse');
+  },
+
+  // ------------------------------------------------------------------ DUEL SETUP: pick the two duelists
+  scr_duelpick(g) {
+    const T = this.teamSet, gm = MG.byId[T.id];
+    this.text(g, gm.name, 640, 60, 40, '#ffe680'); this.text(g, 'A one-on-one duel — pick the two challengers!', 640, 96, 20, '#d8ccff', 'center', '', null);
+    if (this.any('left')) T.row = (T.row + 3) % 4; if (this.any('right')) T.row = (T.row + 1) % 4;
+    const pick = i => { const inD = T.teams[i] >= 0; if (inD) { T.teams[i] = -1; } else { const used = [0, 1].filter(t => T.teams.includes(t)); const free = [0, 1].find(t => !used.includes(t)); if (free === undefined) { const drop = T.teams.indexOf(1); T.teams[drop] = -1; T.teams[i] = 1; } else T.teams[i] = free; } Sfx.select(this.seats[i].char); };
+    if (this.any('x')) pick(T.row);
+    if (this.any('y')) { T.teams = this.randomTeams('duel'); Sfx.tone(900, 0.08, 'triangle', 0.06); }
+    [0, 1, 2, 3].forEach(i => { const x = 200 + i * 293, y = 330, on = T.teams[i] >= 0, sel = T.row === i;
+      this.panel(g, x - 125, y - 150, 250, 300, on ? 'rgba(60,30,90,0.85)' : 'rgba(20,10,50,0.6)', on ? MG.TEAMC[T.teams[i]] : '#5a4a8a');
+      if (sel) { g.strokeStyle = '#ffcc33'; g.lineWidth = 5; this.rr(g, x - 130, y - 155, 260, 310, 22); g.stroke(); }
+      this.hero(g, x, y - 10, on ? 54 : 44, this.seats[i].char, { mood: on ? 'determined' : 'happy', t: this.t + i, alpha: on ? 1 : 0.55 });
+      this.text(g, ELEMENTS[this.seats[i].char].mascot, x, y + 105, 24, ELEMENTS[this.seats[i].char].color, 'center', 'bold');
+      this.text(g, on ? '⚔️ DUELIST' : 'watching', x, y + 132, 16, on ? '#ffe680' : '#b6a9e0', 'center', 'bold', null);
+      this.hit(x - 125, y - 150, 250, 300, () => { T.row = i; pick(i); }); });
+    const ready = T.teams.filter(t => t >= 0).length === 2;
+    this.text(g, 'VS', 640, 520, 46, ready ? '#ff6a4a' : 'rgba(255,255,255,0.3)', 'center', 'bold');
+    this.button(g, 490, 590, 300, 64, '▶ Duel!', ready, '#7cf06a'); this.hit(490, 590, 300, 64, () => { if (ready) this.play(T.id, { mode: 'duel', teams: T.teams.slice() }); });
+    this.hints(g, [['A', 'Start'], ['X', 'Pick / unpick'], ['Y', 'Random pair'], ['B', 'Back']]);
+    if (ready && (this.any('a') || this.any('start'))) this.play(T.id, { mode: 'duel', teams: T.teams.slice() });
     if (this.any('b')) this.go('browse');
   },
 
