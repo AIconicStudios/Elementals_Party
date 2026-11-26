@@ -74,8 +74,38 @@
     g.restore(); g.restore();
   }
 
+  // the castle garden, baked once per day / night
+  function garden(g, day) {
+    const L = day ? { lawn: ['#9ad870', '#7cc45a'], stripe: 'rgba(255,255,255,0.08)', stone: ['#e8dcc4', '#c8b898'], grout: 'rgba(120,100,70,0.35)', hedge: ['#4aa84a', '#2a7a32'], wall: ['#d8c8a8', '#b8a480'], sky: ['#9ad4ff', '#d8f0ff'] }
+      : { lawn: ['#2a5a48', '#1e4a3c'], stripe: 'rgba(255,255,255,0.04)', stone: ['#6a7090', '#4a5070'], grout: 'rgba(10,10,30,0.4)', hedge: ['#24604a', '#163e32'], wall: ['#4a4e6a', '#34384e'], sky: ['#141a3a', '#2a3060'] };
+    // lawn with mowing stripes
+    GX.vfill(g, 0, 40, 1280, 680, L.lawn); for (let x = 0; x < 1280; x += 80) { g.fillStyle = L.stripe; g.fillRect(x, 40, 40, 680); }
+    // castle wall along the top with crenellations, windows and colour banners
+    GX.vfill(g, 0, 40, 1280, 58, L.wall); for (let x = 0; x < 1280; x += 46) { g.fillStyle = L.wall[1]; g.fillRect(x, 40, 30, 8); }
+    for (let x = 20; x < 1280; x += 60) for (let r = 0; r < 2; r++) { g.strokeStyle = L.grout; g.lineWidth = 1; g.strokeRect(x - (r * 30), 52 + r * 20, 60, 20); }
+    for (const x of [300, 640, 980]) { g.fillStyle = day ? '#5a7aa8' : '#ffd890'; g.beginPath(); g.moveTo(x - 14, 92); g.lineTo(x - 14, 64); g.arc(x, 64, 14, Math.PI, 0); g.lineTo(x + 14, 92); g.fill(); if (!day) MGH.glow(g, x, 74, 40, 'rgba(255,210,120,0.35)'); }
+    ['#e8323e', '#2a6ae8', '#3ac85a', '#ffd34d', '#c86ae8', '#ff8a2a'].forEach((c, k) => { const x = 140 + k * 200; g.fillStyle = c; g.beginPath(); g.moveTo(x - 16, 46); g.lineTo(x + 16, 46); g.lineTo(x + 16, 92); g.lineTo(x, 82); g.lineTo(x - 16, 92); g.fill(); g.fillStyle = 'rgba(255,255,255,0.7)'; MGH.star(g, x, 64, 6, '#fff', 0, false); });
+    g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(0, 98, 1280, 8);
+    // stone plaza around Alin's stage, and paths out to the four pillars
+    const flag = (cx, cy, r) => { g.fillStyle = L.stone[0]; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill(); g.strokeStyle = L.grout; g.lineWidth = 2; for (let rr = 40; rr < r; rr += 42) { g.beginPath(); g.arc(cx, cy, rr, 0, 7); g.stroke(); } for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * 40, cy + Math.sin(a) * 40); g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); g.stroke(); } };
+    PIL.forEach(p => { const steps = 9; for (let s = 1; s < steps; s++) { const x = ALIN.x + (p.x - ALIN.x) * s / steps, y = ALIN.y + 30 + (p.y + 10 - ALIN.y - 30) * s / steps; g.fillStyle = L.stone[s % 2]; g.beginPath(); g.ellipse(x, y, 30, 18, 0, 0, 7); g.fill(); g.strokeStyle = L.grout; g.lineWidth = 1.5; g.stroke(); } g.fillStyle = L.stone[1]; g.beginPath(); g.ellipse(p.x, p.y + 20, 86, 34, 0, 0, 7); g.fill(); });
+    flag(ALIN.x, ALIN.y + 30, 190);
+    g.strokeStyle = day ? '#b8a070' : '#3a3e5a'; g.lineWidth = 6; g.beginPath(); g.arc(ALIN.x, ALIN.y + 30, 190, 0, 7); g.stroke();
+    // flower beds and hedges
+    const hedge = (x, y, w, h) => { g.fillStyle = 'rgba(0,0,0,0.2)'; MGH.rr(g, x + 4, y + 8, w, h, 14); g.fill(); const hg = g.createLinearGradient(0, y, 0, y + h); hg.addColorStop(0, L.hedge[0]); hg.addColorStop(1, L.hedge[1]); g.fillStyle = hg; MGH.rr(g, x, y, w, h, 14); g.fill(); for (let k = 0; k < w / 16; k++) { g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.arc(x + 10 + k * 16, y + 8 + (k % 2) * 4, 7, 0, 7); g.fill(); } };
+    const bed = (x, y, w, h, seed) => { g.fillStyle = day ? '#8a5a3a' : '#3a2a28'; MGH.rr(g, x, y, w, h, 10); g.fill(); for (let k = 0; k < (w * h) / 260; k++) { const fx = x + 8 + MGH.hash(k + seed) * (w - 16), fy = y + 8 + MGH.hash(k + seed + 50) * (h - 16), c = ['#ff5a7a', '#ffd34d', '#ffffff', '#c88aff', '#ff8a3a'][k % 5]; g.fillStyle = L.hedge[0]; g.beginPath(); g.arc(fx, fy + 3, 4, 0, 7); g.fill(); g.fillStyle = c; for (let p = 0; p < 5; p++) { const a = p / 5 * 6.28; g.beginPath(); g.arc(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 2.4, 0, 7); g.fill(); } } };
+    hedge(250, 112, 280, 26); hedge(750, 112, 280, 26); hedge(250, 682, 280, 26); hedge(750, 682, 280, 26);
+    hedge(14, 330, 26, 140); hedge(1240, 330, 26, 140);
+    bed(330, 160, 150, 50, 1); bed(800, 160, 150, 50, 7); bed(330, 600, 150, 50, 13); bed(800, 600, 150, 50, 19);
+    // topiary in planters
+    for (const [x, y] of [[250, 400], [1030, 400], [520, 170], [760, 640]]) { g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(x + 4, y + 26, 26, 8, 0, 0, 7); g.fill(); g.fillStyle = day ? '#c87a4a' : '#5a3a3a'; g.beginPath(); g.moveTo(x - 18, y + 4); g.lineTo(x + 18, y + 4); g.lineTo(x + 13, y + 26); g.lineTo(x - 13, y + 26); g.fill(); const tg = g.createRadialGradient(x - 8, y - 22, 4, x, y - 14, 26); tg.addColorStop(0, day ? '#7ad86a' : '#3a7a5a'); tg.addColorStop(1, L.hedge[1]); g.fillStyle = tg; g.beginPath(); g.arc(x, y - 14, 22, 0, 7); g.fill(); }
+    // little lamp posts at the plaza edge
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4, x = ALIN.x + Math.cos(a) * 200, y = ALIN.y + 30 + Math.sin(a) * 200; g.fillStyle = '#3a3a48'; g.fillRect(x - 3, y - 50, 6, 50); g.fillStyle = day ? '#f4f0d8' : '#ffe08a'; g.beginPath(); g.arc(x, y - 56, 9, 0, 7); g.fill(); if (!day) MGH.glow(g, x, y - 56, 60, 'rgba(255,210,120,0.35)'); g.fillStyle = '#3a3a48'; g.fillRect(x - 10, y - 68, 20, 5); }
+  }
+
   MG.def(Object.assign({}, OLD, {
     id: 'traitors', name: 'The Traitors', type: 'Deduction', controls: 'Move + A & B buttons', thumbT: 14, noPadSkip: true,
+    cloak() {},
     rows: [['stick', 'Walk'], ['a', 'Grab a gem · hand it to Alin'], ['b', 'Traitor only: drop a poison gem'], ['y', 'Traitor only: hide a dagger']],
     how: 'The castle has secretly chosen one TRAITOR. THE WAVE: everyone quietly presses A — if your character doesn\'t wave, YOU are the Traitor: press B instead. THE MISSION: gems pour into the courtyard — press A to grab one and A again beside the host ALIN to hand it in (one at a time). Whoever hands in the most wins Alin\'s SHIELD and secretly protects one player (or themselves). Watch the four RUNE PILLARS: when the lights go out for a second, the Traitor\'s own pillar gets two slabs swapped! THE TRAITOR may use ONE trick: B drops a POISON gem that looks just like the rest (anyone else who grabs it is secretly poisoned), or Y hides a DAGGER only they can pick up — it makes their vote count twice. THE ROUND TABLE: survivors vote. Catch the Traitor and every Faithful wins — even with zero gems.',
     wins: 'Every Faithful if the Traitor is voted out; otherwise the Traitor.',
@@ -240,8 +270,11 @@
     },
     drawCourt(m, S, g) {
       const t = m.t, day = S.day;
-      if (day) { g.fillStyle = MGH.grad(g, 40, 720, ['#e0d0ae', '#cfbc96', '#b8a07a']); g.fillRect(0, 40, 1280, 680); for (let y = 60; y < 700; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(255,250,235,0.28)' : 'rgba(140,110,70,0.16)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); } }
-      else { g.fillStyle = MGH.grad(g, 40, 720, ['#141a3a', '#1c2448', '#10142a']); g.fillRect(0, 40, 1280, 680); for (let y = 60; y < 700; y += 56) for (let x = (Math.floor(y / 56) % 2) * 40; x < 1280; x += 80) { g.fillStyle = (x * 7 + y * 3) % 5 ? 'rgba(90,100,150,0.18)' : 'rgba(110,120,170,0.24)'; MGH.rr(g, x + 3, y + 3, 74, 50, 6); g.fill(); } MGH.glow(g, 640, 380, 520, 'rgba(160,190,255,0.14)'); }
+      GX.blit(g, GX.bake(day ? 'traitors_day' : 'traitors_night', b => garden(b, day)));
+      // butterflies by day, fireflies by night
+      for (let k = 0; k < 8; k++) { const x = (k * 167 + Math.sin(t * 0.5 + k) * 90 + 1280) % 1280, y = 140 + (k * 73) % 520 + Math.sin(t * 0.9 + k * 2) * 30;
+        if (day) { const fl = Math.abs(Math.sin(t * 12 + k)); g.fillStyle = ['#ff8ac8', '#ffd34d', '#8ae0ff', '#fff'][k % 4]; g.beginPath(); g.ellipse(x - 4 * fl, y, 5 * fl + 1, 3.5, -0.5, 0, 7); g.ellipse(x + 4 * fl, y, 5 * fl + 1, 3.5, 0.5, 0, 7); g.fill(); }
+        else { const a = 0.5 + 0.5 * Math.sin(t * 3 + k * 1.7); MGH.glow(g, x, y, 14, `rgba(220,255,120,${0.5 * a})`); g.fillStyle = `rgba(240,255,170,${a})`; g.beginPath(); g.arc(x, y, 2.2, 0, 7); g.fill(); } }
       // Alin's stage: a round glittering podium with a spotlight
       MGH.glow(g, ALIN.x, ALIN.y, 190, day ? 'rgba(255,170,220,0.35)' : 'rgba(255,120,200,0.3)');
       g.fillStyle = '#5a1a4a'; g.beginPath(); g.ellipse(ALIN.x, ALIN.y + 50, 96, 30, 0, 0, 7); g.fill(); g.fillStyle = '#ff4fb0'; g.beginPath(); g.ellipse(ALIN.x, ALIN.y + 42, 96, 30, 0, 0, 7); g.fill();
@@ -289,7 +322,27 @@
     },
     drawHall(m, S, g) {
       const t = m.t, ph = S.phase;
-      g.fillStyle = MGH.grad(g, 40, 720, ['#2a1420', '#1a0c16', '#0e0610']); g.fillRect(0, 40, 1280, 680);
+      GX.blit(g, GX.bake('traitors_hall', b => {
+        GX.vfill(b, 0, 40, 1280, 680, ['#3a2030', '#2a1420', '#1a0c12']);
+        // stone block walls
+        for (let y = 40; y < 470; y += 34) for (let x = ((y / 34) % 2) * 40 - 40; x < 1280; x += 80) { b.fillStyle = (x * 3 + y) % 7 ? 'rgba(255,220,200,0.04)' : 'rgba(0,0,0,0.12)'; b.fillRect(x + 2, y + 2, 76, 30); }
+        // a tall stained-glass window
+        b.save(); b.beginPath(); b.moveTo(560, 400); b.lineTo(560, 140); b.arc(640, 140, 80, Math.PI, 0); b.lineTo(720, 400); b.closePath(); b.clip();
+        const SG = ['#e8323e', '#2a6ae8', '#3ac85a', '#ffd34d', '#c86ae8', '#ff8a3a']; for (let k = 0; k < 60; k++) { b.fillStyle = SG[k % 6]; b.globalAlpha = 0.55; b.fillRect(560 + (k % 6) * 27, 60 + Math.floor(k / 6) * 34, 26, 33); } b.globalAlpha = 1; b.restore();
+        b.strokeStyle = '#2a1a18'; b.lineWidth = 8; b.beginPath(); b.moveTo(560, 400); b.lineTo(560, 140); b.arc(640, 140, 80, Math.PI, 0); b.lineTo(720, 400); b.closePath(); b.stroke(); b.lineWidth = 4; b.beginPath(); b.moveTo(640, 60); b.lineTo(640, 400); b.moveTo(560, 250); b.lineTo(720, 250); b.stroke();
+        MGH.glow(b, 640, 240, 220, 'rgba(255,200,230,0.18)');
+        // tapestries in the four player colours… and a dark one
+        [[180, '#e8323e'], [330, '#2a6ae8'], [950, '#3ac85a'], [1100, '#ffd34d']].forEach(([x, c]) => { b.fillStyle = '#5a3a1a'; b.fillRect(x - 54, 96, 108, 8); b.fillStyle = c; b.beginPath(); b.moveTo(x - 46, 104); b.lineTo(x + 46, 104); b.lineTo(x + 46, 300); b.lineTo(x, 330); b.lineTo(x - 46, 300); b.fill(); b.fillStyle = 'rgba(0,0,0,0.2)'; b.fillRect(x - 46, 104, 8, 196); b.strokeStyle = '#ffd34d'; b.lineWidth = 3; b.beginPath(); b.moveTo(x - 38, 112); b.lineTo(x + 38, 112); b.lineTo(x + 38, 294); b.lineTo(x, 320); b.lineTo(x - 38, 294); b.closePath(); b.stroke(); MGH.star(b, x, 200, 18, 'rgba(255,240,200,0.85)', 0, false); });
+        // floor: a chequered flagstone hall with a red carpet to the table
+        GX.vfill(b, 0, 470, 1280, 250, ['#4a3030', '#2a1a1a']); for (let y = 470; y < 720; y += 40) for (let x = 0; x < 1280; x += 80) { b.fillStyle = ((x / 80 + y / 40) % 2) ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.12)'; b.fillRect(x, y, 80, 40); }
+        b.fillStyle = '#8a1a2a'; b.beginPath(); b.moveTo(580, 470); b.lineTo(700, 470); b.lineTo(760, 720); b.lineTo(520, 720); b.fill(); b.strokeStyle = '#ffd34d'; b.lineWidth = 3; b.beginPath(); b.moveTo(588, 470); b.lineTo(530, 720); b.moveTo(692, 470); b.lineTo(750, 720); b.stroke();
+        b.fillStyle = 'rgba(0,0,0,0.3)'; b.fillRect(0, 466, 1280, 6);
+      }));
+      // wall torches and a candle chandelier
+      for (const x of [60, 470, 810, 1220]) { g.fillStyle = '#3a2a20'; g.fillRect(x - 5, 250, 10, 40); MGH.flame(g, x, 248, 0.5, t, x); MGH.glow(g, x, 236, 70, 'rgba(255,170,80,0.3)'); }
+      g.strokeStyle = '#2a1a10'; g.lineWidth = 3; g.beginPath(); g.moveTo(640, 40); g.lineTo(640, 70); g.stroke(); g.strokeStyle = '#8a6a3a'; g.lineWidth = 5; g.beginPath(); g.ellipse(640, 80, 90, 14, 0, 0, 7); g.stroke();
+      for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, cx = 640 + Math.cos(a) * 90, cy = 80 + Math.sin(a) * 14; g.fillStyle = '#f0e6d0'; g.fillRect(cx - 3, cy - 14, 6, 14); g.fillStyle = '#ffcf5a'; g.beginPath(); g.ellipse(cx, cy - 18 + Math.sin(t * 9 + k), 3, 5, 0, 0, 7); g.fill(); }
+      MGH.glow(g, 640, 80, 160, 'rgba(255,190,90,0.22)');
       MGH.glow(g, 640, 440, 420, 'rgba(255,170,80,0.25)');
       g.fillStyle = '#2a160c'; g.beginPath(); g.ellipse(640, 452, 230, 96, 0, 0, 7); g.fill();
       g.fillStyle = MGH.grad(g, 350, 540, ['#8a5a32', '#5a3418']); g.beginPath(); g.ellipse(640, 440, 230, 96, 0, 0, 7); g.fill();
