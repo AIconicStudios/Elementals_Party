@@ -74,7 +74,7 @@ const ncDef = (spec) => MG.def(Object.assign({
       // grab numbers (reach from the vine or mid-jump)
       if (P.st !== 'ground') S.tags.forEach(t => { if (t.t > 0 || Math.abs(t.x - P.x) > 30 || Math.abs(t.y - (P.y - 46)) > 34) return; const res = NC.apply(P.tot, P.op, t.v);
         if (res === null) { if (P.nope <= 0) { P.nope = 0.6; P.last = `${P.tot} ÷ ${t.v} ✖`; P.lastT = 1.2; if (!m.bot(i)) Sfx.bad(); } return; }
-        P.last = `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -999, 999); t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
+        P.last = `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -199, 199); t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
         if (P.tot === S.target) this.roundWin(m, S, i, false); });
       // operator stones by the water
       if (P.st === 'ground' && a.y < -0.5) NC.OPS.forEach(o => { if (Math.abs(o.x - P.x) < 26 && P.op !== o.o) { P.op = o.o; if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04); } });
