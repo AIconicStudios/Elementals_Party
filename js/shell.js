@@ -16,7 +16,7 @@ const CATS = [
   { k: '1v3', n: '1 vs 3', f: g => g.mode === '1v3' },
   { k: 'duel', n: 'Duels', f: g => g.mode === 'duel' },
   { k: 'sport', n: 'Sports', f: g => !!g.sport },
-  { k: 'brawl', n: 'Brawl', f: g => Shell.isBrawl(g) },
+  { k: 'brawl', n: 'Brawl', f: g => Shell.isBrawl(g) && g.mode !== 'duel' },
   { k: 'mara', n: 'Marathon', f: g => g.type === 'Marathon' },
   { k: 'skill', n: 'Skill', f: g => ['Skill', 'Timing', 'Reaction', 'Rhythm', 'Arcade', 'Balance', 'Mash'].includes(g.type) },
   { k: 'wits', n: 'Wits & luck', f: g => ['Luck', 'Bluff', 'Memory', 'Deduction', 'Strategy', 'Search', 'Stealth', 'Wits'].includes(g.type) },
@@ -405,7 +405,7 @@ const Shell = {
     if (spin < 1 && Math.floor(this.st * 20) !== Math.floor((this.st - 1 / 60) * 20)) Sfx.tone(600 + (idx % 5) * 80, 0.03, 'square', 0.03);
     if (spin >= 1) {
       if (!rv.said) { rv.said = true; Sfx.star && Sfx.star(); Voice.announce(game.name + '!'); rv.teams = this.randomTeams(game.mode || 'ffa'); }
-      this.text(g, `${game.type}${game.mode && game.mode !== 'ffa' ? ' · ' + (game.mode === '2v2' ? '2 vs 2' : '1 vs 3') : ''}`, 640, 400, 22, '#5a3a9a', 'center', 'bold', null);
+      this.text(g, `${game.type}${game.mode && game.mode !== 'ffa' ? ' · ' + ({ '2v2': '2 vs 2', '1v3': '1 vs 3', duel: '⚔️ Duel' }[game.mode] || game.mode) : ''}`, 640, 400, 22, '#5a3a9a', 'center', 'bold', null);
       if (rv.teams) this.drawTeams(g, game.mode, rv.teams, 470);
       if (this.st > 3.6 || (this.st > 2.6 && this.anyA())) { this.play(rv.id, { mode: game.mode || 'ffa', teams: rv.teams, challenge: true }); }
     }
@@ -477,7 +477,7 @@ const Shell = {
       g.save(); g.shadowColor = on ? '#ffcc33' : 'rgba(0,0,0,0.4)'; g.shadowBlur = on ? 24 : 8; g.fillStyle = '#140a34'; this.rr(g, x, y, cw, chh, 14); g.fill(); g.restore();
       const im = this.thumbImg(gm.id);
       g.save(); this.rr(g, x + 6, y + 6, cw - 12, 124, 10); g.clip(); if (im && im.complete && im.naturalWidth) g.drawImage(im, x + 6, y + 6, cw - 12, 124); else { g.fillStyle = '#2d1f66'; g.fillRect(x, y, cw, 130); this.text(g, '…', x + cw / 2, y + 74, 30, '#887', 'center', 'bold', null); } g.restore();
-      if (gm.mode && gm.mode !== 'ffa') { g.fillStyle = '#ff5a5a'; this.rr(g, x + 10, y + 10, 64, 22, 10); g.fill(); this.text(g, gm.mode === '2v2' ? '2 vs 2' : '1 vs 3', x + 42, y + 26, 13, '#fff', 'center', 'bold', null); }
+      if (gm.mode && gm.mode !== 'ffa') { g.fillStyle = '#ff5a5a'; this.rr(g, x + 10, y + 10, 64, 22, 10); g.fill(); this.text(g, ({ '2v2': '2 vs 2', '1v3': '1 vs 3', duel: 'Duel' }[gm.mode] || gm.mode), x + 42, y + 26, 13, '#fff', 'center', 'bold', null); }
       this.text(g, gm.name, x + cw / 2, y + chh - 14, gm.name.length > 20 ? 15 : 18, on ? '#ffe680' : '#fff', 'center', 'bold');
       g.strokeStyle = on ? '#ffcc33' : 'rgba(255,255,255,0.15)'; g.lineWidth = on ? 4 : 2; this.rr(g, x, y, cw, chh, 14); g.stroke();
       this.hit(x, y, cw, chh, () => { if (this.bsel === idx) this.startFree(gm); else this.bsel = idx; });
@@ -488,7 +488,7 @@ const Shell = {
     this.panel(g, 1010, 70, 250, 590);
     if (gm) {
       this.wrap(g, gm.name, 1135, 112, 230, 30, 26, '#ffe680', 'center');
-      this.text(g, gm.type + (gm.mode && gm.mode !== 'ffa' ? ' · ' + (gm.mode === '2v2' ? '2 vs 2' : '1 vs 3') : ' · Free-for-all'), 1135, 176, 15, '#8fe0ff', 'center', 'bold', null);
+      this.text(g, gm.type + (gm.mode && gm.mode !== 'ffa' ? ' · ' + ({ '2v2': '2 vs 2', '1v3': '1 vs 3', duel: '⚔️ Duel' }[gm.mode] || gm.mode) : ' · Free-for-all'), 1135, 176, 15, '#8fe0ff', 'center', 'bold', null);
       this.text(g, '🎮 ' + (gm.controls || ''), 1135, 202, 14, '#fff', 'center', '', null);
       g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(1030, 216, 210, 2);
       const yy = this.wrap(g, gm.how, 1028, 244, 214, 20, 15, '#f0ecff');

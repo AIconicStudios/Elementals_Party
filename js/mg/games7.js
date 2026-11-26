@@ -986,8 +986,10 @@
         const a = Math.atan2(sy - by, sx - bx); g.fillStyle = p.color; g.beginPath(); g.moveTo(bx + Math.cos(a) * 44, by + Math.sin(a) * 44); g.lineTo(bx + Math.cos(a + 0.4) * 32, by + Math.sin(a + 0.4) * 32); g.lineTo(bx + Math.cos(a - 0.4) * 32, by + Math.sin(a - 0.4) * 32); g.closePath(); g.fill();
       });
       // bottom panels: portrait, damage %, lives
+      const vis = S.f.filter(o => !o.watch);
       S.f.forEach((f, i) => {
-        const p = m.players[i], x = 160 + i * 320, y = 668;
+        if (f.watch) return;
+        const p = m.players[i], x = vis.length === 2 ? 320 + vis.indexOf(f) * 640 : 160 + i * 320, y = 668;
         const out = f.lives <= 0;
         g.save(); g.globalAlpha = out ? 0.5 : 1;
         g.fillStyle = 'rgba(12,8,30,0.72)'; MGH.rr(g, x - 140, y - 38, 280, 76, 18); g.fill();
