@@ -135,7 +135,7 @@ const MGM = {
         stages.forEach((s, k) => { const x = 1270 - (stages.length - k) * 34, y = 58; g.fillStyle = k < S.si ? '#ffd34d' : k === S.si ? '#ffffff' : 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill(); MGH.text(g, s.icon, x, y + 6, 15, '#000', 'center'); });
         if (S.phase === 'intro') MGM.drawIntro(g, m, S, st, S.pt);
         // the event's controls stay on screen early on (and all through the practice round)
-        if (S.phase === 'play' && (m.practice || S.stageT < 9)) MGM.drawHow(g, st, m.practice ? 1 : clamp((9 - S.stageT) / 1.2, 0, 1), m.practice ? 46 : 640);
+        if (S.phase === 'play' && m.practice) MGM.drawHow(g, st, 1, 46);
         if (S.phase === 'results') MGM.drawResults(g, m, S, S.pt);
       },
     });

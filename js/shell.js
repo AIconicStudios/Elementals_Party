@@ -159,7 +159,7 @@ const Shell = {
   hero(g, x, y, r, c, o = {}) { Char.draw(g, x, y, r, c, ELEMENTS[c].color, Object.assign({ mood: 'happy', seed: c * 1.3, look: { x: 0.5, y: 0 } }, o)); },
   logo(g, x, y, s = 1) {
     g.save(); g.translate(x, y); g.scale(s, s);
-    const word = 'FOURFOLD', size = 112; g.font = `900 ${size}px "Arial Black", Impact, Georgia, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const word = 'YUPPIES', size = 118; g.font = `900 ${size}px "Arial Black", Impact, Georgia, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     const total = g.measureText(word).width; let cx = -total / 2;
     for (let k = 0; k < word.length; k++) {
       const ch = word[k], w = g.measureText(ch).width, yy = Math.sin(this.t * 3 + k * 0.7) * 6;
@@ -216,7 +216,7 @@ const Shell = {
     this.logo(g, 640, 170, 1);
     const k = 0.5 + 0.5 * Math.sin(t * 4);
     g.globalAlpha = 0.55 + 0.45 * k; this.btn(g, 448, 345, 'A', 22); this.text(g, 'Press A to start', 660, 356, 38, '#fff', 'center', 'bold'); g.globalAlpha = 1;
-    this.text(g, '15 heroes · 4 players · one big party', 640, 712, 16, '#cdbff5', 'center', '', null);
+    this.text(g, '4 players · one big party', 640, 712, 16, '#cdbff5', 'center', '', null);
     this.hit(0, 0, this.W, this.H, () => this.toSelect());
     if (this.st > 0.4 && this.anyA()) this.toSelect();
   },
@@ -244,7 +244,7 @@ const Shell = {
         if (e.left) s.cur = (s.cur + 14) % 15; if (e.right) s.cur = (s.cur + 1) % 15;
         if (e.up) s.cur = (s.cur + 10) % 15; if (e.down) s.cur = (s.cur + 5) % 15;
         if (e.left || e.right || e.up || e.down) Sfx.tone(880, 0.03, 'triangle', 0.03);
-        if (e.a) { if (this.takenBy(s.cur, si) >= 0) Sfx.bad(); else { s.char = s.cur; s.picked = true; Sfx.tone(780, 0.12, 'triangle', 0.08); Sfx.tone(1170, 0.16, 'triangle', 0.07, 0, 0.08); Voice.say(s.char, ELEMENTS[s.char].mascot + '!'); } }
+        if (e.a) { if (this.takenBy(s.cur, si) >= 0) Sfx.bad(); else { s.char = s.cur; s.picked = true; Sfx.select(s.char); } }
         if (e.b) { s.dev = null; s.char = null; Sfx.tone(300, 0.1, 'triangle', 0.06); }
       } else {
         if (e.b) { s.picked = false; Sfx.tone(380, 0.1, 'triangle', 0.06); }
@@ -298,7 +298,7 @@ const Shell = {
     // mouse plays as P1 on the keyboard
     const s = this.seats[0]; if (!s.dev) { s.dev = 'k0'; }
     if (this.takenBy(c, 0) >= 0) { Sfx.bad(); return; }
-    s.cur = c; s.char = c; s.picked = true; Sfx.tone(780, 0.12, 'triangle', 0.08); Voice.say(c, ELEMENTS[c].mascot + '!');
+    s.cur = c; s.char = c; s.picked = true; Sfx.select(c);
   },
   allReady() { const j = this.seats.filter(s => s.dev); return j.length > 0 && j.every(s => s.picked); },
   finishSelect() {
@@ -337,7 +337,7 @@ const Shell = {
       { label: '🎮 Free Play', sub: `${MG.list.length} minigames`, fn: () => { this.tab = this.tab || 0; this.go('browse'); }, col: '#7cf06a' },
       { label: '📜 Records', sub: 'Wins, champions, favourites', fn: () => this.go('records'), col: '#8fd8ff' },
       { label: '🙂 Change avatars', sub: 'Back to avatar select', fn: () => { this.seats.forEach(s => { s.picked = false; }); this.go('select'); }, col: '#ff9ad0' },
-      { label: '⚙️ Settings', sub: 'Sound, voices, controls', fn: () => this.go('settings'), col: '#c8b8ff' },
+      { label: '⚙️ Settings', sub: 'Sound, music, controls', fn: () => this.go('settings'), col: '#c8b8ff' },
     ];
     this.menuList(g, items, 90, 200, 470, 78, 92);
     this.panel(g, 620, 210, 600, 380);
@@ -621,7 +621,6 @@ const Shell = {
     const items = [
       { label: `🔊 Sound: ${on(Settings.sound)}`, fn: () => { Settings.sound = !Settings.sound; this.save('set'); } },
       { label: `🎵 Music: ${on(Settings.music)}`, fn: () => { Settings.music = !Settings.music; Music.refresh(); this.save('set'); } },
-      { label: `🗣️ Voices: ${on(Settings.voice !== false)}`, fn: () => { Settings.voice = Settings.voice === false; this.save('set'); if (Settings.voice) Voice.announce('Voices on!'); } },
       { label: `🏃 Practice before games: ${on(Settings.practice !== false)}`, sub: 'START / SELECT ends practice', fn: () => { Settings.practice = Settings.practice === false; this.save('set'); } },
       { label: '🎮 Controls…', sub: 'Change any player’s buttons', fn: () => { this.ctl = { seat: 0, row: 0, listen: null }; this.go('controls'); } },
       { label: '◀ Back', fn: () => this.go('menu'), col: '#c8b8ff' },

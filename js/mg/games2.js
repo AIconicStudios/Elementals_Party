@@ -286,14 +286,18 @@ MG.def({
 // 16 ---------------------------------------------------------------- Cloud Hop
 MG.def({
   id: 'cloud', name: 'Cloud Hop', type: 'Race', controls: '1 button', mouseA: true,
-  how: 'Auto-run across floating platforms. Press to jump. A fall sends you back to your last platform.',
-  wins: 'First to the finish.',
+  how: 'Auto-run across floating platforms. Press to jump. A fall sends you back to your last platform. Grab the coins floating over the gaps and platforms on the way — you keep them (max 20)!',
+  wins: 'First to the finish (coins you grab are yours to keep).',
+  bonusCoins: true, coinsWon(S) { return S.c.slice(); },
   init(m, S) {
     S.plats = []; let x = 0;
     S.plats.push({ x: 0, w: 400, y: 0 });
     x = 400;
     while (x < 5200) { const gap = R.range(70, 150), w = R.range(110, 280); x += gap; S.plats.push({ x, w, y: R.int(-1, 1) * 25 }); x += w; }
     S.end = x;
+    // coins: arcs over the gaps, singles hovering above platforms (the same course for everyone)
+    S.coins = []; S.plats.forEach((pl, k) => { const nx = S.plats[k + 1]; if (nx && Math.random() < 0.7) { const gx = pl.x + pl.w, gw = nx.x - gx; for (let q = 0; q < 3; q++) S.coins.push({ x: gx + gw * (q + 1) / 4, y: Math.min(pl.y, nx.y) - 40 - Math.sin((q + 1) / 4 * Math.PI) * 50 }); } if (pl.w > 160 && Math.random() < 0.5) S.coins.push({ x: pl.x + pl.w / 2, y: pl.y - 26 }); });
+    S.c = [0, 0, 0, 0]; S.got = [0, 1, 2, 3].map(() => new Set());
     S.p = [0, 1, 2, 3].map(() => ({ x: 40, y: 0, vy: 0, ground: true, last: 0, fin: 0, resp: 0 }));
   },
   platAt(S, x, y) { return S.plats.find(p => x >= p.x && x <= p.x + p.w); },
@@ -309,6 +313,7 @@ MG.def({
       if (pl && p.vy >= 0 && py <= pl.y + 1 && p.y >= pl.y) { p.y = pl.y; p.vy = 0; p.ground = true; p.last = S.plats.indexOf(pl); }
       if (p.y > 120) { const lp = S.plats[p.last]; p.x = lp.x + 10; p.y = lp.y; p.vy = 0; p.resp = 0.5; }
       if (p.x >= S.end) p.fin = m.t;
+      S.coins.forEach((c, k) => { if (S.got[i].has(k) || S.c[i] >= 20) return; if (Math.abs(c.x - p.x) < 22 && Math.abs(c.y - (p.y - 22)) < 30) { S.got[i].add(k); S.c[i]++; if (!m.bot(i)) Sfx.coin(); } });
     }
     if (S.p.some(p => p.fin)) m.finish(this.score(m, S));
   },
@@ -321,7 +326,7 @@ MG.def({
   },
   score(m, S) { return S.p.map(p => p.fin ? 1e5 - p.fin : p.x); },
   fmt(s) { return s >= 1e4 ? 'Finished!' : Math.round(s) + ' m'; },
-  hud(m, S, i) { return Math.round(S.p[i].x / S.end * 100) + '%'; },
+  hud(m, S, i) { return Math.round(S.p[i].x / S.end * 100) + '% · 🪙' + S.c[i]; },
   draw(m, S, g) {
     for (let i = 0; i < 4; i++) {
       const top = 40 + i * 170, base = top + 115, p = S.p[i], cam = p.x - 250;
@@ -329,11 +334,12 @@ MG.def({
       g.fillStyle = MGH.grad(g, top, top + 170, [['#5fb8ff', '#9fd8ff'], ['#7fa8ff', '#c8d8ff'], ['#ff9a7a', '#ffd0a0'], ['#8fd3ff', '#e0f4ff']][i % 4].concat(['#ffffff'])); g.fillRect(0, top, 1280, 170);
       for (let k = 0; k < 6; k++) MGH.cloud(g, ((k * 260 - cam * 0.3) % 1560 + 1560) % 1560 - 140, top + 40 + (k % 2) * 30, 16, 'rgba(255,255,255,0.55)');
       for (const pl of S.plats) { const x = pl.x - cam; if (x > 1280 || x + pl.w < 0) continue; MGH.plat(g, x, base + pl.y, pl.w, 16, 'cloud'); for (let k = 0; k < pl.w; k += 26) MGH.cloud(g, x + 13 + k, base + pl.y + 4, 9); }
+      S.coins.forEach((c, k) => { if (S.got[i].has(k)) return; const x = c.x - cam; if (x < -20 || x > 1300) return; MGH.coin(g, x, base + c.y, 10, m.t * 4 + k); });
       const fx = S.end - cam; if (fx < 1280) { for (let y = top; y < top + 170; y += 20) { g.fillStyle = (Math.floor(y / 20) % 2) ? '#fff' : '#222'; g.fillRect(fx, y, 10, 20); } }
       g.globalAlpha = p.resp > 0 ? 0.4 : 1;
       MGH.av(g, m, i, 250, base + p.y - 16, 16, p.fin ? 'cheer' : p.resp > 0 ? 'dizzy' : (p.ground ? 'determined' : 'cheer'), { walk: p.ground ? 1 : 0, look: { x: 1, y: 0.2 } });
       g.globalAlpha = 1;
-      MGH.label(g, m.players[i].name, 70, top + 30, 16, m.players[i].color);
+      MGH.label(g, `${m.players[i].name}  🪙 ${S.c[i]}`, 90, top + 30, 16, m.players[i].color);
       g.restore();
       g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, top + 168, 1280, 3);
     }

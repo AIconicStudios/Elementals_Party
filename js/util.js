@@ -163,6 +163,8 @@ const Sfx = {
     if (k === 4) { this.noise(0.03, 9000, 0.05 * vol, 'highpass'); }
   },
 
+  // a bright 'you're in!' notification chime for picking a hero
+  select(el = -1) { this.tone(988, 0.09, 'triangle', 0.08); this.tone(1319, 0.1, 'triangle', 0.08, 0, 0.07); this.tone(1976, 0.22, 'sine', 0.06, 0, 0.14); this.tone(2637, 0.12, 'sine', 0.03, 0, 0.2); if (el >= 0 && this.voice) this.voice(EL_BASE[el], 'cheer'); },
   // ---- character voices: little formant-synth "words", a different voice for every clan
   VOICE: [
     { f: 560, type: 'triangle', breath: 0.05, vib: [7, 0.03] },   // Zephi: light, airy, high
@@ -284,7 +286,7 @@ const Voice = {
     win: [['I won! Wheee!', 'Yay me!'], ['I won! Hooray!', 'Splash of victory!'], ['Victory! Ha ha!', 'Too easy!'], ['Victory.', 'Unbreakable.']],
   },
   voice: null,
-  ok() { return Settings.voice !== false && Settings.sound && !Settings.test && typeof speechSynthesis !== 'undefined'; },
+  ok() { return false; }, // spoken computer voices are switched off for good (characters still chirp with Sfx)
   pick() {
     if (this.voice) return this.voice;
     const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)); if (!vs.length) return null;
