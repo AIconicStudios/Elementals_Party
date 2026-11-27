@@ -277,7 +277,7 @@ MG.def({
 MG.def({
   id: 'cake', name: 'Cake Stack', type: 'Timing', controls: '1 button', dur: 45,
   rows: [['a', 'Drop the layer']],
-  how: 'Build the tallest cake! A sponge layer slides back and forth above your stack — press A to drop it. Any part hanging over the edge gets sliced off, so your layers get narrower. Drop it perfectly on top for a PERFECT bonus that keeps the layer full width. Miss completely and your cake is finished!',
+  how: 'Build the tallest cake! A sponge layer slides back and forth above your stack — press A to drop it. Any part hanging over the edge gets sliced off, so your layers get narrower. Drop it perfectly on top for a PERFECT bonus that keeps the layer full width. Miss completely and your cake is finished! Every 4th layer is a gooey FROSTING layer that comes in wider again — land it well to rescue a skinny cake.',
   wins: 'Tallest cake (most layers).',
   init(m, S) { S.p = [0, 1, 2, 3].map(() => ({ layers: [{ x: 0, w: 180 }], cur: { x: -140, w: 180, dir: 1 }, done: false, sp: 220, perfect: 0 })); },
   update(m, S, dt) {
@@ -290,7 +290,7 @@ MG.def({
         if (Math.abs(c.x - top.x) < 6) { p.layers.push({ x: top.x, w: top.w }); p.perfect = 0.8; if (!m.bot(i)) Sfx.coin(); }
         else if (r - l <= 6) { p.done = true; p.doneT = m.t; Sfx.bad(); MGH.burst(160 + i * 320, 300, ['#ffd0a0', '#fff'], 14, { speed: 200 }); return; }
         else { p.layers.push({ x: (l + r) / 2, w: r - l }); if (!m.bot(i)) Sfx.tone(500 + p.layers.length * 30, 0.08, 'triangle', 0.06); }
-        const nt = p.layers[p.layers.length - 1]; p.cur = { x: -150 * c.dir, w: nt.w, dir: c.dir }; p.sp = Math.min(520, p.sp + 14);
+        const nt = p.layers[p.layers.length - 1], frost = p.layers.length % 4 === 0; p.cur = { x: -150 * c.dir, w: frost ? Math.min(180, nt.w + 50) : nt.w, dir: c.dir, frost }; p.sp = Math.min(520, p.sp + 14);
       }
     });
     if (S.p.every(p => p.done)) m.finish(this.score(m, S));
@@ -313,7 +313,7 @@ MG.def({
       const cx = 160 + i * 320, base = 620, lh = 22, maxVis = 18, off = Math.max(0, p.layers.length - maxVis);
       g.fillStyle = '#e8e8f0'; g.beginPath(); g.ellipse(cx, base + 12, 130, 18, 0, 0, 7); g.fill(); g.strokeStyle = '#c8c8d8'; g.lineWidth = 3; g.stroke();
       p.layers.forEach((L, k) => { if (k < off) return; const y = base - (k - off) * lh; g.fillStyle = k === 0 ? '#c8c8d8' : cols[k % cols.length]; MGH.rr(g, cx + L.x - L.w / 2, y - lh + 2, L.w, lh - 2, 6); g.fill(); if (k) { g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(cx + L.x - L.w / 2, y - lh + 2, L.w, 4); g.fillStyle = '#ff5a7a'; for (let q = 0; q < Math.floor(L.w / 30); q++) { g.beginPath(); g.arc(cx + L.x - L.w / 2 + 15 + q * 30, y - lh + 4, 3, 0, 7); g.fill(); } } });
-      if (!p.done) { const y = base - (p.layers.length - off) * lh - 30, c = p.cur; g.fillStyle = cols[p.layers.length % cols.length]; g.globalAlpha = 0.9; MGH.rr(g, cx + c.x - c.w / 2, y, c.w, lh - 2, 6); g.fill(); g.globalAlpha = 1; g.strokeStyle = 'rgba(0,0,0,0.25)'; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(cx + c.x, y + lh); g.lineTo(cx + c.x, y + 40); g.stroke(); g.setLineDash([]); }
+      if (!p.done) { const y = base - (p.layers.length - off) * lh - 30, c = p.cur; g.fillStyle = c.frost ? '#ffd0f0' : cols[p.layers.length % cols.length]; g.globalAlpha = 0.9; MGH.rr(g, cx + c.x - c.w / 2, y, c.w, lh - 2, 6); g.fill(); g.globalAlpha = 1; if (c.frost) { g.fillStyle = '#ff7ab8'; for (let q = 0; q < c.w / 16; q++) { g.beginPath(); g.arc(cx + c.x - c.w / 2 + 8 + q * 16, y + lh - 2, 5, 0, Math.PI); g.fill(); } MGH.text(g, 'FROSTING!', cx + c.x, y - 8, 14, '#ff4fa0', 'center', 'bold'); } g.strokeStyle = 'rgba(0,0,0,0.25)'; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(cx + c.x, y + lh); g.lineTo(cx + c.x, y + 40); g.stroke(); g.setLineDash([]); }
       if (p.perfect > 0) MGH.text(g, 'PERFECT!', cx, base - (p.layers.length - off) * lh - 70, 26, '#ff4a8a', 'center', 'bold');
       Char.draw(g, cx + (i % 2 ? 110 : -110), 590, 26, m.players[i].el.id, m.players[i].color, { mood: p.done ? (p.layers.length > 8 ? 'proud' : 'sad') : 'determined', seed: i, look: { x: i % 2 ? -1 : 1, y: -0.5 } });
       MGH.text(g, `${m.players[i].name}: ${p.layers.length - 1}`, cx, 690, 20, m.players[i].color, 'center', 'bold');

@@ -29,6 +29,9 @@ const BD = {
     event: { name: 'Windmill space', col: '#9a5ae8', dark: '#5a2aa8', icon: '🌬️', desc: 'The windmill stirs up trouble for everyone.' },
     swirl: { name: 'Swirl space', col: '#2ac8c8', dark: '#1a8a8a', icon: '🌀', desc: 'Swap places with a random rival.' },
     gate:  { name: 'Gate', col: '#d8c08a', dark: '#8a7040', icon: '🏰', desc: 'Your own: visit your Hold. A rival\'s: raid their Hold (from round 3).' },
+    chest: { name: 'Treasure Chest', col: '#d8903a', dark: '#8a5218', icon: '🧰', desc: 'Pick one of three chests: a fortune, a trinket… or a snapping mimic.' },
+    geyser:{ name: 'Geyser', col: '#5ad8ff', dark: '#1a7ab8', icon: '⛲', desc: 'Whoosh! Launched forward 3 more spaces.' },
+    mush:  { name: 'Mushroom', col: '#ff7a5a', dark: '#b83a2a', icon: '🍄', desc: 'Your next roll gets +3.' },
     bank:  { name: 'Bank', col: '#f4d36a', dark: '#b8902a', icon: '🏦', desc: 'Buy the ⭐ here when it\'s on sale. Land here to shop.' },
   },
   STAR: 20, RAID: 5, RAIDCAP: 10, NEAR: 5, PUNCH: 3, BAG: 3,
@@ -47,16 +50,32 @@ const BD = {
     decoy:   { name: 'Decoy Chest', icon: '📦', price: 3, kind: 'install', desc: 'Install at your Hold: adds 4 empty slots to the next 2 raids.' },
     trap:    { name: 'Spring Trap', icon: '🪤', price: 6, kind: 'install', desc: 'Install at your Hold: the next raider is caught, gets nothing and pays you 8 coins.' },
   },
-  // the loop: 10 spaces per side, gates on the corners, clockwise from top-left
+  // inner paths: each leaves its side at space 2 and rejoins at space 8, skipping that side's bank
+  BRANCHES: [
+    { name: 'Pinecone Path', icon: '🌲', types: ['chest', 'red', 'geyser', 'mush', 'chest'] },
+    { name: 'Crystal Creek', icon: '💎', types: ['mush', 'chest', 'red', 'chest', 'geyser'] },
+    { name: 'Mossy Hollow', icon: '🍄', types: ['chest', 'geyser', 'red', 'mush', 'blue'] },
+    { name: 'Lantern Lane', icon: '🏮', types: ['geyser', 'chest', 'mush', 'red', 'chest'] },
+  ],
+  // the loop: 10 spaces per side, gates on the corners, clockwise from top-left; then the inner paths
   build() {
     const S = []; const C = this.CORNERS;
     for (let side = 0; side < 4; side++) {
       const a = C[side], b = C[(side + 1) % 4];
-      for (let k = 0; k < 10; k++) { const f = k / 10; S.push({ i: side * 10 + k, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, type: this.QUARTERS[side][k], side }); }
+      for (let k = 0; k < 10; k++) { const f = k / 10; S.push({ i: side * 10 + k, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, type: this.QUARTERS[side][k], side, m: side * 10 + k }); }
     }
-    S.forEach(s => { if (s.type === 'gate') s.owner = s.i / 10; if (s.type === 'bank') s.bank = (s.i - 5) / 10; });
+    S.forEach(s => { s.nx = [(s.i + 1) % 40]; if (s.type === 'gate') s.owner = s.i / 10; if (s.type === 'bank') s.bank = (s.i - 5) / 10; });
+    this.BRANCHES.forEach((B, side) => {
+      const A = S[side * 10 + 2], E = S[side * 10 + 8], dep = side % 2 ? 165 : 150, inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][side];
+      const cx = (A.x + E.x) / 2 + inw[0] * dep * 2, cy = (A.y + E.y) / 2 + inw[1] * dep * 2; B.ctrl = { x: cx, y: cy }; B.a = A.i; B.b = E.i; B.ids = [];
+      B.types.forEach((type, k) => { const f = (k + 1) / 6, u = 1 - f, id = S.length; B.ids.push(id);
+        S.push({ i: id, x: u * u * A.x + 2 * u * f * cx + f * f * E.x, y: u * u * A.y + 2 * u * f * cy + f * f * E.y, type, side, branch: side, m: side * 10 + 2 + k + 1, nx: [k < 4 ? id + 1 : E.i] }); });
+      A.nx.push(B.ids[0]); A.fork = side;
+    });
     return S;
   },
+  // fewest steps from a to b along the arrows
+  dist(a, b) { if (a === b) return 0; const seen = { [a]: 0 }, q = [a]; while (q.length) { const c = q.shift(); for (const n of this.spaces[c].nx) if (seen[n] === undefined) { seen[n] = seen[c] + 1; if (n === b) return seen[n]; q.push(n); } } return 99; },
 };
 BD.spaces = BD.build();
 BD.todOf = (round, rounds) => ['day', 'day', 'golden', 'night', 'night'][(round - 1) % 5];
@@ -129,6 +148,7 @@ class BoardGame {
     let v = await Board.dice(i, faces);
     if (m.dice2) { await sleep(250); const v2 = await Board.dice(i, faces, v); v += v2; }
     if (cursed) Board.float(i, '🐌 cursed!', '#c8b8ff');
+    if (p.mush) { v += p.mush; Board.float(i, `🍄 +${p.mush}`, '#ffb08a'); p.mush = 0; }
     Board.ui.rolled = { v, t: 0, i }; await sleep(700); Board.ui.rolled = null;
     return v;
   }
@@ -137,7 +157,7 @@ class BoardGame {
     for (let s = 0; s < steps; s++) {
       this.chk();
       const left = steps - s - 1;
-      p.pos = (p.pos + 1) % 40; p.st.moved++;
+      const nx = BD.spaces[p.pos].nx; p.pos = nx.length > 1 ? await this.pickPath(i, p.pos, left + 1) : nx[0]; p.st.moved++;
       Board.ui.steps = { i, left: left }; await Board.hop(i); Sfx.step();
       const sp = BD.spaces[p.pos];
       // passing events (also happen when landing)
@@ -146,6 +166,15 @@ class BoardGame {
     }
     Board.ui.steps = null;
     await this.land(i);
+  }
+  async pickPath(i, pos, steps) {
+    const sp = BD.spaces[pos], B = BD.BRANCHES[sp.fork], bankHere = sp.fork === this.starBank, p = this.P(i);
+    Board.ui.fork = { pos, t: 0 };
+    const v = await Board.ask(i, `${p.name}: which way? (${steps} to go)`, [
+      { label: `🛣️ Main road${bankHere ? ' — the ⭐ bank!' : ' (past the bank)'}`, value: sp.nx[0], desc: bankHere ? `The star is on sale at the ${BD.BANK_NAMES[sp.fork]}.` : `Passes the ${BD.BANK_NAMES[sp.fork]} shop.` },
+      { label: `${B.icon} ${B.name}`, value: sp.nx[1], desc: 'Chests, geysers and mushrooms… and a red space.' },
+    ], () => BoardAI.pathPick(this, i, sp));
+    Board.ui.fork = null; return v;
   }
   // ------------------------------------------------------------------ landing
   async land(i) {
@@ -158,10 +187,22 @@ class BoardGame {
     else if (sp.type === 'event') await this.windmill(i);
     else if (sp.type === 'swirl') await this.swirl(i, R.pick([0, 1, 2, 3].filter(j => j !== i)), 'The swirl spins you around!');
     else if (sp.type === 'bank') await this.shop(i);
+    else if (sp.type === 'chest') await this.chest(i);
+    else if (sp.type === 'mush') { p.mush = (p.mush || 0) + 3; Board.float(i, '🍄 next roll +3', '#ffb08a'); Sfx.pop(); await Board.banner(`🍄 ${p.name} eats a bouncy mushroom!`, 'Next roll gets +3.', 1100, true); }
+    else if (sp.type === 'geyser') { p.st.events++; Sfx.whoosh(); Board.ui.geyser = { pos: p.pos, t: 0 }; await Board.banner('⛲ Geyser!', `${p.name} is blasted forward 3 spaces!`, 1100, true); Board.ui.geyser = null; await this.move(i, 3); return; }
     await sleep(500);
     // somebody already standing here?
     const others = this.players.filter(q => q.i !== i && q.pos === p.pos && sp.type !== 'gate');
     if (others.length) { const o = others[0].i; if (this.frenzy) await this.duel(i, o); else await this.punch(i, o); }
+  }
+  async chest(i) {
+    const p = this.P(i), x2 = this.frenzy ? 2 : 1; p.st.events++;
+    const prizes = R.shuffle(['big', 'small', 'mimic']);
+    const k = await Board.ask(i, '🧰 Three chests… pick one!', [0, 1, 2].map(n => ({ label: ['🟫 Left chest', '🟨 Middle chest', '🟥 Right chest'][n], value: n })), () => R.int(0, 2));
+    const r = prizes[k];
+    if (r === 'big') { await Board.banner('💰 A fortune!', `${p.name} finds ${8 * x2} coins!`, 1200, true); this.gain(i, 8 * x2); p.mood = 'happy'; }
+    else if (r === 'small') { await Board.banner('🎁 A trinket!', `${p.name} finds an item.`, 1100, true); this.giveItem(i, this.randItem()); }
+    else { await Board.banner('😱 A MIMIC!', `It snaps at ${p.name} and gobbles ${4 * x2} coins!`, 1300, true); this.gain(i, -4 * x2); p.st.bad++; p.mood = 'sad'; }
   }
   async punch(i, o) {
     const p = this.P(i), q = this.P(o);
@@ -181,14 +222,14 @@ class BoardGame {
     if (r.v === 'c5') this.gain(i, 5); if (r.v === 'c10') this.gain(i, 10); if (r.v === 'item') this.giveItem(i, this.randItem());
     if (r.v === 'm5') { this.gain(i, -5); p.st.bad++; }
     if (r.v === 'steal') { const v = this.players.filter(q => q.i !== i).sort((a, b) => b.coins - a.coins)[0]; const t = Math.min(3, v.coins); v.coins -= t; p.coins += t; await Board.banner(`${p.name} pinches ${t} coins from ${v.name}!`, '', 1400); }
-    if (r.v === 'go3') { for (let k = 0; k < 3; k++) { p.pos = (p.pos + 1) % 40; await Board.hop(i); const sp = BD.spaces[p.pos]; if (sp.type === 'bank' && sp.bank === this.starBank) await this.starOffer(i); } }
+    if (r.v === 'go3') { for (let k = 0; k < 3; k++) { p.pos = BD.spaces[p.pos].nx[0]; await Board.hop(i); const sp = BD.spaces[p.pos]; if (sp.type === 'bank' && sp.bank === this.starBank) await this.starOffer(i); } }
   }
   async windmill(i) {
     this.P(i).st.events++;
     if (R.chance(0.5)) {
       await Board.banner('🌬️ The windmill spins up a gust!', 'Everyone is blown forward 1–3 spaces!', 1800);
       Board.ui.gust = 1.6; Sfx.breeze();
-      for (const q of this.players) { const n = R.int(1, 3); for (let k = 0; k < n; k++) { q.pos = (q.pos + 1) % 40; Board.snap(q.i); await sleep(120); } }
+      for (const q of this.players) { const n = R.int(1, 3); for (let k = 0; k < n; k++) { q.pos = BD.spaces[q.pos].nx[0]; Board.snap(q.i); await sleep(120); } }
       await sleep(600);
     } else {
       const [a, b] = R.shuffle([0, 1, 2, 3]).slice(0, 2);
@@ -258,7 +299,7 @@ class BoardGame {
     if (this.round < 3 || p.coins < BD.RAID) return;
     const hasTreasure = H.coins + H.stars + H.items.length > 0;
     if (!hasTreasure) return;
-    const d = Math.abs(q.pos - o * 10), near = Math.min(d, 40 - d) <= BD.NEAR;
+    const d = Math.abs(BD.spaces[q.pos].m - o * 10), near = Math.min(d, 40 - d) <= BD.NEAR;
     if (near) { this.n.near = (this.n.near || 0) + 1; if (p.human) await Board.banner(`🏰 ${q.name} is close to home!`, `You can't raid a Hold while its owner is within ${BD.NEAR} spaces of it.`, 1600, true); return; }
     const T = BD.TOD[this.tod];
     const yes = await Board.ask(i, `🏴‍☠️ Raid ${q.name}'s Hold for ${BD.RAID} coins?`, [{ label: `🏴‍☠️ Raid! (${T.icon} ${T.name})`, value: true, desc: `Inside: ${H.coins}🪙 ${H.stars}⭐ ${H.items.length}🎁${H.trap ? '' : ''}` }, { label: 'Walk past', value: false }], () => BoardAI.wantRaid(this, i, o));
@@ -415,7 +456,13 @@ const BoardBonus = {
 // =====================================================================================================
 // computer players' decisions
 const BoardAI = {
-  distTo(G, i, pos) { return (pos - G.P(i).pos + 40) % 40; },
+  distTo(G, i, pos) { return BD.dist(G.P(i).pos, pos); },
+  pathPick(G, i, sp) {
+    const p = G.P(i);
+    if (sp.fork === G.starBank && p.coins >= BD.STAR) return sp.nx[0];
+    if (sp.fork === G.starBank && p.coins + 6 >= BD.STAR) return R.chance(0.3) ? sp.nx[1] : sp.nx[0];
+    return R.chance(0.65) ? sp.nx[1] : sp.nx[0];
+  },
   turnPick(G, i) {
     const p = G.P(i), has = id => p.items.includes(id), leader = G.standings().find(j => j !== i);
     for (const id of ['trap', 'padlock', 'decoy']) if (has(id) && G.holds[i].coins + G.holds[i].stars * 15 >= 10) return id;
@@ -580,26 +627,30 @@ const Board = {
     if (this.pulseT > 0 && this.pulseAt >= 0) { const s = BD.spaces[this.pulseAt]; g.strokeStyle = `rgba(255,255,255,${this.pulseT})`; g.lineWidth = 5; g.beginPath(); g.ellipse(s.x, s.y + 4, 30 + (1 - this.pulseT) * 30, 18 + (1 - this.pulseT) * 18, 0, 0, 7); g.stroke(); }
     // upright things sorted by depth: decor, banks, holds, players
     const items = BoardArt.decor().map(d => ({ y: d.y, f: () => BoardArt.drawDecor(g, d, t) }));
-    BD.spaces.filter(s => s.type === 'bank').forEach(s => { const bx = s.x + (s.side === 0 ? 0 : s.side === 1 ? -84 : s.side === 2 ? 0 : 84), by = s.y + (s.side === 0 ? 74 : s.side === 2 ? -74 : 0); items.push({ y: by, f: () => BoardArt.bank(g, bx, by, s.bank === G.starBank, t, s.bank) }); });
+    BD.spaces.filter(s => s.type === 'bank').forEach(s => { const bx = s.x + (s.side === 1 ? 92 : s.side === 3 ? -92 : 0), by = s.y + (s.side === 0 ? -62 : s.side === 2 ? 96 : 30); items.push({ y: by, f: () => BoardArt.bank(g, bx, by, s.bank === G.starBank, t, s.bank) }); });
     BD.HOLDS.forEach((h, k) => items.push({ y: h.y + 40, f: () => BoardArt.hold(g, h.x, h.y, G.P(k), G.holds[k], t, this.ui.dog && this.cam.target === h, this.ui.dog && this.ui.dog.chase) }));
-    BoardArt.windmillAt && items.push({ y: 470, f: () => BoardArt.windmill(g, 800, 470, t, this.ui.gust) });
-    G.players.forEach((p, i) => { const T = this.tok[i]; const same = G.players.filter(q => q.pos === p.pos), k = same.indexOf(p), n = same.length; const ox = n > 1 ? (k - (n - 1) / 2) * 26 : 0, oy = n > 1 ? (k % 2) * 8 : 0; items.push({ y: T.y + oy + 1, f: () => this.drawToken(g, p, T.x + (T.to ? 0 : ox), T.y + (T.to ? 0 : oy), T.hop, t, T.face || 1) }); });
+    BoardArt.windmillAt && items.push({ y: 520, f: () => BoardArt.windmill(g, 800, 520, t, this.ui.gust) });
+    G.players.forEach((p, i) => { const T = this.tok[i]; const same = G.players.filter(q => q.pos === p.pos), k = same.indexOf(p), n = same.length; const ox = n > 1 ? (k - (n - 1) / 2) * 34 : 0, oy = n > 1 ? (k % 2) * 10 : 0; items.push({ y: T.y + oy + 1, f: () => this.drawToken(g, p, T.x + (T.to ? 0 : ox), T.y + (T.to ? 0 : oy), T.hop, t, T.face || 1) }); });
     items.sort((a, b) => a.y - b.y).forEach(it => it.f());
+    if (this.ui.fork) { const F = BD.spaces[this.ui.fork.pos]; F.nx.forEach((n, k) => { const s2 = BD.spaces[n], a = Math.atan2(s2.y - F.y, s2.x - F.x), b = (Math.sin(t * 6) + 1) * 6, ax = F.x + Math.cos(a) * (44 + b), ay = F.y + Math.sin(a) * (30 + b) - 6; g.save(); g.translate(ax, ay); g.rotate(a); g.fillStyle = k ? '#7cf06a' : '#ffe680'; g.strokeStyle = '#2a1a10'; g.lineWidth = 3; g.beginPath(); g.moveTo(20, 0); g.lineTo(-4, -14); g.lineTo(-4, -6); g.lineTo(-18, -6); g.lineTo(-18, 6); g.lineTo(-4, 6); g.lineTo(-4, 14); g.closePath(); g.fill(); g.stroke(); g.restore(); }); }
+    if (this.ui.geyser) { const s2 = BD.spaces[this.ui.geyser.pos]; for (let k = 0; k < 14; k++) { const q = (t * 2.4 + k / 14) % 1; g.fillStyle = `rgba(200,240,255,${0.8 * (1 - q)})`; g.beginPath(); g.arc(s2.x + Math.sin(k * 2.1 + t * 6) * 14 * q, s2.y - q * 190, 10 + q * 10, 0, 7); g.fill(); } }
+    BoardArt.clouds(g, t, tod);
     // the star hopping to a new bank
     if (this.ui.starHop) { const q = Math.min(1, this.ui.starHop.t / 1.4), s = sb; MGH.star(g, s.x, s.y - 90 - (1 - q) * 300, 26, '#ffe680', t * 4, false); }
     this.floats.forEach(f => { g.globalAlpha = 1 - f.t / 1.4; MGH.text(g, f.text, f.x, f.y - f.t * 50, 26, f.col, 'center', 'bold'); g.globalAlpha = 1; });
     g.restore();
+    BoardArt.sunlight(g, tod, t);
     BoardArt.todOverlay(g, tod, t, this);
     this.drawHUD(g, t);
     this.drawUI(g, t);
     if (this.paused) this.drawPause(g);
   },
   drawToken(g, p, x, y, hop, t, face = 1) {
-    const cur = this.current === p.i, s = 48;
-    g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x + 6, y + 6, 22 - hop * 0.2, 7, 0, 0, 7); g.fill();
-    if (cur) { g.strokeStyle = p.color; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 30 + Math.sin(t * 6) * 3, 12, 0, 0, 7); g.stroke(); }
-    Char.draw(g, x, y - 46 - hop + Math.sin(t * 2.4 + p.i) * 1.5, s * 0.62, p.el.id, p.color, { mood: MGH.persona(p.mood || (cur ? 'happy' : 'neutral'), p.el.id), seed: p.i * 1.7, look: { x: face * 0.6, y: 0.2 }, t: t + p.i, walk: hop > 0 ? 1 : 0, noShadow: true });
-    if (cur) { g.fillStyle = p.color; g.beginPath(); g.moveTo(x - 9, y - 112 - hop); g.lineTo(x + 9, y - 112 - hop); g.lineTo(x, y - 101 - hop); g.fill(); }
+    const cur = this.current === p.i, s = 66;
+    const sh = g.createRadialGradient(x + 8, y + 6, 2, x + 8, y + 6, 32 - hop * 0.2); sh.addColorStop(0, 'rgba(0,0,0,0.42)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.beginPath(); g.ellipse(x + 8, y + 6, 32 - hop * 0.2, 11, 0, 0, 7); g.fill();
+    if (cur) { MGH.glow(g, x, y + 2, 44, p.color + '55'); g.strokeStyle = p.color; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 38 + Math.sin(t * 6) * 3, 15, 0, 0, 7); g.stroke(); }
+    Char.draw(g, x, y - 62 - hop + Math.sin(t * 2.4 + p.i) * 1.5, s * 0.62, p.el.id, p.color, { mood: MGH.persona(p.mood || (cur ? 'happy' : 'neutral'), p.el.id), seed: p.i * 1.7, look: { x: face * 0.6, y: 0.2 }, t: t + p.i, walk: hop > 0 ? 1 : 0, noShadow: true });
+    if (cur) { const ay = y - 150 - hop + Math.sin(t * 5) * 4; g.fillStyle = p.color; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 12, ay); g.lineTo(x + 12, ay); g.lineTo(x, ay + 14); g.closePath(); g.fill(); g.stroke(); }
   },
   drawHUD(g, t) {
     const G = this.game, tod = BD.TOD[G.tod];
@@ -742,22 +793,29 @@ const BoardArt = {
     for (const [lw, col] of [[96, 'rgba(60,90,30,0.35)'], [86, '#b8925a'], [76, '#e3c788'], [52, '#efd9a0']]) { g.strokeStyle = col; g.lineWidth = lw; loop(); g.stroke(); }
     for (let k = 0; k < 900; k++) { const f = h(k + 11), side = Math.floor(h(k + 33) * 4), a = C[side], b = C[(side + 1) % 4], off = (h(k + 55) - 0.5) * 60; const x = a.x + (b.x - a.x) * f + (side % 2 ? off : 0), y = a.y + (b.y - a.y) * f + (side % 2 ? 0 : off); g.fillStyle = h(k) > 0.5 ? 'rgba(150,110,60,0.35)' : 'rgba(255,245,210,0.5)'; g.beginPath(); g.arc(x, y, 1.6 + h(k + 7) * 1.6, 0, 7); g.fill(); }
     for (let side = 0; side < 4; side++) { const a = C[side], b = C[(side + 1) % 4]; for (let k = 0; k < 46; k++) { const f = (k + h(k + side * 50)) / 46, off = (k % 2 ? 1 : -1) * (40 + h(k + side) * 8), x = a.x + (b.x - a.x) * f + (side % 2 ? off : 0), y = a.y + (b.y - a.y) * f + (side % 2 ? 0 : off); tuft(x, y + 4, 0.7 + h(k) * 0.4, k * 13 + side); } }
+    // the inner paths: same sandy road, curving through the meadow
+    BD.BRANCHES.forEach(B => { const A = BD.spaces[B.a], E = BD.spaces[B.b], cv = () => { g.beginPath(); g.moveTo(A.x, A.y); g.quadraticCurveTo(B.ctrl.x, B.ctrl.y, E.x, E.y); };
+      for (const [lw, col] of [[84, 'rgba(60,90,30,0.35)'], [74, '#a88452'], [64, '#dcc084'], [42, '#ead39a']]) { g.strokeStyle = col; g.lineWidth = lw; cv(); g.stroke(); }
+      for (let k = 0; k < 160; k++) { const f = h(k + B.a * 7), u = 1 - f, off = (h(k + 3 + B.a) - 0.5) * 50, x = u * u * A.x + 2 * u * f * B.ctrl.x + f * f * E.x + off * 0.6, y = u * u * A.y + 2 * u * f * B.ctrl.y + f * f * E.y + off * 0.5; g.fillStyle = h(k + 9) > 0.5 ? 'rgba(150,110,60,0.35)' : 'rgba(255,245,210,0.5)'; g.beginPath(); g.arc(x, y, 1.5 + h(k) * 1.5, 0, 7); g.fill(); }
+      for (let k = 0; k < 30; k++) { const f = (k + 0.5) / 30, u = 1 - f, x = u * u * A.x + 2 * u * f * B.ctrl.x + f * f * E.x, y = u * u * A.y + 2 * u * f * B.ctrl.y + f * f * E.y, dx = 2 * u * (B.ctrl.x - A.x) + 2 * f * (E.x - B.ctrl.x), dy = 2 * u * (B.ctrl.y - A.y) + 2 * f * (E.y - B.ctrl.y), l = Math.hypot(dx, dy) || 1, sd = k % 2 ? 1 : -1; tuft(x - dy / l * 38 * sd, y + dx / l * 38 * sd + 4, 0.7 + h(k) * 0.3, k * 17 + B.a); } });
     // paths out to the holds
     BD.HOLDS.forEach((H, k) => { const a = C[k]; for (const [lw, col] of [[70, 'rgba(60,90,30,0.35)'], [60, '#b8925a'], [50, '#e3c788']]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(H.x, H.y); g.stroke(); } });
     // the pond: dark shore, ripples, lily pads, stones beneath
-    const px = 1010, py = 600;
-    g.fillStyle = 'rgba(0,0,0,0.15)'; g.beginPath(); g.ellipse(px + 6, py + 8, 150, 82, 0, 0, 7); g.fill();
-    g.fillStyle = '#b89a6a'; g.beginPath(); g.ellipse(px, py, 150, 82, 0, 0, 7); g.fill();
-    const pg = g.createRadialGradient(px - 30, py - 20, 10, px, py, 140); pg.addColorStop(0, '#9ae8ff'); pg.addColorStop(0.6, '#3a9ae0'); pg.addColorStop(1, '#1f5aa8'); g.fillStyle = pg; g.beginPath(); g.ellipse(px, py, 136, 70, 0, 0, 7); g.fill();
-    for (let k = 0; k < 6; k++) { g.fillStyle = 'rgba(20,60,100,0.35)'; g.beginPath(); g.ellipse(px - 60 + h(k) * 120, py - 20 + h(k + 4) * 40, 10, 6, 0, 0, 7); g.fill(); }
-    g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2.5; for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(px - 20 + k * 20, py - 6 + k * 8, 50 - k * 12, 14 - k * 3, 0, 3.4, 5.8); g.stroke(); }
-    for (const [x, y] of [[px - 80, py + 20], [px + 70, py - 26], [px + 40, py + 36]]) { g.fillStyle = '#3a9a3a'; g.beginPath(); g.ellipse(x, y, 16, 9, 0, 0.4, Math.PI * 2 - 0.2); g.lineTo(x, y); g.fill(); g.fillStyle = '#ff9ac8'; g.beginPath(); g.arc(x + 4, y - 3, 3.5, 0, 7); g.fill(); }
+    const px = 975, py = 580;
+    g.fillStyle = 'rgba(0,0,0,0.15)'; g.beginPath(); g.ellipse(px + 6, py + 8, 92, 50, 0, 0, 7); g.fill();
+    g.fillStyle = '#b89a6a'; g.beginPath(); g.ellipse(px, py, 92, 50, 0, 0, 7); g.fill();
+    const pg = g.createRadialGradient(px - 20, py - 14, 6, px, py, 86); pg.addColorStop(0, '#9ae8ff'); pg.addColorStop(0.6, '#3a9ae0'); pg.addColorStop(1, '#1f5aa8'); g.fillStyle = pg; g.beginPath(); g.ellipse(px, py, 82, 42, 0, 0, 7); g.fill();
+    for (let k = 0; k < 4; k++) { g.fillStyle = 'rgba(20,60,100,0.35)'; g.beginPath(); g.ellipse(px - 40 + h(k) * 80, py - 12 + h(k + 4) * 24, 10, 6, 0, 0, 7); g.fill(); }
+    g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 2.5; for (let k = 0; k < 3; k++) { g.beginPath(); g.ellipse(px - 12 + k * 12, py - 4 + k * 5, 32 - k * 8, 9 - k * 2, 0, 3.4, 5.8); g.stroke(); }
+    for (const [x, y] of [[px - 50, py + 12], [px + 44, py - 16], [px + 24, py + 22]]) { g.fillStyle = '#3a9a3a'; g.beginPath(); g.ellipse(x, y, 16, 9, 0, 0.4, Math.PI * 2 - 0.2); g.lineTo(x, y); g.fill(); g.fillStyle = '#ff9ac8'; g.beginPath(); g.arc(x + 4, y - 3, 3.5, 0, 7); g.fill(); }
     // flower beds in the meadow
-    for (const [x, y] of [[560, 360], [600, 650], [1090, 330]]) { g.fillStyle = '#8a5a3a'; g.beginPath(); g.ellipse(x, y, 70, 30, 0, 0, 7); g.fill(); for (let k = 0; k < 30; k++) { const a = h(k + x) * 6.28, d = Math.sqrt(h(k + y)) * 56; g.fillStyle = ['#ff5a7a', '#ffd34d', '#fff', '#c88aff', '#ff8a3a'][k % 5]; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.4, 3.6, 0, 7); g.fill(); } }
+    for (const [x, y] of [[455, 285], [1145, 715], [655, 470]]) { g.fillStyle = '#8a5a3a'; g.beginPath(); g.ellipse(x, y, 70, 30, 0, 0, 7); g.fill(); for (let k = 0; k < 30; k++) { const a = h(k + x) * 6.28, d = Math.sqrt(h(k + y)) * 56; g.fillStyle = ['#ff5a7a', '#ffd34d', '#fff', '#c88aff', '#ff8a3a'][k % 5]; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.4, 3.6, 0, 7); g.fill(); } }
     // hold platforms: carved stone rings in each player's colour
     BD.HOLDS.forEach((H, k) => { const r = 110; g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(H.x + 10, H.y + 16, r + 6, (r + 6) * 0.62, 0, 0, 7); g.fill(); g.fillStyle = '#8a8070'; g.beginPath(); g.ellipse(H.x, H.y + 8, r, r * 0.62, 0, 0, 7); g.fill(); const sg = g.createRadialGradient(H.x - 40, H.y - 30, 10, H.x, H.y, r); sg.addColorStop(0, '#f0e8d8'); sg.addColorStop(1, '#b8ac98'); g.fillStyle = sg; g.beginPath(); g.ellipse(H.x, H.y, r, r * 0.62, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(90,80,60,0.35)'; g.lineWidth = 2; for (let q = 0; q < 12; q++) { const a = q / 12 * 6.28; g.beginPath(); g.moveTo(H.x + Math.cos(a) * 40, H.y + Math.sin(a) * 25); g.lineTo(H.x + Math.cos(a) * r, H.y + Math.sin(a) * r * 0.62); g.stroke(); } g.beginPath(); g.ellipse(H.x, H.y, 40, 25, 0, 0, 7); g.stroke(); });
     // the spaces: chunky glossy tokens with a bevel and a shine
     BD.spaces.forEach(s => this.space(g, s));
+    // baked sunlight: warm from the top-left, cooler and shadier toward the bottom-right
+    const sun = g.createRadialGradient(150, 50, 50, 300, 200, 1500); sun.addColorStop(0, 'rgba(255,240,180,0.28)'); sun.addColorStop(0.5, 'rgba(255,230,160,0.06)'); sun.addColorStop(1, 'rgba(20,40,80,0.22)'); g.fillStyle = sun; g.fillRect(-200, -200, BD.W + 400, BD.H + 400);
     this._g = c; return c;
   },
   space(g, s) {
@@ -775,10 +833,11 @@ const BoardArt = {
     const D = [], h = n => { const x = Math.sin(n * 91.7 + 12.3) * 43758.5453; return x - Math.floor(x); };
     for (let k = 0; k < 44; k++) { const t = k / 44 * Math.PI * 2, x = 800 + Math.cos(t) * 760 + (h(k) - 0.5) * 80, y = 500 + Math.sin(t) * 470 + (h(k + 5) - 0.5) * 60; if (BD.HOLDS.some(H => Math.hypot(H.x - x, (H.y - y) * 1.4) < 190)) continue; D.push({ x, y, kind: h(k + 9) > 0.45 ? 'tree' : 'bush', s: 0.8 + h(k + 2) * 0.5, v: k }); }
     [[520, 470], [1080, 450], [700, 320], [920, 700], [560, 740], [1180, 640]].forEach(([x, y], k) => D.push({ x, y, kind: k % 2 ? 'bush' : 'tree', s: 0.9 + h(k) * 0.3, v: k + 100 }));
-    [[470, 260], [1130, 740]].forEach(([x, y], k) => D.push({ x, y, kind: 'sign', s: 1, v: k }));
+    [[470, 120], [1130, 880]].forEach(([x, y], k) => D.push({ x, y, kind: 'sign', s: 1, v: k }));
+    BD.BRANCHES.forEach((B, k) => { const A = BD.spaces[B.a], f = 0.5, u = 0.5, x = u * u * A.x + 2 * u * f * B.ctrl.x + f * f * BD.spaces[B.b].x, y = u * u * A.y + 2 * u * f * B.ctrl.y + f * f * BD.spaces[B.b].y, inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][k]; D.push(k % 2 ? { x: x + inw[0] * 95, y: y + 40, kind: 'bsign', s: 1, v: k, keep: true } : { x: 800, y: k ? 742 : 288, kind: 'bsign', flat: true, s: 1, v: k, keep: true }); });
     for (let k = 0; k < 10; k++) D.push({ x: 440 + h(k + 40) * 720, y: 280 + h(k + 60) * 440, kind: 'rock', s: 0.6 + h(k) * 0.6, v: k });
     this.windmillAt = true;
-    this._d = D.filter(d => !BD.spaces.some(s => Math.hypot(s.x - d.x, (s.y - d.y) * 1.3) < 70) && Math.hypot(d.x - 800, d.y - 470) > 90 && Math.hypot((d.x - 1010) / 160, (d.y - 600) / 95) > 1);
+    this._d = D.filter(d => d.keep || (!BD.spaces.some(s => Math.hypot(s.x - d.x, (s.y - d.y) * 1.3) < 70 || (d.kind === 'tree' && s.y < d.y && d.y - s.y < 130 * d.s && Math.abs(s.x - d.x) < 60 * d.s)) && Math.hypot(d.x - 800, d.y - 520) > 110 && Math.hypot((d.x - 975) / 110, (d.y - 580) / 65) > 1));
     return this._d;
   },
   drawDecor(g, d, t) {
@@ -800,6 +859,9 @@ const BoardArt = {
       if (d.v % 2) { g.fillStyle = '#ffffff'; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(x - 12 * s + k * 12 * s, y - 20 * s + (k % 2) * 8 * s, 3 * s, 0, 7); g.fill(); } }
     } else if (d.kind === 'rock') {
       g.fillStyle = '#8a8a96'; g.beginPath(); g.ellipse(x, y - 6 * s, 16 * s, 11 * s, 0, 0, 7); g.fill(); g.fillStyle = '#b8b8c4'; g.beginPath(); g.ellipse(x - 4 * s, y - 10 * s, 8 * s, 5 * s, 0, 0, 7); g.fill();
+    } else if (d.kind === 'bsign') {
+      const B = BD.BRANCHES[d.v]; if (d.flat) { g.fillStyle = 'rgba(0,0,0,0.22)'; Shell.rr(g, x - 64, y - 12, 136, 28, 8); g.fill(); GX.plank(g, x - 68, y - 16, 136, 28, '#d8a868'); MGH.text(g, `${B.icon} ${B.name}`, x, y + 4, 14, '#3a2010', 'center', 'bold'); return; }
+      g.fillStyle = '#6a4a2a'; g.fillRect(x - 3, y - 50, 6, 50); g.fillStyle = 'rgba(0,0,0,0.25)'; Shell.rr(g, x - 66, y - 74, 136, 30, 8); g.fill(); GX.plank(g, x - 68, y - 78, 136, 30, '#d8a868'); MGH.text(g, `${B.icon} ${B.name}`, x, y - 57, 14, '#3a2010', 'center', 'bold');
     } else if (d.kind === 'sign') {
       g.fillStyle = '#7a5532'; g.fillRect(x - 4, y - 60, 8, 60); GX.plank(g, x - 50, y - 84, 100, 30, '#c8945a'); MGH.text(g, d.v ? '⭐ ➜' : '🏰 Holds', x, y - 63, 14, '#3a2010', 'center', 'bold');
     }
@@ -863,6 +925,17 @@ const BoardArt = {
     g.fillStyle = 'rgba(255,120,150,0.45)'; g.beginPath(); g.ellipse(-11, -30, 4, 2.5, 0, 0, 7); g.ellipse(11, -30, 4, 2.5, 0, 0, 7); g.fill();
     MGH.star(g, 16, -52, 5, '#ffd34d', 0.3, false);
     g.restore();
+  },
+  // drifting cloud shadows across the whole board
+  clouds(g, t, tod) {
+    if (tod === 'night') return;
+    for (let k = 0; k < 5; k++) { const x = ((k * 520 + t * (14 + k * 3)) % (BD.W + 900)) - 450, y = 120 + ((k * 337) % 800), r = 210 + (k % 3) * 60; const gr = g.createRadialGradient(x, y, r * 0.2, x, y, r); gr.addColorStop(0, 'rgba(10,30,50,0.13)'); gr.addColorStop(1, 'rgba(10,30,50,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.4, r * 0.8, 0, 0, 7); g.fill(); }
+  },
+  // screen-space light: soft sun rays from the top-left and a gentle vignette
+  sunlight(g, tod, t) {
+    if (tod !== 'night') { g.save(); g.globalCompositeOperation = 'lighter'; for (let k = 0; k < 4; k++) { const a = 0.55 + k * 0.12 + Math.sin(t * 0.3 + k) * 0.02, w = 40 + k * 18; g.fillStyle = tod === 'golden' ? 'rgba(255,170,80,0.05)' : 'rgba(255,250,210,0.05)'; g.beginPath(); g.moveTo(-60, -60); g.lineTo(-60 + Math.cos(a - 0.04) * 1700, -60 + Math.sin(a - 0.04) * 1700); g.lineTo(-60 + Math.cos(a + 0.04) * 1700 + w, -60 + Math.sin(a + 0.04) * 1700); g.closePath(); g.fill(); } g.restore(); }
+    if (!this._vig) { const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const q = c.getContext('2d'), gr = q.createRadialGradient(640, 330, 380, 640, 360, 820); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(10,10,30,0.42)'); q.fillStyle = gr; q.fillRect(0, 0, 1280, 720); this._vig = c; }
+    g.drawImage(this._vig, 0, 0);
   },
   // time of day: warm golden light, or a blue night with lantern glows and fireflies
   todOverlay(g, tod, t, B) {

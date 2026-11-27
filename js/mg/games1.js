@@ -136,17 +136,17 @@ MG.def({
 // 4 ---------------------------------------------------------------- Perfect Pour
 MG.def({
   id: 'pour', name: 'Perfect Pour', type: 'Timing', controls: '1 button', mouseA: true,
-  how: 'Hold to fill your chalice and release at the line. Three rounds, the line moves each time. Fills stay hidden until all have released.',
+  how: 'Hold to fill your chalice and release at the line. Fills stay hidden until all have released. Every round is a different drink: Round 1 WATER pours steadily. Round 2 HONEY starts slow and speeds up the longer you hold. Round 3 FIZZY SODA pours fast and keeps foaming up after you let go — so stop early!',
   wins: 'Lowest total error.',
   init(m, S) { S.err = [0, 0, 0, 0]; S.round = 0; this.newRound(S); },
-  newRound(S) { S.round++; S.line = R.range(0.4, 0.9); S.fill = [0, 0, 0, 0]; S.state = [0, 0, 0, 0]; S.t = 0; S.reveal = 0; S.botNoise = [0, 1, 2, 3].map(() => R.range(-0.07, 0.07)); },
+  newRound(S) { S.round++; S.line = R.range(0.4, 0.9); S.fill = [0, 0, 0, 0]; S.state = [0, 0, 0, 0]; S.t = 0; S.reveal = 0; S.botNoise = [0, 1, 2, 3].map(() => R.range(-0.07, 0.07)); S.kind = ['water', 'honey', 'soda'][S.round - 1] || 'water'; S.hold = [0, 0, 0, 0]; },
   update(m, S, dt) {
     if (S.reveal > 0) { S.reveal -= dt; if (S.reveal <= 0) { if (S.round >= 3) m.finish(S.err.map(e => -e)); else this.newRound(S); } return; }
     S.t += dt;
     for (let i = 0; i < 4; i++) {
       if (S.state[i] === 2) continue;
-      if (m.held(i, 'a')) { S.state[i] = 1; S.fill[i] += dt * 0.42; }
-      else if (S.state[i] === 1) S.state[i] = 2;
+      if (m.held(i, 'a')) { S.state[i] = 1; S.hold[i] += dt; S.fill[i] += dt * (S.kind === 'honey' ? 0.1 + S.hold[i] * 0.3 : S.kind === 'soda' ? 0.55 : 0.42); }
+      else if (S.state[i] === 1) { S.state[i] = 2; if (S.kind === 'soda') S.fill[i] *= 1.14; }
       if (S.fill[i] >= 1.1) S.state[i] = 2;
       if (S.t > 8 && S.state[i] !== 1) S.state[i] = 2;
     }
@@ -155,13 +155,13 @@ MG.def({
       S.reveal = 2.2; Sfx.coin();
     }
   },
-  bot(m, S, i) { m.vin[i].a = S.reveal <= 0 && S.state[i] !== 2 && S.fill[i] < S.line + S.botNoise[i]; },
+  bot(m, S, i) { m.vin[i].a = S.reveal <= 0 && S.state[i] !== 2 && S.fill[i] < (S.line + S.botNoise[i]) / (S.kind === 'soda' ? 1.14 : 1) - (S.kind === 'honey' ? S.hold[i] * 0.3 * 0.03 : 0); },
   score(m, S) { return S.err.map(e => -e); },
   fmt(s) { return 'error ' + (-s).toFixed(3); },
   hud(m, S, i) { return 'err ' + S.err[i].toFixed(2); },
   draw(m, S, g) {
     MGH.scene(g, 'temple', m.t);
-    MGH.label(g, `Round ${S.round} / 3`, 640, 90, 22, '#eee');
+    MGH.label(g, `Round ${S.round} / 3 — ${{ water: '💧 Water: steady', honey: '🍯 Honey: slow, then faster', soda: '🫧 Fizzy soda: foams up after you stop!' }[S.kind]}`, 640, 90, 22, '#eee');
     for (let i = 0; i < 4; i++) {
       const x = 190 + i * 300, p = m.players[i], top = 200, h = 380, show = S.reveal > 0;
       // jug pouring above
