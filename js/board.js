@@ -31,7 +31,7 @@ const BD = {
     gate:  { name: 'Gate', col: '#d8c08a', dark: '#8a7040', icon: '🏰', desc: 'Your own: visit your Hold. A rival\'s: raid their Hold (from round 3).' },
     bank:  { name: 'Bank', col: '#f4d36a', dark: '#b8902a', icon: '🏦', desc: 'Buy the ⭐ here when it\'s on sale. Land here to shop.' },
   },
-  STAR: 20, RAID: 5, PUNCH: 3, BAG: 3,
+  STAR: 20, RAID: 5, RAIDCAP: 10, NEAR: 5, PUNCH: 3, BAG: 3,
   BANK_NAMES: ['North Bank', 'East Bank', 'South Bank', 'West Bank'],
   TOD: { day: { name: 'Day', icon: '☀️', col: '#ffe680' }, golden: { name: 'Golden hour', icon: '🌇', col: '#ffb04a' }, night: { name: 'Night', icon: '🌙', col: '#9fb8ff' } },
   ITEMS: {
@@ -43,9 +43,9 @@ const BD = {
     whistle: { name: 'Dog Whistle', icon: '🦴', price: 3, kind: 'raid', desc: 'Your next raid: the guard dog lets you through.' },
     lantern: { name: 'Night Lantern', icon: '🏮', price: 4, kind: 'raid', desc: 'Your next raid counts as night, whatever the time.' },
     charm:   { name: 'Lucky Charm', icon: '🍀', price: 5, kind: 'raid', desc: 'Your next raid spins twice and keeps the better result.' },
-    padlock: { name: 'Padlock', icon: '🔒', price: 4, kind: 'install', desc: 'Install at your Hold: the next raid loses its best slot.' },
-    decoy:   { name: 'Decoy Chest', icon: '📦', price: 3, kind: 'install', desc: 'Install at your Hold: adds 3 empty slots to the next raid.' },
-    trap:    { name: 'Spring Trap', icon: '🪤', price: 6, kind: 'install', desc: 'Install at your Hold: the next raider loses 5 coins to you.' },
+    padlock: { name: 'Padlock', icon: '🔒', price: 4, kind: 'install', desc: 'Install at your Hold: the next 2 raids lose their 2 best slots.' },
+    decoy:   { name: 'Decoy Chest', icon: '📦', price: 3, kind: 'install', desc: 'Install at your Hold: adds 4 empty slots to the next 2 raids.' },
+    trap:    { name: 'Spring Trap', icon: '🪤', price: 6, kind: 'install', desc: 'Install at your Hold: the next raider is caught, gets nothing and pays you 8 coins.' },
   },
   // the loop: 10 spaces per side, gates on the corners, clockwise from top-left
   build() {
@@ -239,18 +239,18 @@ class BoardGame {
       Sfx.coin();
     }
   }
-  install(i, id) { const p = this.P(i), H = this.holds[i], k = p.items.indexOf(id); if (k < 0) return; p.items.splice(k, 1); H[id]++; Board.float(i, `${BD.ITEMS[id].icon} installed`, '#9fe0ff'); Sfx.pop(); }
+  install(i, id) { const p = this.P(i), H = this.holds[i], k = p.items.indexOf(id); if (k < 0) return; p.items.splice(k, 1); H[id] += id === 'trap' ? 1 : 2; Board.float(i, `${BD.ITEMS[id].icon} installed`, '#9fe0ff'); Sfx.pop(); }
   raidSlots(o, tod, H) {
     const slots = [];
     const star = tod === 'golden' ? 2 : 1;
     for (let k = 0; k < H.stars; k++) for (let q = 0; q < star; q++) slots.push({ label: '⭐ Star', col: '#ffd34d', v: 'star', val: 30 });
-    if (H.coins > 0) { slots.push({ label: `🪙 ${Math.ceil(H.coins * 0.25)}`, col: '#ffe680', v: 'c', n: Math.ceil(H.coins * 0.25), val: Math.ceil(H.coins * 0.25) }); slots.push({ label: `🪙 ${Math.ceil(H.coins * 0.5)}`, col: '#ffc83a', v: 'c', n: Math.ceil(H.coins * 0.5), val: Math.ceil(H.coins * 0.5) }); if (tod === 'night') slots.push({ label: `🪙 ALL ${H.coins}`, col: '#ff9a2a', v: 'c', n: H.coins, val: H.coins }); }
+    if (H.coins > 0) { const cut = f => Math.min(H.coins, Math.max(1, Math.min(BD.RAIDCAP, Math.ceil(H.coins * f)))); [[0.15, '#ffe680'], [0.25, '#ffc83a']].concat(tod === 'night' ? [[0.4, '#ff9a2a']] : []).forEach(([f, col]) => { const n = cut(f); slots.push({ label: `🪙 ${n}`, col, v: 'c', n, val: n }); }); }
     H.items.forEach(id => slots.push({ label: `${BD.ITEMS[id].icon} ${BD.ITEMS[id].name}`, col: '#7cf06a', v: 'item', id, val: 4 }));
-    const nothing = { day: 4, golden: 2, night: 1 }[tod];
+    const nothing = { day: 5, golden: 3, night: 2 }[tod];
     for (let k = 0; k < nothing; k++) slots.push({ label: '💨 Nothing', col: '#8a8aa8', v: 'none', val: 0 });
     slots.push({ label: '🐕 Dog bite −3', col: '#ff6a6a', v: 'bite', val: -3 });
-    if (H.decoy) for (let k = 0; k < 3; k++) slots.push({ label: '📦 Empty decoy', col: '#a8906a', v: 'none', val: 0 });
-    if (H.padlock) { const best = slots.reduce((b, s, k) => s.val > slots[b].val ? k : b, 0); slots.splice(best, 1); }
+    if (H.decoy) for (let k = 0; k < 4; k++) slots.push({ label: '📦 Empty decoy', col: '#a8906a', v: 'none', val: 0 });
+    if (H.padlock) for (let q = 0; q < 2; q++) { const best = slots.reduce((b, s, k) => s.val > slots[b].val ? k : b, 0); if (slots[best].val > 0) slots.splice(best, 1); }
     return R.shuffle(slots);
   }
   async raidOffer(i, o) {
@@ -258,6 +258,8 @@ class BoardGame {
     if (this.round < 3 || p.coins < BD.RAID) return;
     const hasTreasure = H.coins + H.stars + H.items.length > 0;
     if (!hasTreasure) return;
+    const d = Math.abs(q.pos - o * 10), near = Math.min(d, 40 - d) <= BD.NEAR;
+    if (near) { this.n.near = (this.n.near || 0) + 1; if (p.human) await Board.banner(`🏰 ${q.name} is close to home!`, `You can't raid a Hold while its owner is within ${BD.NEAR} spaces of it.`, 1600, true); return; }
     const T = BD.TOD[this.tod];
     const yes = await Board.ask(i, `🏴‍☠️ Raid ${q.name}'s Hold for ${BD.RAID} coins?`, [{ label: `🏴‍☠️ Raid! (${T.icon} ${T.name})`, value: true, desc: `Inside: ${H.coins}🪙 ${H.stars}⭐ ${H.items.length}🎁${H.trap ? '' : ''}` }, { label: 'Walk past', value: false }], () => BoardAI.wantRaid(this, i, o));
     if (!yes) return;
@@ -267,11 +269,11 @@ class BoardGame {
     let tod = this.tod;
     if (p.items.includes('lantern')) { p.items.splice(p.items.indexOf('lantern'), 1); tod = 'night'; await Board.banner('🏮 Night Lantern!', 'This raid counts as NIGHT.', 1300); }
     // the spring trap
-    if (H.trap) { H.trap--; this.n.trap++; const t = Math.min(5, p.coins); p.coins -= t; q.coins += t; p.st.bad++; Sfx.boom(); Board.ui.trapT = 1;
+    if (H.trap) { H.trap--; this.n.trap++; const t = Math.min(8, p.coins); p.coins -= t; q.coins += t; p.st.bad++; Sfx.boom(); Board.ui.trapT = 1;
       await Board.banner('🪤 SNAP! A spring trap!', `${p.name} loses ${t} coins to ${q.name} and runs off empty-handed.`, 2400); Board.cam.target = null; return; }
     // the guard dog
     if (p.items.includes('whistle')) { p.items.splice(p.items.indexOf('whistle'), 1); await Board.banner('🦴 Dog Whistle!', 'The guard dog sits nicely and lets you in.', 1500); }
-    else { const chase = { day: 0.4, golden: 0.3, night: 0.2 }[tod]; Board.ui.dog = { t: 0 }; Sfx.tone(300, 0.15, 'square', 0.05); await sleep(700);
+    else { const chase = { day: 0.55, golden: 0.45, night: 0.35 }[tod]; Board.ui.dog = { t: 0 }; Sfx.tone(300, 0.15, 'square', 0.05); await sleep(700);
       if (R.chance(chase)) { this.n.dog++; Board.ui.dog = { t: 0, chase: true }; p.st.bad++; await Board.banner('🐕 WOOF! The guard dog chases you off!', `${p.name} flees with nothing — the ${BD.RAID} coins are gone.`, 2400); Board.ui.dog = null; Board.cam.target = null; return; }
       Board.ui.dog = null; await Board.banner('🐕 The guard dog is napping…', 'Sneak in!', 1200); }
     const slots = this.raidSlots(o, tod, H);
@@ -617,7 +619,7 @@ const Board = {
       Shell.text(g, p.name, x + 80, y + 28, 17, p.color, 'left');
       Shell.text(g, `#${G.rankOf(i)}`, x + 236, y + 28, 15, '#ffe680', 'right');
       Shell.text(g, `⭐ ${p.stars}`, x + 80, y + 56, 20, '#ffe680', 'left'); Shell.text(g, `🪙 ${p.coins}`, x + 150, y + 56, 20, '#fff', 'left');
-      Shell.text(g, `🏰 ${H.stars}⭐ ${H.coins}🪙${H.trap ? ' 🪤' : ''}${H.padlock ? ' 🔒' : ''}${H.decoy ? ' 📦' : ''}`, x + 80, y + 82, 13, '#c8d8ff', 'left');
+      Shell.text(g, `🏰 ${H.stars}⭐ ${H.coins}🪙${H.trap ? ' 🪤' : ''}${H.padlock ? ` 🔒${H.padlock}` : ''}${H.decoy ? ` 📦${H.decoy}` : ''}`, x + 80, y + 82, 13, '#c8d8ff', 'left');
       p.items.forEach((id, k) => { Shell.text(g, BD.ITEMS[id].icon, x + 196 + k * 20, y + 84, 15, '#fff', 'center', 'normal', null); });
       if (p.curse) Shell.text(g, '🐌', x + 236, y + 56, 16, '#fff');
     });
@@ -725,13 +727,21 @@ const BoardArt = {
     // meadow with warm sunlit and cool shady patches
     const gg = g.createLinearGradient(0, -200, 0, BD.H + 200); gg.addColorStop(0, '#86d45a'); gg.addColorStop(1, '#5fae3c'); g.fillStyle = gg; g.fillRect(-200, -200, BD.W + 400, BD.H + 400);
     for (let k = 0; k < 160; k++) { const x = h(k) * (BD.W + 400) - 200, y = h(k + 300) * (BD.H + 400) - 200, r = 60 + h(k + 600) * 170, gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, k % 3 ? 'rgba(255,250,170,0.16)' : 'rgba(30,90,40,0.16)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
-    for (let k = 0; k < 3200; k++) { const x = h(k * 3.1) * (BD.W + 400) - 200, y = h(k * 7.7) * (BD.H + 400) - 200; g.strokeStyle = h(k) > 0.5 ? 'rgba(40,110,30,0.4)' : 'rgba(180,240,120,0.45)'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (h(k + 1) - 0.5) * 4, y - 6); g.stroke(); }
-    for (let k = 0; k < 220; k++) { const x = h(k * 5.3 + 9) * (BD.W + 400) - 200, y = h(k * 2.9 + 4) * (BD.H + 400) - 200; if (k % 4 === 0) { g.fillStyle = 'rgba(60,150,50,0.55)'; for (let l = 0; l < 3; l++) { g.beginPath(); g.arc(x + Math.cos(l * 2.1) * 4, y + Math.sin(l * 2.1) * 4, 3.4, 0, 7); g.fill(); } } else { g.fillStyle = ['#ff8ad0', '#ffffff', '#ffd34d', '#c8a0ff'][k % 4]; g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill(); } }
+    // fine painterly texture (soft, not scratchy)
+    for (let k = 0; k < 9000; k++) { const x = h(k * 3.1) * (BD.W + 400) - 200, y = h(k * 7.7) * (BD.H + 400) - 200; g.fillStyle = h(k) > 0.5 ? 'rgba(30,90,30,0.07)' : 'rgba(220,255,160,0.08)'; g.fillRect(x, y, 3, 2); }
+    // grass tufts: little clumps of curved blades, darker at the root, lighter at the tips
+    const tuft = (x, y, sc, seed) => { const n = 5 + Math.floor(h(seed) * 4); for (let b = 0; b < n; b++) { const a = (b / (n - 1) - 0.5) * 1.3 + (h(seed + b) - 0.5) * 0.3, len = (9 + h(seed + b * 3) * 8) * sc, tx = x + Math.sin(a) * len, ty = y - Math.cos(a) * len; const gr = g.createLinearGradient(x, y, tx, ty); gr.addColorStop(0, 'rgba(40,110,40,0.7)'); gr.addColorStop(1, 'rgba(170,230,110,0.75)'); g.strokeStyle = gr; g.lineWidth = 2.2 * sc; g.lineCap = 'round'; g.beginPath(); g.moveTo(x + (b - n / 2) * 1.2 * sc, y); g.quadraticCurveTo(x + Math.sin(a) * len * 0.4, y - len * 0.6, tx, ty); g.stroke(); } };
+    for (let k = 0; k < 600; k++) { const x = h(k * 4.3 + 1) * (BD.W + 400) - 200, y = h(k * 6.1 + 2) * (BD.H + 400) - 200; g.fillStyle = 'rgba(20,60,20,0.12)'; g.beginPath(); g.ellipse(x + 3, y + 1, 9, 3, 0, 0, 7); g.fill(); tuft(x, y, 0.8 + h(k) * 0.6, k * 7); }
+    // clover patches
+    for (let k = 0; k < 120; k++) { const cx = h(k * 9.1 + 3) * (BD.W + 400) - 200, cy = h(k * 5.7 + 8) * (BD.H + 400) - 200; for (let c = 0; c < 6; c++) { const x = cx + (h(k + c) - 0.5) * 30, y = cy + (h(k + c + 9) - 0.5) * 18; g.fillStyle = c % 2 ? '#5cb848' : '#4aa83c'; for (let l = 0; l < 3; l++) { const a = l / 3 * Math.PI * 2 - Math.PI / 2; g.beginPath(); g.arc(x + Math.cos(a) * 3.2, y + Math.sin(a) * 3.2, 3.2, 0, 7); g.fill(); } } }
+    // little flower clusters with stems
+    for (let k = 0; k < 110; k++) { const cx = h(k * 5.3 + 9) * (BD.W + 400) - 200, cy = h(k * 2.9 + 4) * (BD.H + 400) - 200, col = ['#ff8ad0', '#ffffff', '#ffd34d', '#c8a0ff', '#ff6a5a'][k % 5]; for (let f = 0; f < 4; f++) { const x = cx + (h(k + f) - 0.5) * 26, y = cy + (h(k + f + 4) - 0.5) * 14; g.strokeStyle = '#3a8a32'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x, y + 7); g.lineTo(x, y); g.stroke(); g.fillStyle = col; for (let q = 0; q < 5; q++) { const a = q / 5 * 6.28; g.beginPath(); g.arc(x + Math.cos(a) * 2.6, y + Math.sin(a) * 2.6, 2.2, 0, 7); g.fill(); } g.fillStyle = '#ffb030'; g.beginPath(); g.arc(x, y, 1.5, 0, 7); g.fill(); } }
     // the loop path: sandy, with worn edges and grain
     const C = BD.CORNERS, loop = () => { g.beginPath(); g.moveTo(C[0].x + 40, C[0].y); for (let k = 1; k <= 4; k++) { const a = C[k % 4], b = C[(k + 1) % 4]; g.arcTo(a.x, a.y, b.x, b.y, 40); } g.closePath(); };
     g.lineCap = 'round'; g.lineJoin = 'round';
     for (const [lw, col] of [[96, 'rgba(60,90,30,0.35)'], [86, '#b8925a'], [76, '#e3c788'], [52, '#efd9a0']]) { g.strokeStyle = col; g.lineWidth = lw; loop(); g.stroke(); }
     for (let k = 0; k < 900; k++) { const f = h(k + 11), side = Math.floor(h(k + 33) * 4), a = C[side], b = C[(side + 1) % 4], off = (h(k + 55) - 0.5) * 60; const x = a.x + (b.x - a.x) * f + (side % 2 ? off : 0), y = a.y + (b.y - a.y) * f + (side % 2 ? 0 : off); g.fillStyle = h(k) > 0.5 ? 'rgba(150,110,60,0.35)' : 'rgba(255,245,210,0.5)'; g.beginPath(); g.arc(x, y, 1.6 + h(k + 7) * 1.6, 0, 7); g.fill(); }
+    for (let side = 0; side < 4; side++) { const a = C[side], b = C[(side + 1) % 4]; for (let k = 0; k < 46; k++) { const f = (k + h(k + side * 50)) / 46, off = (k % 2 ? 1 : -1) * (40 + h(k + side) * 8), x = a.x + (b.x - a.x) * f + (side % 2 ? off : 0), y = a.y + (b.y - a.y) * f + (side % 2 ? 0 : off); tuft(x, y + 4, 0.7 + h(k) * 0.4, k * 13 + side); } }
     // paths out to the holds
     BD.HOLDS.forEach((H, k) => { const a = C[k]; for (const [lw, col] of [[70, 'rgba(60,90,30,0.35)'], [60, '#b8925a'], [50, '#e3c788']]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(H.x, H.y); g.stroke(); } });
     // the pond: dark shore, ripples, lily pads, stones beneath
@@ -779,10 +789,14 @@ const BoardArt = {
       g.fillStyle = '#7a5532'; g.fillRect(x - 6 * s, y - 34 * s, 12 * s, 36 * s); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(x + 1 * s, y - 34 * s, 5 * s, 36 * s);
       const lg = g.createRadialGradient(x - 16 * s + sw, y - 80 * s, 6, x + sw, y - 60 * s, 52 * s); lg.addColorStop(0, '#9ae46a'); lg.addColorStop(0.6, '#4aa83a'); lg.addColorStop(1, '#2a7a2a'); g.fillStyle = lg;
       g.beginPath(); g.arc(x + sw, y - 66 * s, 38 * s, 0, 7); g.arc(x - 26 * s + sw, y - 46 * s, 24 * s, 0, 7); g.arc(x + 26 * s + sw, y - 46 * s, 24 * s, 0, 7); g.fill();
+      g.fillStyle = 'rgba(20,70,20,0.28)'; g.beginPath(); g.arc(x + 12 * s + sw, y - 50 * s, 26 * s, 0, 7); g.fill();
+      g.fillStyle = 'rgba(220,255,170,0.35)'; g.beginPath(); g.arc(x - 12 * s + sw, y - 80 * s, 14 * s, 0, 7); g.arc(x - 30 * s + sw, y - 54 * s, 8 * s, 0, 7); g.fill();
+      for (let q = 0; q < 6; q++) { const a = q * 1.1 + d.v, lx = x + sw + Math.cos(a) * 30 * s, ly = y - 62 * s + Math.sin(a) * 22 * s; g.fillStyle = q % 2 ? 'rgba(40,120,40,0.5)' : 'rgba(150,220,100,0.5)'; g.beginPath(); g.ellipse(lx, ly, 6 * s, 3.5 * s, a, 0, 7); g.fill(); }
       if (d.v % 3 === 0) { g.fillStyle = '#e8323e'; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(x - 18 * s + k * 12 * s + sw, y - 56 * s + (k % 2) * 14 * s, 4 * s, 0, 7); g.fill(); } }
     } else if (d.kind === 'bush') {
       const lg = g.createRadialGradient(x - 10 * s, y - 26 * s, 4, x, y - 14 * s, 34 * s); lg.addColorStop(0, '#8ad860'); lg.addColorStop(1, '#2f7f30'); g.fillStyle = lg;
       g.beginPath(); g.arc(x, y - 16 * s, 22 * s, 0, 7); g.arc(x - 18 * s, y - 8 * s, 15 * s, 0, 7); g.arc(x + 18 * s, y - 8 * s, 15 * s, 0, 7); g.fill();
+      g.fillStyle = 'rgba(20,70,20,0.25)'; g.beginPath(); g.arc(x + 10 * s, y - 6 * s, 14 * s, 0, 7); g.fill(); g.fillStyle = 'rgba(220,255,170,0.32)'; g.beginPath(); g.arc(x - 8 * s, y - 26 * s, 8 * s, 0, 7); g.fill();
       if (d.v % 2) { g.fillStyle = '#ffffff'; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(x - 12 * s + k * 12 * s, y - 20 * s + (k % 2) * 8 * s, 3 * s, 0, 7); g.fill(); } }
     } else if (d.kind === 'rock') {
       g.fillStyle = '#8a8a96'; g.beginPath(); g.ellipse(x, y - 6 * s, 16 * s, 11 * s, 0, 0, 7); g.fill(); g.fillStyle = '#b8b8c4'; g.beginPath(); g.ellipse(x - 4 * s, y - 10 * s, 8 * s, 5 * s, 0, 0, 7); g.fill();
@@ -882,8 +896,8 @@ Object.assign(Shell, {
     items.forEach(it => { if (!it.fn) it.fn = () => it.lr(1); });
     this.menuList(g, items, 90, 250, 470, 78, 92);
     this.panel(g, 620, 236, 600, 400);
-    const lines = ['⭐ Buy stars at the bank where the star is — it moves after every sale.', '🏰 Stash coins and stars in your Hold (your Gate space) to keep them safe…', '🏴‍☠️ …but rivals can RAID it! Day: mostly nothing. Night: rich pickings. Golden hour: best for stars.', '🐕 Guard dogs, traps and padlocks protect Holds.', '🔥 The last 5 rounds: double spaces and DUELS when you land on a rival.'];
-    lines.forEach((l, k) => this.wrap(g, l, 650, 280 + k * 70, 540, 24, 17, '#fff'));
+    const lines = ['⭐ Buy stars at the bank where the star is — it moves after every sale.', '🏰 Stash coins and stars in your Hold (your Gate space) to keep them safe…', '🏴‍☠️ …but rivals can RAID it! Day: mostly nothing. Night: rich pickings. Golden hour: best for stars.', '🐕 Guard dogs, traps and padlocks protect Holds.', '🔥 The last 5 rounds: double spaces and DUELS when you land on a rival.', '🏡 A Hold can\'t be raided while its owner is within 5 spaces of home.'];
+    lines.forEach((l, k) => this.wrap(g, l, 650, 276 + k * 60, 540, 22, 16, '#fff'));
     this.hints(g, [['A', 'Choose'], ['B', 'Back']]);
     if (this.any('b')) this.go('menu');
   },
