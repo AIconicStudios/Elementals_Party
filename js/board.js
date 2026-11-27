@@ -655,11 +655,13 @@ const Board = {
   drawHUD(g, t) {
     const G = this.game, tod = BD.TOD[G.tod];
     // top bar
-    g.save(); g.fillStyle = 'rgba(20,12,44,0.62)'; Shell.rr(g, 440, 8, 400, 46, 23); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.stroke(); g.restore();
-    Shell.text(g, `Round ${Math.max(1, G.round)}/${G.rounds}`, 540, 39, 20, '#fff');
-    Shell.text(g, `${tod.icon} ${tod.name}`, 690, 39, 18, tod.col);
-    Shell.text(g, `⭐ ${BD.BANK_NAMES[G.starBank].split(' ')[0]}`, 790, 39, 16, '#ffe680');
-    if (G.frenzy) { g.save(); g.globalAlpha = 0.85 + Math.sin(t * 5) * 0.15; Shell.text(g, '🔥 FINAL FRENZY 🔥', 640, 76, 18, '#ff8a4a'); g.restore(); }
+    g.save(); g.fillStyle = 'rgba(20,12,44,0.62)'; Shell.rr(g, 380, 8, 520, 46, 23); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.stroke(); g.restore();
+    Shell.text(g, `Round ${Math.max(1, G.round)}/${G.rounds}`, 455, 39, 19, '#fff');
+    Shell.text(g, `${tod.icon} ${tod.name}`, 590, 39, 17, tod.col);
+    Shell.text(g, `⭐ ${BD.BANK_NAMES[G.starBank].split(' ')[0]} · ${G.starPrice ? G.starPrice() : BD.STAR}🪙`, 740, 39, 16, '#ffe680');
+    if (G.rule) Shell.text(g, G.rule.icon + (G.weatherNow ? ' ' + BD.WEATHER[G.weatherNow].icon : ''), 860, 39, 18, '#fff');
+    if (G.info) { g.save(); g.fillStyle = 'rgba(20,12,44,0.55)'; Shell.rr(g, 430, 58, 420, 26, 13); g.fill(); g.restore(); const alt = G.guard.indexOf('alternator'); Shell.text(g, `Next ⭐: ${BD.BANK_NAMES[G.nextBank].split(' ')[0]} · 🗿 next: ${G.alt[alt] === 'main' ? BD.BRANCHES[alt].name : 'main road'} · 🦖 ${G.zoo.size}/${BD.ZOOSTAR}`, 640, 76, 13, '#d8ccff'); }
+    if (G.frenzy) { g.save(); g.globalAlpha = 0.85 + Math.sin(t * 5) * 0.15; Shell.text(g, '🔥 FINAL FRENZY 🔥', 640, G.info ? 104 : 76, 18, '#ff8a4a'); g.restore(); }
     // player cards in the corners
     const pos = [[12, 8], [1012, 8], [12, 612], [1012, 612]];
     G.players.forEach((p, i) => {
@@ -720,7 +722,7 @@ const Board = {
     g.fillStyle = 'rgba(0,0,0,0.3)'; Shell.rr(g, -40, -34, 84, 84, 18); g.fill();
     const dg = g.createLinearGradient(-42, -42, 42, 42); dg.addColorStop(0, '#ffffff'); dg.addColorStop(1, '#d8d0f0'); g.fillStyle = dg; Shell.rr(g, -42, -42, 84, 84, 18); g.fill();
     g.strokeStyle = p.color; g.lineWidth = 5; Shell.rr(g, -42, -42, 84, 84, 18); g.stroke();
-    Shell.text(g, String(D.face), 0, 18, 52, '#2a1a4a', 'center', 'bold', null);
+    Shell.text(g, String(D.face), 0, typeof D.face === 'string' ? 10 : 18, typeof D.face === 'string' ? 24 : 52, '#2a1a4a', 'center', 'bold', null);
     g.restore();
     if (D.prev) Shell.text(g, `${D.prev} +`, x - 80, y + 14, 30, '#fff');
     if (D.state === 'spin') Shell.text(g, p.human ? 'Press Ⓐ to hit the dice block!' : `${p.name} rolls…`, x, y + 76, 17, '#fff');
@@ -954,7 +956,7 @@ const BoardArt = {
 // =====================================================================================================
 // the shell screens: board setup and the board itself
 Object.assign(Shell, {
-  boardOpts: { rounds: 12, bonus: true },
+  boardOpts: { rounds: 12, bonus: true, info: false },
   scr_boardsetup(g) {
     this.logo(g, 640, 70, 0.42);
     this.text(g, '🎲 The Crossing', 640, 196, 36, '#ffe680');
@@ -962,6 +964,7 @@ Object.assign(Shell, {
     const items = [
       { label: `Rounds: ◀ ${O.rounds} ▶`, sub: 'Left / Right to change', lr: d => { O.rounds = R_[(R_.indexOf(O.rounds) + d + R_.length) % R_.length]; }, col: '#8fd8ff' },
       { label: `Bonus stars: ◀ ${O.bonus ? 'ON' : 'OFF'} ▶`, sub: O.bonus ? `A secret 1–${O.rounds <= 12 ? 2 : 3} extra stars at the end` : 'No bonus stars', lr: () => { O.bonus = !O.bonus; }, col: '#ffcc33' },
+      { label: `Show board info: ◀ ${O.info ? 'ON' : 'OFF'} ▶`, sub: O.info ? 'Shows where the star goes next, the Alternator\'s next move and the zoo\'s hunger' : 'Hidden — keep everyone guessing', lr: () => { O.info = !O.info; }, col: '#c8a0ff' },
       { label: '▶ Start the party!', sub: `${O.rounds} rounds · Final Frenzy in the last 5`, fn: () => Board.start(this.players(), Object.assign({}, O)), col: '#7cf06a' },
     ];
     if (this.any('left') && items[this.sel] && items[this.sel].lr) { items[this.sel].lr(-1); Sfx.click(); }
