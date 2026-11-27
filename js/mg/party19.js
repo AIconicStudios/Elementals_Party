@@ -115,9 +115,7 @@ MG.def({
   fmt(s) { return s ? 'WIN' : '—'; },
   hud(m, S, i) { return i === S.trap ? '🕳️ TRAPPER' : `💎 ${S.tot}/25`; },
   draw(m, S, g) {
-    g.fillStyle = '#2a2030'; g.fillRect(0, 0, 1280, 720);
-    g.fillStyle = MGH.grad(g, 150, 650, ['#6a5a6a', '#5a4a5a']); g.fillRect(110, 150, 1060, 500);
-    for (let x = 110; x < 1170; x += 60) for (let y = 150; y < 650; y += 50) { g.strokeStyle = 'rgba(0,0,0,0.15)'; g.strokeRect(x, y, 60, 50); }
+    GX.blit(g, BG3.castle()); BG3.torches(g, m.t);
     this.Z.forEach(([zx, zy, w, h], k) => {
       const z = S.z[k], wob = z.st === 'warn' ? Math.sin(m.t * 40) * 3 : 0;
       if (z.st === 'open') { g.fillStyle = '#05050a'; g.fillRect(zx, zy, w, h); g.fillStyle = 'rgba(120,60,200,0.25)'; g.fillRect(zx, zy, w, h); }

@@ -107,7 +107,7 @@ const Char = {
     }
     if (!o.noFeet) this.shoes(g, r, C, t, seed, walk, out);
     if (!o.noArms) this.glove(g, r, C, faceMood, t, seed, walk, false);
-    g.save(); g.scale(1 / Math.sqrt(squash), squash);
+    g.save(); g.translate(0, (1 - squash) * r * 0.5); // heads keep their shape: a squash only dips them
     this.body(g, r, skin);
     if (mood === 'angry' || mood === 'sick' || mood === 'evil') { g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip(); const tg = g.createLinearGradient(0, -r, 0, r); const c = mood === 'angry' ? '255,40,30' : mood === 'sick' ? '90,200,60' : '120,40,160'; tg.addColorStop(0, `rgba(${c},${mood === 'evil' ? 0.25 : 0.45})`); tg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = tg; g.fillRect(-r, -r, r * 2, r * 2); g.restore(); }
     if (o.hat !== 'helmet') this.wrap(g, r, C, el, t, seed);
@@ -170,7 +170,7 @@ const Char = {
     const sq = 1 + (squash - 1) * 0.5;
     g.save(); g.translate(tx, ty); g.scale(1 / Math.sqrt(sq), sq); this.outfit(g, h, el); g.restore();
     // head
-    g.save(); g.translate(0, hy); g.scale(1 / Math.sqrt(squash), squash);
+    g.save(); g.translate(0, hy + (1 - squash) * h * 0.6); // the head never stretches: a squash just dips it
     this.body(g, h, skin);
     if (mood === 'angry' || mood === 'sick' || mood === 'evil') { g.save(); g.beginPath(); g.arc(0, 0, h, 0, 7); g.clip(); const tg = g.createLinearGradient(0, -h, 0, h); const c = mood === 'angry' ? '255,40,30' : mood === 'sick' ? '90,200,60' : '120,40,160'; tg.addColorStop(0, `rgba(${c},${mood === 'evil' ? 0.25 : 0.45})`); tg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = tg; g.fillRect(-h, -h, h * 2, h * 2); g.restore(); }
     if (o.hat !== 'helmet') this.wrap(g, h, C, el, t, seed);

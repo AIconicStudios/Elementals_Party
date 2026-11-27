@@ -337,7 +337,7 @@ MG.def({
   fmt(s) { return s >= 10 ? 'Still spinning!' : `out #${Math.round(s)}`; },
   hud(m, S, i) { const b = S.b[i]; return b.out ? 'toppled' : `spin ${Math.round(b.spin * 100)}%`; },
   draw(m, S, g) {
-    g.fillStyle = MGH.grad(g, 0, 720, ['#3a2a5a', '#1a1030']); g.fillRect(0, 0, 1280, 720);
+    GX.blit(g, BG3.stadium());
     const gr = g.createRadialGradient(this.CX, this.CY, 20, this.CX, this.CY, this.RR); gr.addColorStop(0, '#e8d8b8'); gr.addColorStop(0.8, '#c8a878'); gr.addColorStop(1, '#8a6a4a');
     g.fillStyle = gr; g.beginPath(); g.arc(this.CX, this.CY, this.RR, 0, 7); g.fill(); g.strokeStyle = '#5a3a20'; g.lineWidth = 12; g.stroke();
     for (let r = 60; r < this.RR; r += 60) { g.strokeStyle = 'rgba(90,60,30,0.15)'; g.lineWidth = 2; g.beginPath(); g.arc(this.CX, this.CY, r, 0, 7); g.stroke(); }

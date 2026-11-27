@@ -68,8 +68,7 @@ MG.def({
   fmt(s) { return `${s} tiles`; },
   hud(m, S, i) { return MG.TEAMN[m.teamOf(i)]; },
   draw(m, S, g) {
-    g.fillStyle = '#2a2a3a'; g.fillRect(0, 0, 1280, 720);
-    g.fillStyle = '#e8e4dc'; g.fillRect(this.OX, this.OY, this.GW * this.C, this.GH * this.C);
+    GX.blit(g, BG3.plaza(this.OX, this.OY, this.GW * this.C, this.GH * this.C));
     for (let y = 0; y < this.GH; y++) for (let x = 0; x < this.GW; x++) { const t = S.grid[y * this.GW + x]; if (t >= 0) { g.fillStyle = MG.TEAMC[t]; g.globalAlpha = 0.75; g.fillRect(this.OX + x * this.C, this.OY + y * this.C, this.C, this.C); g.globalAlpha = 1; } }
     g.strokeStyle = 'rgba(0,0,0,0.05)'; g.lineWidth = 1; for (let x = 0; x <= this.GW; x++) { g.beginPath(); g.moveTo(this.OX + x * this.C, this.OY); g.lineTo(this.OX + x * this.C, this.OY + this.GH * this.C); g.stroke(); }
     const c = [0, 0]; S.grid.forEach(t => { if (t >= 0) c[t]++; }); const tot = this.GW * this.GH;
@@ -173,7 +172,7 @@ MG.def({
   hud(m, S, i) { const P = S.p[i]; return P.out ? 'in the goo' : `${Math.round((660 - P.top) / 10)} m`; },
   draw(m, S, g) {
     const c = S.cam;
-    g.fillStyle = MGH.grad(g, 0, 720, ['#0a0a2a', '#2a1a4a']); g.fillRect(0, 0, 1280, 720); MGH.stars(g, m.t, 80, 720);
+    GX.blit(g, BG3.moon());
     g.fillStyle = '#f4f0e0'; g.beginPath(); g.arc(1100, 140, 60, 0, 7); g.fill(); g.fillStyle = 'rgba(0,0,0,0.08)'; g.beginPath(); g.arc(1080, 130, 12, 0, 7); g.arc(1120, 160, 8, 0, 7); g.fill();
     S.rocks.forEach(r => { const y = r.y - c; if (y < -40 || y > 760 || r.gone) return; const sh = r.t > 0 ? Math.sin(m.t * 50) * 3 : 0; g.fillStyle = r.crumble ? '#8a7a9a' : '#9a9aaa'; MGH.rr(g, r.x - r.w / 2 + sh, y, r.w, r.solid ? 80 : 20, 8); g.fill(); g.fillStyle = 'rgba(255,255,255,0.15)'; g.fillRect(r.x - r.w / 2 + 6 + sh, y + 3, r.w - 12, 4); if (r.crumble) { g.strokeStyle = '#4a3a5a'; g.lineWidth = 2; g.beginPath(); g.moveTo(r.x - 20 + sh, y + 2); g.lineTo(r.x + sh, y + 14); g.lineTo(r.x + 20 + sh, y + 4); g.stroke(); } });
     const gy = S.goo - c; g.fillStyle = MGH.grad(g, gy, gy + 300, ['#7cf06a', '#3a9a3a']); g.beginPath(); g.moveTo(0, 720); for (let x = 0; x <= 1280; x += 40) g.lineTo(x, gy + Math.sin(x * 0.02 + m.t * 3) * 8); g.lineTo(1280, 720); g.fill(); MGH.glow(g, 640, gy, 500, 'rgba(120,255,120,0.25)');

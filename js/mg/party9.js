@@ -308,9 +308,7 @@ MG.def({
   fmt(s) { return s ? 'WIN' : '—'; },
   hud(m, S, i) { return i === S.ghost ? `👻 scares ${S.scares}/6` : `🔦 zaps ${S.zaps}/4`; },
   draw(m, S, g) {
-    // mansion floor
-    g.fillStyle = '#1a1424'; g.fillRect(0, 0, 1280, 720);
-    for (let x = 60; x < 1220; x += 80) for (let y = 110; y < 690; y += 40) { g.fillStyle = ((x / 80 | 0) + (y / 40 | 0)) % 2 ? '#2a2030' : '#241c2a'; g.fillRect(x, y, 80, 40); }
+    GX.blit(g, BG3.mansion()); BG3.candles(g, m.t);
     g.strokeStyle = '#4a3a5a'; g.lineWidth = 8; g.strokeRect(56, 106, 1168, 588);
     for (const [x, y] of [[200, 250], [1080, 250], [640, 540], [400, 560], [880, 200]]) { g.fillStyle = '#3a2a3a'; MGH.rr(g, x - 50, y - 24, 100, 48, 8); g.fill(); g.fillStyle = '#5a3a4a'; MGH.rr(g, x - 44, y - 30, 88, 18, 6); g.fill(); }
     // darkness with torch beams cut out (drawn as light cones on top)

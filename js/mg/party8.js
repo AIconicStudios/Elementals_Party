@@ -138,9 +138,7 @@ MG.def({
   fmt(s) { return `${s} hits`; },
   hud(m, S, i) { return MG.TEAMN[m.teamOf(i)]; },
   draw(m, S, g) {
-    g.fillStyle = '#2a2a3a'; g.fillRect(0, 0, 1280, 720);
-    g.fillStyle = MGH.grad(g, 80, 700, ['#d8a868', '#c08848']); g.fillRect(40, 80, 1200, 620);
-    for (let x = 40; x < 1240; x += 60) { g.fillStyle = 'rgba(0,0,0,0.05)'; g.fillRect(x, 80, 2, 620); }
+    GX.blit(g, BG3.gym());
     g.fillStyle = MG.TEAMC[0]; g.globalAlpha = 0.15; g.fillRect(40, 80, 600, 620); g.fillStyle = MG.TEAMC[1]; g.fillRect(640, 80, 600, 620); g.globalAlpha = 1;
     g.strokeStyle = '#fff'; g.lineWidth = 5; g.strokeRect(40, 80, 1200, 620); g.beginPath(); g.moveTo(640, 80); g.lineTo(640, 700); g.stroke(); g.beginPath(); g.arc(640, 390, 70, 0, 7); g.stroke();
     MGH.text(g, `${S.hits[0]}`, 560, 60, 36, MG.TEAMC[0], 'center', 'bold'); MGH.text(g, `${S.hits[1]}`, 720, 60, 36, MG.TEAMC[1], 'center', 'bold');

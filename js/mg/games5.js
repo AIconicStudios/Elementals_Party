@@ -208,7 +208,7 @@ MG.def({
   fmt(s) { return s >= 1000 ? 'Still burning' : `burnt out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.p[i].alive ? (S.p[i].cd > 0 ? 'boost ' + Math.ceil(S.p[i].cd) : 'boost ready') : 'out'; },
   draw(m, S, g) {
-    MGH.scene(g, 'space', m.t);
+    GX.blit(g, BG3.nebula());
     g.strokeStyle = 'rgba(120,100,255,0.07)'; g.lineWidth = 1;
     for (let x = 0; x <= 1280; x += 40) { g.beginPath(); g.moveTo(x, 40); g.lineTo(x, 720); g.stroke(); }
     for (let y = 40; y <= 720; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(1280, y); g.stroke(); }

@@ -131,8 +131,7 @@ MG.def({
   fmt(s) { const fr = Math.ceil(-s / 100 - 0.0001); return `${Math.max(0, fr)} freezes`; },
   hud(m, S, i) { return `❄${S.b[i].fr}`; },
   draw(m, S, g) {
-    MGH.scene(g, 'night', m.t);
-    g.fillStyle = 'rgba(40,20,70,0.35)'; g.fillRect(0, 40, 1280, 680);
+    GX.blit(g, BG3.night());
     const A = S.a, T = A.tgt >= 0 ? S.b[A.tgt] : null;
     if (T) { g.save(); g.setLineDash([6, 10]); g.lineDashOffset = -m.t * 40; g.strokeStyle = `rgba(255,60,100,${A.wind > 0 ? 0.8 : 0.35})`; g.lineWidth = A.wind > 0 ? 4 : 2; g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(T.x, T.y); g.stroke(); g.restore(); MGH.emoji(g, '🎯', T.x, T.y - 62 + Math.sin(m.t * 8) * 3, 22); }
     S.b.forEach((b, i) => { MGH.shadow(g, b.x, b.y + b.r * 1.25, b.r, 0.3); if (b.frozen > 0) { g.fillStyle = 'rgba(180,230,255,0.55)'; g.beginPath(); g.moveTo(b.x - 34, b.y + 30); g.lineTo(b.x - 28, b.y - 40); g.lineTo(b.x, b.y - 52); g.lineTo(b.x + 30, b.y - 38); g.lineTo(b.x + 34, b.y + 30); g.closePath(); g.fill(); } MGH.drawBody(g, b, m.players[i], b.imm > 0 ? '✨' : '', b.frozen > 0 ? 'dizzy' : (i === A.tgt ? 'scared' : dist(b.x, b.y, A.x, A.y) < 220 ? 'nervous' : null)); });
@@ -268,9 +267,7 @@ MG.def({
   fmt(s) { return s >= 100 ? `alive, ${Math.round(s - 100)}♥` : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.b[i].alive ? '♥'.repeat(S.b[i].hp) : 'out'; },
   draw(m, S, g) {
-    MGH.scene(g, 'lava', m.t);
-    g.fillStyle = 'rgba(30,10,6,0.55)'; g.fillRect(20, 60, 1240, 640); g.strokeStyle = 'rgba(255,120,40,0.5)'; g.lineWidth = 4; g.strokeRect(20, 60, 1240, 640);
-    for (let k = 0; k < 9; k++) { g.strokeStyle = 'rgba(255,90,30,0.18)'; g.lineWidth = 2; g.beginPath(); g.moveTo(40 + k * 140, 60); g.lineTo(80 + k * 140, 380); g.lineTo(30 + k * 140, 700); g.stroke(); }
+    GX.blit(g, BG3.lava()); BG3.braziers(g, m.t);
     if (S.slow) { g.fillStyle = 'rgba(150,110,255,0.12)'; g.fillRect(0, 40, 1280, 680); MGH.label(g, `⏳ ${m.players[S.slow.by].name} slowed time!`, 640, 90, 24, '#d8c8ff'); }
     for (const u of S.pu) { const bob = Math.sin(u.t * 4) * 5, k = Math.min(1, u.t * 3); MGH.glow(g, u.x, u.y, 50, { shield: 'rgba(120,200,255,0.6)', life: 'rgba(255,100,140,0.6)', slow: 'rgba(170,130,255,0.6)' }[u.k]); g.globalAlpha = u.t > 7.5 && Math.sin(u.t * 20) > 0 ? 0.4 : 1; MGH.emoji(g, { shield: '🛡️', life: '❤️', slow: '⏳' }[u.k], u.x, u.y + bob, 36 * k); g.globalAlpha = 1; }
     S.b.forEach((b, i) => {

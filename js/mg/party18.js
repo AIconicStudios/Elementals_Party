@@ -43,9 +43,7 @@ MG.def({
   fmt(s) { return `${s} hits`; },
   hud(m, S, i) { return `🪶 ${S.b[i].hits}`; },
   draw(m, S, g) {
-    g.fillStyle = MGH.grad(g, 0, 720, ['#2a2050', '#4a3070']); g.fillRect(0, 0, 1280, 720);
-    g.fillStyle = '#ffe8b0'; g.beginPath(); g.arc(1150, 100, 40, 0, 7); g.fill(); MGH.stars(g, m.t, 30, 140);
-    g.fillStyle = MGH.grad(g, 140, 700, ['#ff9ac8', '#e87aa8']); MGH.rr(g, 100, 130, 1080, 570, 40); g.fill();
+    GX.blit(g, BG3.bedroom()); BG3.fairy(g, m.t);
     for (let x = 140; x < 1160; x += 60) for (let y = 170; y < 680; y += 60) { g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.arc(x, y, 8, 0, 7); g.fill(); }
     S.fx.forEach(f => { g.save(); g.translate(f.x, f.y); g.rotate(f.r + f.t * 3); g.globalAlpha = 1 - f.t / 2.5; g.fillStyle = '#fff'; g.beginPath(); g.ellipse(0, 0, 8, 3, 0, 0, 7); g.fill(); g.restore(); });
     const ents = S.b.map((b, i) => ({ y: b.y, f: () => {

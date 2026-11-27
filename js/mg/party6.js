@@ -161,8 +161,7 @@ MG.def({
   fmt(s) { return s ? 'won!' : 'lost'; },
   hud(m, S, i) { return i === S.seek ? '🏮 seeker' : S.b[i].found ? 'found' : `✨ ${S.caught}/${S.NEED}`; },
   draw(m, S, g) {
-    g.fillStyle = '#1a2a3a'; g.fillRect(0, 0, 1280, 720);
-    for (let k = 0; k < 60; k++) { g.fillStyle = 'rgba(40,70,60,0.6)'; g.fillRect(MGH.hash(k) * 1280, 110 + MGH.hash(k + 5) * 600, 3, 9); }
+    GX.blit(g, BG3.garden());
     S.flies.forEach(f => { if (f.got) return; const x = f.x + Math.sin(m.t * 2 + f.ph) * 8, y = f.y + Math.cos(m.t * 1.6 + f.ph) * 6; MGH.glow(g, x, y, 30, 'rgba(230,255,140,0.5)'); g.fillStyle = '#eaff9a'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); });
     const s = S.b[S.seek], ang = Math.atan2(s.face.y, s.face.x);
     // lantern light cone

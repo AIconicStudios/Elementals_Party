@@ -51,7 +51,7 @@ MG.def({
   fmt(s) { return s >= 1000 ? 'sitting pretty!' : `out at ${s.toFixed(0)}s`; },
   hud(m, S, i) { return S.b[i].out ? 'out' : S.b[i].seat >= 0 ? 'seated' : ''; },
   draw(m, S, g) {
-    g.fillStyle = MGH.grad(g, 0, 720, ['#3a1a5a', '#5a2a7a', '#2a1040']); g.fillRect(0, 0, 1280, 720);
+    GX.blit(g, BG3.party()); BG3.disco(g, m.t);
     // disco floor
     for (let r = 0; r < 6; r++) for (let c = 0; c < 12; c++) { const on = S.phase === 'music' && ((r + c + Math.floor(S.pt * 4)) % 3 === 0); g.fillStyle = on ? ['#ff5a9a', '#5ab8ff', '#ffd34d', '#7cf06a'][(r * 3 + c) % 4] : (r + c) % 2 ? '#3a2a5a' : '#4a3a6a'; g.globalAlpha = on ? 0.7 : 1; g.fillRect(100 + c * 90, 220 + r * 75, 88, 73); g.globalAlpha = 1; }
     if (S.phase === 'music') for (let k = 0; k < 4; k++) { const a = m.t * 1.5 + k * 1.6; g.fillStyle = ['rgba(255,90,154,0.12)', 'rgba(90,184,255,0.12)', 'rgba(255,211,77,0.12)', 'rgba(124,240,106,0.12)'][k]; g.beginPath(); g.moveTo(640, 60); g.lineTo(640 + Math.cos(a) * 900 - 60, 720); g.lineTo(640 + Math.cos(a) * 900 + 60, 720); g.fill(); }
@@ -124,9 +124,7 @@ MG.def({
   fmt(s) { return s ? 'won!' : 'lost'; },
   hud(m, S, i) { return (i === S.it ? '🫵 IT' : S.b[i].frozen ? '🧊' : 'running') + (S.b[i].cd > 0 || S.b[i].frozen ? '' : ' ⚡'); },
   draw(m, S, g) {
-    g.fillStyle = MGH.grad(g, 0, 720, ['#8fd86a', '#6cc04a', '#4fa83a']); g.fillRect(0, 0, 1280, 720);
-    for (let k = 0; k < 120; k++) { g.fillStyle = k % 2 ? 'rgba(40,110,30,0.35)' : 'rgba(170,230,110,0.4)'; g.fillRect(MGH.hash(k) * 1280, 80 + MGH.hash(k + 9) * 640, 3, 8); }
-    for (let k = 0; k < 14; k++) MGH.text(g, ['🌼', '🌷', '🌸'][k % 3], MGH.hash(k + 3) * 1280, 100 + MGH.hash(k + 30) * 600, 18, '#fff');
+    GX.blit(g, BG3.meadow());
     S.posts.forEach(p => { MGH.shadow(g, p.x, p.y + 30, 46, 0.25); g.fillStyle = '#5a3a20'; g.fillRect(p.x - 8, p.y - 10, 16, 40); for (const [dx, dy, r] of [[-18, -30, 26], [18, -30, 26], [0, -52, 30]]) { g.fillStyle = '#3f9a32'; g.beginPath(); g.arc(p.x + dx, p.y + dy, r, 0, 7); g.fill(); } g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(p.x - 8, p.y - 62, 10, 0, 7); g.fill(); });
     S.b.forEach((b, i) => {
       const p = m.players[i];
