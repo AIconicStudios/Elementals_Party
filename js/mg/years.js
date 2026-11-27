@@ -19,14 +19,25 @@
   const colSky = (x, j) => { const s = season(x), q = s.q > 0.8 ? (s.q - 0.8) / 0.2 : 0; return lerpC(s.S.sky[j], s.N.sky[j], q); };
 
   function zombie(g, x, y, t, k, hit) {
-    const sw = Math.sin(t * 5 + k) * 0.12; g.save(); g.translate(x, y); if (hit) g.rotate(hit * 3);
-    g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0, 2, 16, 4, 0, 0, 7); g.fill();
-    g.fillStyle = '#3a4a3a'; MGH.rr(g, -9, -18, 7, 18, 3); g.fill(); MGH.rr(g, 2, -18, 7, 18, 3); g.fill();
-    g.rotate(sw); g.fillStyle = '#7a6a9a'; MGH.rr(g, -12, -44, 24, 28, 6); g.fill(); g.fillStyle = '#5a4a7a'; g.beginPath(); g.moveTo(-12, -20); g.lineTo(-6, -16); g.lineTo(0, -21); g.lineTo(6, -16); g.lineTo(12, -20); g.lineTo(12, -16); g.lineTo(-12, -16); g.fill();
-    g.strokeStyle = '#8ac87a'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(-6, -38); g.lineTo(-24, -36 + Math.sin(t * 4) * 3); g.moveTo(6, -38); g.lineTo(-20, -30 + Math.sin(t * 4 + 1) * 3); g.stroke();
-    g.fillStyle = '#9ad88a'; g.beginPath(); g.arc(0, -56, 14, 0, 7); g.fill(); g.fillStyle = '#6a9a5a'; g.beginPath(); g.arc(6, -64, 4, 0, 7); g.fill();
-    g.fillStyle = '#fff'; g.beginPath(); g.arc(-6, -58, 4, 0, 7); g.arc(4, -57, 3, 0, 7); g.fill(); g.fillStyle = '#c83a3a'; g.beginPath(); g.arc(-7, -58, 1.6, 0, 7); g.arc(4, -57, 1.4, 0, 7); g.fill();
-    g.strokeStyle = '#3a5a2a'; g.lineWidth = 2; g.beginPath(); g.moveTo(-8, -49); g.lineTo(-4, -51); g.lineTo(0, -49); g.lineTo(4, -51); g.stroke();
+    const sh = Math.sin(t * 5 + k), sw = sh * 0.1; g.save(); g.translate(x, y); if (hit) g.rotate(hit * 3); g.scale(1.25, 1.25);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0, 2, 18, 5, 0, 0, 7); g.fill();
+    // shuffling legs and torn trousers
+    g.fillStyle = '#4a4a6a'; g.save(); g.translate(-5, -18); g.rotate(sh * 0.25); MGH.rr(g, -4, 0, 9, 18, 3); g.fill(); g.restore(); g.save(); g.translate(5, -18); g.rotate(-sh * 0.25); MGH.rr(g, -4, 0, 9, 18, 3); g.fill(); g.restore();
+    g.fillStyle = '#7ab86a'; g.fillRect(-9, -2, 7, 3); g.fillRect(3, -2, 7, 3);
+    g.rotate(sw);
+    // ragged shirt with patches
+    const sg = g.createLinearGradient(-14, -48, 14, -16); sg.addColorStop(0, '#8a7ab8'); sg.addColorStop(1, '#5a4a8a'); g.fillStyle = sg; MGH.rr(g, -14, -48, 28, 32, 8); g.fill();
+    g.fillStyle = '#5a4a8a'; g.beginPath(); g.moveTo(-14, -20); for (let q = 0; q < 6; q++) g.lineTo(-14 + q * 5.6, -16 + (q % 2) * 5); g.lineTo(14, -20); g.fill(); g.fillStyle = '#c8a878'; g.fillRect(4, -40, 7, 7); g.strokeStyle = 'rgba(0,0,0,0.4)'; g.lineWidth = 1; g.strokeRect(4, -40, 7, 7);
+    // arms reaching forward
+    g.strokeStyle = '#7ab86a'; g.lineWidth = 7; g.lineCap = 'round'; g.beginPath(); g.moveTo(-6, -40); g.lineTo(-26, -40 + Math.sin(t * 4) * 3); g.moveTo(6, -40); g.lineTo(-22, -32 + Math.sin(t * 4 + 1) * 3); g.stroke();
+    g.fillStyle = '#8ac87a'; g.beginPath(); g.arc(-27, -40 + Math.sin(t * 4) * 3, 5, 0, 7); g.arc(-23, -32 + Math.sin(t * 4 + 1) * 3, 5, 0, 7); g.fill();
+    // head: green, lopsided, stitches, messy hair, glowing eyes
+    const hg = g.createRadialGradient(-5, -66, 2, 0, -60, 17); hg.addColorStop(0, '#b8f0a0'); hg.addColorStop(1, '#6aa85a'); g.fillStyle = hg; g.beginPath(); g.ellipse(0, -60, 16, 15, 0.1, 0, 7); g.fill();
+    g.fillStyle = '#3a4a2a'; for (let q = 0; q < 5; q++) { g.beginPath(); g.moveTo(-12 + q * 6, -72); g.lineTo(-9 + q * 6, -82 - (q % 2) * 4); g.lineTo(-6 + q * 6, -72); g.fill(); }
+    g.fillStyle = '#2a1a2a'; g.beginPath(); g.ellipse(-7, -62, 5, 4.5, 0, 0, 7); g.ellipse(5, -61, 4, 3.5, 0, 0, 7); g.fill();
+    MGH.glow(g, -7, -62, 8, 'rgba(255,230,80,0.6)'); g.fillStyle = '#ffe050'; g.beginPath(); g.arc(-7, -62, 2, 0, 7); g.arc(5, -61, 1.6, 0, 7); g.fill();
+    g.strokeStyle = '#2a3a1a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-8, -52); g.lineTo(-4, -54); g.lineTo(0, -52); g.lineTo(4, -54); g.lineTo(8, -52); g.stroke();
+    g.beginPath(); g.moveTo(9, -70); g.lineTo(12, -62); for (let q = 0; q < 3; q++) { g.moveTo(9 + q, -68 + q * 3); g.lineTo(13 + q, -69 + q * 3); } g.stroke();
     g.restore();
   }
   function can(g, x, y, full, cap) {
@@ -41,7 +52,7 @@
     wins: 'First to the finish line (or furthest when time runs out).',
     init(m, S) {
       S.st = []; for (let x = 2600; x < L - 1500; x += R.range(2000, 3600)) S.st.push(x);
-      S.P = [0, 1, 2, 3].map(i => ({ x: 120, v: 0, fuel: TANK, mode: 'ride', fx: 0, cap: 10, canFull: true, busy: 0, busyK: '', walkT: 0, z: null, stun: 0, fin: 0, greed: R.range(0.35, 1.2), plan: null, wob: 0, msg: '', msgT: 0, zc: R.range(4, 9) }));
+      S.P = [0, 1, 2, 3].map(i => ({ x: 120, v: 0, fuel: TANK, mode: 'ride', fx: 0, cap: 10, canFull: true, busy: 0, busyK: '', walkT: 0, z: null, stun: 0, fin: 0, greed: R.range(0.35, 1.2), plan: null, wob: 0, msg: '', msgT: 0, zc: R.range(9, 15) }));
       S.ph = 'go'; S.cd = 2.6; S.order = [];
     },
     stAt(S, x, r = 70) { return S.st.find(s => Math.abs(s - x) < r); },
@@ -61,11 +72,11 @@
           return; }
         const atSt = this.stAt(S, P.mode === 'foot' ? P.fx : P.x);
         if (P.mode === 'ride' || P.mode === 'push') {
-          const want = Math.max(0, a.x), top = P.mode === 'ride' ? RIDE : PUSH;
+          const want = a.x > 0 ? a.x : a.x * 0.55, top = P.mode === 'ride' ? RIDE : PUSH; // backward is slower
           P.v += (want * top - P.v) * Math.min(1, dt * (P.mode === 'ride' ? 1.8 : 6));
-          P.x += P.v * dt;
-          if (P.mode === 'ride') { P.fuel -= (P.v / RIDE) * dt / BURN; if (P.fuel <= 0) { P.fuel = 0; P.mode = 'push'; P.v = Math.min(P.v, PUSH); this.say(P, '⛽ Out of fuel!'); if (me) Sfx.tone(200, 0.4, 'square', 0.03, -60); } }
-          else this.walk(m, S, P, i, dt, P.v);
+          P.x = Math.max(60, P.x + P.v * dt); if (Math.abs(P.v) > 8) P.dir = Math.sign(P.v);
+          if (P.mode === 'ride') { P.fuel -= (Math.abs(P.v) / RIDE) * dt / BURN; if (P.fuel <= 0) { P.fuel = 0; P.mode = 'push'; P.v = Math.min(P.v, PUSH); this.say(P, '⛽ Out of fuel!'); if (me) Sfx.tone(200, 0.4, 'square', 0.03, -60); } }
+          else this.walk(m, S, P, i, dt, Math.abs(P.v), 0.35); // pushing the bike draws far fewer zombies than wandering on foot
           if (m.pressed(i, 'a') && atSt) { if (P.fuel >= TANK - 0.05) { this.say(P, 'Tank is full!'); if (me) Sfx.tone(240, 0.08, 'square', 0.03); } else { P.busy = REFILL; P.busyK = 'refill'; P.v = 0; } }
           if (m.pressed(i, 'b')) { P.mode = 'foot'; P.fx = P.x; P.v = 0; }
         } else { // on foot
@@ -85,9 +96,9 @@
       if (S.endT !== undefined && (S.endT -= dt) <= 0) m.finish(this.score(m, S));
     },
     // every metre on foot makes the next zombie more likely
-    walk(m, S, P, i, dt, sp) {
-      if (sp < 5) return; P.walkT += dt; P.zc -= dt * (1 + P.walkT * 0.25);
-      if (P.zc <= 0) { P.zc = R.range(5, 11); P.z = { t: 0, k: R.range(0, 9) }; this.say(P, '🧟 Zombie!'); if (!m.bot(i)) Sfx.tone(120, 0.4, 'sawtooth', 0.04); }
+    walk(m, S, P, i, dt, sp, rate = 1) {
+      if (sp < 5) return; P.walkT += dt; P.zc -= dt * rate * (1 + P.walkT * 0.12);
+      if (P.zc <= 0) { P.zc = R.range(10, 17); P.z = { t: 0, k: R.range(0, 9) }; this.say(P, '🧟 Zombie!'); if (!m.bot(i)) Sfx.tone(120, 0.4, 'sawtooth', 0.04); }
     },
     bot(m, S, i, dt) {
       const v = m.vin[i], P = S.P[i]; v.a = v.b = false; v.ax = 0; if (P.fin || S.cd > 0 || P.busy > 0) return;
@@ -160,7 +171,16 @@
       if (on) Char.draw(g, bx - 4, road - 40, 17, p.el.id, p.color, { mood: MGH.persona(P.z ? 'shock' : P.busy > 0 ? 'happy' : P.fuel < 2 ? 'nervous' : 'determined', p.el.id), seed: i * 1.7, look: { x: 1, y: 0 }, noFeet: true, hands: { n: { x: 1.3, y: 0.55, d: 0, o: false, m: true }, f: { x: 1.1, y: 0.7, d: 0, o: false, m: false } } });
       else { const rx = P.mode === 'foot' ? P.fx - cx : bx - 34, face = P.mode === 'foot' ? (m.axis(i).x < -0.2 ? -1 : 1) : 1;
         Char.draw(g, rx, road - 22, 17, p.el.id, p.color, { mood: MGH.persona(P.z ? (P.z.res === 'grab' ? 'hurt' : 'shock') : P.mode === 'push' ? 'tired' : 'determined', p.el.id), seed: i * 1.7, look: { x: face, y: 0 }, walk: walking ? 1 : 0, t, hands: P.mode === 'push' ? { n: { x: 1.5, y: 0.1, d: 0, o: false, m: true }, f: { x: 1.3, y: 0.2, d: 0, o: false, m: false } } : { n: { x: 0.9 * face, y: 0.5, d: 0, o: false, m: true }, f: { x: -0.6 * face, y: 0.6, d: 0, o: false, m: false } } });
-        if (P.mode === 'foot') can(g, rx + 16 * face, road - 6, P.canFull, P.cap);
+        if (P.mode === 'foot' && !(P.busy > 0 && (P.busyK === 'can' || P.busyK === 'pour'))) can(g, rx + 16 * face, road - 6, P.canFull, P.cap);
+        if (P.busy > 0 && P.busyK === 'can') { // the can sits under the pump nozzle and fills up
+          const q = 1 - P.busy / CANFILL, st = this.stAt(S, P.fx), px = st - cx, kx = px + 26, ky = road - 6;
+          g.strokeStyle = '#222'; g.lineWidth = 3; g.beginPath(); g.moveTo(px + 14, road - 30); g.quadraticCurveTo(px + 30, road - 44, kx + 2, ky - 26); g.stroke(); g.fillStyle = '#444'; g.fillRect(kx - 2, ky - 30, 8, 6);
+          g.strokeStyle = 'rgba(255,190,60,0.9)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(kx + 2, ky - 24); g.lineTo(kx + 2 + Math.sin(t * 40) * 0.8, ky - 12); g.stroke();
+          can(g, kx, ky, false, P.cap); g.fillStyle = '#e8323e'; g.fillRect(kx - 7, ky + 8 - 18 * q, 14, 18 * q); g.fillStyle = 'rgba(255,220,120,0.6)'; g.fillRect(kx - 5, ky + 8 - 18 * q, 10, 2);
+          MGH.text(g, `${Math.round(q * P.cap)}/${P.cap}`, kx, ky - 40, 12, '#fff', 'center', 'bold'); }
+        if (P.busy > 0 && P.busyK === 'pour') { // tip the can into the tank
+          const q = 1 - P.busy, kx = bx + 4, ky = road - 44; g.save(); g.translate(kx, ky); g.rotate(-1.1); can(g, 0, 0, q < 0.95, P.cap); g.restore();
+          g.strokeStyle = 'rgba(255,190,60,0.9)'; g.lineWidth = 3; g.beginPath(); g.moveTo(kx + 8, ky + 4); g.quadraticCurveTo(kx + 12, ky + 14, kx + 10, road - 24); g.stroke(); }
         if (P.mode === 'foot' && Math.abs(P.fx - P.x) > 200) { const ax = clamp(bx, 30, 1200); MGH.text(g, bx < 30 ? '◀ bike' : bx > 1200 ? 'bike ▶' : '', ax, road - 60, 13, '#fff', 'center', 'bold'); } }
       if (P.z) { const Z = P.z, px = (P.mode === 'foot' ? P.fx : P.x - 34) - cx, zx = px + 30 + Math.max(0, 1 - Z.t) * 140 - (Z.t > 1 && !Z.res ? 10 : 0) + (Z.res === 'bonk' ? Z.rt * 400 : 0);
         zombie(g, zx, road + 2, t, Z.k, Z.res === 'bonk' ? Z.rt : 0);

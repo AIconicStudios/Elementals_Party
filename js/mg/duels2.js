@@ -240,7 +240,7 @@ MG.def({
   buzz(F) { F.buzz = 0.6; F.step = 0; Sfx.bad(); },
   shipDone(F) { F.ship++; F.step = 0; if (F.ship >= this.SHIPS.length) F.done = true; Sfx.tone(700, 0.08, 'triangle', 0.05); },
   resolve(m, S, A) {
-    const foe = S.f[1 - A.sh], hit = this.occ(foe, A.r, A.c); S.shots[A.sh].push({ r: A.r, c: A.c, hit });
+    const foe = S.f[1 - A.sh], hit = this.occ(foe, A.r, A.c); S.shots[A.sh].push({ r: A.r, c: A.c, hit, at: S.clock || 0 });
     if (hit) { const ship = foe.ships.find(cs => cs.some(q => q.r === A.r && q.c === A.c)), sunk = ship.every(q => S.shots[A.sh].some(s => s.r === q.r && s.c === q.c)); S.msg = sunk ? 'SUNK! 🔥' : 'HIT!'; S.msgT = 1.4; Sfx.thud(); MGH.shake(5);
       if (foe.cells.every(q => S.shots[A.sh].some(s => s.r === q.r && s.c === q.c))) { S.winner = A.sh; S.ph = 'end'; S.pt = 0; Sfx.coin(); return; } }
     else { S.msg = 'Splash — miss'; S.msgT = 1.2; Sfx.noise(0.3, 900, 0.06, 'lowpass'); }
@@ -261,12 +261,40 @@ MG.def({
   fmt(s) { return s < 0 ? 'watching' : s ? 'WIN' : '—'; },
   hud(m, S, i) { const j = S.d.indexOf(i); if (j < 0) return '👀 watching'; const hits = S.shots[j].filter(q => q.hit).length; return `💥 ${hits}/6`; },
   grid(g, m, S, j, ox, oy) {
-    const sz = 92, t = m.t, shooter = 1 - j, shots = S.shots[shooter] || [];
-    g.fillStyle = 'rgba(10,30,60,0.5)'; MGH.rr(g, ox - 54, oy - 54, sz * 4 + 80, sz * 4 + 80, 16); g.fill();
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const x = ox + c * sz, y = oy + r * sz, wg = g.createLinearGradient(0, y, 0, y + sz); wg.addColorStop(0, '#3aa0e0'); wg.addColorStop(1, '#2070b8'); g.fillStyle = wg; g.fillRect(x + 2, y + 2, sz - 4, sz - 4); g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 12, y + sz / 2 + Math.sin(t * 2 + r + c) * 3); g.quadraticCurveTo(x + sz / 2, y + sz / 2 - 6, x + sz - 12, y + sz / 2 + Math.sin(t * 2 + r + c) * 3); g.stroke(); }
+    const sz = 92, t = m.t, shooter = 1 - j, shots = S.shots[shooter] || [], W = sz * 4;
+    S.clock = t;
+    // a wooden chart table with brass corners and a rope trim
+    g.fillStyle = 'rgba(0,0,0,0.35)'; MGH.rr(g, ox - 50, oy - 46, W + 92, W + 92, 18); g.fill();
+    GX.plank(g, ox - 56, oy - 56, W + 92, W + 92, '#a8743e', '#6a4422', j);
+    g.strokeStyle = '#e8d0a0'; g.lineWidth = 4; g.setLineDash([8, 6]); MGH.rr(g, ox - 44, oy - 44, W + 68, W + 68, 12); g.stroke(); g.setLineDash([]);
+    for (const [cx2, cy2] of [[ox - 44, oy - 44], [ox + W + 24, oy - 44], [ox - 44, oy + W + 24], [ox + W + 24, oy + W + 24]]) { const bg = g.createRadialGradient(cx2 - 2, cy2 - 2, 1, cx2, cy2, 9); bg.addColorStop(0, '#fff6c8'); bg.addColorStop(1, '#a8781a'); g.fillStyle = bg; g.beginPath(); g.arc(cx2, cy2, 8, 0, 7); g.fill(); }
+    // living water: a deep-to-light gradient, drifting light caustics and wave crests
+    const wg = g.createLinearGradient(0, oy, 0, oy + W); wg.addColorStop(0, '#4ab8f0'); wg.addColorStop(1, '#1a5aa8'); g.fillStyle = wg; g.fillRect(ox, oy, W, W);
+    g.save(); g.beginPath(); g.rect(ox, oy, W, W); g.clip();
+    for (let k = 0; k < 18; k++) { const x = ox + ((k * 67 + t * 14) % (W + 60)) - 30, y = oy + (k * 41) % W; g.fillStyle = 'rgba(255,255,255,0.07)'; g.beginPath(); g.ellipse(x, y, 22, 6, 0.3, 0, 7); g.fill(); }
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const x = ox + c * sz, y = oy + r * sz; g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = 2; for (let q = 0; q < 2; q++) { const yy = y + sz * (0.38 + q * 0.3) + Math.sin(t * 2 + r + c + q) * 3; g.beginPath(); g.moveTo(x + 14, yy); g.quadraticCurveTo(x + sz / 2, yy - 7, x + sz - 14, yy); g.stroke(); } }
+    g.restore();
+    g.strokeStyle = 'rgba(10,30,60,0.55)'; g.lineWidth = 2; for (let k = 0; k <= 4; k++) { g.beginPath(); g.moveTo(ox + k * sz, oy); g.lineTo(ox + k * sz, oy + W); g.moveTo(ox, oy + k * sz); g.lineTo(ox + W, oy + k * sz); g.stroke(); }
     for (let k = 0; k < 4; k++) { abxyBadge(g, k, ox - 30, oy + k * sz + sz / 2, 13); abxyBadge(g, k, ox + k * sz + sz / 2, oy - 30, 13); }
-    shots.forEach(q => { const x = ox + q.c * sz + sz / 2, y = oy + q.r * sz + sz / 2; if (q.hit) { g.fillStyle = '#5a5a60'; MGH.rr(g, x - 30, y - 12, 60, 24, 8); g.fill(); MGH.flame(g, x, y - 4, 0.3, t, q.r * 4 + q.c); g.fillStyle = 'rgba(60,60,60,0.5)'; g.beginPath(); g.arc(x + 8, y - 34 - Math.sin(t * 2) * 4, 10, 0, 7); g.fill(); } else { g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 14, 0, 7); g.stroke(); g.beginPath(); g.arc(x, y, 26 + Math.sin(t * 3) * 3, 0, 7); g.globalAlpha = 0.4; g.stroke(); g.globalAlpha = 1; } });
-    if (S.ph === 'end') S.f[j].ships.forEach(cs => { const xs = cs.map(q => q.c), ys = cs.map(q => q.r), x0 = ox + Math.min(...xs) * sz + 10, y0 = oy + Math.min(...ys) * sz + 10, w = (Math.max(...xs) - Math.min(...xs) + 1) * sz - 20, h = (Math.max(...ys) - Math.min(...ys) + 1) * sz - 20; g.fillStyle = 'rgba(200,200,210,0.55)'; MGH.rr(g, x0, y0, w, h, 20); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke(); });
+    // shots: a fresh one lands with a splash plume (miss) or an explosion (hit); then a buoy or burning wreck stays
+    shots.forEach(q => { const x = ox + q.c * sz + sz / 2, y = oy + q.r * sz + sz / 2, age = Math.max(0, t - (q.at || 0));
+      if (q.hit) {
+        g.fillStyle = '#5a3a1a'; g.save(); g.translate(x, y + 8); g.rotate(-0.3); MGH.rr(g, -30, -8, 54, 16, 6); g.fill(); g.fillStyle = '#3a2414'; g.fillRect(-4, -34, 5, 30); g.fillStyle = 'rgba(240,230,210,0.85)'; g.beginPath(); g.moveTo(1, -34); g.lineTo(18, -20); g.lineTo(1, -12); g.fill(); g.restore();
+        MGH.flame(g, x - 4, y, 0.42, t, q.r * 4 + q.c);
+        for (let k = 0; k < 3; k++) { const ph = (t * 0.6 + k / 3) % 1; g.fillStyle = `rgba(60,60,70,${0.5 * (1 - ph)})`; g.beginPath(); g.arc(x + 6 + ph * 14, y - 30 - ph * 40, 9 + ph * 10, 0, 7); g.fill(); }
+        if (age < 0.8) { const k = age / 0.8; MGH.glow(g, x, y, 80 * (1 - k) + 20, `rgba(255,170,60,${1 - k})`); for (let q2 = 0; q2 < 10; q2++) { const a = q2 / 10 * 6.28; g.fillStyle = `rgba(255,${150 + q2 * 10},60,${1 - k})`; g.beginPath(); g.arc(x + Math.cos(a) * k * 60, y + Math.sin(a) * k * 50, 5 * (1 - k) + 1, 0, 7); g.fill(); } }
+      } else {
+        g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(x, y + 6, 22 + Math.sin(t * 3) * 2, 8, 0, 0, 7); g.stroke();
+        g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(x, y, 9, 11, 0, 0, 7); g.fill(); g.fillStyle = '#e8323e'; g.fillRect(x - 9, y - 3, 18, 5);
+        if (age < 1) { const k = age; for (let q2 = 0; q2 < 9; q2++) { const a = -Math.PI / 2 + (q2 - 4) * 0.25; g.fillStyle = `rgba(230,250,255,${1 - k})`; g.beginPath(); g.arc(x + Math.cos(a) * k * 46, y + Math.sin(a) * k * 70 + k * k * 60, 6 * (1 - k) + 2, 0, 7); g.fill(); } }
+      } });
+    // the fleets revealed at the end: little wooden ships on their cells
+    if (S.ph === 'end') S.f[j].ships.forEach(cs => { const xs = cs.map(q => q.c), ys = cs.map(q => q.r), horiz = new Set(ys).size === 1, x0 = ox + Math.min(...xs) * sz + 10, y0 = oy + Math.min(...ys) * sz + 10, w = (Math.max(...xs) - Math.min(...xs) + 1) * sz - 20, h = (Math.max(...ys) - Math.min(...ys) + 1) * sz - 20;
+      g.save(); g.translate(x0 + w / 2, y0 + h / 2); if (!horiz) g.rotate(Math.PI / 2); const L = Math.max(w, h), Hh = Math.min(w, h);
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(4, 6, L / 2, Hh / 2.6, 0, 0, 7); g.fill();
+      g.fillStyle = '#7a4a22'; g.beginPath(); g.moveTo(-L / 2, -Hh / 3); g.lineTo(L / 2 - 14, -Hh / 3); g.quadraticCurveTo(L / 2 + 6, 0, L / 2 - 14, Hh / 3); g.lineTo(-L / 2, Hh / 3); g.closePath(); g.fill();
+      g.fillStyle = '#a8743e'; g.fillRect(-L / 2 + 6, -Hh / 3 + 6, L - 30, Hh * 0.66 - 12); for (let k = -L / 2 + 30; k < L / 2 - 20; k += 40) { g.fillStyle = '#3a2414'; g.beginPath(); g.arc(k, 0, 5, 0, 7); g.fill(); }
+      g.restore(); });
   },
   draw(m, S, g) {
     const t = m.t;
@@ -447,18 +475,27 @@ MG.def({
     g.fillStyle = '#a81a32'; g.fillRect(0, 40, 1280, 30); for (let x = 0; x < 1280; x += 40) { g.beginPath(); g.arc(x + 20, 70, 20, 0, Math.PI); g.fill(); } g.fillStyle = '#ffd34d'; g.fillRect(0, 66, 1280, 3);
     for (let k = 0; k < 14; k++) { g.fillStyle = `rgba(255,${120 + k * 8},200,${0.06 + 0.06 * Math.sin(t * 3 + k)})`; MGH.rr(g, k * 92 + 6, 60, 80, 230, 8); g.fill(); }
     g.fillStyle = '#3a1a4a'; g.fillRect(0, 520, 1280, 200); const fg = g.createLinearGradient(0, 520, 0, 720); fg.addColorStop(0, 'rgba(255,180,240,0.25)'); fg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = fg; g.fillRect(0, 520, 1280, 200);
-    for (let k = 0; k < 16; k++) { g.fillStyle = k % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.1)'; g.fillRect(k * 80, 520, 80, 200); }
+    // a glowing LED dance floor in perspective; tiles light up under whoever is dancing
+    const mvNow = S.move ? S.move : null;
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 16; c++) { const y0 = 520 + r * 46, x0 = c * 80 - (r * 6), on = mvNow && Math.abs((mvNow.who ? 900 : 380) - (x0 + 40)) < 160, hue = (c * 47 + r * 90 + Math.floor(t * 3) * 37) % 360;
+      g.fillStyle = on ? `hsla(${hue},90%,${55 + 20 * Math.sin(t * 12 + c)}%,0.85)` : `hsla(${hue},70%,${(c + r) % 2 ? 22 : 30}%,0.9)`; g.fillRect(x0 + 2, y0 + 2, 76, 42); g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(x0 + 4, y0 + 4, 72, 6); }
     MGH.crowd(g, t, 700, 26);
     S.d.forEach((i, j) => {
       const x = j ? 900 : 380, on = S.turn === j && S.ph !== 'oops';
       if (on) { g.save(); g.globalCompositeOperation = 'lighter'; const sp = g.createLinearGradient(0, 40, 0, 600); sp.addColorStop(0, 'rgba(255,240,200,0.35)'); sp.addColorStop(1, 'rgba(255,240,200,0.05)'); g.fillStyle = sp; g.beginPath(); g.moveTo(x - 30, 40); g.lineTo(x + 30, 40); g.lineTo(x + 150, 600); g.lineTo(x - 150, 600); g.fill(); g.restore(); }
       const mv = S.move && S.move.who === j ? S.move : null, mood = S.ph === 'oops' ? (S.loser === j ? 'hurt' : 'cheer') : on ? 'determined' : 'happy';
+      // a round glowing stage under each dancer
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, 530, 120, 26, 0, 0, 7); g.fill(); const pg = g.createLinearGradient(0, 500, 0, 530); pg.addColorStop(0, on ? '#ffd8f0' : '#c8a8e0'); pg.addColorStop(1, on ? '#ff8ac8' : '#7a5aa8'); g.fillStyle = pg; g.beginPath(); g.ellipse(x, 518, 116, 24, 0, 0, 7); g.fill();
+      for (let q = 0; q < 14; q++) { const a2 = q / 14 * Math.PI * 2 + t * (on ? 2 : 0.5); g.fillStyle = (q + Math.floor(t * 6)) % 2 ? '#fff6c8' : m.players[i].color; g.beginPath(); g.arc(x + Math.cos(a2) * 112, 518 + Math.sin(a2) * 22, 3.5, 0, 7); g.fill(); }
+      if (on) for (let q = 0; q < 4; q++) { const ph = (t * 0.5 + q / 4) % 1; g.globalAlpha = 1 - ph; MGH.text(g, q % 2 ? '♪' : '♫', x - 90 + q * 60 + Math.sin(t * 2 + q) * 10, 420 - ph * 200, 26, ['#ff8ac8', '#8ae0ff', '#ffe680', '#b8ff8a'][q], 'center', 'bold'); g.globalAlpha = 1; }
+      if (mv && mv.d === 1) { const k2 = Math.min(1, mv.t / 0.55); g.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k2)})`; g.lineWidth = 5; for (let q = 0; q < 3; q++) { g.beginPath(); g.ellipse(x, 440 - q * 30, 70 - q * 8, 16, 0, k2 * 9 + q, k2 * 9 + q + 2.4); g.stroke(); } }
+      if (mv && mv.d === 2 && mv.t > 0.2 && mv.t < 0.45) { const k2 = (mv.t - 0.2) / 0.25; g.strokeStyle = `rgba(255,240,150,${1 - k2})`; g.lineWidth = 4; g.beginPath(); g.arc(x, 400, 20 + k2 * 70, 0, 7); g.stroke(); for (let q = 0; q < 8; q++) { const a2 = q / 8 * 6.28; g.beginPath(); g.moveTo(x + Math.cos(a2) * (30 + k2 * 40), 400 + Math.sin(a2) * (30 + k2 * 40)); g.lineTo(x + Math.cos(a2) * (44 + k2 * 60), 400 + Math.sin(a2) * (44 + k2 * 60)); g.stroke(); } }
       this.dancer(g, m, i, x, 460, mv, mood, j ? -1 : 1);
       const p = m.players[i]; g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 110, 560, 220, 46, 23); g.fill(); MGH.text(g, p.name, x, 584, 18, p.color, 'center', 'bold'); for (let q = 0; q < 2; q++) MGH.star(g, x - 14 + q * 28, 598, 7, q < S.wins[j] ? '#ffe680' : 'rgba(255,255,255,0.25)', 0, false);
       if (mv) MGH.label(g, MM_MOVES[mv.d].n, x, 300, 22, '#ffe680');
     });
     // the dance so far is NOT written out — just how long it is (memory!), and where you are in it
-    const n = S.chain.length; for (let k = 0; k < n; k++) { const done = S.turn === S.turn && k < S.k; g.fillStyle = done ? '#7cf06a' : 'rgba(255,255,255,0.3)'; g.beginPath(); g.arc(640 - (n - 1) * 14 + k * 28, 120, 9, 0, 7); g.fill(); }
+    const n = S.chain.length; for (let k = 0; k < n; k++) { const done = k < S.k; MGH.text(g, '♪', 640 - (n - 1) * 15 + k * 30, 132 - (done ? Math.abs(Math.sin(t * 6 + k)) * 6 : 0), 28, done ? '#7cf06a' : 'rgba(255,255,255,0.35)', 'center', 'bold'); }
     if (S.ph === 'added' && S.last !== null) MGH.label(g, `+ ${MM_MOVES[S.last].n} added!`, 640, 170, 22, '#9fe0ff');
     const pt = m.players[S.d[S.turn]];
     if (S.ph === 'turn') MGH.label(g, S.k < n ? `${pt.name}: repeat the dance (${S.k}/${n})` : `${pt.name}: add a NEW move!`, 640, 78, 22, pt.color);

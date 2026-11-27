@@ -241,7 +241,11 @@
     draw(m, S, g) {
       const ph = S.phase;
       if (ph === 'wave') return this.drawWave(m, S, g);
-      if (ph === 'brief' || ph === 'mission' || ph === 'shield' || ph === 'outcome') this.drawCourt(m, S, g); else this.drawHall(m, S, g);
+      if (ph === 'brief' || ph === 'mission' || ph === 'shield' || ph === 'outcome') { // a step back from the courtyard: the garden sits inside a hedge-and-wall frame
+        GX.blit(g, GX.bake('traitors_frame' + (S.day ? 'd' : 'n'), b => { GX.vfill(b, 0, 0, 1280, 720, S.day ? ['#5a9a4a', '#3a7a3a'] : ['#1e3a30', '#122a22']); for (let k = 0; k < 140; k++) { const x = MGH.hash(k) * 1280, y = MGH.hash(k + 7) * 720; b.fillStyle = S.day ? 'rgba(30,80,30,0.35)' : 'rgba(0,20,10,0.35)'; b.beginPath(); b.arc(x, y, 14 + MGH.hash(k + 3) * 16, 0, 7); b.fill(); } }));
+        g.save(); g.translate(640, 386); g.scale(0.86, 0.86); g.translate(-640, -386);
+        g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-6, 46, 1292, 690); this.drawCourt(m, S, g); g.restore();
+      } else this.drawHall(m, S, g);
       for (const s of S.sparks) { g.globalAlpha = 1 - s.t / s.life; g.fillStyle = s.c; g.beginPath(); g.arc(s.x, s.y, 4, 0, 7); g.fill(); } g.globalAlpha = 1;
       if (ph === 'brief') this.drawBrief(m, S, g);
       if (ph === 'shield') this.drawShield(m, S, g);
@@ -291,7 +295,7 @@
         const P = S.P[i], col = m.players[i].color;
         g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(P.x, P.y + 24, 24, 7, 0, 0, 7); g.fill();
         this.cloak(g, P.x, P.y - 6, 1, col, t + i);
-        av(g, m, i, P.x, P.y, 24, P.carry ? 'determined' : 'happy', { look: P.face, hands: P.carry ? { n: { x: 0.9, y: 0.1, d: 0, o: true, m: true }, f: { x: 0.6, y: 0.2, d: 0, o: true, m: false } } : undefined });
+        av(g, m, i, P.x, P.y, 24, P.carry ? 'determined' : 'happy', { walk: Math.hypot(P.vx || 0, P.vy || 0) > 30 ? 1 : 0, t: m.t + i, look: P.face, hands: P.carry ? { n: { x: 0.9, y: 0.1, d: 0, o: true, m: true }, f: { x: 0.6, y: 0.2, d: 0, o: true, m: false } } : undefined });
         if (P.carry) gem(g, P.x + 24 * (P.face.x >= 0 ? 1 : -1), P.y - 6, P.carry.hue, t, 0.8);
         if (day) { g.fillStyle = 'rgba(30,20,40,0.55)'; MGH.rr(g, P.x - 32, P.y + 31, 64, 17, 8); g.fill(); }
         MGH.text(g, m.players[i].name, P.x, P.y + 44, 13, col, 'center', 'bold');

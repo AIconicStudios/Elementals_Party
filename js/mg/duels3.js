@@ -173,18 +173,18 @@ MG.def({
   rows: [['lr', 'Step in / out'], ['a', 'Jab · toward + A = power HOOK'], ['b', 'Hold to guard (time it for a parry!)']],
   how: 'Glove up for a championship bout! Step left and right around the ring. A throws a quick JAB; push TOWARD your rival and press A for a big HOOK (more damage, slower to recover). HOLD B to guard — and if you raise your guard just before a punch lands, you PARRY it and leave them wobbling. Empty their energy to knock them down — three knockdowns (or the most energy after 75 seconds) wins!',
   wins: 'Three knockdowns, or most energy at the bell.',
-  init(m, S) { S.d = DU.pair(m); S.b = [0, 1].map(j => ({ x: j ? 790 : 490, hp: 100, kd: 0, st: 'idle', t: 0, kind: '', guard: 0, gT: 0, stag: 0, down: 0, hit: 0, face: j ? -1 : 1 })); S.time = 75; S.ph = 'fight'; S.ref = 0; },
+  init(m, S) { S.d = DU.pair(m); S.b = [0, 1].map(j => ({ x: j ? 810 : 470, hp: 100, kd: 0, st: 'idle', t: 0, kind: '', guard: 0, gT: 0, stag: 0, down: 0, hit: 0, face: j ? -1 : 1 })); S.time = 75; S.ph = 'fight'; S.ref = 0; },
   update(m, S, dt) {
     if (S.ph === 'end') { if ((S.endT -= dt) <= 0) m.finish(this.score(m, S)); return; }
     S.time -= dt; if (S.time <= 0) { S.ph = 'end'; S.endT = 2.6; S.bell = true; Sfx.whistle(); return; }
-    S.b.forEach((B, j) => { const i = S.d[j], O = S.b[1 - j], a = m.axis(i); B.hit -= dt; B.stag -= dt;
+    (Math.random() < 0.5 ? [0, 1] : [1, 0]).forEach(j => { const B = S.b[j], i = S.d[j], O = S.b[1 - j], a = m.axis(i); B.hit -= dt; B.stag -= dt;
       if (B.down > 0) { B.down -= dt; S.ref += dt; if (B.down <= 0) { B.hp = 60; S.ref = 0; } return; }
       B.face = O.x > B.x ? 1 : -1;
       B.guard = m.held(i, 'b') && B.stag <= 0 && B.st === 'idle'; if (m.pressed(i, 'b')) B.gT = 0.18; B.gT -= dt;
-      if (B.st === 'idle' && B.stag <= 0 && !B.guard) { const nx = B.x + a.x * 220 * dt; if (Math.abs(nx - O.x) > 140) B.x = clamp(nx, 300, 980); }
+      if (B.st === 'idle' && B.stag <= 0 && !B.guard) { const nx = B.x + a.x * 220 * dt; if (Math.abs(nx - O.x) > 185) B.x = clamp(nx, 300, 980); }
       if (B.st === 'idle' && B.stag <= 0 && !B.guard && m.pressed(i, 'a')) { const hook = Math.abs(a.x) > 0.4 && Math.sign(a.x) === B.face; B.st = 'punch'; B.kind = hook ? (a.x > 0 ? 'hookR' : 'hookL') : 'jab'; B.t = 0; Sfx.whoosh(false); }
       if (B.st === 'punch') { B.t += dt; const hook = B.kind !== 'jab', hitAt = hook ? 0.28 : 0.12, end = hook ? 0.7 : 0.32;
-        if (B.t >= hitAt && !B.landed) { B.landed = true; if (Math.abs(O.x - B.x) < (hook ? 200 : 190) && O.down <= 0) {
+        if (B.t >= hitAt && !B.landed) { B.landed = true; if (Math.abs(O.x - B.x) < (hook ? 228 : 218) && O.down <= 0) {
           if (O.guard && O.gT > 0) { B.stag = 0.9; B.st = 'idle'; B.landed = false; MGH.pop('PARRY!', O.x, 300, '#9fe0ff', 26); Sfx.tone(900, 0.1, 'triangle', 0.06); return; }
           const dmg = O.guard ? (hook ? 4 : 1) : (hook ? 13 : 5); O.hp -= dmg; O.hit = 0.3; O.x = clamp(O.x + B.face * (hook ? 40 : 14), 300, 980); Sfx.thud(); MGH.burst((B.x + O.x) / 2, 330, ['#fff', '#ffe680'], hook ? 14 : 6, { speed: 200 }); if (hook && !O.guard) MGH.shake(5);
           if (O.hp <= 0) { O.kd++; O.down = 3.2; O.hp = 0; S.ref = 0; Sfx.boom(); MGH.shake(10); if (O.kd >= 3) { S.ph = 'end'; S.endT = 3; } } } }
@@ -196,14 +196,23 @@ MG.def({
     const d = Math.abs(O.x - B.x); B.bt = (B.bt || 0) - 1 / 60;
     if (O.st === 'punch' && O.t < 0.15 && d < 160 && Math.random() < 0.35) { v.b = true; return; }
     if (B.guarding > 0) { B.guarding -= 1 / 60; v.b = true; return; }
-    if (d > 180) { v.ax = B.face; return; }
+    if (d > 210) { v.ax = B.face; return; }
     if (B.bt <= 0 && B.st === 'idle') { B.bt = R.range(0.35, 0.8); if (Math.random() < 0.35) { v.ax = B.face; } v.a = true; if (Math.random() < 0.15) B.guarding = R.range(0.3, 0.7); }
-    else if (d < 150) v.ax = -B.face * 0.6;
+    else if (d < 190) v.ax = -B.face * 0.6;
   },
   score(m, S) { return DU.scores(m, S.b[1].kd * 100 + S.b[0].hp, S.b[0].kd * 100 + S.b[1].hp); },
   fmt(s) { return s < 0 ? 'watching' : `${Math.floor(s / 100)} knockdowns`; },
   hud(m, S, i) { const j = S.d.indexOf(i); return j < 0 ? '👀 watching' : `🥊 ${Math.max(0, Math.round(S.b[j].hp))}`; },
-  glove(g, x, y, col, s = 1) { g.save(); g.translate(x, y); g.scale(s, s); const gg = g.createRadialGradient(-4, -5, 2, 0, 0, 16); gg.addColorStop(0, Char.shade(col, 0.4)); gg.addColorStop(1, Char.shade(col, -0.3)); g.fillStyle = gg; g.beginPath(); g.ellipse(0, 0, 15, 13, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-6, -10, 7, 6, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillRect(-12, 9, 18, 6); g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.ellipse(-4, -5, 5, 3, -0.4, 0, 7); g.fill(); g.restore(); },
+  glove(g, x, y, col, s = 1, rot = 0, f = 1) {
+    g.save(); g.translate(x, y); g.rotate(rot); g.scale(s * f, s);
+    g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(3, 4, 19, 16, 0, 0, 7); g.fill();
+    const gg = g.createRadialGradient(4, -6, 2, 0, 0, 22); gg.addColorStop(0, Char.shade(col, 0.55)); gg.addColorStop(0.55, col); gg.addColorStop(1, Char.shade(col, -0.4)); g.fillStyle = gg;
+    g.beginPath(); g.moveTo(-14, -10); g.quadraticCurveTo(-6, -22, 10, -18); g.quadraticCurveTo(24, -12, 22, 4); g.quadraticCurveTo(20, 18, 4, 18); g.quadraticCurveTo(-12, 18, -14, 6); g.closePath(); g.fill();
+    g.fillStyle = Char.shade(col, -0.15); g.beginPath(); g.ellipse(8, 10, 9, 6, -0.4, 0, 7); g.fill(); // thumb
+    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(2, 6); g.quadraticCurveTo(8, 2, 14, 6); g.stroke();
+    g.fillStyle = '#fff8e8'; MGH.rr(g, -22, -10, 10, 22, 4); g.fill(); g.strokeStyle = Char.shade(col, -0.3); g.lineWidth = 1.5; for (let q = 0; q < 3; q++) { g.beginPath(); g.moveTo(-21, -6 + q * 6); g.lineTo(-13, -3 + q * 6); g.stroke(); }
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.ellipse(6, -10, 8, 4, -0.3, 0, 7); g.fill();
+    g.restore(); },
   draw(m, S, g) {
     const t = m.t;
     GX.vfill(g, 0, 40, 1280, 680, ['#0a0a1a', '#1a1a3a']);
@@ -218,6 +227,8 @@ MG.def({
     // the ring: apron, canvas, posts and three ropes
     g.fillStyle = '#1a3a7a'; g.beginPath(); g.moveTo(180, 520); g.lineTo(1100, 520); g.lineTo(1160, 640); g.lineTo(120, 640); g.fill(); MGH.text(g, 'YUPPIES CHAMPIONSHIP', 640, 600, 22, 'rgba(255,255,255,0.7)', 'center', 'bold');
     const cg = g.createLinearGradient(0, 420, 0, 520); cg.addColorStop(0, '#e8e0d0'); cg.addColorStop(1, '#c8bca8'); g.fillStyle = cg; g.beginPath(); g.moveTo(240, 420); g.lineTo(1040, 420); g.lineTo(1100, 520); g.lineTo(180, 520); g.fill();
+    g.save(); g.globalAlpha = 0.18; g.fillStyle = '#a81a32'; g.beginPath(); g.ellipse(640, 470, 150, 34, 0, 0, 7); g.fill(); g.globalAlpha = 0.3; MGH.text(g, 'YUPPIES', 640, 480, 30, '#a81a32', 'center', 'bold'); g.restore();
+    const eg = g.createLinearGradient(0, 420, 0, 520); eg.addColorStop(0, 'rgba(0,0,0,0.18)'); eg.addColorStop(0.3, 'rgba(0,0,0,0)'); g.fillStyle = eg; g.beginPath(); g.moveTo(240, 420); g.lineTo(1040, 420); g.lineTo(1100, 520); g.lineTo(180, 520); g.fill();
     [[240, 420], [1040, 420], [180, 520], [1100, 520]].forEach(([x, y], k) => { g.fillStyle = k % 2 ? '#e8323e' : '#2a6ae8'; g.fillRect(x - 7, y - 150, 14, 150); g.fillStyle = '#fff'; g.fillRect(x - 9, y - 156, 18, 10); });
     for (let r = 0; r < 3; r++) { g.strokeStyle = ['#e8323e', '#fff', '#2a6ae8'][r]; g.lineWidth = 4; const yb = 470 - r * 42, yt = 370 - r * 42; g.beginPath(); g.moveTo(180, yb + 50); g.lineTo(240, yt + 50); g.lineTo(1040, yt + 50); g.lineTo(1100, yb + 50); g.stroke(); }
     // corner stools with buckets and towels
@@ -228,23 +239,37 @@ MG.def({
     const bx = 1000, by = 614; g.fillStyle = '#2a1a10'; MGH.rr(g, bx - 90, by - 12, 180, 24, 10); g.fill(); const bg2 = g.createRadialGradient(bx - 8, by - 10, 4, bx, by, 34); bg2.addColorStop(0, '#fff6b0'); bg2.addColorStop(1, '#c8901a'); g.fillStyle = bg2; g.beginPath(); g.ellipse(bx, by, 34, 26, 0, 0, 7); g.fill(); g.strokeStyle = '#8a5a10'; g.lineWidth = 3; g.stroke(); MGH.star(g, bx, by, 12, '#e8323e', 0, false); for (const sx of [-58, 58]) { g.fillStyle = '#ffd34d'; MGH.rr(g, bx + sx - 12, by - 9, 24, 18, 4); g.fill(); }
     if (Math.sin(t * 3) > 0.7) MGH.star(g, bx + 22, by - 18, 5, '#fff', t, false);
     // referee
-    const anyDown = S.b.some(B => B.down > 0); Char.npc(g, 640, 360, 26, 'ref', { mood: anyDown ? 'shock' : 'happy', t, hands: anyDown ? { n: { x: 1.2, y: -1.2 + Math.sin(t * 6) * 0.4, d: -60, o: true, m: true }, f: { x: -0.6, y: 0.3, d: 0, o: true, m: false } } : undefined });
+    const anyDown = S.b.some(B => B.down > 0); Char.npc(g, 640, 330, 22, 'ref', { mood: anyDown ? 'shock' : 'happy', t, hands: anyDown ? { n: { x: 1.2, y: -1.2 + Math.sin(t * 6) * 0.4, d: -60, o: true, m: true }, f: { x: -0.6, y: 0.3, d: 0, o: true, m: false } } : undefined });
     if (anyDown) { const n = Math.min(10, 1 + Math.floor(S.ref / 0.32)); MGH.label(g, String(n), 640, 270, 44, '#ffe680'); }
     // boxers
-    S.b.forEach((B, j) => { const p = m.players[S.d[j]], y = 430, f = B.face, k = B.st === 'punch' ? (B.kind === 'jab' ? Math.sin(Math.min(1, B.t / 0.32) * Math.PI) : Math.sin(Math.min(1, B.t / 0.7) * Math.PI)) : 0;
-      if (B.down > 0) { g.save(); g.translate(B.x, y + 30); g.rotate(-f * 1.4); Char.draw(g, 0, -30, 38, p.el.id, p.color, { mood: 'dizzy', seed: S.d[j] * 1.7, noShadow: true }); g.restore(); for (let q = 0; q < 3; q++) { const a = t * 5 + q * 2.1; MGH.star(g, B.x + Math.cos(a) * 30, y - 10 + Math.sin(a) * 8, 7, '#ffe680', a, false); } return; }
-      const bob = Math.sin(t * 6 + j) * 4, lean = B.st === 'punch' ? f * k * 0.25 : B.hit > 0 ? -f * 0.25 : B.stag > 0 ? Math.sin(t * 20) * 0.15 : 0;
-      GX.shadow(g, B.x, y + 64, 50, 0.35);
-      g.save(); g.translate(B.x, y + 60); g.rotate(lean);
-      Char.draw(g, 0, -60 + bob, 40, p.el.id, p.color, { mood: MGH.persona(B.hit > 0 ? 'hurt' : B.stag > 0 ? 'dizzy' : B.st === 'punch' ? 'angry' : 'determined', p.el.id), seed: S.d[j] * 1.7, look: { x: f, y: 0 }, noShadow: true, noArms: true });
+    S.b.forEach((B, j) => { const p = m.players[S.d[j]], y = 430, f = B.face, col = j ? '#2a6ae8' : '#e8323e', O = S.b[1 - j], P = B.st === 'punch', hook = P && B.kind !== 'jab';
+      const k = P ? (hook ? Math.sin(Math.min(1, B.t / 0.7) * Math.PI) : Math.sin(Math.min(1, B.t / 0.32) * Math.PI)) : 0;
+      if (B.down > 0) { // a proper fall: topple, bounce once, lie dazed with stars
+        const q = Math.min(1, (3.2 - B.down) / 0.45), bounce = q < 1 ? 0 : Math.abs(Math.sin(Math.min(1, (3.2 - B.down - 0.45) / 0.3) * Math.PI)) * 8;
+        GX.shadow(g, B.x - f * 20, y + 64, 70, 0.35); g.save(); g.translate(B.x, y + 60 - bounce); g.rotate(-f * 1.45 * q); Char.draw(g, 0, -60, 46, p.el.id, p.color, { mood: 'dizzy', seed: S.d[j] * 1.7, noShadow: true, noArms: true }); g.restore();
+        this.glove(g, B.x - f * 70 * q, y + 40, col, 1.1, 1.2); this.glove(g, B.x - f * 20 * q, y + 56, col, 1.1, -0.4);
+        for (let q2 = 0; q2 < 4; q2++) { const a = t * 5 + q2 * 1.6; MGH.star(g, B.x - f * 50 + Math.cos(a) * 40, y + 10 + Math.sin(a) * 10, 8, '#ffe680', a, false); } return; }
+      const step = Math.sin(t * 7 + j * 1.3), bob = step * 5, weave = Math.sin(t * 2.3 + j) * 4, snap = B.hit > 0 ? -f * 18 * (B.hit / 0.3) : 0, lean = P ? f * k * (hook ? 0.32 : 0.2) : B.hit > 0 ? -f * 0.3 * (B.hit / 0.3) : B.stag > 0 ? Math.sin(t * 20) * 0.15 : 0;
+      GX.shadow(g, B.x, y + 64, 56, 0.4);
+      // feet planted in a fighting stance, bouncing
+      for (const q of [-1, 1]) { g.fillStyle = '#2a2a3a'; g.beginPath(); g.ellipse(B.x + q * 22 + f * (q > 0 ? 8 : -4), y + 60 - Math.max(0, step * q) * 4, 14, 7, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillRect(B.x + q * 22 + f * (q > 0 ? 8 : -4) - 10, y + 54 - Math.max(0, step * q) * 4, 20, 3); }
+      g.save(); g.translate(B.x + snap + weave, y + 60); g.rotate(lean);
+      Char.draw(g, 0, -64 + bob, 46, p.el.id, p.color, { mood: MGH.persona(B.hit > 0 ? 'hurt' : B.stag > 0 ? 'dizzy' : P ? 'angry' : B.guard ? 'determined' : 'determined', p.el.id), seed: S.d[j] * 1.7, look: { x: f, y: 0 }, noShadow: true, noArms: true, noFeet: true });
       g.restore();
-      // gloves: guard up, jab straight, hook swings round
-      const gx = B.x, gy = y - 6 + bob, col = j ? '#2a6ae8' : '#e8323e';
-      let lx = gx + f * 30, ly = gy - 18, rx = gx + f * 44, ry = gy;
-      if (B.guard) { lx = gx + f * 30; ly = gy - 34; rx = gx + f * 38; ry = gy - 22; }
-      if (B.st === 'punch') { if (B.kind === 'jab') { rx = gx + f * (44 + k * 70); ry = gy - 14; } else { const a = (B.kind === 'hookR' ? -1 : 1) * (1 - k) * 1.4; rx = gx + f * (40 + k * 62) ; ry = gy - 20 - Math.sin(k * Math.PI) * 26 + a * 10; } }
-      this.glove(g, lx, ly, col, 1.0); this.glove(g, rx, ry, col, B.st === 'punch' && B.kind !== 'jab' ? 1.25 : 1.1);
-      if (B.st === 'punch' && B.kind !== 'jab' && k > 0.6) { g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 3; g.beginPath(); g.arc(gx + f * 40, gy - 20, 60, f > 0 ? -1.2 : Math.PI + 0.2, f > 0 ? -0.2 : Math.PI + 1.2); g.stroke(); }
+      // gloves: guard up by the face, jab snaps straight, hook swings round in an arc
+      const gx = B.x + snap + weave, gy = y - 10 + bob;
+      let lx = gx + f * 38, ly = gy - 22, rx = gx + f * 54, ry = gy + 4, lr = 0, rr = 0;
+      if (B.guard) { lx = gx + f * 40; ly = gy - 44; rx = gx + f * 46; ry = gy - 24; lr = -0.6; rr = -0.3; }
+      if (P && !hook) { rx = gx + f * (54 + k * 92); ry = gy - 18; }
+      if (hook) { const a = -1.4 + k * 1.6; rx = gx + f * (30 + Math.cos(a) * 70 + k * 30); ry = gy - 20 + Math.sin(a) * 50; rr = a * 0.6; }
+      // motion trail behind the punching glove
+      if (P && k > 0.15) for (let q = 1; q <= 3; q++) { g.globalAlpha = 0.18 * (4 - q); this.glove(g, rx - f * q * (hook ? 10 : 22) * k, ry + (hook ? q * 8 * k : 0), col, 1.15, rr, f); } g.globalAlpha = 1;
+      if (hook && k > 0.4) { g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.arc(gx + f * 30, gy - 20, 74, f > 0 ? -1.5 : Math.PI + 0.3, f > 0 ? -0.3 : Math.PI + 1.5); g.stroke(); }
+      this.glove(g, lx, ly, col, 1.05, lr, f); this.glove(g, rx, ry, col, hook ? 1.35 : 1.2, rr, f);
+      // impact: a starburst on the rival's face when this punch lands
+      if (O.hit > 0.15 && P && k > 0.6) { const ix = O.x - f * 20, iy = gy - 30, R2 = 34 + (0.3 - O.hit) * 120; g.fillStyle = 'rgba(255,240,150,0.85)'; g.beginPath(); for (let q = 0; q < 16; q++) { const a = q / 16 * Math.PI * 2, rr2 = q % 2 ? R2 * 0.45 : R2; g.lineTo(ix + Math.cos(a) * rr2, iy + Math.sin(a) * rr2); } g.fill(); MGH.text(g, hook ? 'POW!' : 'pap!', ix, iy + 8, hook ? 26 : 18, '#e8323e', 'center', 'bold');
+        for (let q = 0; q < 4; q++) { const a = -1.2 + q * 0.5; g.fillStyle = 'rgba(180,220,255,0.9)'; g.beginPath(); g.ellipse(ix + f * Math.cos(a) * 40, iy - 20 + Math.sin(a) * 30, 3, 5, a, 0, 7); g.fill(); } }
+      if (B.stag > 0) for (let q = 0; q < 3; q++) { const a = t * 6 + q * 2.1; MGH.star(g, gx + Math.cos(a) * 28, gy - 100 + Math.sin(a) * 6, 6, '#ffe680', a, false); }
       // energy bars + knockdown pips
       const bx = j ? 760 : 120; g.fillStyle = 'rgba(0,0,0,0.6)'; MGH.rr(g, bx, 60, 400, 50, 12); g.fill(); g.strokeStyle = p.color; g.lineWidth = 3; g.stroke(); MGH.text(g, p.name, bx + 14, 82, 18, p.color, 'left', 'bold');
       const hg = g.createLinearGradient(bx + 14, 0, bx + 386, 0); hg.addColorStop(0, '#ff4a3a'); hg.addColorStop(0.5, '#ffd34d'); hg.addColorStop(1, '#5ae85a'); g.fillStyle = 'rgba(255,255,255,0.15)'; MGH.rr(g, bx + 14, 90, 372, 12, 6); g.fill(); g.fillStyle = hg; MGH.rr(g, bx + 14, 90, 372 * clamp(B.hp / 100, 0, 1), 12, 6); g.fill();
@@ -270,7 +295,7 @@ MG.def({
     if (S.ph === 'won') { if (S.pt > 2.8) { if (S.wins.some(w => w >= 2)) m.finish(this.score(m, S)); else this.newRound(S); } return; }
     S.d.forEach((i, j) => { const F = S.f[j], a = m.axis(i);
       if (F.digT > 0) { F.digT -= dt; if (F.digT <= 0) { const key = F.cell.c + ',' + F.cell.r; F.dug.add(key); if (F.cell.c === F.chest.c && F.cell.r === F.chest.r) { S.wins[j]++; S.winner = j; S.ph = 'won'; S.pt = 0; Sfx.coin(); MGH.burst(this.ox(j) + F.cell.c * 64 + 32, this.oy + F.cell.r * 64 + 32, ['#ffe680', '#fff'], 30, { speed: 260 }); } else { F.finds.push({ ...F.cell, k: R.pick(['🥾', '🐚', '🦀', '🪨', '🥫']) }); Sfx.tone(240, 0.08, 'triangle', 0.03); } } return; }
-      if (Math.abs(a.x) > 0.2) F.face = Math.sign(a.x); F.x = clamp(F.x + a.x * 280 * dt, 0, 8 * 64 - 1); F.y = clamp(F.y + a.y * 280 * dt, 0, 5 * 64 - 1);
+      if (Math.abs(a.x) > 0.2) F.face = Math.sign(a.x); F.x = clamp(F.x + a.x * 280 * dt, 0, 8 * 64 - 1); F.steps = F.steps || []; F.stepD = (F.stepD || 0) + Math.hypot(a.x, a.y) * 280 * dt; if (F.stepD > 26) { F.stepD = 0; F.steps.push({ x: F.x + R.range(-6, 6), y: F.y + 20, a: 1 }); if (F.steps.length > 40) F.steps.shift(); } F.steps.forEach(st => st.a -= dt * 0.12); F.y = clamp(F.y + a.y * 280 * dt, 0, 5 * 64 - 1);
       const c = Math.floor(F.x / 64), r = Math.floor(F.y / 64);
       if (m.pressed(i, 'a') && !F.dug.has(c + ',' + r)) { F.cell = { c, r }; F.digT = 0.7; Sfx.thud(); }
       const dd = Math.hypot(F.x - (F.chest.c * 64 + 32), F.y - (F.chest.r * 64 + 32)); F.near = clamp(1 - dd / 380, 0, 1); F.beep -= dt * (0.6 + F.near * 7); if (F.beep <= 0) { F.beep = 1; F.blip = 0.12; if (!m.bot(i)) Sfx.tone(600 + F.near * 900, 0.04, 'sine', 0.025); } F.blip = (F.blip || 0) - dt;
@@ -322,10 +347,19 @@ MG.def({
     for (let k = 0; k < 2; k++) { const x = ((k * 700 + t * 50 * (k ? -1 : 1)) % 1400 + 1400) % 1400 - 60, y = 690 - k * 400 + (k ? 0 : 0); g.fillStyle = '#e8503a'; g.beginPath(); g.ellipse(x, y, 13, 9, 0, 0, 7); g.fill(); for (const s2 of [-1, 1]) { g.beginPath(); g.arc(x + s2 * 15, y - 8 + Math.sin(t * 8) * 2, 5, 0, 7); g.fill(); g.strokeStyle = '#e8503a'; g.lineWidth = 2; for (let q = 0; q < 3; q++) { g.beginPath(); g.moveTo(x + s2 * 8, y + 2); g.lineTo(x + s2 * 16, y + 6 + q * 3 + Math.sin(t * 16 + q) * 2); g.stroke(); } } g.fillStyle = '#fff'; g.beginPath(); g.arc(x - 4, y - 8, 3, 0, 7); g.arc(x + 4, y - 8, 3, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(x - 4, y - 8, 1.4, 0, 7); g.arc(x + 4, y - 8, 1.4, 0, 7); g.fill(); }
     for (let k = 0; k < 3; k++) { const x = (k * 470 + t * 34) % 1500 - 100, y = 70 + k * 20 + Math.sin(t + k) * 8, fl = Math.sin(t * 7 + k) * 6; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x - 11, y - fl); g.quadraticCurveTo(x - 5, y - 5, x, y); g.quadraticCurveTo(x + 5, y - 5, x + 11, y - fl); g.stroke(); }
     S.d.forEach((i, j) => { const F = S.f[j], p = m.players[i], ox = this.ox(j), oy = this.oy;
-      g.fillStyle = 'rgba(160,120,60,0.18)'; MGH.rr(g, ox - 10, oy - 10, 8 * 64 + 20, 5 * 64 + 20, 14); g.fill(); g.strokeStyle = p.color; g.lineWidth = 3; g.setLineDash([10, 8]); g.stroke(); g.setLineDash([]);
-      F.dug.forEach(key => { const [c, r] = key.split(',').map(Number), x = ox + c * 64, y = oy + r * 64; g.fillStyle = '#b8904a'; g.beginPath(); g.ellipse(x + 32, y + 36, 26, 16, 0, 0, 7); g.fill(); g.fillStyle = '#8a6a38'; g.beginPath(); g.ellipse(x + 32, y + 38, 18, 10, 0, 0, 7); g.fill(); });
-      F.finds.forEach(f => MGH.text(g, f.k, ox + f.c * 64 + 32, oy + f.r * 64 + 44, 24, '#fff'));
-      if (S.ph === 'won' && S.winner === j) { const x = ox + F.chest.c * 64 + 32, y = oy + F.chest.r * 64 + 34; MGH.glow(g, x, y, 80, 'rgba(255,220,80,0.7)'); g.fillStyle = '#8a5a2a'; MGH.rr(g, x - 26, y - 14, 52, 32, 6); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(x - 26, y - 4, 52, 5); g.fillStyle = '#a86a2a'; g.beginPath(); g.ellipse(x, y - 14, 26, 12, 0, Math.PI, 0); g.fill(); for (let q = 0; q < 5; q++) MGH.coin(g, x - 20 + q * 10, y - 24 - Math.abs(Math.sin(t * 6 + q)) * 10, 6, t * 5 + q); }
+      // a roped-off dig site: wooden stakes, a sagging rope in the player's colour, raked sand
+      g.fillStyle = 'rgba(150,110,50,0.16)'; MGH.rr(g, ox - 10, oy - 10, 8 * 64 + 20, 5 * 64 + 20, 14); g.fill();
+      g.strokeStyle = 'rgba(150,110,60,0.25)'; g.lineWidth = 1.5; for (let r = 0; r < 10; r++) { g.beginPath(); for (let x = ox; x <= ox + 512; x += 32) g.lineTo(x, oy + 16 + r * 31 + Math.sin(x * 0.05 + r) * 2); g.stroke(); }
+      const stakes = [[ox - 10, oy - 10], [ox + 246, oy - 10], [ox + 522, oy - 10], [ox + 522, oy + 160], [ox + 522, oy + 330], [ox + 246, oy + 330], [ox - 10, oy + 330], [ox - 10, oy + 160]];
+      g.strokeStyle = p.color; g.lineWidth = 3; g.beginPath(); stakes.concat([stakes[0]]).forEach(([x, y], k, A) => { if (!k) g.moveTo(x, y - 18); else { const [px, py] = A[k - 1]; g.quadraticCurveTo((px + x) / 2, (py + y) / 2 - 8, x, y - 18); } }); g.stroke();
+      stakes.forEach(([x, y]) => { g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(x + 4, y + 2, 7, 3, 0, 0, 7); g.fill(); g.fillStyle = '#8a5a2a'; g.fillRect(x - 4, y - 24, 8, 26); g.fillStyle = '#a87a42'; g.fillRect(x - 4, y - 24, 3, 26); });
+      // footprints that fade behind the digger
+      (F.steps || []).forEach(st => { g.fillStyle = `rgba(160,120,60,${0.35 * st.a})`; g.beginPath(); g.ellipse(ox + st.x, oy + st.y, 5, 3, 0, 0, 7); g.fill(); });
+      // the detector's signal ripples across the sand, faster and brighter when close
+      if (F.blip > 0) { const rr = 30 + (0.12 - F.blip) * 300; g.strokeStyle = `rgba(${Math.round(120 + F.near * 135)},${Math.round(255 - F.near * 140)},90,${F.blip * 6})`; g.lineWidth = 3; g.beginPath(); g.ellipse(ox + F.x, oy + F.y + 6, rr, rr * 0.4, 0, 0, 7); g.stroke(); }
+      F.dug.forEach(key => { const [c, r] = key.split(',').map(Number), x = ox + c * 64, y = oy + r * 64; g.fillStyle = '#e8c888'; g.beginPath(); g.ellipse(x + 52, y + 32, 12, 7, 0, 0, 7); g.ellipse(x + 46, y + 26, 9, 6, 0, 0, 7); g.fill(); g.fillStyle = '#c8a060'; g.beginPath(); g.ellipse(x + 30, y + 36, 24, 14, 0, 0, 7); g.fill(); const hg = g.createRadialGradient(x + 30, y + 40, 2, x + 30, y + 38, 18); hg.addColorStop(0, '#4a3418'); hg.addColorStop(1, '#8a6a38'); g.fillStyle = hg; g.beginPath(); g.ellipse(x + 30, y + 38, 17, 9, 0, 0, 7); g.fill(); });
+      F.finds.forEach(f => { g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(ox + f.c * 64 + 30, oy + f.r * 64 + 44, 13, 4, 0, 0, 7); g.fill(); MGH.text(g, f.k, ox + f.c * 64 + 30, oy + f.r * 64 + 42, 28, '#fff'); });
+      if (S.ph === 'won' && S.winner === j) { const x = ox + F.chest.c * 64 + 32, y = oy + F.chest.r * 64 + 34; g.save(); g.globalCompositeOperation = 'lighter'; for (let q = 0; q < 8; q++) { const a2 = q / 8 * Math.PI * 2 + t * 0.6; g.fillStyle = 'rgba(255,220,120,0.12)'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a2 - 0.12) * 160, y + Math.sin(a2 - 0.12) * 160); g.lineTo(x + Math.cos(a2 + 0.12) * 160, y + Math.sin(a2 + 0.12) * 160); g.fill(); } g.restore(); MGH.glow(g, x, y, 80, 'rgba(255,220,80,0.7)'); g.fillStyle = '#8a5a2a'; MGH.rr(g, x - 26, y - 14, 52, 32, 6); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(x - 26, y - 4, 52, 5); g.fillStyle = '#a86a2a'; g.beginPath(); g.ellipse(x, y - 14, 26, 12, 0, Math.PI, 0); g.fill(); for (let q = 0; q < 5; q++) MGH.coin(g, x - 20 + q * 10, y - 24 - Math.abs(Math.sin(t * 6 + q)) * 10, 6, t * 5 + q); }
       // the hero with the detector sweeping over the sand
       const dx = ox + F.x, dy = oy + F.y, dig = F.digT > 0, sw = Math.sin(t * 6) * 10, fc = F.face || 1;
       if (dig) { for (let q = 0; q < 4; q++) { const ph = (t * 3 + q / 4) % 1; g.fillStyle = `rgba(200,160,90,${1 - ph})`; g.beginPath(); g.arc(dx + Math.cos(q * 1.6) * 30 * ph, dy - ph * 40 + ph * ph * 30, 4, 0, 7); g.fill(); } }
