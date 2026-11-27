@@ -467,7 +467,7 @@ MG.def({
         if (b.vy > 0) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(ox + b.x, 682, 16 - (680 - b.y) / 60, 4, 0, 0, 7); g.fill(); }
       }
       const danger = p.balls.some(b => b.vy > 0 && b.y > 560 && Math.abs(b.x - p.x) > 60);
-      MGH.av(g, m, i, ox + p.x, 640, 26, p.bump > 0 ? 'cheer' : danger ? 'scared' : 'determined', { walk: Math.abs(m.axis(i).x), look: { x: 0, y: -1 } });
+      MGH.av(g, m, i, ox + p.x, 640, 26, p.bump > 0 ? 'cheer' : danger ? 'scared' : 'determined', { walk: Math.abs(m.axis(i).x), look: { x: (p.fc = Math.abs(m.axis(i).x) > 0.2 ? Math.sign(m.axis(i).x) : (p.fc || 1)) * 0.5, y: -1 } });
     });
   },
 });

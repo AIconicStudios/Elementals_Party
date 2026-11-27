@@ -75,8 +75,8 @@ MG.def({
 // ===================================================================== HOOP DUEL (one-on-one basketball, first to 5)
 MG.def({
   id: 'hoopduel', name: 'Hoop Duel', type: 'Duel', mode: 'duel', controls: 'Move + A & B', dur: 0, sport: true,
-  rows: [['lr', 'Dribble / defend'], ['a', 'Shoot (or STEAL when defending)'], ['b', 'Jump — block shots!']],
-  how: 'One-on-one on the playground court! With the ball, move and press A to take a jump shot — closer is easier, and a defender right in your face makes it harder. Without the ball, press A next to the dribbler to try a STEAL, and press B to JUMP and swat a shot away. Loose balls are anyone\'s! First to 5 baskets wins (shots from beyond the arc count 2).',
+  rows: [['lr', 'Dribble / defend'], ['a', 'Jump (hop past a defender · jump-snatch · block)'], ['b', 'Shoot · or SWIPE for the ball on the ground']],
+  how: 'One-on-one on the street court! With the ball: B shoots (closer is easier, a defender in your face makes it harder), A hops — great for dodging a swipe. On defence there are two ways to steal: SWIPE on the ground with B (works if the dribbler stays on the ground) or JUMP into them with A (works if the dribbler hops). Guess right and the ball is yours — guess wrong and you\'re left tired for a moment. You can also jump to block shots. First to 5 points (shots from beyond the arc count 2).',
   wins: 'First to 5 points.',
   HOOP: { x: 1100, y: 300 }, GY: 620,
   init(m, S) { S.d = DU.pair(m); S.score = [0, 0]; S.p = [0, 1].map(j => ({ x: j ? 760 : 520, y: this.GY, vy: 0, face: 1, jumpT: 0, cd: 0, stun: 0 })); S.ball = { own: R.int(0, 1), x: 0, y: 0, vx: 0, vy: 0, fly: null }; S.msg = ''; S.msgT = 0; S.ph = 'play'; this.check(S, S.ball.own); },
@@ -85,15 +85,21 @@ MG.def({
     S.msgT -= dt; if (S.ph === 'end') { if ((S.endT -= dt) <= 0) m.finish(this.score(m, S)); return; }
     if (S.pause > 0) { S.pause -= dt; return; }
     const H = this.HOOP, B = S.ball;
-    (Math.random() < 0.5 ? [0, 1] : [1, 0]).forEach(j => { const P = S.p[j], i = S.d[j], a = m.axis(i); P.cd -= dt; P.stun -= dt;
-      if (P.stun <= 0) { P.x = clamp(P.x + a.x * (B.own === j ? 250 : 290) * dt, 120, 1150); if (Math.abs(a.x) > 0.3) P.face = Math.sign(a.x); }
-      if (P.y >= this.GY && m.pressed(i, 'b') && P.stun <= 0) { P.vy = -620; Sfx.tone(400, 0.05, 'triangle', 0.03); }
-      P.vy += 1700 * dt; P.y = Math.min(this.GY, P.y + P.vy * dt); if (P.y >= this.GY) P.vy = 0;
-      if (m.pressed(i, 'a') && P.cd <= 0 && P.stun <= 0) { P.cd = 0.5;
+    (Math.random() < 0.5 ? [0, 1] : [1, 0]).forEach(j => { const P = S.p[j], i = S.d[j], a = m.axis(i), D = S.p[1 - j]; P.cd -= dt; P.stun -= dt; P.tired = Math.max(0, (P.tired || 0) - dt);
+      const slow = P.tired > 0 ? 0.55 : 1;
+      if (P.stun <= 0) { P.x = clamp(P.x + a.x * (B.own === j ? 250 : 290) * slow * dt, 120, 1150); if (Math.abs(a.x) > 0.3) P.face = Math.sign(a.x); }
+      if (P.y >= this.GY && m.pressed(i, 'a') && P.stun <= 0 && P.tired <= 0) { P.vy = -620; P.snatch = B.own === 1 - j; Sfx.tone(400, 0.05, 'triangle', 0.03); }
+      P.vy += 1700 * dt; P.y = Math.min(this.GY, P.y + P.vy * dt);
+      if (P.y >= this.GY) { if (P.vy > 0 && P.snatch) { P.snatch = false; P.tired = 0.7; S.msg = 'jumped for nothing!'; S.msgT = 0.8; } P.vy = 0; }
+      // jump-snatch: you're in the air, they're in the air, you touch — it's yours
+      if (P.snatch && B.own === 1 - j && P.y < this.GY - 10 && D.y < this.GY - 10 && Math.abs(D.x - P.x) < 70) { P.snatch = false; if (Math.random() < 0.8) { B.own = j; S.msg = 'JUMP STEAL!'; S.msgT = 1.1; Sfx.coin(); MGH.burst(P.x, P.y - 60, ['#ffe680', '#fff'], 14, { speed: 200 }); } else { P.tired = 0.6; S.msg = 'so close!'; S.msgT = 0.8; } }
+      if (m.pressed(i, 'b') && P.cd <= 0 && P.stun <= 0) { P.cd = 0.5;
         if (B.own === j) { // shoot: success depends on distance and how close the defender is
-          const d = Math.abs(H.x - P.x), D = S.p[1 - j], guard = Math.abs(D.x - P.x) < 80 ? 0.25 : 0, three = d > 420, pr = clamp(0.92 - d / 900 - guard, 0.12, 0.9);
+          const d = Math.abs(H.x - P.x), guard = Math.abs(D.x - P.x) < 80 ? 0.25 : 0, three = d > 420, pr = clamp(0.92 - d / 900 - guard, 0.12, 0.9);
           B.own = -1; B.fly = { sx: P.x, sy: P.y - 90, t: 0, T: 0.9, made: Math.random() < pr, three, by: j }; Sfx.whoosh(false); }
-        else if (B.own === 1 - j && Math.abs(S.p[1 - j].x - P.x) < 70) { if (Math.random() < 0.38) { B.own = j; S.msg = 'STOLEN!'; S.msgT = 1; Sfx.coin(); } else { P.stun = 0.4; S.msg = 'reach-in!'; S.msgT = 0.7; } } }
+        else if (B.own === 1 - j && P.tired <= 0 && P.y >= this.GY && Math.abs(D.x - P.x) < 90) { // ground swipe: works if the dribbler stays on the ground
+          if (D.y >= this.GY - 4 && Math.random() < 0.8) { B.own = j; S.msg = 'SWIPED!'; S.msgT = 1; Sfx.coin(); P.tired = 0.25; }
+          else { P.tired = 0.75; S.msg = D.y < this.GY - 4 ? 'hopped over the swipe!' : 'missed!'; S.msgT = 0.8; } } }
     });
     if (B.own >= 0) { const P = S.p[B.own]; B.x = P.x + P.face * 30; B.y = P.y - 20 - Math.abs(Math.sin(m.t * 9)) * 40; }
     else if (B.fly) { const F = B.fly; F.t += dt; const k = Math.min(1, F.t / F.T), tx = F.made ? H.x - 40 : H.x - 40 + R.range(-1, 1) * 0, ty = H.y; B.x = F.sx + (tx - F.sx) * k; B.y = F.sy + (ty - F.sy) * k - Math.sin(k * Math.PI) * 180;
@@ -104,11 +110,18 @@ MG.def({
       const near = [0, 1].filter(j => Math.abs(S.p[j].x - B.x) < 40 && Math.abs(S.p[j].y - 40 - B.y) < 80).sort((a, b) => Math.abs(S.p[a].x - B.x) - Math.abs(S.p[b].x - B.x) + R.range(-8, 8)); if (near.length) { B.own = near[0]; Sfx.click(); } }
   },
   bot(m, S, i) {
-    const v = m.vin[i], j = S.d.indexOf(i); v.a = v.b = false; v.ax = 0; if (j < 0 || S.pause > 0) return; const P = S.p[j], B = S.ball, D = S.p[1 - j], H = this.HOOP;
-    if (B.own === j) { const want = R.range(0, 1) < 0.5 ? 760 : 900; P.goalX = P.goalX || R.range(650, 960); if (Math.abs(P.x - P.goalX) > 20) v.ax = Math.sign(P.goalX - P.x); else if (P.cd <= 0) { v.a = !m.prev[i].a; P.goalX = null; } return; }
-    if (B.fly && B.fly.by !== j && B.fly.t < 0.25 && Math.abs(P.x - B.x) < 90 && Math.random() < 0.25) { v.b = true; return; }
+    const v = m.vin[i], j = S.d.indexOf(i); v.a = v.b = false; v.ax = 0; if (j < 0 || S.pause > 0) return; const P = S.p[j], B = S.ball, D = S.p[1 - j];
+    const tap = k => { if (!m.prev[i][k]) v[k] = true; };
+    if (B.own === j) { // drive toward a shooting spot; when the defender is close, bluff: hop or keep low
+      P.goalX = P.goalX || R.range(650, 960);
+      if (Math.abs(D.x - P.x) < 110 && P.y >= this.GY && (P.dodge === undefined || P.dodgeT <= 0)) { P.dodge = Math.random() < 0.5; P.dodgeT = 1.2; if (P.dodge) tap('a'); }
+      P.dodgeT = (P.dodgeT || 0) - 1 / 60;
+      if (Math.abs(P.x - P.goalX) > 20) v.ax = Math.sign(P.goalX - P.x); else if (P.cd <= 0) { tap('b'); P.goalX = null; }
+      return; }
+    if (B.fly && B.fly.by !== j && B.fly.t < 0.25 && Math.abs(P.x - B.x) < 90 && Math.random() < 0.25) { tap('a'); return; }
     if (B.own < 0 && !B.fly) { v.ax = Math.sign(B.x - P.x); return; }
-    if (B.own === 1 - j) { const gx = D.x + 50; v.ax = Math.abs(gx - P.x) > 14 ? Math.sign(gx - P.x) : 0; if (Math.abs(D.x - P.x) < 60 && P.cd <= 0 && Math.random() < 0.04) v.a = true; }
+    if (B.own === 1 - j) { const gx = D.x + 60; v.ax = Math.abs(gx - P.x) > 14 ? Math.sign(gx - P.x) : 0;
+      if (Math.abs(D.x - P.x) < 85 && (P.tired || 0) <= 0 && P.y >= this.GY && Math.random() < 0.05) { if (Math.random() < 0.5) tap('b'); else tap('a'); } }
   },
   score(m, S) { return DU.scores(m, S.score[0], S.score[1]); },
   fmt(s) { return s < 0 ? 'watching' : `${s} pts`; },
@@ -145,7 +158,7 @@ MG.def({
     g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1.5; for (let k = -3; k <= 3; k++) { g.beginPath(); g.moveTo(H.x - 40 + k * 12, H.y + 4); g.lineTo(H.x - 40 + k * 7, H.y + 50); g.stroke(); } g.beginPath(); g.moveTo(H.x - 72, H.y + 22); g.lineTo(H.x - 8, H.y + 22); g.moveTo(H.x - 64, H.y + 40); g.lineTo(H.x - 16, H.y + 40); g.stroke();
     // players
     S.p.forEach((P, j) => { const p = m.players[S.d[j]], has = S.ball.own === j, air = P.y < this.GY; GX.shadow(g, P.x, this.GY + 6, 30 - (this.GY - P.y) * 0.08, 0.35);
-      Char.draw(g, P.x, P.y - 44, 34, p.el.id, p.color, { mood: MGH.persona(P.stun > 0 ? 'dizzy' : has ? 'determined' : air ? 'cheer' : 'happy', p.el.id), seed: S.d[j] * 1.7, look: { x: has ? 1 : (S.ball.x > P.x ? 1 : -1), y: 0 }, walk: Math.abs(m.axis(S.d[j]).x) > 0.3 ? 1 : 0, noShadow: true, hands: air ? { n: { x: 0.6, y: -1.6, d: -90, o: true, m: true }, f: { x: -0.4, y: -1.4, d: -90, o: true, m: false } } : has ? { n: { x: 0.9, y: 0.3, d: 0, o: true, m: true }, f: { x: -0.6, y: 0.2, d: 0, o: true, m: false } } : undefined }); });
+      Char.draw(g, P.x, P.y - 44, 34, p.el.id, p.color, { mood: MGH.persona(P.stun > 0 ? 'dizzy' : has ? 'determined' : air ? 'cheer' : 'happy', p.el.id), seed: S.d[j] * 1.7, look: { x: Math.abs(m.axis(S.d[j]).x) > 0.3 ? P.face : has ? 1 : (S.ball.x > P.x ? 1 : -1), y: 0 }, walk: Math.abs(m.axis(S.d[j]).x) > 0.3 ? 1 : 0, noShadow: true, hands: air ? { n: { x: 0.6, y: -1.6, d: -90, o: true, m: true }, f: { x: -0.4, y: -1.4, d: -90, o: true, m: false } } : has ? { n: { x: 0.9, y: 0.3, d: 0, o: true, m: true }, f: { x: -0.6, y: 0.2, d: 0, o: true, m: false } } : undefined }); });
     // the ball
     const B = S.ball; if (!(B.own < 0 && !B.fly && B.y > 700)) { GX.shadow(g, B.x, this.GY + 4, 14, 0.25); const bg = g.createRadialGradient(B.x - 4, B.y - 4, 2, B.x, B.y, 15); bg.addColorStop(0, '#ffb070'); bg.addColorStop(1, '#c85a14'); g.fillStyle = bg; g.beginPath(); g.arc(B.x, B.y, 14, 0, 7); g.fill(); g.strokeStyle = '#3a1a08'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(B.x - 14, B.y); g.lineTo(B.x + 14, B.y); g.moveTo(B.x, B.y - 14); g.lineTo(B.x, B.y + 14); g.stroke(); g.beginPath(); g.arc(B.x - 18, B.y, 14, -0.9, 0.9); g.arc(B.x + 18, B.y, 14, 2.2, 4.1); g.stroke(); }
     S.d.forEach((i, j) => { const p = m.players[i], x = j ? 900 : 380; g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, x - 110, 56, 220, 60, 14); g.fill(); g.strokeStyle = p.color; g.lineWidth = 3; g.stroke(); MGH.text(g, p.name, x - 40, 94, 20, p.color, 'center', 'bold'); MGH.text(g, String(S.score[j]), x + 60, 100, 34, '#ffe680', 'center', 'bold'); });
@@ -257,7 +270,7 @@ MG.def({
     if (S.ph === 'won') { if (S.pt > 2.8) { if (S.wins.some(w => w >= 2)) m.finish(this.score(m, S)); else this.newRound(S); } return; }
     S.d.forEach((i, j) => { const F = S.f[j], a = m.axis(i);
       if (F.digT > 0) { F.digT -= dt; if (F.digT <= 0) { const key = F.cell.c + ',' + F.cell.r; F.dug.add(key); if (F.cell.c === F.chest.c && F.cell.r === F.chest.r) { S.wins[j]++; S.winner = j; S.ph = 'won'; S.pt = 0; Sfx.coin(); MGH.burst(this.ox(j) + F.cell.c * 64 + 32, this.oy + F.cell.r * 64 + 32, ['#ffe680', '#fff'], 30, { speed: 260 }); } else { F.finds.push({ ...F.cell, k: R.pick(['🥾', '🐚', '🦀', '🪨', '🥫']) }); Sfx.tone(240, 0.08, 'triangle', 0.03); } } return; }
-      F.x = clamp(F.x + a.x * 280 * dt, 0, 8 * 64 - 1); F.y = clamp(F.y + a.y * 280 * dt, 0, 5 * 64 - 1);
+      if (Math.abs(a.x) > 0.2) F.face = Math.sign(a.x); F.x = clamp(F.x + a.x * 280 * dt, 0, 8 * 64 - 1); F.y = clamp(F.y + a.y * 280 * dt, 0, 5 * 64 - 1);
       const c = Math.floor(F.x / 64), r = Math.floor(F.y / 64);
       if (m.pressed(i, 'a') && !F.dug.has(c + ',' + r)) { F.cell = { c, r }; F.digT = 0.7; Sfx.thud(); }
       const dd = Math.hypot(F.x - (F.chest.c * 64 + 32), F.y - (F.chest.r * 64 + 32)); F.near = clamp(1 - dd / 380, 0, 1); F.beep -= dt * (0.6 + F.near * 7); if (F.beep <= 0) { F.beep = 1; F.blip = 0.12; if (!m.bot(i)) Sfx.tone(600 + F.near * 900, 0.04, 'sine', 0.025); } F.blip = (F.blip || 0) - dt;
@@ -314,11 +327,11 @@ MG.def({
       F.finds.forEach(f => MGH.text(g, f.k, ox + f.c * 64 + 32, oy + f.r * 64 + 44, 24, '#fff'));
       if (S.ph === 'won' && S.winner === j) { const x = ox + F.chest.c * 64 + 32, y = oy + F.chest.r * 64 + 34; MGH.glow(g, x, y, 80, 'rgba(255,220,80,0.7)'); g.fillStyle = '#8a5a2a'; MGH.rr(g, x - 26, y - 14, 52, 32, 6); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(x - 26, y - 4, 52, 5); g.fillStyle = '#a86a2a'; g.beginPath(); g.ellipse(x, y - 14, 26, 12, 0, Math.PI, 0); g.fill(); for (let q = 0; q < 5; q++) MGH.coin(g, x - 20 + q * 10, y - 24 - Math.abs(Math.sin(t * 6 + q)) * 10, 6, t * 5 + q); }
       // the hero with the detector sweeping over the sand
-      const dx = ox + F.x, dy = oy + F.y, dig = F.digT > 0, sw = Math.sin(t * 6) * 10;
+      const dx = ox + F.x, dy = oy + F.y, dig = F.digT > 0, sw = Math.sin(t * 6) * 10, fc = F.face || 1;
       if (dig) { for (let q = 0; q < 4; q++) { const ph = (t * 3 + q / 4) % 1; g.fillStyle = `rgba(200,160,90,${1 - ph})`; g.beginPath(); g.arc(dx + Math.cos(q * 1.6) * 30 * ph, dy - ph * 40 + ph * ph * 30, 4, 0, 7); g.fill(); } }
-      g.strokeStyle = '#5a5a60'; g.lineWidth = 3; g.beginPath(); g.moveTo(dx - 24, dy - 40); g.lineTo(dx + sw * (dig ? 0 : 1), dy + 4); g.stroke();
-      g.fillStyle = '#3a3a48'; g.beginPath(); g.ellipse(dx + sw * (dig ? 0 : 1), dy + 6, 16, 6, 0, 0, 7); g.fill(); g.fillStyle = F.blip > 0 ? `rgba(${Math.round(120 + F.near * 135)},${Math.round(255 - F.near * 120)},80,1)` : '#5a5a60'; g.beginPath(); g.arc(dx - 22, dy - 42, 5, 0, 7); g.fill(); if (F.blip > 0) MGH.glow(g, dx - 22, dy - 42, 16 + F.near * 20, `rgba(255,${Math.round(220 - F.near * 140)},80,0.8)`);
-      Char.draw(g, dx - 40, dy - 54 + (dig ? Math.sin(t * 20) * 3 : 0), 26, p.el.id, p.color, { mood: MGH.persona(S.ph === 'won' ? (S.winner === j ? 'cheer' : 'sad') : F.near > 0.75 ? 'shock' : 'determined', p.el.id), seed: i * 1.7, look: { x: 1, y: 0.4 }, walk: Math.abs(m.axis(i).x) + Math.abs(m.axis(i).y) > 0.3 ? 1 : 0, hands: { n: { x: 0.65, y: 0.25, d: 30, o: false, m: true }, f: { x: 0.4, y: 0.4, d: 30, o: false, m: false } } });
+      g.strokeStyle = '#5a5a60'; g.lineWidth = 3; g.beginPath(); g.moveTo(dx - 24 * fc, dy - 40); g.lineTo(dx + sw * (dig ? 0 : 1), dy + 4); g.stroke();
+      g.fillStyle = '#3a3a48'; g.beginPath(); g.ellipse(dx + sw * (dig ? 0 : 1), dy + 6, 16, 6, 0, 0, 7); g.fill(); g.fillStyle = F.blip > 0 ? `rgba(${Math.round(120 + F.near * 135)},${Math.round(255 - F.near * 120)},80,1)` : '#5a5a60'; g.beginPath(); g.arc(dx - 22 * fc, dy - 42, 5, 0, 7); g.fill(); if (F.blip > 0) MGH.glow(g, dx - 22 * fc, dy - 42, 16 + F.near * 20, `rgba(255,${Math.round(220 - F.near * 140)},80,0.8)`);
+      Char.draw(g, dx - 40 * fc, dy - 54 + (dig ? Math.sin(t * 20) * 3 : 0), 26, p.el.id, p.color, { mood: MGH.persona(S.ph === 'won' ? (S.winner === j ? 'cheer' : 'sad') : F.near > 0.75 ? 'shock' : 'determined', p.el.id), seed: i * 1.7, look: { x: fc, y: 0.4 }, walk: Math.abs(m.axis(i).x) + Math.abs(m.axis(i).y) > 0.3 ? 1 : 0, hands: { n: { x: 0.65, y: 0.25, d: 30, o: false, m: true }, f: { x: 0.4, y: 0.4, d: 30, o: false, m: false } } });
       if (dig) MGH.text(g, '⛏️', dx + 10, dy - 20 - Math.abs(Math.sin(t * 16)) * 14, 28, '#fff');
       g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, ox + 130, 222, 252, 26, 13); g.fill(); MGH.text(g, `${p.name} · 🪙 ${S.wins[j]}`, ox + 256, 241, 16, p.color, 'center', 'bold');
     });

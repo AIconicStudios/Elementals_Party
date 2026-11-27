@@ -499,7 +499,7 @@ const Board = {
   },
   hop(i) {
     const s = BD.spaces[this.game.P(i).pos], T = this.tok[i];
-    return new Promise(res => { if (Settings.test) { T.x = s.x; T.y = s.y; res(); return; } T.from = { x: T.x, y: T.y }; T.to = { x: s.x, y: s.y }; T.hopT = 0; T.res = res; });
+    return new Promise(res => { if (Settings.test) { T.x = s.x; T.y = s.y; res(); return; } T.from = { x: T.x, y: T.y }; T.to = { x: s.x, y: s.y }; if (Math.abs(s.x - T.x) > 1) T.face = Math.sign(s.x - T.x); T.hopT = 0; T.res = res; });
   },
   snap(i) { const s = BD.spaces[this.game.P(i).pos], T = this.tok[i]; T.x = s.x; T.y = s.y; },
   float(i, text, col) { if (Settings.test) return; const T = this.tok[i]; this.floats.push({ x: T.x, y: T.y - 70, text, col, t: 0 }); },
@@ -583,7 +583,7 @@ const Board = {
     BD.spaces.filter(s => s.type === 'bank').forEach(s => { const bx = s.x + (s.side === 0 ? 0 : s.side === 1 ? -84 : s.side === 2 ? 0 : 84), by = s.y + (s.side === 0 ? 74 : s.side === 2 ? -74 : 0); items.push({ y: by, f: () => BoardArt.bank(g, bx, by, s.bank === G.starBank, t, s.bank) }); });
     BD.HOLDS.forEach((h, k) => items.push({ y: h.y + 40, f: () => BoardArt.hold(g, h.x, h.y, G.P(k), G.holds[k], t, this.ui.dog && this.cam.target === h, this.ui.dog && this.ui.dog.chase) }));
     BoardArt.windmillAt && items.push({ y: 470, f: () => BoardArt.windmill(g, 800, 470, t, this.ui.gust) });
-    G.players.forEach((p, i) => { const T = this.tok[i]; const same = G.players.filter(q => q.pos === p.pos), k = same.indexOf(p), n = same.length; const ox = n > 1 ? (k - (n - 1) / 2) * 26 : 0, oy = n > 1 ? (k % 2) * 8 : 0; items.push({ y: T.y + oy + 1, f: () => this.drawToken(g, p, T.x + (T.to ? 0 : ox), T.y + (T.to ? 0 : oy), T.hop, t) }); });
+    G.players.forEach((p, i) => { const T = this.tok[i]; const same = G.players.filter(q => q.pos === p.pos), k = same.indexOf(p), n = same.length; const ox = n > 1 ? (k - (n - 1) / 2) * 26 : 0, oy = n > 1 ? (k % 2) * 8 : 0; items.push({ y: T.y + oy + 1, f: () => this.drawToken(g, p, T.x + (T.to ? 0 : ox), T.y + (T.to ? 0 : oy), T.hop, t, T.face || 1) }); });
     items.sort((a, b) => a.y - b.y).forEach(it => it.f());
     // the star hopping to a new bank
     if (this.ui.starHop) { const q = Math.min(1, this.ui.starHop.t / 1.4), s = sb; MGH.star(g, s.x, s.y - 90 - (1 - q) * 300, 26, '#ffe680', t * 4, false); }
@@ -594,11 +594,11 @@ const Board = {
     this.drawUI(g, t);
     if (this.paused) this.drawPause(g);
   },
-  drawToken(g, p, x, y, hop, t) {
+  drawToken(g, p, x, y, hop, t, face = 1) {
     const cur = this.current === p.i, s = 48;
     g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x + 6, y + 6, 22 - hop * 0.2, 7, 0, 0, 7); g.fill();
     if (cur) { g.strokeStyle = p.color; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 30 + Math.sin(t * 6) * 3, 12, 0, 0, 7); g.stroke(); }
-    Char.draw(g, x, y - 46 - hop + Math.sin(t * 2.4 + p.i) * 1.5, s * 0.62, p.el.id, p.color, { mood: MGH.persona(p.mood || (cur ? 'happy' : 'neutral'), p.el.id), seed: p.i * 1.7, look: { x: 0.3, y: 0.2 }, t: t + p.i, walk: hop > 0 ? 1 : 0, noShadow: true });
+    Char.draw(g, x, y - 46 - hop + Math.sin(t * 2.4 + p.i) * 1.5, s * 0.62, p.el.id, p.color, { mood: MGH.persona(p.mood || (cur ? 'happy' : 'neutral'), p.el.id), seed: p.i * 1.7, look: { x: face * 0.6, y: 0.2 }, t: t + p.i, walk: hop > 0 ? 1 : 0, noShadow: true });
     if (cur) { g.fillStyle = p.color; g.beginPath(); g.moveTo(x - 9, y - 112 - hop); g.lineTo(x + 9, y - 112 - hop); g.lineTo(x, y - 101 - hop); g.fill(); }
   },
   drawHUD(g, t) {

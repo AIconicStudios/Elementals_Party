@@ -110,10 +110,34 @@ MG.def({
 });
 
 // ===================================================================== QUICK DRAW PIE (wait for "PIE!", ignore the fakes)
+// big picture cards for Quick Draw Pie (only PIE! is the real one)
+const QDPIC = {
+  'PIE!'(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s);
+    g.fillStyle = '#c8803a'; g.beginPath(); g.ellipse(0, 30, 86, 26, 0, 0, Math.PI); g.lineTo(-86, 30); g.fill(); g.fillStyle = '#e8a860'; g.fillRect(-86, 8, 172, 24); for (let q = -80; q < 86; q += 16) { g.fillStyle = '#d89050'; g.beginPath(); g.arc(q, 8, 8, Math.PI, 0); g.fill(); }
+    g.strokeStyle = '#d8c8b0'; g.lineWidth = 3; g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(0, 4, 82, 22, 0, 0, 7); g.fill(); g.stroke(); for (let q = 0; q < 7; q++) { g.beginPath(); g.arc(-60 + q * 20, -8 - (q % 2) * 10, 16, 0, 7); g.fill(); g.stroke(); }
+    g.beginPath(); g.moveTo(-20, -20); g.quadraticCurveTo(0, -70, 20, -20); g.fill(); g.stroke(); g.fillStyle = 'rgba(200,180,150,0.25)'; g.beginPath(); g.ellipse(10, 0, 60, 12, 0, 0, 7); g.fill(); g.fillStyle = '#e8323e'; g.beginPath(); g.arc(2, -52, 12, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(-2, -56, 4, 0, 7); g.fill(); g.strokeStyle = '#3a8a2a'; g.lineWidth = 3; g.beginPath(); g.moveTo(4, -62); g.quadraticCurveTo(10, -76, 18, -74); g.stroke(); g.restore(); },
+  'PIZZA!'(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s);
+    g.fillStyle = '#d8903a'; g.beginPath(); g.moveTo(-80, -50); g.quadraticCurveTo(0, -80, 80, -50); g.lineTo(0, 80); g.closePath(); g.fill(); g.fillStyle = '#ffd34d'; g.beginPath(); g.moveTo(-66, -38); g.quadraticCurveTo(0, -62, 66, -38); g.lineTo(0, 66); g.closePath(); g.fill();
+    g.fillStyle = '#c83a2a'; for (const [px, py] of [[-28, -28], [22, -22], [0, 12], [-8, 40]]) { g.beginPath(); g.arc(px, py, 11, 0, 7); g.fill(); } g.fillStyle = '#3a8a2a'; g.beginPath(); g.ellipse(30, 6, 7, 4, 0.6, 0, 7); g.fill(); g.restore(); },
+  'PINE!'(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s); g.fillStyle = '#8a5a2a';
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 4; c++) { const yy = -60 + r * 24, w = 50 - Math.abs(r - 2.5) * 10, xx = -w / 2 + c * (w / 3); g.fillStyle = (r + c) % 2 ? '#8a5a2a' : '#a8703a'; g.beginPath(); g.ellipse(xx, yy, 14, 10, 0, 0, 7); g.fill(); }
+    g.strokeStyle = '#3a8a2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, -74); g.lineTo(0, -90); g.stroke(); g.restore(); },
+  'PIGEON!'(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s);
+    g.fillStyle = '#8a8aa8'; g.beginPath(); g.ellipse(0, 10, 66, 40, 0, 0, 7); g.fill(); g.fillStyle = '#6a6a88'; g.beginPath(); g.moveTo(40, 10); g.lineTo(90, -6); g.lineTo(84, 30); g.closePath(); g.fill();
+    g.fillStyle = '#a8a8c4'; g.beginPath(); g.arc(-50, -30, 30, 0, 7); g.fill(); g.fillStyle = '#5ac8a8'; g.beginPath(); g.ellipse(-36, -4, 22, 14, 0, 0, 7); g.fill(); g.fillStyle = '#ffb030'; g.beginPath(); g.moveTo(-78, -30); g.lineTo(-96, -24); g.lineTo(-78, -20); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(-56, -36, 7, 0, 7); g.fill(); g.fillStyle = '#c83a2a'; g.beginPath(); g.arc(-58, -36, 4, 0, 7); g.fill(); g.strokeStyle = '#e88a8a'; g.lineWidth = 4; g.beginPath(); g.moveTo(-10, 48); g.lineTo(-14, 70); g.moveTo(10, 48); g.lineTo(14, 70); g.stroke(); g.restore(); },
+  'PICKLE!'(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s); g.rotate(-0.4);
+    const gg = g.createLinearGradient(-30, 0, 30, 0); gg.addColorStop(0, '#5aa83a'); gg.addColorStop(1, '#2a7a2a'); g.fillStyle = gg; g.beginPath(); g.ellipse(0, 0, 34, 88, 0, 0, 7); g.fill();
+    g.fillStyle = 'rgba(200,255,150,0.6)'; for (let q = 0; q < 8; q++) { g.beginPath(); g.arc(-10 + (q % 2) * 18, -64 + q * 17, 4, 0, 7); g.fill(); } g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.ellipse(-14, -20, 6, 30, 0, 0, 7); g.fill(); g.restore(); },
+  'PIRATE!'(g, x, y, s) { g.save(); g.translate(x, y); g.scale(s, s);
+    g.fillStyle = '#1a1a2a'; g.beginPath(); g.moveTo(-96, 20); g.quadraticCurveTo(-60, -70, 0, -60); g.quadraticCurveTo(60, -70, 96, 20); g.quadraticCurveTo(0, 0, -96, 20); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 5; g.beginPath(); g.moveTo(-90, 16); g.quadraticCurveTo(0, -4, 90, 16); g.stroke();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, -26, 16, 0, 7); g.fill(); g.fillStyle = '#1a1a2a'; g.beginPath(); g.arc(-6, -28, 4, 0, 7); g.arc(6, -28, 4, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(-24, -4); g.lineTo(24, 12); g.moveTo(24, -4); g.lineTo(-24, 12); g.stroke(); g.restore(); },
+};
+
 MG.def({
   id: 'qdpie', name: 'Quick Draw Pie', type: 'Duel', mode: 'duel', controls: '1 button', dur: 0,
   rows: [['a', 'Throw your pie!']],
-  how: 'Sit face to face with a cream pie in hand. The host will shout a word — when it\'s PIE!, press A first to splat your rival right in the face! But careful: PIZZA!, PINE!, PIGEON!… if you throw on a fake (or too early), YOU get the pie instead. First to three splats wins.',
+  how: 'Sit face to face with a cream pie in hand. The host holds up a picture — when it\'s a PIE, press A first to splat your rival right in the face! But careful: a pizza, a pine cone, a pigeon… if you throw on a fake (or too early), YOU get the pie instead. First to three splats wins.',
   wins: 'First to 3 splats.',
   init(m, S) { S.d = DU.pair(m); S.pts = [0, 0]; S.round = 0; this.next(S); },
   next(S) { S.round++; S.ph = 'wait'; S.pt = 0; S.at = R.range(1.6, 3.6); S.words = []; let t = S.at; const n = Math.random() < 0.6 ? R.int(1, 2) : 0; for (let k = 0; k < n; k++) { S.words.push({ t, w: R.pick(['PIZZA!', 'PINE!', 'PIGEON!', 'PICKLE!', 'PIRATE!']), fake: true }); t += R.range(1.1, 1.9); } S.words.push({ t, w: 'PIE!', fake: false }); S.cur = null; S.win = -1; S.splat = -1; S.fly = 0; S.bt = [R.range(0.2, 0.42), R.range(0.2, 0.42)]; S.bfake = [Math.random() < 0.08, Math.random() < 0.08]; },
@@ -164,7 +188,9 @@ MG.def({
     g.fillStyle = '#e8323e'; g.beginPath(); g.arc(640, 384, 6, 0, 7); g.fill();
     // host with the word sign
     Char.npc(g, 640, 300, 30, 'host', { mood: S.cur && !S.cur.fake ? 'shock' : 'happy', t });
-    if (S.ph === 'wait' && S.cur) { const fake = S.cur.fake, k = Math.min(1, S.curT / 0.12); g.save(); g.translate(640, 190); g.scale(k, k); g.fillStyle = fake ? '#fffaf0' : '#ffe680'; MGH.rr(g, -150, -46, 300, 92, 18); g.fill(); g.strokeStyle = fake ? '#8a6a3a' : '#e8323e'; g.lineWidth = 6; g.stroke(); MGH.text(g, S.cur.w, 0, 18, 52, fake ? '#5a3a20' : '#e8323e', 'center', 'bold'); g.restore(); if (!fake) MGH.glow(g, 640, 190, 200, 'rgba(255,220,100,0.3)'); }
+    if (S.ph === 'wait' && S.cur) { const fake = S.cur.fake, k = Math.min(1, S.curT / 0.12); g.save(); g.translate(640, 230); g.scale(k, k); g.rotate(Math.sin(S.curT * 8) * 0.02 * (fake ? 1 : 0));
+      g.fillStyle = 'rgba(0,0,0,0.3)'; MGH.rr(g, -186, -136, 380, 290, 26); g.fill(); const cg = g.createLinearGradient(0, -144, 0, 144); cg.addColorStop(0, '#e8f6ff'); cg.addColorStop(1, '#c8e4f8'); g.fillStyle = cg; MGH.rr(g, -190, -144, 380, 288, 24); g.fill(); g.strokeStyle = fake ? '#8a6a3a' : '#e8323e'; g.lineWidth = 10; g.stroke();
+      QDPIC[S.cur.w](g, 0, 6, 1.6, m.t); g.restore(); if (!fake) MGH.glow(g, 640, 230, 260, 'rgba(255,220,100,0.35)'); }
     else if (S.ph === 'wait') MGH.text(g, '…', 640, 200, 60, '#ffe0b0', 'center', 'bold');
     // the two duelists, pies raised
     S.d.forEach((i, j) => {

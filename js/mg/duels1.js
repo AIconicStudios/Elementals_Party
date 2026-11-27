@@ -18,6 +18,7 @@ const NC = {
   ROPES: [140, 240, 450, 550, 750, 830, 1050, 1150],           // vine x positions (from y 150 to 545)
   OPS: [{ x: 270, o: '+' }, { x: 500, o: '−' }, { x: 790, o: '×' }, { x: 1100, o: '÷' }],
   TOP: 150, BOT: 545, GY: 600,
+  SITES: [95, 190, 285, 425, 500, 585, 720, 790, 865, 1005, 1100, 1195],
   target(round) {
     if (round === 0) return R.int(9, 18);
     if (round === 1) return R.pick([24, 27, 28, 32, 35, 36, 42, 45, 48]);
@@ -146,7 +147,7 @@ const NCART = {
 };
 const ncDef = (spec) => MG.def(Object.assign({
   type: 'Duel', controls: 'Move + A', dur: 0,
-  rows: [['stick', 'Walk · climb vines · UP at a stone = take its sign'], ['a', 'Jump (from vines too)']],
+  rows: [['stick', 'Walk · climb · LEFT/RIGHT on a vine = swing to the next vine · UP at a sign = take it'], ['a', 'Jump (from vines too)']],
   wins: 'Most rounds won (5 rounds).',
   init(m, S) {
     S.who = this.who(m); S.round = 0; S.wins = [0, 0, 0, 0]; S.fx = [];
@@ -155,12 +156,14 @@ const ncDef = (spec) => MG.def(Object.assign({
   },
   newRound(m, S) {
     S.target = NC.target(S.round); S.ph = 'show'; S.pt = 0; S.winner = -1;
+    { const sites = R.shuffle(NC.SITES.slice()); S.ops = ['+', '−', '×', '÷'].map((o, k) => ({ o, x: sites[k], t: 0, pop: 0 })); }
     S.p = [0, 1, 2, 3].map(i => { const k = S.who.indexOf(i), x = k < 0 ? -999 : [180, 1100, 500, 790][k]; return { x, y: NC.GY, vx: 0, vy: 0, st: 'ground', rope: -1, tot: 0, op: '+', fall: 0, face: x < 640 ? 1 : -1, clim: 0, bump: 0, last: '', lastT: 0, nope: 0 }; });
     S.tags.forEach(t => { t.v = R.int(1, 9); t.t = 0; });
   },
   update(m, S, dt) {
     S.pt += dt;
     S.tags.forEach(t => { if (t.t > 0) { t.t -= dt; if (t.t <= 0) t.v = R.int(1, 9); } t.sw += dt; });
+    if (S.ops) S.ops.forEach(o => { o.pop = Math.max(0, o.pop - dt); if (o.t > 0) { o.t -= dt; if (o.t <= 0) { const used = S.ops.filter(q => q !== o && q.t <= 0).map(q => q.x).concat(S.who.map(j => S.p[j].x)); const free = NC.SITES.filter(x => used.every(u => Math.abs(u - x) > 60)); o.x = R.pick(free.length ? free : NC.SITES); o.pop = 0.4; } } });
     if (S.ph === 'show') { if (S.pt > 2.2) { S.ph = 'go'; S.pt = 0; } return; }
     if (S.ph === 'won') { if (S.pt > 2.6) { S.round++; if (S.round >= 5) { m.finish(this.score(m, S)); return; } this.newRound(m, S); } return; }
     if (S.pt > 55) { // a long round ends: closest total takes it
@@ -170,9 +173,20 @@ const ncDef = (spec) => MG.def(Object.assign({
       if (P.fall > 0) { P.fall -= dt; if (P.fall <= 0) { const I = NC.ISL.slice().sort((p, q) => Math.abs((p[0] + p[1]) / 2 - P.x) - Math.abs((q[0] + q[1]) / 2 - P.x))[0]; P.x = clamp(P.x, I[0] + 20, I[1] - 20); P.y = NC.GY; P.vx = P.vy = 0; P.st = 'ground'; } return; }
       if (Math.abs(a.x) > 0.3) P.face = Math.sign(a.x);
       if (P.st === 'rope') {
-        const rx = NC.ROPES[P.rope]; P.x = rx; const cy = a.y < -0.4 ? -1 : a.y > 0.4 ? 1 : 0; P.y = clamp(P.y + cy * 190 * dt, NC.TOP + 40, NC.BOT + 40); if (cy) P.clim += dt * 7;
+        const rx = NC.ROPES[P.rope]; P.x = rx; const cy = a.y < -0.4 ? -1 : a.y > 0.4 ? 1 : 0;
+        // someone else on this vine is solid: you can't climb through them
+        let ny = clamp(P.y + cy * 190 * dt, NC.TOP + 40, NC.BOT + 40); S.who.forEach(j => { const Q = S.p[j]; if (j === i || Q.fall > 0 || !((Q.st === 'rope' && Q.rope === P.rope) || (Q.st === 'swing' && Q.sw.to === P.rope))) return; if (Q.y < P.y && ny < Q.y + 46) ny = Math.max(ny, Q.y + 46); if (Q.y >= P.y && ny > Q.y - 46) ny = Math.min(ny, Q.y - 46); });
+        if (cy && Math.abs(ny - P.y) < 0.01 && !P.blk) { P.blk = 0.6; MGH.pop('blocked!', P.x, P.y - 70, '#fff', 15); } P.blk = Math.max(0, (P.blk || 0) - dt);
+        P.y = ny; if (cy) P.clim += dt * 7;
+        // swing across to the neighbouring vine (left/right), unless someone is hanging there
+        const sx = Math.abs(a.x) > 0.6 && Math.abs(a.y) < 0.5 ? Math.sign(a.x) : 0;
+        if (sx && !m.pressed(i, 'a')) { const nb = NC.ROPES.findIndex((qx, r) => r !== P.rope && Math.sign(qx - rx) === sx && Math.abs(qx - rx) < 130);
+          if (nb >= 0 && !S.who.some(j => j !== i && S.p[j].fall <= 0 && ((S.p[j].st === 'rope' && S.p[j].rope === nb) || (S.p[j].st === 'swing' && S.p[j].sw.to === nb)) && Math.abs(S.p[j].y - P.y) < 46)) { P.st = 'swing'; P.sw = { from: P.rope, to: nb, t: 0 }; P.face = sx; if (!m.bot(i)) Sfx.whoosh(); return; } }
         if (m.pressed(i, 'a')) { P.st = 'air'; P.vy = -380; P.vx = (Math.abs(a.x) > 0.3 ? Math.sign(a.x) : P.face) * 250; P.rope = -1; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); }
         else if (cy > 0 && P.y >= NC.BOT + 36) { P.st = 'air'; P.vy = 0; P.vx = 0; P.rope = -1; }
+      } else if (P.st === 'swing') {
+        const W = P.sw; W.t += dt / 0.32; const q = Math.min(1, W.t), x0 = NC.ROPES[W.from], x1 = NC.ROPES[W.to]; P.x = x0 + (x1 - x0) * q;
+        if (q >= 1) { P.st = 'rope'; P.rope = W.to; P.x = x1; }
       } else {
         if (P.st === 'ground') { P.vx += (a.x * 240 - P.vx) * Math.min(1, dt * 12); if (m.pressed(i, 'a')) { P.st = 'air'; P.vy = -560; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); } }
         else P.vx += (a.x * 230 - P.vx) * Math.min(1, dt * 3);
@@ -193,10 +207,10 @@ const ncDef = (spec) => MG.def(Object.assign({
         P.last = `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -199, 199); t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
         if (P.tot === S.target) this.roundWin(m, S, i, false); });
       // operator stones by the water
-      if (P.st === 'ground' && a.y < -0.5) NC.OPS.forEach(o => { if (Math.abs(o.x - P.x) < 26 && P.op !== o.o) { P.op = o.o; if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04); } });
+      if (P.st === 'ground' && a.y < -0.5) S.ops.forEach(o => { if (o.t <= 0 && Math.abs(o.x - P.x) < 28 && P.op !== o.o) { P.op = o.o; o.t = 1.5; S.fx.push({ k: 'opgo', x: o.x, o: o.o, t: 0 }); if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04); } });
     });
     // climbers bump on a shared vine / crowd each other on islands (4-player)
-    for (let x = 0; x < S.who.length; x++) for (let y = x + 1; y < S.who.length; y++) { const A = S.p[S.who[x]], B = S.p[S.who[y]]; if (A.fall > 0 || B.fall > 0) continue; if (Math.abs(A.x - B.x) < 26 && Math.abs(A.y - B.y) < 40) { if (A.st === 'rope' && B.st === 'rope' && A.rope === B.rope) { const lo = A.y > B.y ? A : B; lo.st = 'air'; lo.vy = 60; lo.vx = (lo.face || 1) * -60; lo.rope = -1; lo.bump = 0.6; MGH.pop('bonk!', lo.x, lo.y - 70, '#fff', 18); } else if (A.st === 'ground' && B.st === 'ground') { const d = Math.sign(B.x - A.x) || 1; A.x -= d * 3; B.x += d * 3; } } }
+    for (let x = 0; x < S.who.length; x++) for (let y = x + 1; y < S.who.length; y++) { const A = S.p[S.who[x]], B = S.p[S.who[y]]; if (A.fall > 0 || B.fall > 0) continue; if (Math.abs(A.x - B.x) < 26 && Math.abs(A.y - B.y) < 40) { if (A.st === 'ground' && B.st === 'ground') { const d = Math.sign(B.x - A.x) || 1, push = (26 - Math.abs(B.x - A.x)) / 2; A.x -= d * push; B.x += d * push; if (A.vx * d > 0) A.vx = 0; if (B.vx * d < 0) B.vx = 0; } } }
     S.fx.forEach(f => { f.t += dt; }); S.fx = S.fx.filter(f => f.t < 1.2);
   },
   roundWin(m, S, i, timeUp) { S.wins[i]++; S.winner = i; S.ph = 'won'; S.pt = 0; S.timeUp = timeUp; Sfx.coin(); Sfx.crowd && Sfx.crowd('cheer'); MGH.burst(640, 120, ['#ffe680', '#fff', m.players[i].color], 30, { speed: 300 }); },
@@ -207,12 +221,13 @@ const ncDef = (spec) => MG.def(Object.assign({
     if (P.think <= 0 || !P.goal || (P.goal.tag && P.goal.tag.t > 0) || (!P.goal.tag && P.goal.op === P.op)) {
       P.think = R.range(2.5, 4); const d0 = Math.abs(P.tot - S.target); let best = null;
       const consider = (op, extra) => S.tags.forEach(t => { if (t.t > 0) return; const r = NC.apply(P.tot, op, t.v); if (r === null) return; const d = Math.abs(r - S.target), cost = Math.abs(t.x - P.x) / 300 + Math.abs(t.y - P.y) / 300 + extra; const sc = (d0 - d) * 3 - cost + (r === S.target ? 50 : 0); if (!best || sc > best.sc) best = { sc, tag: t, op }; });
-      consider(P.op, 0); NC.OPS.forEach(o => { if (o.o !== P.op) consider(o.o, 1.5 + Math.abs(o.x - P.x) / 300); });
-      if (!best || best.sc < -1) { const o = NC.OPS[S.target < P.tot ? 1 : 0]; best = { op: o.o, tag: null, sc: 0 }; }
+      consider(P.op, 0); S.ops.forEach(o => { if (o.t <= 0 && o.o !== P.op) consider(o.o, 1.5 + Math.abs(o.x - P.x) / 300); });
+      if (!best || best.sc < -1) { best = { op: S.target < P.tot ? '−' : '+', tag: null, sc: 0 }; }
       P.goal = best; P.err = Math.random() < 0.12;
     }
+    if (P.st === 'rope' && P.blk > 0.45) { P.stuck = (P.stuck || 0) + 1; if (P.stuck > 2) { P.stuck = 0; v.a = !m.prev[i].a; v.ax = R.pick([-1, 1]); P.think = 0; return; } }
     const G = P.goal;
-    if (G.op !== P.op) { const o = NC.OPS.find(q => q.o === G.op); this.botGo(m, S, i, o.x, NC.GY, true); return; }
+    if (G.op !== P.op) { const o = S.ops.find(q => q.o === G.op && q.t <= 0); if (!o) { P.think = 0; return; } this.botGo(m, S, i, o.x, NC.GY, true); return; }
     if (!G.tag) return; this.botGo(m, S, i, G.tag.x, G.tag.y + 46, false);
   },
   botGo(m, S, i, tx, ty, ground) {
@@ -222,7 +237,7 @@ const ncDef = (spec) => MG.def(Object.assign({
     const v = m.vin[i], P = S.p[i];
     if (P.st === 'rope') { const dx = tx - P.x; if (ground || Math.abs(dx) > 30) { // leave the vine toward the target
         if (ground) { v.ay = 1; if (P.y > NC.BOT) { v.a = true; v.ax = Math.sign(dx) || 1; } return; }
-        const nb = NC.ROPES.findIndex((rx, r) => r !== P.rope && Math.sign(rx - P.x) === Math.sign(dx) && Math.abs(rx - P.x) < 130); if (nb >= 0 && Math.abs(P.y - ty) < 100) { v.a = true; v.ax = Math.sign(dx); } else { v.ay = 1; if (P.y > NC.BOT) { v.a = true; v.ax = Math.sign(dx); } } return; }
+        const nb = NC.ROPES.findIndex((rx, r) => r !== P.rope && Math.sign(rx - P.x) === Math.sign(dx) && Math.abs(rx - P.x) < 130); if (nb >= 0) { v.ax = Math.sign(dx); v.ay = ty < P.y - 20 ? -0.3 : ty > P.y + 20 ? 0.3 : 0; } else { v.ay = 1; if (P.y > NC.BOT) { v.a = true; v.ax = Math.sign(dx); } } return; }
       v.ay = ty < P.y - 6 ? -1 : ty > P.y + 6 ? 1 : 0; return; }
     if (P.st === 'air') { v.ax = Math.sign(tx - P.x) * 0.8; v.ay = ground ? 0 : -1; return; }
     // on the ground: walk to the right island, jump gaps, then climb
@@ -246,6 +261,10 @@ const ncDef = (spec) => MG.def(Object.assign({
       const k = 1 - P.fall / 1.3; if (k < 0.35) { g.save(); g.translate(P.x, Math.min(650, P.y - 28 + k * 200)); g.rotate(Math.sin(t * 30) * 0.4); Char.draw(g, 0, 0, r, p.el.id, p.color, { mood: 'shock', seed: i * 1.7, noShadow: true, hands: { n: { x: -1.2, y: -1.3 + Math.sin(t * 30) * 0.3, d: -120, o: true, m: false }, f: { x: 1.2, y: -1.3 - Math.sin(t * 30) * 0.3, d: -60, o: true, m: false } } }); g.restore(); }
       else { Char.draw(g, P.x + (k - 0.35) * 60 * (P.face || 1), 652 + Math.sin(t * 6) * 3, 16, p.el.id, p.color, { headOnly: true, mood: 'sad', seed: i * 1.7, noShadow: true }); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2; g.beginPath(); g.ellipse(P.x + (k - 0.35) * 60 * (P.face || 1), 664, 22, 5, 0, 0, 7); g.stroke(); }
       return; }
+    if (P.st === 'swing') { // one hand lets go and reaches across to the next vine
+      const q = Math.min(1, P.sw.t), dir = Math.sign(NC.ROPES[P.sw.to] - NC.ROPES[P.sw.from]) || 1, arc = Math.sin(q * Math.PI) * 14;
+      Char.draw(g, P.x - 4 * dir, P.y - 30 + arc, r, p.el.id, p.color, { mood: MGH.persona('cheer', p.el.id), seed: i * 1.7, noShadow: true, look: { x: dir, y: -0.2 }, hands: { n: { x: -0.9 * dir, y: -1.2, d: -120, o: false, m: true }, f: { x: 1.4 * dir, y: -1.3, d: dir > 0 ? -40 : -140, o: true, m: false } } });
+      return; }
     if (P.st === 'rope') { // hand over hand: arms take turns reaching up, feet hug the vine
       const ph = Math.sin(P.clim), ph2 = Math.cos(P.clim);
       Char.draw(g, P.x - 4, P.y - 30, r, p.el.id, p.color, { mood: MGH.persona('determined', p.el.id), seed: i * 1.7, noShadow: true, look: { x: P.face, y: -0.4 }, hands: { n: { x: 0.25, y: -1.45 + ph * 0.3, d: -90, o: false, m: true }, f: { x: 0.3, y: -0.95 - ph * 0.3, d: -90, o: false, m: false } }, feet: [{ x: 0.15, lift: 0.15 + ph2 * 0.1, tip: 0.4 }, { x: 0.3, lift: 0.3 - ph2 * 0.1, tip: 0.4 }] });
@@ -264,7 +283,7 @@ const ncDef = (spec) => MG.def(Object.assign({
     // islands with their palms (baked look, drawn live so the palm fronds sway)
     NCART.islands(g, t);
     // operator totems
-    NC.OPS.forEach(o => NCART.totem(g, o.x, NC.GY, o.o, S.who.some(i => S.p[i].op === o.o), t));
+    (S.ops || []).forEach(o => { if (o.t > 0) return; const k = o.pop > 0 ? 1 - o.pop / 0.4 : 1; g.save(); g.translate(o.x, NC.GY); g.scale(k, k); NCART.totem(g, 0, 0, o.o, S.who.some(i => S.p[i].op === o.o), t); g.restore(); if (o.pop > 0) for (let q = 0; q < 6; q++) MGH.star(g, o.x + Math.cos(q) * 30 * k, NC.GY - 30 + Math.sin(q) * 20 * k, 4, '#fff', q, false); });
     // canopy along the top, vines hang from it
     NCART.canopy(g, t);
     NC.ROPES.forEach((rx, r) => NCART.vine(g, rx, r, t));
@@ -285,7 +304,7 @@ const ncDef = (spec) => MG.def(Object.assign({
     for (let k = 0; k < 3; k++) { const x = 200 + k * 420 + Math.sin(t * 0.6 + k * 2) * 120, y = 420 + Math.sin(t * 0.9 + k) * 70, fl = Math.abs(Math.sin(t * 14 + k)); g.fillStyle = ['#ff8ac8', '#ffd34d', '#8ae0ff'][k]; g.beginPath(); g.ellipse(x - 5 * fl, y, 6 * fl + 1, 4, -0.5, 0, 7); g.ellipse(x + 5 * fl, y, 6 * fl + 1, 4, 0.5, 0, 7); g.fill(); g.fillStyle = '#3a2a2a'; g.fillRect(x - 1, y - 4, 2, 8); }
     // climbers
     S.who.forEach(i => this.climber(g, m, S, i, S.p[i]));
-    S.fx.forEach(f => { if (f.k === 'splash') { const k = f.t / 1.2; for (let q = 0; q < 10; q++) { const a = -Math.PI / 2 + (q - 4.5) * 0.28; g.fillStyle = `rgba(220,245,255,${1 - k})`; g.beginPath(); g.arc(f.x + Math.cos(a) * k * 64, 640 + Math.sin(a) * k * 56 + k * k * 64, 4.5 - k * 2, 0, 7); g.fill(); } g.strokeStyle = `rgba(255,255,255,${1 - k})`; g.lineWidth = 3; g.beginPath(); g.ellipse(f.x, 646, 10 + k * 54, 3 + k * 9, 0, 0, 7); g.stroke(); }
+    S.fx.forEach(f => { if (f.k === 'opgo') { const k = f.t / 1.2; for (let q = 0; q < 8; q++) { g.fillStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; g.beginPath(); g.arc(f.x + Math.cos(q * 0.8) * k * 50, NC.GY - 26 + Math.sin(q * 0.8) * k * 30 - k * 20, 8 * (1 - k) + 2, 0, 7); g.fill(); } return; } if (f.k === 'splash') { const k = f.t / 1.2; for (let q = 0; q < 10; q++) { const a = -Math.PI / 2 + (q - 4.5) * 0.28; g.fillStyle = `rgba(220,245,255,${1 - k})`; g.beginPath(); g.arc(f.x + Math.cos(a) * k * 64, 640 + Math.sin(a) * k * 56 + k * k * 64, 4.5 - k * 2, 0, 7); g.fill(); } g.strokeStyle = `rgba(255,255,255,${1 - k})`; g.lineWidth = 3; g.beginPath(); g.ellipse(f.x, 646, 10 + k * 54, 3 + k * 9, 0, 0, 7); g.stroke(); }
       else { const k = f.t / 1.2; g.globalAlpha = 1 - k * 0.6; MGH.text(g, String(f.v), f.x + 18, f.y - k * 60, 28 + k * 8, f.c, 'center', 'bold'); g.globalAlpha = 1; for (let q = 0; q < 5; q++) MGH.star(g, f.x + 18 + Math.cos(q * 1.26) * k * 40, f.y + Math.sin(q * 1.26) * k * 40, 5 * (1 - k), '#ffe680', q, false); } });
     // personal signboards hanging from the canopy: total and current sign
     S.who.forEach((i, k) => { const p = m.players[i], P = S.p[i], n = S.who.length, x = n === 2 ? (k ? 1080 : 200) : [140, 340, 940, 1140][k], y = 84, sw = Math.sin(t * 1.2 + k) * 0.025, hit = P.tot === S.target;
@@ -306,8 +325,8 @@ const ncDef = (spec) => MG.def(Object.assign({
 }, spec));
 
 ncDef({ id: 'numclimb', name: 'Number Climb', mode: 'duel',
-  how: 'A maths duel in the jungle! The host holds up a TARGET number. Climb the vines and grab the hanging numbers 1–9 — each one is applied to your total using your current sign. Change your sign at the + − × ÷ stones down by the water (stand at one and press UP) (÷ only works when it divides evenly). Hit the target EXACTLY to win the round! Grabbed numbers grow back as new ones. Five rounds: easy sums, times, mixed, big numbers — and finally a NEGATIVE target. Fall in the water and you swim back.',
+  how: 'A maths duel in the jungle! The host holds up a TARGET number. Climb the vines and grab the hanging numbers 1–9 — each one is applied to your total using your current sign. Change your sign at the + − × ÷ stones on the islands (stand at one and press UP) — it then vanishes and pops up somewhere else! ÷ only works when it divides evenly. Hold LEFT/RIGHT on a vine to swing to the next vine. Climbers are solid: you cannot climb through each other. Hit the target EXACTLY to win the round! Grabbed numbers grow back as new ones. Five rounds: easy sums, times, mixed, big numbers — and finally a NEGATIVE target. Fall in the water and you swim back.',
   who(m) { return DU.pair(m); } });
 ncDef({ id: 'numclimb4', name: 'Number Climb Party', type: 'Wits',
-  how: 'Everyone climbs at once! The host holds up a TARGET number. Climb the vines and grab hanging numbers 1–9 — each is applied to your total with your current sign. Stand at a + − × ÷ stone by the water and press UP to change sign (÷ only when it divides evenly). First to hit the target EXACTLY wins the round. Five rounds getting harder, ending with a NEGATIVE target. Bump rivals off your vine and mind the water!',
+  how: 'Everyone climbs at once! The host holds up a TARGET number. Climb the vines and grab hanging numbers 1–9 — each is applied to your total with your current sign. Stand at a + − × ÷ stone and press UP to change sign — the stone then pops up somewhere else (÷ only when it divides evenly). Swing between vines with LEFT/RIGHT; climbers block each other, so get out of the way! First to hit the target EXACTLY wins the round. Five rounds getting harder, ending with a NEGATIVE target. Bump rivals off your vine and mind the water!',
   who() { return [0, 1, 2, 3]; } });
