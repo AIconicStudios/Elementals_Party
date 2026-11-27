@@ -161,7 +161,7 @@ Object.assign(BoardGame.prototype, {
 
   // ------------------------------------------------------------------ one player's turn: one item, one purchase
   async turn(i) {
-    const p = this.P(i); Board.focus = i; Board.current = i; Board.cam.z = 1.05; this.bought = false; this.turnItem = false;
+    const p = this.P(i); Board.focus = i; Board.current = i; Board.cam.z = 1.4; this.bought = false; this.turnItem = false;
     await Board.banner(`${p.name}'s turn`, '', 800, true);
     let roll = null;
     while (roll === null) {

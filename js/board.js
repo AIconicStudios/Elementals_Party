@@ -646,11 +646,13 @@ const Board = {
     if (this.paused) this.drawPause(g);
   },
   drawToken(g, p, x, y, hop, t, face = 1) {
-    const cur = this.current === p.i, s = 66;
+    const cur = this.current === p.i, s = 72;
     const sh = g.createRadialGradient(x + 8, y + 6, 2, x + 8, y + 6, 32 - hop * 0.2); sh.addColorStop(0, 'rgba(0,0,0,0.42)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.beginPath(); g.ellipse(x + 8, y + 6, 32 - hop * 0.2, 11, 0, 0, 7); g.fill();
     if (cur) { MGH.glow(g, x, y + 2, 44, p.color + '55'); g.strokeStyle = p.color; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 38 + Math.sin(t * 6) * 3, 15, 0, 0, 7); g.stroke(); }
-    Char.draw(g, x, y - 62 - hop + Math.sin(t * 2.4 + p.i) * 1.5, s * 0.62, p.el.id, p.color, { mood: MGH.persona(p.mood || (cur ? 'happy' : 'neutral'), p.el.id), seed: p.i * 1.7, look: { x: face * 0.6, y: 0.2 }, t: t + p.i, walk: hop > 0 ? 1 : 0, noShadow: true });
-    if (cur) { const ay = y - 150 - hop + Math.sin(t * 5) * 4; g.fillStyle = p.color; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 12, ay); g.lineTo(x + 12, ay); g.lineTo(x, ay + 14); g.closePath(); g.fill(); g.stroke(); }
+    g.save();
+    Char.draw(g, x, y - 68 - hop + Math.sin(t * 2.4 + p.i) * 1.5, s * 0.62, p.el.id, p.color, { mood: MGH.persona(p.mood || (cur ? 'happy' : 'neutral'), p.el.id), seed: p.i * 1.7, look: { x: face * 0.6, y: 0.2 }, t: t + p.i, walk: hop > 0 ? 1 : 0, noShadow: true });
+    g.restore();
+    if (cur) { const ay = y - 162 - hop + Math.sin(t * 5) * 4; g.fillStyle = p.color; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 12, ay); g.lineTo(x + 12, ay); g.lineTo(x, ay + 14); g.closePath(); g.fill(); g.stroke(); }
   },
   drawHUD(g, t) {
     const G = this.game, tod = BD.TOD[G.tod];

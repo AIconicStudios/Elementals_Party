@@ -357,7 +357,7 @@
     if (L.golden > 0.01) { g.save(); g.globalCompositeOperation = 'soft-light'; g.fillStyle = `rgba(255,120,30,${0.75 * L.golden})`; g.fillRect(0, 0, 1280, 720); g.globalCompositeOperation = 'multiply'; const gr = g.createLinearGradient(0, 0, 1280, 720); gr.addColorStop(0, `rgba(255,230,170,${0.35 * L.golden})`); gr.addColorStop(1, `rgba(230,120,120,${0.45 * L.golden})`); g.fillStyle = gr; g.fillRect(0, 0, 1280, 720); g.restore();
       g.save(); g.globalCompositeOperation = 'lighter'; MGH.glow(g, 60, 40, 520, `rgba(255,170,80,${0.22 * L.golden})`); g.restore(); }
     if (L.night > 0.01) {
-      g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgba(${Math.round(255 - 185 * L.night)},${Math.round(255 - 160 * L.night)},${Math.round(255 - 70 * L.night)},1)`; g.fillRect(0, 0, 1280, 720); g.restore();
+      g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgba(${Math.round(255 - 125 * L.night)},${Math.round(255 - 105 * L.night)},${Math.round(255 - 40 * L.night)},1)`; g.fillRect(0, 0, 1280, 720); g.restore();
       g.save(); g.globalCompositeOperation = 'lighter';
       const pools = BD.HOLDS.map(h => ({ x: h.x, y: h.y - 40, r: 130, c: '255,190,100' })).concat(BD.spaces.filter(s => s.type === 'bank').map(s => ({ x: s.x + (s.side === 1 ? 92 : s.side === 3 ? -92 : 0), y: s.y + (s.side === 0 ? -80 : s.side === 2 ? 70 : 0), r: 120, c: '255,200,120' })))
         .concat(B.tok.map(T => ({ x: T.x, y: T.y - 30, r: 90, c: '255,220,170' })))

@@ -10,6 +10,10 @@
   NC.SITES = NC.SLOTS;
   NC.GY = 622; NC.TOP = 196; NC.BOT = 520;
   NC.PLAT = [[585, 695, 330], [570, 710, 462]];
+  NC.ROPES = [];
+  [190, 300, 410, 520, 760, 870, 980, 1090].forEach(c => NC.ROPES.push(c - 22, c + 22));
+  // numbers sit on single chains at staggered heights, so you can switch chains to dodge the ones you don't want
+  NC.makeTags = () => { const T = [], H = [0.08, 0.32, 0.56, 0.8, 1.0]; NC.ROPES.forEach((rx, r) => { [r % 5, (r + 2) % 5].forEach(k => T.push({ r, x: rx, y: NC.TOP + 40 + H[k] * (NC.BOT - NC.TOP - 30), v: R.int(1, 9), t: 0, sw: R.range(0, 6) })); }); return T; };
 
   // ---------------------------------------------------------------- the NES palette and pixel helpers
   const P = { brick: '#c84c0c', brickHi: '#fca044', brickLo: '#7c0800', grass: '#00a800', grassHi: '#b8f818', dirt: '#a85010', dirtLo: '#503000', water: '#0000a8', waterHi: '#3cbcfc', white: '#fcfcfc', green: '#b8f818', chain: '#ac7c00', chainHi: '#fcd800' };
@@ -48,7 +52,7 @@
   NCART.branch = () => {};
   // twin chains: alternating gold links, a hook at the top
   NCART.vine = (g, rx, r, t) => {
-    for (const sd of [-11, 11]) { const x = rx + sd; g.fillStyle = P.brickLo; g.fillRect(x - 5, NC.TOP - 22, 10, 8);
+    for (const sd of [0]) { const x = rx + sd; g.fillStyle = P.brickLo; g.fillRect(x - 5, NC.TOP - 22, 10, 8);
       for (let y = NC.TOP - 14, k = 0; y < NC.BOT + 46; y += U * 1.5, k++) { g.fillStyle = k % 2 ? P.chain : P.chainHi; if (k % 2) g.fillRect(x - 2, y, 4, U * 1.5); else { g.fillRect(x - 4, y, 8, U * 1.5); g.fillStyle = '#000'; g.fillRect(x - 1, y + 2, 2, U * 1.5 - 4); } } }
   };
   // floating grass platforms with dangling roots
@@ -69,13 +73,15 @@
 
   ['numclimb', 'numclimb4'].forEach(id => {
     const G = MG.byId[id]; if (!G) return;
+    const oi = G.init;
+    G.init = function (m, S) { oi.call(this, m, S); S.tags = NC.makeTags(); };
     const nr = G.newRound;
     G.newRound = function (m, S) {
       nr.call(this, m, S); place(S);
-      const starts = S.who.length === 2 ? [1178, 563] : [1150, 1205, 535, 590];
+      const starts = S.who.length === 2 ? [1178, 580] : [1150, 1205, 560, 600];
       S.who.forEach((i, k) => { const P2 = S.p[i]; P2.x = starts[k]; P2.y = NC.GY; P2.face = -1; });
     };
-    G.rows = [['stick', 'Climb · LEFT/RIGHT on a vine = move across to the next vine · UP at a sign = take it'], ['a', 'Jump']];
+    G.rows = [['stick', 'Climb · LEFT/RIGHT = move across to the next chain (dodge numbers you don\'t want) · UP at a sign = take it'], ['a', 'Jump']];
     G.draw = function (m, S, g) {
       const t = m.t;
       GX.blit(g, GX.bake('numclimb_retro', b => NCART.bg(b)));

@@ -29,6 +29,7 @@ const NC = {
     return -R.int(6, 21);
   },
   apply(tot, op, v) { if (op === '+') return tot + v; if (op === '−') return tot - v; if (op === '×') return tot * v; if (op === '÷') return tot % v === 0 ? tot / v : null; return tot; },
+  near(r, d) { const rx = this.ROPES[r]; let best = -1, bd = 1e9; this.ROPES.forEach((qx, q) => { const dd = (qx - rx) * d; if (q !== r && dd > 0 && dd < 130 && dd < bd) { bd = dd; best = q; } }); return best; },
   islandAt(x) { return this.ISL.find(([a, b]) => x >= a && x <= b); },
   standOn(x, y) { return (Math.abs(y - this.GY) < 1 && this.islandAt(x)) || this.PLAT.some(([a, b, py]) => x >= a && x <= b && Math.abs(y - py) < 1); },
 };
@@ -203,7 +204,7 @@ const ncDef = (spec) => MG.def(Object.assign({
         P.y = ny; if (cy) P.clim += dt * 7;
         // swing across to the neighbouring vine (left/right), unless someone is hanging there
         const sx = Math.abs(a.x) > 0.6 && Math.abs(a.y) < 0.5 ? Math.sign(a.x) : 0;
-        if (sx && !m.pressed(i, 'a')) { const nb = NC.ROPES.findIndex((qx, r) => r !== P.rope && Math.sign(qx - rx) === sx && Math.abs(qx - rx) < 130);
+        if (sx && !m.pressed(i, 'a')) { const nb = NC.near(P.rope, sx);
           if (nb >= 0 && !S.who.some(j => j !== i && S.p[j].fall <= 0 && ((S.p[j].st === 'rope' && S.p[j].rope === nb) || (S.p[j].st === 'swing' && S.p[j].sw.to === nb)) && Math.abs(S.p[j].y - P.y) < 46)) { P.st = 'swing'; P.sw = { from: P.rope, to: nb, t: 0 }; P.face = sx; if (!m.bot(i)) Sfx.whoosh(); return; } }
         if (m.pressed(i, 'a')) { P.st = 'air'; P.vy = -380; P.vx = (Math.abs(a.x) > 0.3 ? Math.sign(a.x) : P.face) * 250; P.rope = -1; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); }
         else if (cy > 0 && P.y >= NC.BOT + 36) { P.st = 'air'; P.vy = 0; P.vx = 0; P.rope = -1; }
@@ -220,13 +221,13 @@ const ncDef = (spec) => MG.def(Object.assign({
           const I = NC.islandAt(P.x); if (I && P.vy > 0 && py <= NC.GY && P.y >= NC.GY) { P.y = NC.GY; P.vy = 0; P.st = 'ground'; }
           NC.PLAT.forEach(([a, b, y]) => { if (P.st === 'air' && P.x >= a && P.x <= b && P.vy > 0 && py <= y && P.y >= y) { P.y = y; P.vy = 0; P.st = 'ground'; } });
           // grab a vine when you touch it while holding up (or while jumping up through it)
-          const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 20); if (r >= 0 && P.bump <= 0 && P.y - 40 > NC.TOP && P.y - 40 < NC.BOT + 10 && (a.y < -0.3 || P.vy < 0)) { P.st = 'rope'; P.rope = r; P.vx = P.vy = 0; }
+          const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 14); if (r >= 0 && P.bump <= 0 && P.y - 40 > NC.TOP && P.y - 40 < NC.BOT + 10 && (a.y < -0.3 || P.vy < 0)) { P.st = 'rope'; P.rope = r; P.vx = P.vy = 0; }
           if (P.y > 660) { P.fall = 1.3; S.fx.push({ k: 'splash', x: P.x, t: 0 }); if (!m.bot(i)) Sfx.noise(0.3, 900, 0.08, 'lowpass'); }
         }
-        if (P.st === 'ground') { const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 18); if (r >= 0 && a.y < -0.5) { P.st = 'rope'; P.rope = r; P.y = Math.min(P.y, NC.BOT + 40); } }
+        if (P.st === 'ground') { const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 14); if (r >= 0 && a.y < -0.5) { P.st = 'rope'; P.rope = r; P.y = Math.min(P.y, NC.BOT + 40); } }
       }
       // grab numbers (reach from the vine or mid-jump)
-      if (P.st !== 'ground') S.tags.forEach(t => { if (t.t > 0 || Math.abs(t.x - P.x) > 30 || Math.abs(t.y - (P.y - 46)) > 34) return; const res = NC.apply(P.tot, P.op, t.v);
+      if (P.st !== 'ground') S.tags.forEach(t => { if (t.t > 0 || Math.abs(t.x - P.x) > 16 || Math.abs(t.y - (P.y - 46)) > 34) return; const res = NC.apply(P.tot, P.op, t.v);
         if (res === null) { if (P.nope <= 0) { P.nope = 0.6; P.last = `${P.tot} ÷ ${t.v} ✖`; P.lastT = 1.2; if (!m.bot(i)) Sfx.bad(); } return; }
         P.last = `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -199, 199); t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
         if (P.tot === S.target) this.roundWin(m, S, i, false); });
@@ -261,7 +262,7 @@ const ncDef = (spec) => MG.def(Object.assign({
     const v = m.vin[i], P = S.p[i];
     if (P.st === 'rope') { const dx = tx - P.x; if (ground || Math.abs(dx) > 30) { // leave the vine toward the target
         if (ground) { v.ay = 1; if (P.y > NC.BOT) { v.a = true; v.ax = Math.sign(dx) || 1; } return; }
-        const nb = NC.ROPES.findIndex((rx, r) => r !== P.rope && Math.sign(rx - P.x) === Math.sign(dx) && Math.abs(rx - P.x) < 130); if (nb >= 0) { v.ax = Math.sign(dx); v.ay = ty < P.y - 20 ? -0.3 : ty > P.y + 20 ? 0.3 : 0; } else { v.ay = 1; if (P.y > NC.BOT) { v.a = true; v.ax = Math.sign(dx); } } return; }
+        const nb = NC.near(P.rope, Math.sign(dx)); if (nb >= 0) { v.ax = Math.sign(dx); v.ay = ty < P.y - 20 ? -0.3 : ty > P.y + 20 ? 0.3 : 0; } else { v.ay = 1; if (P.y > NC.BOT) { v.a = true; v.ax = Math.sign(dx); } } return; }
       v.ay = ty < P.y - 6 ? -1 : ty > P.y + 6 ? 1 : 0; return; }
     if (P.st === 'air') { v.ax = Math.sign(tx - P.x) * 0.8; v.ay = ground ? 0 : -1; return; }
     // on the ground: walk to the right island, jump gaps, then climb
@@ -291,7 +292,7 @@ const ncDef = (spec) => MG.def(Object.assign({
       return; }
     if (P.st === 'rope') { // hand over hand: arms take turns reaching up, feet hug the vine
       const ph = Math.sin(P.clim), ph2 = Math.cos(P.clim);
-      Char.draw(g, P.x, P.y - 30, r, p.el.id, p.color, { mood: MGH.persona('determined', p.el.id), seed: i * 1.7, noShadow: true, look: { x: P.face * 0.5, y: -0.4 }, hands: { n: { x: -0.5, y: -1.35 + ph * 0.3, d: -90, o: false, m: true }, f: { x: 0.5, y: -1.35 - ph * 0.3, d: -90, o: false, m: false } }, feet: [{ x: -0.35, lift: 0.15 + ph2 * 0.1, tip: 0.4 }, { x: 0.35, lift: 0.3 - ph2 * 0.1, tip: 0.4 }] });
+      Char.draw(g, P.x, P.y - 30, r, p.el.id, p.color, { mood: MGH.persona('determined', p.el.id), seed: i * 1.7, noShadow: true, look: { x: P.face * 0.5, y: -0.4 }, hands: { n: { x: -0.12, y: -1.4 + ph * 0.3, d: -90, o: false, m: true }, f: { x: 0.12, y: -1.1 - ph * 0.3, d: -90, o: false, m: false } }, feet: [{ x: -0.2, lift: 0.15 + ph2 * 0.1, tip: 0.4 }, { x: 0.35, lift: 0.3 - ph2 * 0.1, tip: 0.4 }] });
       return; }
     const air = P.st === 'air';
     Char.draw(g, P.x, P.y - 28, r, p.el.id, p.color, { mood: MGH.persona(air ? 'cheer' : 'happy', p.el.id), seed: i * 1.7, look: { x: P.face, y: 0 }, walk: !air && Math.abs(P.vx) > 30 ? 1 : 0, hands: air ? { n: { x: -0.4, y: -1.5, d: -90, o: true, m: true }, f: { x: 1.0, y: -0.9, d: -40, o: true, m: false } } : undefined });
