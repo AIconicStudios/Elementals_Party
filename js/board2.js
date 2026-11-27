@@ -186,7 +186,9 @@ Object.assign(BoardGame.prototype, {
       this.chk();
       const opts = [{ label: '🎲 Roll the dice', value: 'roll' }];
       if (!this.turnItem) for (const id of [...new Set(p.items)]) { const it = BD.ITEMS[id]; if (it.kind === 'raid' || it.kind === 'pass') continue; if (it.kind === 'snare' && (BD.spaces[p.pos].type === 'gate' || BD.spaces[p.pos].type === 'bank' || this.traps[p.pos])) continue; opts.push({ label: `${it.icon} ${it.kind === 'install' ? 'Install' : it.kind === 'snare' ? 'Set' : 'Use'} ${it.name}`, value: id, desc: it.desc }); }
+      if (p.human) opts.push({ label: '🗺️ Look at the map', value: 'map', desc: 'Look around the whole board.' }, { label: '📖 Help · spaces · items', value: 'help', desc: 'What every space, item, guardian and dice does.' });
       const v = opts.length === 1 ? 'roll' : await Board.ask(i, `${p.name}'s turn${this.turnItem ? ' (item used)' : ''}`, opts, () => BoardAI.turnPick(this, i));
+      if (v === 'map' || v === 'help') { await Board.openOverlay(v); continue; }
       if (v === 'roll') { roll = await this.roll(i); break; }
       const before = p.items.length; await this.useItem(i, v); if (p.items.length < before) this.turnItem = true;
     }
