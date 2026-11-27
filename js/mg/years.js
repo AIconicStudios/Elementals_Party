@@ -19,7 +19,7 @@
   const colSky = (x, j) => { const s = season(x), q = s.q > 0.8 ? (s.q - 0.8) / 0.2 : 0; return lerpC(s.S.sky[j], s.N.sky[j], q); };
 
   function zombie(g, x, y, t, k, hit) {
-    const sh = Math.sin(t * 5 + k), sw = sh * 0.1; g.save(); g.translate(x, y); if (hit) g.rotate(hit * 3); g.scale(1.25, 1.25);
+    const sh = Math.sin(t * 5 + k), sw = sh * 0.1; g.save(); g.translate(x, y); if (hit) g.rotate(hit * 3); g.scale(0.7, 0.7);
     g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0, 2, 18, 5, 0, 0, 7); g.fill();
     // shuffling legs and torn trousers
     g.fillStyle = '#4a4a6a'; g.save(); g.translate(-5, -18); g.rotate(sh * 0.25); MGH.rr(g, -4, 0, 9, 18, 3); g.fill(); g.restore(); g.save(); g.translate(5, -18); g.rotate(-sh * 0.25); MGH.rr(g, -4, 0, 9, 18, 3); g.fill(); g.restore();
@@ -33,7 +33,9 @@
     g.fillStyle = '#8ac87a'; g.beginPath(); g.arc(-27, -40 + Math.sin(t * 4) * 3, 5, 0, 7); g.arc(-23, -32 + Math.sin(t * 4 + 1) * 3, 5, 0, 7); g.fill();
     // head: green, lopsided, stitches, messy hair, glowing eyes
     const hg = g.createRadialGradient(-5, -66, 2, 0, -60, 17); hg.addColorStop(0, '#b8f0a0'); hg.addColorStop(1, '#6aa85a'); g.fillStyle = hg; g.beginPath(); g.ellipse(0, -60, 16, 15, 0.1, 0, 7); g.fill();
-    g.fillStyle = '#3a4a2a'; for (let q = 0; q < 5; q++) { g.beginPath(); g.moveTo(-12 + q * 6, -72); g.lineTo(-9 + q * 6, -82 - (q % 2) * 4); g.lineTo(-6 + q * 6, -72); g.fill(); }
+    // scruffy hair cap hugging the top of the head, with a few tufts
+    g.fillStyle = '#3a4a2a'; g.beginPath(); g.ellipse(0, -66, 16.5, 10, 0.1, Math.PI * 1.02, Math.PI * 1.98); g.quadraticCurveTo(10, -66, 0, -68); g.quadraticCurveTo(-10, -66, -16, -64); g.fill();
+    for (const [hx, a2, l] of [[-10, -0.5, 6], [-4, -0.15, 7], [3, 0.2, 6], [9, 0.55, 5]]) { const by = -60 - Math.sqrt(Math.max(0, 1 - (hx / 16.5) ** 2)) * 15 + 2; g.beginPath(); g.moveTo(hx - 3, by); g.lineTo(hx + Math.sin(a2) * l, by - Math.cos(a2) * l); g.lineTo(hx + 3, by); g.fill(); }
     g.fillStyle = '#2a1a2a'; g.beginPath(); g.ellipse(-7, -62, 5, 4.5, 0, 0, 7); g.ellipse(5, -61, 4, 3.5, 0, 0, 7); g.fill();
     MGH.glow(g, -7, -62, 8, 'rgba(255,230,80,0.6)'); g.fillStyle = '#ffe050'; g.beginPath(); g.arc(-7, -62, 2, 0, 7); g.arc(5, -61, 1.6, 0, 7); g.fill();
     g.strokeStyle = '#2a3a1a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-8, -52); g.lineTo(-4, -54); g.lineTo(0, -52); g.lineTo(4, -54); g.lineTo(8, -52); g.stroke();

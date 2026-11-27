@@ -60,14 +60,14 @@ MG.def({
   how: 'Race your little comet through the asteroid belt! Steer UP and DOWN in your lane to dodge the rocks and scoop up blue stardust — it fills your boost bar. Press A to BOOST when it\'s full. Hitting a rock slows you right down. First to the space station wins!',
   wins: 'First to the finish.',
   LEN: 9000,
-  init(m, S) { S.rocks = []; for (let x = 800; x < this.LEN; x += R.range(150, 260)) S.rocks.push({ x, y: R.range(0.08, 0.92), r: R.range(0.06, 0.1), dust: Math.random() < 0.45 }); S.p = [0, 1, 2, 3].map(() => ({ x: 0, y: 0.5, v: 420, boost: 0, bt: 0, hit: 0, fin: 0, got: new Set() })); },
+  init(m, S) { S.rocks = []; for (let x = 800; x < this.LEN; x += R.range(110, 200)) S.rocks.push({ x, y: R.range(0.08, 0.92), r: R.range(0.07, 0.12), dust: Math.random() < 0.35 }); S.p = [0, 1, 2, 3].map(() => ({ x: 0, y: 0.5, v: 420, boost: 0, bt: 0, hit: 0, fin: 0, got: new Set() })); },
   update(m, S, dt) {
     S.p.forEach((P, i) => {
       if (P.fin) return;
       P.hit -= dt; P.bt -= dt;
-      const ay = m.axis(i).y; P.y = clamp(P.y + ay * 1.6 * dt, 0.06, 0.94);
+      const ay = m.axis(i).y; P.y = clamp(P.y + ay * 1.3 * dt, 0.06, 0.94);
       if (m.pressed(i, 'a') && P.boost >= 1) { P.boost = 0; P.bt = 1.6; Sfx.whoosh(true); }
-      const target = P.hit > 0 ? 260 : P.bt > 0 ? 840 : 470; P.v += (target - P.v) * 2.5 * dt; P.x += P.v * dt;
+      const target = P.hit > 0 ? 160 : P.bt > 0 ? 820 : 460; P.v += (target - P.v) * 2.5 * dt; P.x += P.v * dt;
       S.rocks.forEach((r, k) => { if (Math.abs(r.x - P.x) > 30) return; if (Math.abs(r.y - P.y) < r.r * 0.8) { if (r.dust) { if (!P.got.has(k)) { P.got.add(k); P.boost = Math.min(1, P.boost + 0.34); Sfx.tone(1200, 0.04, 'sine', 0.03); } } else if (P.hit <= 0 && P.bt <= 0) { P.hit = 0.8; Sfx.thud(); } } });
       if (P.x >= this.LEN) { P.fin = m.t; Sfx.coin(); }
     });

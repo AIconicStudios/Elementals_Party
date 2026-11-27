@@ -21,6 +21,8 @@ window.addEventListener('load', () => {
   q('mgPauseBtn').onclick = () => MG.onPauseClick && MG.onPauseClick();
   q('mgResume').onclick = () => { MG.paused = false; MG.pauseUI(false); };
   q('mgSkipPr').onclick = () => MG.onSkipPractice && MG.onSkipPractice();
+  q('mgHow').onclick = () => { MG.paused = false; MG.pauseUI(false); MG.howOpen = true; MG.howT = 0; };
+  window.addEventListener('keydown', e => { if (e.key === 'F1' && !e.repeat) { MG.howKey = true; e.preventDefault(); } });
   q('mgQuit').onclick = () => MG.onQuitClick && MG.onQuitClick();
   // browsers only start audio after a click or key press
   const unlock = () => { Sfx.init(); if (Sfx.ctx && Sfx.ctx.state === 'suspended') Sfx.ctx.resume(); Music.refresh(); };

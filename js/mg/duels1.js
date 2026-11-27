@@ -14,11 +14,13 @@ const DU = {
 // Climb the vines and grab hanging numbers 1–9; touch the + − × ÷ stones by the water to change what a number does.
 // Hit the host's target EXACTLY to win the round. Five rounds: easy sums → times → mixed → big → negative.
 const NC = {
-  ISL: [[60, 300], [400, 600], [700, 880], [980, 1220]],       // islands [x0, x1] (top at y 600)
-  ROPES: [140, 240, 450, 550, 750, 830, 1050, 1150],           // vine x positions (from y 150 to 545)
-  OPS: [{ x: 270, o: '+' }, { x: 500, o: '−' }, { x: 790, o: '×' }, { x: 1100, o: '÷' }],
-  TOP: 150, BOT: 545, GY: 600,
-  SITES: [95, 190, 285, 425, 500, 585, 720, 790, 865, 1005, 1100, 1195],
+  // the classic layout: a stone ledge on top, four pairs of twin vines each side, floating platforms in the middle,
+  // and a row of little islands over the water at the bottom where the + − × ÷ signs stand
+  ISL: [[30, 205], [285, 435], [515, 765], [845, 995], [1075, 1250]], // islands [x0, x1] (top at GY)
+  ROPES: [190, 300, 410, 520, 760, 870, 980, 1090],                    // centre of each twin-vine pair
+  PLAT: [[585, 695, 330], [570, 710, 465]],                            // floating platforms [x0, x1, y]
+  TOP: 200, BOT: 520, GY: 620,
+  SITES: [80, 130, 355, 595, 685, 920, 1150, 1210],
   target(round) {
     if (round === 0) return R.int(9, 18);
     if (round === 1) return R.pick([24, 27, 28, 32, 35, 36, 42, 45, 48]);
@@ -28,6 +30,7 @@ const NC = {
   },
   apply(tot, op, v) { if (op === '+') return tot + v; if (op === '−') return tot - v; if (op === '×') return tot * v; if (op === '÷') return tot % v === 0 ? tot / v : null; return tot; },
   islandAt(x) { return this.ISL.find(([a, b]) => x >= a && x <= b); },
+  standOn(x, y) { return (Math.abs(y - this.GY) < 1 && this.islandAt(x)) || this.PLAT.some(([a, b, py]) => x >= a && x <= b && Math.abs(y - py) < 1); },
 };
 // ---------------------------------------------------------------- Number Climb art: a sunset jungle lagoon
 const NCART = {
@@ -73,7 +76,7 @@ const NCART = {
     g.fillStyle = '#6a4a22'; for (let q = 0; q < 3; q++) { g.beginPath(); g.arc(tx - 6 + q * 6, ty + 6, 5, 0, 7); g.fill(); }
   },
   islands(g, t) {
-    const PAL = [[72, -0.5], [588, 0.6], [872, 0.55], [1212, 0.5]];
+    const PAL = [[48, -0.5], null, null, null, [1236, 0.5]];
     NC.ISL.forEach(([a, b], k) => {
       const y = NC.GY;
       g.fillStyle = 'rgba(20,60,110,0.35)'; g.beginPath(); g.ellipse((a + b) / 2, y + 44, (b - a) / 2 + 18, 9, 0, 0, 7); g.fill();
@@ -88,7 +91,7 @@ const NCART = {
       // rocks and a shell
       g.fillStyle = '#8a8a96'; g.beginPath(); g.ellipse(b - 14, y + 30, 12, 8, 0, 0, 7); g.fill(); g.fillStyle = '#a8a8b4'; g.beginPath(); g.ellipse(b - 17, y + 27, 6, 3, 0, 0, 7); g.fill();
       g.fillStyle = '#ffc8d8'; g.beginPath(); g.moveTo(a + 18, y + 30); g.arc(a + 18, y + 30, 7, Math.PI, 0); g.fill(); g.strokeStyle = '#e898b0'; g.lineWidth = 1; for (let q = -2; q <= 2; q++) { g.beginPath(); g.moveTo(a + 18, y + 30); g.lineTo(a + 18 + q * 3, y + 24); g.stroke(); }
-      const [px, lean] = PAL[k]; this.palm(g, px, y - 2, lean, t, 110 + k * 6);
+      if (PAL[k]) { const [px, lean] = PAL[k]; this.palm(g, px, y - 2, lean, t, 104); }
     });
   },
   totem(g, x, y, op, used, t) {
@@ -119,12 +122,32 @@ const NCART = {
       g.fillStyle = '#ffd34d'; g.beginPath(); g.ellipse(x - 4 * look, y + 2 + b, 6, 10, 0.2 * look, 0, 7); g.fill(); g.fillStyle = '#3a8ae8'; g.beginPath(); g.moveTo(x - 4, y + 10 + b); g.lineTo(x - 8 * look, y + 30 + b); g.lineTo(x + 2, y + 12 + b); g.fill();
       g.fillStyle = '#f4e8c8'; g.beginPath(); g.moveTo(x + 9 * look, y - 15 + b); g.quadraticCurveTo(x + 16 * look, y - 12 + b, x + 9 * look, y - 7 + b); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x + 4 * look, y - 16 + b, 3, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(x + 5 * look, y - 16 + b, 1.6, 0, 7); g.fill(); }
   },
+  // a pair of twin vines (you climb with a hand on each), with leaves and the odd flower
   vine(g, rx, r, t) {
-    const sw = Math.sin(t * 1.3 + r) * 4, X = y => rx + sw * Math.sin((y - NC.TOP + 30) / (NC.BOT - NC.TOP + 70) * Math.PI);
-    g.lineCap = 'round'; g.strokeStyle = '#2a6a22'; g.lineWidth = 8; g.beginPath(); g.moveTo(rx, NC.TOP - 40); for (let y = NC.TOP - 40; y <= NC.BOT + 40; y += 20) g.lineTo(X(y), y); g.stroke();
-    g.strokeStyle = '#5aa83a'; g.lineWidth = 3; g.stroke(); g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(rx - 2, NC.TOP - 40); for (let y = NC.TOP - 40; y <= NC.BOT + 40; y += 20) g.lineTo(X(y) - 2, y); g.stroke(); g.lineCap = 'butt';
-    for (let y = NC.TOP - 20; y < NC.BOT + 34; y += 30) { const s = (y / 30 | 0) % 2 ? 1 : -1, lx = X(y); g.save(); g.translate(lx, y); g.rotate(s * 0.7 + Math.sin(t * 2 + y) * 0.1); g.fillStyle = '#3a9a32'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(s * 9, -7, s * 18, 0); g.quadraticCurveTo(s * 9, 7, 0, 0); g.fill(); g.fillStyle = '#6ad04a'; g.beginPath(); g.moveTo(s * 4, -1); g.quadraticCurveTo(s * 10, -5, s * 17, 0); g.quadraticCurveTo(s * 10, -1, s * 4, -1); g.fill(); g.restore(); }
-    if (r % 3 === 0) { const fy = NC.TOP + 90 + r * 20; g.fillStyle = '#ff8ac8'; for (let p = 0; p < 5; p++) { const a = p / 5 * 6.28; g.beginPath(); g.arc(X(fy) + 6 + Math.cos(a) * 4, fy + Math.sin(a) * 4, 3, 0, 7); g.fill(); } g.fillStyle = '#fff2a0'; g.beginPath(); g.arc(X(fy) + 6, fy, 2, 0, 7); g.fill(); }
+    for (const sd of [-11, 11]) {
+      const sw = Math.sin(t * 1.3 + r + sd) * 2.5, X = y => rx + sd + sw * Math.sin((y - NC.TOP + 10) / (NC.BOT - NC.TOP + 60) * Math.PI);
+      g.lineCap = 'round'; g.strokeStyle = '#2a5a1e'; g.lineWidth = 6; g.beginPath(); g.moveTo(rx + sd, NC.TOP - 4); for (let y = NC.TOP - 4; y <= NC.BOT + 44; y += 16) g.lineTo(X(y), y); g.stroke();
+      g.strokeStyle = '#5aa83a'; g.lineWidth = 2.5; g.stroke(); g.lineCap = 'butt';
+      for (let y = NC.TOP + 14 + (sd > 0 ? 20 : 0); y < NC.BOT + 40; y += 40) { const s2 = sd > 0 ? 1 : -1, lx = X(y); g.save(); g.translate(lx, y); g.rotate(s2 * 0.8 + Math.sin(t * 2 + y) * 0.1); g.fillStyle = '#3a9a32'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(s2 * 7, -6, s2 * 14, 0); g.quadraticCurveTo(s2 * 7, 6, 0, 0); g.fill(); g.restore(); }
+    }
+    g.fillStyle = '#4a7a2a'; g.beginPath(); g.ellipse(rx, NC.BOT + 46, 14, 5, 0, 0, 7); g.fill();
+    if (r % 3 === 0) { const fy = NC.TOP + 70 + r * 18; g.fillStyle = '#ff8ac8'; for (let p = 0; p < 5; p++) { const a = p / 5 * 6.28; g.beginPath(); g.arc(rx - 11 + Math.cos(a) * 4, fy + Math.sin(a) * 4, 3, 0, 7); g.fill(); } g.fillStyle = '#fff2a0'; g.beginPath(); g.arc(rx - 11, fy, 2, 0, 7); g.fill(); }
+  },
+  // the long stone ledge along the top, raised in the middle where the host stands
+  ledge(g, t) {
+    const slab = (x0, x1, y, h) => { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x0, y + h, x1 - x0, 8); const sg = g.createLinearGradient(0, y, 0, y + h); sg.addColorStop(0, '#c8a878'); sg.addColorStop(0.4, '#9a7a52'); sg.addColorStop(1, '#5a4228'); g.fillStyle = sg; g.fillRect(x0, y, x1 - x0, h);
+      g.strokeStyle = 'rgba(40,25,10,0.45)'; g.lineWidth = 1.5; for (let x = x0; x < x1; x += 40) { g.beginPath(); g.moveTo(x + ((y / 10) % 2) * 20, y); g.lineTo(x + ((y / 10) % 2) * 20, y + h); g.stroke(); } g.beginPath(); g.moveTo(x0, y + h / 2); g.lineTo(x1, y + h / 2); g.stroke();
+      g.fillStyle = '#5ac040'; g.fillRect(x0, y - 6, x1 - x0, 8); g.fillStyle = '#7ad85a'; g.fillRect(x0, y - 6, x1 - x0, 3); for (let x = x0 + 6; x < x1; x += 13) { g.fillStyle = '#3a9a2a'; g.beginPath(); g.moveTo(x - 3, y - 4); g.lineTo(x, y - 12 - (x % 5)); g.lineTo(x + 3, y - 4); g.fill(); } };
+    slab(0, 572, 178, 24); slab(708, 1280, 178, 24); slab(562, 718, 132, 70);
+    for (const rx of NC.ROPES) for (const sd of [-11, 11]) { g.fillStyle = '#3a2a18'; g.beginPath(); g.arc(rx + sd, NC.TOP - 2, 4, 0, 7); g.fill(); }
+  },
+  // a floating grass platform with dangling roots
+  plat(g, a, b, y, t) {
+    g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse((a + b) / 2 + 6, y + 40, (b - a) / 2, 6, 0, 0, 7); g.fill();
+    const dg = g.createLinearGradient(0, y, 0, y + 26); dg.addColorStop(0, '#8a5a2e'); dg.addColorStop(1, '#4a2e14'); g.fillStyle = dg; g.beginPath(); g.moveTo(a, y); g.lineTo(b, y); g.quadraticCurveTo(b - 10, y + 22, (a + b) / 2, y + 28); g.quadraticCurveTo(a + 10, y + 22, a, y); g.fill();
+    g.strokeStyle = '#6a4a22'; g.lineWidth = 2; for (let q = 0; q < 5; q++) { const x = a + 16 + q * (b - a - 32) / 4, l = 16 + (q % 3) * 8; g.beginPath(); g.moveTo(x, y + 18); g.quadraticCurveTo(x + Math.sin(t * 1.5 + q) * 4, y + 18 + l / 2, x + Math.sin(t + q) * 3, y + 18 + l); g.stroke(); }
+    g.fillStyle = '#5ac040'; MGH.rr(g, a - 4, y - 8, b - a + 8, 12, 6); g.fill(); g.fillStyle = '#8ae86a'; MGH.rr(g, a, y - 8, b - a, 4, 2); g.fill();
+    for (let x = a + 6; x < b - 4; x += 12) { g.fillStyle = '#3a9a2a'; g.beginPath(); g.moveTo(x - 3, y - 5); g.lineTo(x, y - 13 - (x % 5)); g.lineTo(x + 3, y - 5); g.fill(); }
   },
   branch(g, t) {
     const bg = g.createLinearGradient(0, 108, 0, 136); bg.addColorStop(0, '#8a5a2e'); bg.addColorStop(1, '#4a2e14'); g.fillStyle = bg;
@@ -134,9 +157,9 @@ const NCART = {
   },
   // a hanging number "fruit": glossy, coloured by size, on a little stalk with a leaf
   tag(g, tg, t, a) {
-    const sw = Math.sin(t * 1.8 + tg.sw * 2) * 4, x = tg.x + 20 + sw, y = tg.y + 2, v = tg.v, cols = v <= 3 ? ['#9af07a', '#3aa83a'] : v <= 6 ? ['#ffd070', '#e8862a'] : ['#ff8aa8', '#c83a6a'];
+    const sw = Math.sin(t * 1.8 + tg.sw * 2) * 1.5, x = tg.x + sw, y = tg.y + 2, v = tg.v, cols = v <= 3 ? ['#9af07a', '#3aa83a'] : v <= 6 ? ['#ffd070', '#e8862a'] : ['#ff8aa8', '#c83a6a'];
     g.globalAlpha = a;
-    g.strokeStyle = '#4a7a2a'; g.lineWidth = 2; g.beginPath(); g.moveTo(tg.x + 3, y - 24); g.quadraticCurveTo(x - 6, y - 26, x, y - 17); g.stroke();
+    g.strokeStyle = '#4a7a2a'; g.lineWidth = 2; g.beginPath(); g.moveTo(tg.x - 11, y - 22); g.quadraticCurveTo(x, y - 30, x, y - 17); g.quadraticCurveTo(x, y - 30, tg.x + 11, y - 22); g.stroke();
     g.fillStyle = '#4aa83a'; g.beginPath(); g.ellipse(x + 7, y - 20, 7, 3.5, -0.5, 0, 7); g.fill();
     g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.arc(x + 2, y + 3, 17, 0, 7); g.fill();
     const fg = g.createRadialGradient(x - 6, y - 6, 2, x, y, 18); fg.addColorStop(0, cols[0]); fg.addColorStop(1, cols[1]); g.fillStyle = fg; g.beginPath(); g.arc(x, y, 17, 0, 7); g.fill();
@@ -147,17 +170,17 @@ const NCART = {
 };
 const ncDef = (spec) => MG.def(Object.assign({
   type: 'Duel', controls: 'Move + A', dur: 0,
-  rows: [['stick', 'Walk · climb · LEFT/RIGHT on a vine = swing to the next vine · UP at a sign = take it'], ['a', 'Jump (from vines too)']],
+  rows: [['stick', 'Walk · climb the twin vines · LEFT/RIGHT = reach to the next pair · UP at a sign = take it'], ['a', 'Jump (from vines too)']],
   wins: 'Most rounds won (5 rounds).',
   init(m, S) {
     S.who = this.who(m); S.round = 0; S.wins = [0, 0, 0, 0]; S.fx = [];
-    S.tags = []; NC.ROPES.forEach((rx, r) => { [0.25, 0.55, 0.85].forEach((f, k) => { if (k === 2 && r % 2) return; S.tags.push({ r, x: rx, y: NC.TOP + 40 + f * (NC.BOT - NC.TOP - 60), v: R.int(1, 9), t: 0, sw: R.range(0, 6) }); }); });
+    S.tags = []; NC.ROPES.forEach((rx, r) => { [0.1, 0.38, 0.66, 0.94].forEach((f, k) => { if ((k + r) % 4 === 3) return; S.tags.push({ r, x: rx, y: NC.TOP + 50 + f * (NC.BOT - NC.TOP - 40), v: R.int(1, 9), t: 0, sw: R.range(0, 6) }); }); });
     this.newRound(m, S);
   },
   newRound(m, S) {
     S.target = NC.target(S.round); S.ph = 'show'; S.pt = 0; S.winner = -1;
     { const sites = R.shuffle(NC.SITES.slice()); S.ops = ['+', '−', '×', '÷'].map((o, k) => ({ o, x: sites[k], t: 0, pop: 0 })); }
-    S.p = [0, 1, 2, 3].map(i => { const k = S.who.indexOf(i), x = k < 0 ? -999 : [180, 1100, 500, 790][k]; return { x, y: NC.GY, vx: 0, vy: 0, st: 'ground', rope: -1, tot: 0, op: '+', fall: 0, face: x < 640 ? 1 : -1, clim: 0, bump: 0, last: '', lastT: 0, nope: 0 }; });
+    S.p = [0, 1, 2, 3].map(i => { const k = S.who.indexOf(i), x = k < 0 ? -999 : [110, 1170, 600, 680][k]; return { x, y: NC.GY, vx: 0, vy: 0, st: 'ground', rope: -1, tot: 0, op: '+', fall: 0, face: x < 640 ? 1 : -1, clim: 0, bump: 0, last: '', lastT: 0, nope: 0 }; });
     S.tags.forEach(t => { t.v = R.int(1, 9); t.t = 0; });
   },
   update(m, S, dt) {
@@ -192,9 +215,10 @@ const ncDef = (spec) => MG.def(Object.assign({
         else P.vx += (a.x * 230 - P.vx) * Math.min(1, dt * 3);
         if (P.st === 'air') { P.vy += 1500 * dt; }
         P.x = clamp(P.x + P.vx * dt, 30, 1250); const py = P.y; P.y += (P.st === 'air' ? P.vy : 0) * dt;
-        if (P.st === 'ground' && !NC.islandAt(P.x)) { P.st = 'air'; P.vy = 0; }
+        if (P.st === 'ground' && !NC.standOn(P.x, P.y)) { P.st = 'air'; P.vy = 0; }
         if (P.st === 'air') {
           const I = NC.islandAt(P.x); if (I && P.vy > 0 && py <= NC.GY && P.y >= NC.GY) { P.y = NC.GY; P.vy = 0; P.st = 'ground'; }
+          NC.PLAT.forEach(([a, b, y]) => { if (P.st === 'air' && P.x >= a && P.x <= b && P.vy > 0 && py <= y && P.y >= y) { P.y = y; P.vy = 0; P.st = 'ground'; } });
           // grab a vine when you touch it while holding up (or while jumping up through it)
           const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 20); if (r >= 0 && P.bump <= 0 && P.y - 40 > NC.TOP && P.y - 40 < NC.BOT + 10 && (a.y < -0.3 || P.vy < 0)) { P.st = 'rope'; P.rope = r; P.vx = P.vy = 0; }
           if (P.y > 660) { P.fall = 1.3; S.fx.push({ k: 'splash', x: P.x, t: 0 }); if (!m.bot(i)) Sfx.noise(0.3, 900, 0.08, 'lowpass'); }
@@ -207,7 +231,7 @@ const ncDef = (spec) => MG.def(Object.assign({
         P.last = `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -199, 199); t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
         if (P.tot === S.target) this.roundWin(m, S, i, false); });
       // operator stones by the water
-      if (P.st === 'ground' && a.y < -0.5) S.ops.forEach(o => { if (o.t <= 0 && Math.abs(o.x - P.x) < 28 && P.op !== o.o) { P.op = o.o; o.t = 1.5; S.fx.push({ k: 'opgo', x: o.x, o: o.o, t: 0 }); if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04); } });
+      if (P.st === 'ground' && P.y === NC.GY && a.y < -0.5) S.ops.forEach(o => { if (o.t <= 0 && Math.abs(o.x - P.x) < 28 && P.op !== o.o) { P.op = o.o; o.t = 1.5; S.fx.push({ k: 'opgo', x: o.x, o: o.o, t: 0 }); if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04); } });
     });
     // climbers bump on a shared vine / crowd each other on islands (4-player)
     for (let x = 0; x < S.who.length; x++) for (let y = x + 1; y < S.who.length; y++) { const A = S.p[S.who[x]], B = S.p[S.who[y]]; if (A.fall > 0 || B.fall > 0) continue; if (Math.abs(A.x - B.x) < 26 && Math.abs(A.y - B.y) < 40) { if (A.st === 'ground' && B.st === 'ground') { const d = Math.sign(B.x - A.x) || 1, push = (26 - Math.abs(B.x - A.x)) / 2; A.x -= d * push; B.x += d * push; if (A.vx * d > 0) A.vx = 0; if (B.vx * d < 0) B.vx = 0; } } }
@@ -267,7 +291,7 @@ const ncDef = (spec) => MG.def(Object.assign({
       return; }
     if (P.st === 'rope') { // hand over hand: arms take turns reaching up, feet hug the vine
       const ph = Math.sin(P.clim), ph2 = Math.cos(P.clim);
-      Char.draw(g, P.x - 4, P.y - 30, r, p.el.id, p.color, { mood: MGH.persona('determined', p.el.id), seed: i * 1.7, noShadow: true, look: { x: P.face, y: -0.4 }, hands: { n: { x: 0.25, y: -1.45 + ph * 0.3, d: -90, o: false, m: true }, f: { x: 0.3, y: -0.95 - ph * 0.3, d: -90, o: false, m: false } }, feet: [{ x: 0.15, lift: 0.15 + ph2 * 0.1, tip: 0.4 }, { x: 0.3, lift: 0.3 - ph2 * 0.1, tip: 0.4 }] });
+      Char.draw(g, P.x, P.y - 30, r, p.el.id, p.color, { mood: MGH.persona('determined', p.el.id), seed: i * 1.7, noShadow: true, look: { x: P.face * 0.5, y: -0.4 }, hands: { n: { x: -0.5, y: -1.35 + ph * 0.3, d: -90, o: false, m: true }, f: { x: 0.5, y: -1.35 - ph * 0.3, d: -90, o: false, m: false } }, feet: [{ x: -0.35, lift: 0.15 + ph2 * 0.1, tip: 0.4 }, { x: 0.35, lift: 0.3 - ph2 * 0.1, tip: 0.4 }] });
       return; }
     const air = P.st === 'air';
     Char.draw(g, P.x, P.y - 28, r, p.el.id, p.color, { mood: MGH.persona(air ? 'cheer' : 'happy', p.el.id), seed: i * 1.7, look: { x: P.face, y: 0 }, walk: !air && Math.abs(P.vx) > 30 ? 1 : 0, hands: air ? { n: { x: -0.4, y: -1.5, d: -90, o: true, m: true }, f: { x: 1.0, y: -0.9, d: -40, o: true, m: false } } : undefined });
@@ -286,18 +310,17 @@ const ncDef = (spec) => MG.def(Object.assign({
     (S.ops || []).forEach(o => { if (o.t > 0) return; const k = o.pop > 0 ? 1 - o.pop / 0.4 : 1; g.save(); g.translate(o.x, NC.GY); g.scale(k, k); NCART.totem(g, 0, 0, o.o, S.who.some(i => S.p[i].op === o.o), t); g.restore(); if (o.pop > 0) for (let q = 0; q < 6; q++) MGH.star(g, o.x + Math.cos(q) * 30 * k, NC.GY - 30 + Math.sin(q) * 20 * k, 4, '#fff', q, false); });
     // canopy along the top, vines hang from it
     NCART.canopy(g, t);
-    NC.ROPES.forEach((rx, r) => NCART.vine(g, rx, r, t));
-    // the host's branch and target sign
-    NCART.branch(g, t);
-    Char.npc(g, 600, 86, 24, 'host', { mood: S.ph === 'won' ? 'cheer' : 'happy', t, look: { x: 1, y: 0 } });
+    NCART.ledge(g, t); NC.ROPES.forEach((rx, r) => NCART.vine(g, rx, r, t)); NC.PLAT.forEach(([a, b, y]) => NCART.plat(g, a, b, y, t));
+    // the host on the podium with the target sign
+    Char.npc(g, 598, 100, 24, 'host', { mood: S.ph === 'won' ? 'cheer' : 'happy', t, look: { x: 1, y: 0 } });
     const pulse = S.ph === 'show' ? 1 + Math.sin(t * 10) * 0.05 : 1;
-    g.save(); g.translate(700, 66); g.scale(pulse, pulse); g.rotate(Math.sin(t * 1.4) * 0.03);
+    g.save(); g.translate(672, 58); g.scale(pulse, pulse); g.rotate(Math.sin(t * 1.4) * 0.03);
     g.strokeStyle = '#7a5a2e'; g.lineWidth = 3; g.beginPath(); g.moveTo(-6, -50); g.lineTo(-30, -30); g.moveTo(86, -50); g.lineTo(110, -30); g.stroke();
     GX.plank(g, -36, -30, 152, 66, '#c8945a'); g.fillStyle = '#fffaf0'; MGH.rr(g, -26, -22, 132, 50, 8); g.fill();
     MGH.text(g, 'TARGET', 40, -9, 11, '#a87a3a', 'center', 'bold'); MGH.text(g, String(S.target), 40, 22, 32, S.target < 0 ? '#e8323e' : '#2a1a10', 'center', 'bold');
     g.restore();
-    g.fillStyle = 'rgba(40,20,10,0.6)'; MGH.rr(g, 572, 140, 136, 24, 12); g.fill(); MGH.text(g, `Round ${S.round + 1} of 5`, 640, 157, 14, '#ffe8b0', 'center', 'bold');
-    for (let q = 0; q < 5; q++) { g.fillStyle = q < S.round ? '#ffd34d' : q === S.round ? '#fff' : 'rgba(255,255,255,0.3)'; g.beginPath(); g.arc(612 + q * 14, 172, 4, 0, 7); g.fill(); }
+    g.fillStyle = 'rgba(40,20,10,0.6)'; MGH.rr(g, 572, 214, 136, 24, 12); g.fill(); MGH.text(g, `Round ${S.round + 1} of 5`, 640, 231, 14, '#ffe8b0', 'center', 'bold');
+    for (let q = 0; q < 5; q++) { g.fillStyle = q < S.round ? '#ffd34d' : q === S.round ? '#fff' : 'rgba(255,255,255,0.3)'; g.beginPath(); g.arc(612 + q * 14, 250, 4, 0, 7); g.fill(); }
     // hanging number fruit
     S.tags.forEach(tg => { let a = 1; if (tg.t > 0) { const k = 1 - tg.t / 2.2; if (k > 0.75) a = (k - 0.75) * 4; else return; } NCART.tag(g, tg, t, a); });
     // butterflies

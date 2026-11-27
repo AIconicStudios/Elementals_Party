@@ -691,7 +691,7 @@ const Char = {
     const posing = pp >= 0 && mood !== 'determined';
     if (el === 0) {
       res.lift = r * (0.12 + 0.08 * Math.sin(t * 2.2 + seed));
-      if (posing) { res.flip = Math.cos(pp * Math.PI * 2); res.lift += Math.sin(pp * Math.PI) * r * 0.3; res.pose = 'spin'; }
+      if (posing) { const cf = Math.cos(pp * Math.PI * 2); res.flip = (cf < 0 ? -1 : 1) * (0.84 + 0.16 * Math.abs(cf)); res.lift += Math.sin(pp * Math.PI) * r * 0.3; res.pose = 'spin'; }
     } else if (el === 1) {
       res.sq = Math.sin(t * 5 + seed) * 0.05;
       if (posing) {

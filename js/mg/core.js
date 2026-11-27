@@ -150,13 +150,20 @@ const MG = {
         // pause toggle: Esc, any gamepad Start, or the on-screen button
         const pin = this.pauseInput();
         document.getElementById('mgSkipPr').classList.toggle('hidden', phase !== 'practice');
+        document.getElementById('mgHow').classList.toggle('hidden', phase !== 'practice');
+        // the how-to-play sheet (practice): opened from the pause menu or with H / Tab; any button closes it
+        if (phase === 'practice' && this.howKey) { this.howKey = false; this.howOpen = !this.howOpen; this.howT = 0; }
+        if (this.howOpen) {
+          if (phase !== 'practice') this.howOpen = false;
+          else { this.howT = (this.howT || 0) + 1 / 60; this.drawHow(g, game, this.howT); if (this.howT > 0.3 && (pin.a || pin.b || pin.toggle || pin.start)) { this.howOpen = false; Sfx.tone(600, 0.06, 'triangle', 0.05); } last = nowT; if (!layer.classList.contains('hidden')) requestAnimationFrame(frame); return; }
+        }
         // on the intro card and in practice, Start / Select mean "I'm ready" (Esc or the ⏸ button still pause)
         const startReady = (phase === 'card' || phase === 'practice') && !this.paused && pin.start && !pin.esc;
         if (pin.toggle && phase !== 'result' && !startReady) { this.paused = !this.paused; this.pauseSel = 0; this.pauseUI(this.paused); }
         if (this.paused) {
           const btns = this.pauseBtns(), n = btns.length;
           if (pin.up || pin.down) { this.pauseSel = ((this.pauseSel || 0) + (pin.up ? n - 1 : 1)) % n; this.pauseUI(true); }
-          if (pin.a) { const id = btns[this.pauseSel || 0].id; if (id === 'mgResume') { this.paused = false; this.pauseUI(false); } else if (id === 'mgSkipPr') this.onSkipPractice(); else if (id === 'mgRestart') { this.onRestartClick(); } else { this.onQuitClick(); return; } }
+          if (pin.a) { const id = btns[this.pauseSel || 0].id; if (id === 'mgResume') { this.paused = false; this.pauseUI(false); } else if (id === 'mgSkipPr') this.onSkipPractice(); else if (id === 'mgHow') { this.paused = false; this.pauseUI(false); this.howOpen = true; this.howT = 0; } else if (id === 'mgRestart') { this.onRestartClick(); } else { this.onQuitClick(); return; } }
           if (!layer.classList.contains('hidden')) requestAnimationFrame(frame);
           return;
         }
@@ -288,6 +295,16 @@ const MG = {
     const prev = this._anyPrev || []; this._anyPrev = now;
     return now.some((v, k) => v && !prev[k]);
   },
+  // the how-to-play sheet over a paused practice round
+  drawHow(g, game, t) {
+    g.fillStyle = 'rgba(6,4,20,0.92)'; g.fillRect(0, 0, 1280, 720);
+    g.fillStyle = 'rgba(40,28,80,0.9)'; MGH.rr(g, 60, 40, 1160, 640, 24); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 3; g.stroke();
+    MGH.text(g, `📖 ${game.name} — how to play`, 640, 100, 36, '#fff', 'center', 'bold');
+    this.drawControls(g, game, 230, 380, t);
+    MGH.wrap(g, game.how, 790, 190, 680, 34, '#fff', 24);
+    MGH.text(g, '🏆 ' + (game.wins || ''), 790, 600, 20, '#8fe0ff', 'center', 'bold');
+    MGH.text(g, 'Press any button to go back to practice', 640, 655, 16, '#b6a9e0');
+  },
   // banner shown over the practice round
   drawPractice(g, m, left, skip, over) {
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
@@ -295,7 +312,7 @@ const MG = {
     g.fillStyle = 'rgba(10,6,30,0.78)'; MGH.rr(g, 380, 592, 520, 120, 16); g.fill();
     g.strokeStyle = `rgba(255,230,128,${0.55 + pulse * 0.45})`; g.lineWidth = 3; g.stroke();
     MGH.text(g, 'PRACTICE ROUND — no timer', 640, 652, 24, '#ffe680', 'center', 'bold');
-    MGH.text(g, "Just for fun — this doesn't count", 640, 676, 15, '#d8d0f0');
+    MGH.text(g, "Just for fun — this doesn't count  ·  📖 How to play: Pause ▸ How to play (or F1)", 640, 676, 15, '#d8d0f0');
     const hum = m.players.filter(p => p.human);
     MGH.text(g, 'Ready for the real thing? Press  START  or  SELECT  on your gamepad  ·  keys X, V, M, Backspace (P1–P4)', 640, 700, 13, '#ddd');
     hum.forEach((p, k) => { const x = 640 + (k - (hum.length - 1) / 2) * 120; g.fillStyle = p.color; g.globalAlpha = skip[p.i] ? 1 : 0.35; MGH.rr(g, x - 54, 600, 108, 24, 12); g.fill(); g.globalAlpha = 1; MGH.text(g, skip[p.i] ? `P${p.i + 1} ✔ ready` : `P${p.i + 1} practising`, x, 617, 13, '#fff', 'center', 'bold'); });

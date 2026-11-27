@@ -595,7 +595,13 @@ MG.def({
 // 49 ---------------------------------------------------------------- Mine Cart Rush
 MG.def({
   id: 'minecart', name: 'Mine Cart Rush', type: 'Race', controls: 'Left/Right + button', dur: 35,
-  how: 'Your cart races down the mine. At each fork a sign shows which way is safe — press LEFT or RIGHT before you reach it. Press the button to jump over broken track. A crash costs you precious time.',
+  // what waits on the wrong branch: a rock slide, a lit TNT cart or a collapsed trestle
+  hazard(g, x, y, kind, t) {
+    if (kind === 0) { for (const [dx, dy, r, c] of [[-26, 4, 18, '#6a5a4a'], [22, 6, 20, '#5a4a3a'], [0, -12, 22, '#7a6a58'], [-10, -34, 14, '#8a7a68'], [16, -26, 13, '#6a5a4a']]) { const gr = g.createRadialGradient(x + dx - r * 0.3, y + dy - r * 0.4, 2, x + dx, y + dy, r); gr.addColorStop(0, '#b8a890'); gr.addColorStop(1, c); g.fillStyle = gr; g.beginPath(); g.arc(x + dx, y + dy, r, 0, 7); g.fill(); } for (let q = 0; q < 3; q++) { const qq = (t * 0.7 + q / 3) % 1; g.fillStyle = `rgba(160,140,120,${0.5 * (1 - qq)})`; g.beginPath(); g.arc(x - 20 + q * 20, y - 40 - qq * 40, 6 + qq * 10, 0, 7); g.fill(); } }
+    else if (kind === 1) { g.fillStyle = '#4a3020'; MGH.rr(g, x - 30, y - 30, 60, 36, 5); g.fill(); g.fillStyle = '#2a2a2a'; g.beginPath(); g.arc(x - 18, y + 8, 7, 0, 7); g.arc(x + 18, y + 8, 7, 0, 7); g.fill(); for (let q = 0; q < 4; q++) { g.fillStyle = '#d8302a'; MGH.rr(g, x - 24 + q * 12, y - 50, 10, 26, 3); g.fill(); g.fillStyle = '#fff'; g.fillRect(x - 24 + q * 12, y - 42, 10, 4); } g.strokeStyle = '#3a2a1a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 50); g.quadraticCurveTo(x + 10, y - 66, x + 18, y - 62); g.stroke(); const f = 0.7 + Math.sin(t * 30) * 0.3; MGH.glow(g, x + 18, y - 62, 16 * f, 'rgba(255,200,60,0.9)'); MGH.text(g, 'TNT', x, y - 14, 14, '#ffe680', 'center', 'bold'); }
+    else { g.fillStyle = '#050302'; g.fillRect(x - 46, y - 26, 92, 44); g.strokeStyle = '#6a4a2a'; g.lineWidth = 6; for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(x + sd * 46, y - 20); g.lineTo(x + sd * 30, y - 2 + sd * 4); g.stroke(); g.beginPath(); g.moveTo(x + sd * 46, y + 12); g.lineTo(x + sd * 22, y + 22); g.stroke(); } MGH.text(g, '💀', x, y + 6, 22, '#fff'); }
+  },
+  how: 'Your cart races down the mine. At each fork one branch is blocked — a rock slide, a lit TNT cart or a collapsed track. Steer LEFT or RIGHT onto the clear branch before you reach it. Press the button to jump over broken track. A crash costs you precious time.',
   wins: 'Furthest distance.',
   init(m, S) {
     S.ev = []; let d = 500;
@@ -654,7 +660,8 @@ MG.def({
         const midY = yAt(e.d + this.DET / 2); g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(cx + 6, midY + 18, 60, 16, 0, 0, 7); g.fill(); const rg = g.createLinearGradient(cx - 50, 0, cx + 50, 0); rg.addColorStop(0, '#8a7a68'); rg.addColorStop(1, '#4a3e32'); g.fillStyle = rg; g.beginPath(); g.moveTo(cx - 50, midY + 20); g.quadraticCurveTo(cx - 56, midY - 70, cx - 14, midY - 96); g.quadraticCurveTo(cx + 30, midY - 110, cx + 50, midY - 40); g.lineTo(cx + 48, midY + 20); g.closePath(); g.fill(); MGH.gem(g, cx - 10, midY - 50, 8, '#5fd8ff', m.t);
         for (const sd of [-1, 1]) { if (p.path[k] === sd) continue; const bad = (sd < 0 ? 'left' : 'right') !== e.safe, fx = dd => cx + sd * 110 * this.bump((dd - e.d) / this.DET), brk = bad ? dd => dd > e.d + 150 && dd < e.d + 200 : null;
           g.save(); g.beginPath(); g.rect(ox, Math.min(760, y1), 320, Math.max(0, Math.min(760, y0) - y1)); g.clip(); ties(fx, brk); railLine(fx, brk); g.restore();
-          if (bad) { const by = yAt(e.d + 175); g.fillStyle = '#0a0603'; g.beginPath(); g.ellipse(cx + sd * 100, by, 42, 22, 0, 0, 7); g.fill(); MGH.text(g, '💀', cx + sd * 100, by + 8, 22, '#fff'); } } });
+          if (bad) { const hx = fx(e.d + 172), by = yAt(e.d + 172), kind = k % 3; g.fillStyle = '#0a0603'; g.beginPath(); g.ellipse(hx, by + 14, 46, 22, 0, 0, 7); g.fill(); this.hazard(g, hx, by, kind, m.t);
+            const sx = fx(e.d + 60) + sd * 46, sy = yAt(e.d + 60); g.fillStyle = '#5a3d22'; g.fillRect(sx - 3, sy - 44, 6, 44); g.save(); g.translate(sx, sy - 54); g.rotate(Math.PI / 4); g.fillStyle = '#ffcc1a'; g.fillRect(-15, -15, 30, 30); g.strokeStyle = '#2a1a0a'; g.lineWidth = 3; g.strokeRect(-15, -15, 30, 30); g.restore(); MGH.text(g, '!', sx, sy - 45, 22, '#2a1a0a', 'center', 'bold'); } } });
       // this player's own track (straight, or bending round the rocks they've chosen)
       ties(X); railLine(X);
       S.ev.forEach((e, k) => {

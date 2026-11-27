@@ -130,8 +130,10 @@
       if (ph === 'outcome') { if (S.t > 6) { if (this.alive(S).filter(i => i !== S.traitor).length === 0) { S.phase = 'end'; S.t = 0; S.winner = 'traitor'; S.allDead = true; Sfx.thunder(); } else { S.phase = 'vote'; S.t = 0; } } return; }
       if (ph === 'vote') return this.updVote(m, S, dt);
       if (ph === 'reveal') return this.updReveal(m, S, dt);
-      return OLD.update.call(this, m, S, dt); // coin, banish and end work as before
+      OLD.update.call(this, m, S, dt); // coin, banish and end work as before
+      if (S.phase === 'end' && S.winner === 'faithful' && (S.gemTot || 0) < this.NEED) { S.winner = 'traitor'; S.gemFail = true; }
     },
+    NEED: 10,
     alive(S) { return [0, 1, 2, 3].filter(i => !S.P[i].dead); },
     spawnGems(S) {
       const n = R.pick([1, 1, 2, 2, 3, 4, 5, 7]);
@@ -152,7 +154,7 @@
         { const ex = (P.x - ALIN.x) / 112, ey = (P.y - ALIN.y - 30) / 52, e = Math.hypot(ex, ey) || 0.001; if (e < 1) { P.x = ALIN.x + ex / e * 112; P.y = ALIN.y + 30 + ey / e * 52; } } // Alin's stage is solid
         PIL.forEach(pp => { const ex = P.x - pp.x, ey = P.y - pp.y, e = Math.hypot(ex, ey) || 1; if (e < 64) { P.x = pp.x + ex / e * 64; P.y = pp.y + ey / e * 64; } });
         if (m.pressed(i, 'a')) {
-          if (P.carry && d < 125) { P.gems++; P.carry = null; S.alinWave = 0.8; Sfx.tone(820, 0.07, 'triangle', 0.05); for (let k = 0; k < 10; k++) S.sparks.push({ x: ALIN.x + R.range(-20, 20), y: ALIN.y - 30, vx: R.range(-130, 130), vy: R.range(-280, -100), t: 0, life: R.range(0.4, 0.8), c: R.pick(['#ffc0e4', '#fff', '#ffe680']) }); }
+          if (P.carry && d < 125) { P.gems++; P.gemT = S.mT; S.gemTot = (S.gemTot || 0) + 1; P.carry = null; S.alinWave = 0.8; Sfx.tone(820, 0.07, 'triangle', 0.05); for (let k = 0; k < 10; k++) S.sparks.push({ x: ALIN.x + R.range(-20, 20), y: ALIN.y - 30, vx: R.range(-130, 130), vy: R.range(-280, -100), t: 0, life: R.range(0.4, 0.8), c: R.pick(['#ffc0e4', '#fff', '#ffe680']) }); }
           else if (!P.carry) { const G = S.gems.find(G => Math.hypot(G.x - P.x, G.y - P.y) < 48);
             if (G) { S.gems.splice(S.gems.indexOf(G), 1); P.carry = { hue: G.hue }; if (G.poison && i !== T) P.poisoned = true; Sfx.tone(1100, 0.05, 'triangle', 0.04); }
             else if (i === T && S.dag && Math.hypot(S.dag.x - P.x, S.dag.y - P.y) < 50) { P.dagger = true; this.witness(m, S, P, 320, 0.7); S.dag = null; Sfx.tone(300, 0.08, 'sawtooth', 0.03); } }
@@ -168,8 +170,8 @@
         S.P.forEach((P, i) => { if (m.bot(i) && i !== T && Math.random() < 0.38) P.sus[T] += 3; }); }
       if (S.mT >= MISSION) {
         S.P.forEach(P => P.carry = null);
-        const best = Math.max(...S.P.map(P => P.gems)), top = [0, 1, 2, 3].filter(i => S.P[i].gems === best);
-        S.shieldBy = R.pick(top); S.shieldOn = -1; S.phase = 'shield'; S.t = 0; Sfx.tone(660, 0.3, 'triangle', 0.06);
+        const best = Math.max(...S.P.map(P => P.gems)), top = [0, 1, 2, 3].filter(i => S.P[i].gems === best).sort((a, b) => (S.P[a].gemT ?? 1e9) - (S.P[b].gemT ?? 1e9));
+        S.shieldBy = top[0]; S.shieldOn = -1; S.phase = 'shield'; S.t = 0; Sfx.tone(660, 0.3, 'triangle', 0.06);
       }
     },
     // bots nearby may notice the Traitor's trick
@@ -257,7 +259,7 @@
       g.fillStyle = 'rgba(8,4,24,0.86)'; MGH.rr(g, 170, 170, 940, 380, 24); g.fill(); g.strokeStyle = '#ff4fb0'; g.lineWidth = 3; g.stroke();
       alin(g, 300, 400, m.t, 'happy', 1);
       g.font = 'bold 40px Georgia'; g.textAlign = 'left'; g.fillStyle = '#ffe680'; g.fillText(S.day ? '☀️ THE GEM HUNT' : '🌙 THE MIDNIGHT GEM HUNT', 400, 236);
-      const lines = ['"Darlings! Gems are falling into my courtyard!', 'Grab them with A and bring them to ME — one at a time.', 'Whoever brings the most wins my SHIELD…', 'Keep an eye on the rune pillars — and on each other.', 'Because one of you… is a TRAITOR!"'];
+      const lines = ['"Darlings! Gems are falling into my courtyard!', 'Grab them with A and bring them to ME — one at a time.', 'Whoever brings the most first wins my SHIELD…', 'I need 10 gems in all — or the Traitor wins anyway!', 'Because one of you… is a TRAITOR!"'];
       lines.forEach((l, q) => MGH.text(g, l, 400, 290 + q * 40, 21, q === 4 ? '#ff8ac8' : '#fff', 'left'));
       MGH.text(g, '— Alin, your host', 400, 510, 17, '#d8b8f0', 'left'); g.restore();
     },
@@ -301,6 +303,7 @@
         MGH.text(g, m.players[i].name, P.x, P.y + 44, 13, col, 'center', 'bold');
       });
       drawAlin();
+      if (S.phase === 'mission') { const n = S.gemTot || 0; MGH.label(g, `💎 ${n} / ${this.NEED}`, 1060, 74, 20, n >= this.NEED ? '#9fffa0' : '#ffe680'); }
       if (S.phase === 'mission') { const left = Math.max(0, MISSION - S.mT); MGH.label(g, `⏳ ${Math.ceil(left)}s`, 1200, 74, 20, left < 10 ? '#ff8a8a' : '#fff'); }
     },
     drawShield(m, S, g) {
@@ -392,7 +395,7 @@
       MGH.glow(g, 640, 400, 360, tw ? 'rgba(255,60,90,0.5)' : 'rgba(255,210,90,0.5)');
       const title = tw ? '🗡️ THE TRAITOR WINS 🗡️' : '🏆 THE FAITHFUL WIN 🏆';
       g.font = 'bold 56px Georgia'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 10; g.strokeStyle = '#120610'; g.strokeText(title, 640, 140); g.fillStyle = tw ? '#ff6b8a' : '#ffe680'; g.fillText(title, 640, 140);
-      if (tw) { this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); av(g, m, i, 640, 410, 52, 'evil'); MGH.text(g, S.allDead ? `${m.players[i].name} poisoned everyone — nobody was left to vote!` : `${m.players[i].name} was the Traitor — and got away with it!`, 640, 580, 26, '#fff', 'center', 'bold'); }
+      if (tw) { this.cloak(g, 640, 400, 1.8, '#ff4d6d', m.t); av(g, m, i, 640, 410, 52, 'evil'); MGH.text(g, S.gemFail ? `${m.players[i].name} was caught — but Alin only got ${S.gemTot || 0} of the ${this.NEED} gems she needed!` : S.allDead ? `${m.players[i].name} poisoned everyone — nobody was left to vote!` : `${m.players[i].name} was the Traitor — and got away with it!`, 640, 580, 26, '#fff', 'center', 'bold'); }
       else { const w = [0, 1, 2, 3].filter(j => j !== i); w.forEach((j, k) => { const x = 640 + (k - 1) * 230; this.cloak(g, x, 400, 1.3, m.players[j].color, m.t + j); const dead = S.P[j].dead, hop = dead ? 0 : Math.abs(Math.sin(m.t * 6 + k)) * 22; g.globalAlpha = dead ? 0.35 : 1; av(g, m, j, x, 410 - hop + (dead ? Math.sin(m.t * 2 + k) * 6 : 0), 40, dead ? 'sad' : 'cheer', dead ? {} : { hands: { n: { x: 0.8, y: -1.5, d: -90, o: true, m: true }, f: { x: -0.8, y: -1.5, d: -90, o: true, m: false } } }); g.globalAlpha = 1; MGH.text(g, dead ? '💀 poisoned — out' : '🎉 wins!', x, 500, 18, dead ? '#b8a8c8' : '#9fffa0', 'center', 'bold'); });
         for (let q = 0; q < 30; q++) { const cx = (q * 97 + m.t * 60 * (1 + q % 3)) % 1280, cy = (q * 53 + m.t * (90 + (q % 4) * 30)) % 680 + 40; g.fillStyle = ['#ffd34d', '#ff6b8a', '#5ac8ff', '#7cf06a'][q % 4]; g.save(); g.translate(cx, cy); g.rotate(m.t * 4 + q); g.fillRect(-4, -2, 8, 4); g.restore(); } MGH.text(g, `${m.players[i].name} the Traitor is caught!`, 640, 580, 26, '#fff', 'center', 'bold'); }
       const P = S.P[i], vic = [0, 1, 2, 3].filter(j => S.P[j].poisoned), saved = vic.filter(j => !S.P[j].dead);

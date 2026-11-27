@@ -166,8 +166,8 @@ MG.def({
       const turns = Math.floor(Math.abs(p.rot) / (Math.PI * 2)); if (turns > p.spun) { p.spun = turns; const v = Math.round(10 + p.h / 20); p.pts += v; p.msg = `+${v}`; p.msgT = 0.6; if (!m.bot(i)) Sfx.tone(700 + turns * 100, 0.06, 'triangle', 0.05); }
       if (p.h <= 0) {
         p.h = 0; const off = Math.abs(Math.atan2(Math.sin(p.rot), Math.cos(p.rot)));
-        if (off > 0.75) { p.crash = 0.8; p.vy = 160; p.msg = 'CRASH!'; p.msgT = 0.9; if (!m.bot(i)) Sfx.thud(); }
-        else { const dtp = Math.abs(m.t - p.pressT); const good = dtp < 0.22; p.vy = Math.min(1150, Math.max(260, Math.abs(p.vy) * (good ? 1.12 : 0.85) + (good ? 40 : 0))); if (good) { p.msg = 'BOING!'; p.msgT = 0.5; if (!m.bot(i)) Sfx.tone(420, 0.1, 'sine', 0.06, 300); } }
+        if (off > 0.68) { p.crash = 0.8; p.vy = 160; p.msg = 'CRASH!'; p.msgT = 0.9; if (!m.bot(i)) Sfx.thud(); }
+        else { const dtp = Math.abs(m.t - p.pressT); const good = dtp < 0.17; p.vy = Math.min(1150, Math.max(260, Math.abs(p.vy) * (good ? 1.12 : 0.85) + (good ? 40 : 0))); if (good) { p.msg = 'BOING!'; p.msgT = 0.5; if (!m.bot(i)) Sfx.tone(420, 0.1, 'sine', 0.06, 300); } }
         p.rot = 0; p.spun = 0;
       }
     });

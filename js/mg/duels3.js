@@ -173,6 +173,30 @@ MG.def({
   rows: [['lr', 'Step in / out'], ['a', 'Jab · toward + A = power HOOK'], ['b', 'Hold to guard (time it for a parry!)']],
   how: 'Glove up for a championship bout! Step left and right around the ring. A throws a quick JAB; push TOWARD your rival and press A for a big HOOK (more damage, slower to recover). HOLD B to guard — and if you raise your guard just before a punch lands, you PARRY it and leave them wobbling. Empty their energy to knock them down — three knockdowns (or the most energy after 75 seconds) wins!',
   wins: 'Three knockdowns, or most energy at the bell.',
+  // bruises on the big-screen portraits: they get worse as the energy drops
+  injury(g, x, y, r, hp, f, t) {
+    if (hp < 75) { g.fillStyle = 'rgba(140,60,160,0.45)'; g.beginPath(); g.ellipse(x - f * r * 0.15, y + r * 0.3, r * 0.22, r * 0.14, 0, 0, 7); g.fill(); }
+    if (hp < 50) { g.strokeStyle = 'rgba(70,30,90,0.75)'; g.lineWidth = r * 0.1; g.beginPath(); g.ellipse(x + f * r * 0.34, y - r * 0.05, r * 0.2, r * 0.17, 0, 0, 7); g.stroke();
+      g.save(); g.translate(x - f * r * 0.42, y - r * 0.45); g.rotate(0.6 * f); g.fillStyle = '#f4d8b0'; MGH.rr(g, -r * 0.24, -r * 0.08, r * 0.48, r * 0.16, 3); g.fill(); g.rotate(-1.2 * f); MGH.rr(g, -r * 0.24, -r * 0.08, r * 0.48, r * 0.16, 3); g.fill(); g.restore(); }
+    if (hp < 25) { g.fillStyle = 'rgba(255,90,90,0.35)'; g.beginPath(); g.ellipse(x + f * r * 0.1, y + r * 0.42, r * 0.3, r * 0.12, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(150,210,255,0.9)'; g.beginPath(); g.ellipse(x - f * r * 0.7, y - r * 0.3 + (t * 30) % 10, 3, 5, 0, 0, 7); g.fill(); for (let q = 0; q < 3; q++) { const a = t * 5 + q * 2.1; MGH.star(g, x + Math.cos(a) * r * 0.9, y - r * 0.95 + Math.sin(a) * 4, 5, '#ffe680', a, false); } }
+  },
+  // the championship belt on its velvet stand
+  belt(g, bx, by, t) {
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(bx + 6, by + 30, 120, 10, 0, 0, 7); g.fill();
+    const strap = g.createLinearGradient(0, by - 16, 0, by + 16); strap.addColorStop(0, '#3a1a10'); strap.addColorStop(0.5, '#6a3018'); strap.addColorStop(1, '#2a1008'); g.fillStyle = strap; g.beginPath(); g.moveTo(bx - 118, by - 6); g.quadraticCurveTo(bx, by - 22, bx + 118, by - 6); g.lineTo(bx + 118, by + 16); g.quadraticCurveTo(bx, by, bx - 118, by + 16); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,220,150,0.5)'; g.setLineDash([4, 4]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(bx - 112, by - 2); g.quadraticCurveTo(bx, by - 17, bx + 112, by - 2); g.stroke(); g.beginPath(); g.moveTo(bx - 112, by + 11); g.quadraticCurveTo(bx, by - 4, bx + 112, by + 11); g.stroke(); g.setLineDash([]);
+    const gold = (x0, y0, x1, y1) => { const gg = g.createLinearGradient(x0, y0, x1, y1); gg.addColorStop(0, '#fff6c0'); gg.addColorStop(0.35, '#ffd34d'); gg.addColorStop(0.7, '#c8901a'); gg.addColorStop(1, '#8a5a10'); return gg; };
+    for (const sx of [-1, 1]) for (const k of [1, 2]) { const px = bx + sx * (38 + k * 30), py = by - 2 + (k - 1) * 3; g.fillStyle = gold(px - 12, py - 12, px + 12, py + 12); MGH.rr(g, px - 12, py - 13, 24, 26, 5); g.fill(); g.strokeStyle = '#7a4a08'; g.lineWidth = 1.5; g.stroke(); MGH.gem(g, px, py, 5, k === 1 ? '#5ac8ff' : '#7cf06a', t); }
+    g.save(); g.translate(bx, by - 4);
+    g.fillStyle = gold(-40, -40, 40, 40); g.beginPath(); for (let q = 0; q < 12; q++) { const a = q / 12 * Math.PI * 2, rr = q % 2 ? 34 : 40; g.lineTo(Math.cos(a) * rr * 1.15, Math.sin(a) * rr * 0.9); } g.closePath(); g.fill(); g.strokeStyle = '#7a4a08'; g.lineWidth = 2.5; g.stroke();
+    g.fillStyle = gold(30, 30, -30, -30); g.beginPath(); g.ellipse(0, 0, 30, 24, 0, 0, 7); g.fill(); g.strokeStyle = '#a8700f'; g.lineWidth = 2; g.stroke();
+    g.strokeStyle = '#3a8a2a'; g.lineWidth = 2.5; for (const sx of [-1, 1]) { g.beginPath(); g.arc(0, 2, 20, sx > 0 ? -0.2 : Math.PI + 0.2, sx > 0 ? 1.6 : Math.PI - 1.6, sx < 0); g.stroke(); for (let q = 0; q < 4; q++) { const a = (sx > 0 ? -0.1 : Math.PI + 0.1) + sx * q * 0.42; g.fillStyle = '#5ab83a'; g.beginPath(); g.ellipse(Math.cos(a) * 20, 2 + Math.sin(a) * 20, 4, 2, a + 1.2, 0, 7); g.fill(); } }
+    const rg = g.createRadialGradient(-4, -6, 1, 0, -2, 12); rg.addColorStop(0, '#ffb0b8'); rg.addColorStop(0.5, '#e8323e'); rg.addColorStop(1, '#7a0a18'); g.fillStyle = rg; g.beginPath(); for (let q = 0; q < 8; q++) { const a = q / 8 * Math.PI * 2; g.lineTo(Math.cos(a) * 11, -2 + Math.sin(a) * 11); } g.fill();
+    MGH.text(g, 'CHAMPION', 0, 19, 8, '#5a3a08', 'center', 'bold');
+    const sw = ((t * 0.5) % 1.6) - 0.3; if (sw < 1) { g.save(); g.beginPath(); g.ellipse(0, 0, 46, 36, 0, 0, 7); g.clip(); g.fillStyle = 'rgba(255,255,255,0.45)'; g.beginPath(); g.moveTo(-60 + sw * 120, -40); g.lineTo(-48 + sw * 120, -40); g.lineTo(-68 + sw * 120, 40); g.lineTo(-80 + sw * 120, 40); g.fill(); g.restore(); }
+    g.restore();
+    if (Math.sin(t * 3) > 0.7) MGH.star(g, bx + 28, by - 30, 5, '#fff', t, false);
+  },
   init(m, S) { S.d = DU.pair(m); S.b = [0, 1].map(j => ({ x: j ? 810 : 470, hp: 100, kd: 0, st: 'idle', t: 0, kind: '', guard: 0, gT: 0, stag: 0, down: 0, hit: 0, face: j ? -1 : 1 })); S.time = 75; S.ph = 'fight'; S.ref = 0; },
   update(m, S, dt) {
     if (S.ph === 'end') { if ((S.endT -= dt) <= 0) m.finish(this.score(m, S)); return; }
@@ -221,7 +245,7 @@ MG.def({
     MGH.crowd(g, t, 300, 34);
     // the arena: a hanging banner, two big screens showing the fighters, flag strings
     g.fillStyle = '#1a1a2a'; g.fillRect(470, 112, 4, 40); g.fillRect(806, 112, 4, 40); g.fillStyle = '#a81a32'; MGH.rr(g, 440, 150, 400, 44, 8); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.stroke(); MGH.text(g, '🥊 CHAMPIONSHIP NIGHT 🥊', 640, 180, 22, '#ffe680', 'center', 'bold');
-    S.d.forEach((i, j) => { const p = m.players[i], x = j ? 1150 : 130; g.fillStyle = '#1a1a2a'; MGH.rr(g, x - 90, 130, 180, 110, 8); g.fill(); g.fillStyle = Char.shade(p.color, -0.5); g.fillRect(x - 82, 138, 164, 94); Char.draw(g, x, 200, 30, p.el.id, p.color, { headOnly: true, noArms: true, noFeet: true, noShadow: true, mood: S.b[j].hit > 0 ? 'hurt' : 'determined', seed: i * 1.7, look: { x: j ? -1 : 1, y: 0 } }); g.fillStyle = 'rgba(255,255,255,0.06)'; for (let y = 138; y < 232; y += 4) g.fillRect(x - 82, y, 164, 1); MGH.text(g, p.name.toUpperCase(), x, 228, 13, '#fff', 'center', 'bold'); });
+    S.d.forEach((i, j) => { const p = m.players[i], x = j ? 1150 : 130; g.fillStyle = '#1a1a2a'; MGH.rr(g, x - 90, 130, 180, 110, 8); g.fill(); g.fillStyle = Char.shade(p.color, -0.5); g.fillRect(x - 82, 138, 164, 94); const hp = S.b[j].hp, lf = j ? -1 : 1; Char.draw(g, x, 200, 30, p.el.id, p.color, { headOnly: true, noArms: true, noFeet: true, noShadow: true, mood: S.b[j].hit > 0 ? 'hurt' : hp < 25 ? 'dizzy' : hp < 50 ? 'nervous' : 'determined', seed: i * 1.7, look: { x: lf, y: 0 } }); this.injury(g, x, 200, 30, hp, lf, t); g.fillStyle = 'rgba(255,255,255,0.06)'; for (let y = 138; y < 232; y += 4) g.fillRect(x - 82, y, 164, 1); MGH.text(g, p.name.toUpperCase(), x, 228, 13, '#fff', 'center', 'bold'); });
     for (let k = 0; k < 22; k++) { const x = k * 60 + 10, y = 122 + Math.sin(k * 0.5) * 6; g.fillStyle = ['#e8323e', '#2a6ae8', '#ffd34d', '#fff'][k % 4]; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 24, y); g.lineTo(x + 12, y + 16); g.fill(); }
     for (let k = 0; k < 20; k++) if (Math.sin(t * 4 + k * 3.1) > 0.97) MGH.glow(g, MGH.hash(k) * 1280, 220 + MGH.hash(k + 1) * 80, 30, 'rgba(255,255,255,0.8)'); // camera flashes
     // the ring: apron, canvas, posts and three ropes
@@ -236,8 +260,7 @@ MG.def({
     // ringside: the judges' table and the championship belt on its stand
     g.fillStyle = '#2a1a1a'; MGH.rr(g, 160, 652, 300, 40, 6); g.fill(); g.fillStyle = '#a81a32'; g.fillRect(160, 652, 300, 8); for (let q = 0; q < 3; q++) { g.fillStyle = '#ffe0c0'; g.beginPath(); g.arc(210 + q * 100, 640, 12, 0, 7); g.fill(); g.fillStyle = '#2a2a3a'; MGH.rr(g, 196 + q * 100, 646, 28, 10, 4); g.fill(); g.fillStyle = '#fff'; g.fillRect(216 + q * 100, 656, 22, 14); }
     g.fillStyle = '#3a2a1a'; g.fillRect(890, 640, 220, 60); g.fillStyle = '#5a3a20'; g.fillRect(880, 634, 240, 10);
-    const bx = 1000, by = 614; g.fillStyle = '#2a1a10'; MGH.rr(g, bx - 90, by - 12, 180, 24, 10); g.fill(); const bg2 = g.createRadialGradient(bx - 8, by - 10, 4, bx, by, 34); bg2.addColorStop(0, '#fff6b0'); bg2.addColorStop(1, '#c8901a'); g.fillStyle = bg2; g.beginPath(); g.ellipse(bx, by, 34, 26, 0, 0, 7); g.fill(); g.strokeStyle = '#8a5a10'; g.lineWidth = 3; g.stroke(); MGH.star(g, bx, by, 12, '#e8323e', 0, false); for (const sx of [-58, 58]) { g.fillStyle = '#ffd34d'; MGH.rr(g, bx + sx - 12, by - 9, 24, 18, 4); g.fill(); }
-    if (Math.sin(t * 3) > 0.7) MGH.star(g, bx + 22, by - 18, 5, '#fff', t, false);
+    this.belt(g, 1000, 606, t);
     // referee
     const anyDown = S.b.some(B => B.down > 0); Char.npc(g, 640, 330, 22, 'ref', { mood: anyDown ? 'shock' : 'happy', t, hands: anyDown ? { n: { x: 1.2, y: -1.2 + Math.sin(t * 6) * 0.4, d: -60, o: true, m: true }, f: { x: -0.6, y: 0.3, d: 0, o: true, m: false } } : undefined });
     if (anyDown) { const n = Math.min(10, 1 + Math.floor(S.ref / 0.32)); MGH.label(g, String(n), 640, 270, 44, '#ffe680'); }
@@ -258,9 +281,9 @@ MG.def({
       g.restore();
       // gloves: guard up by the face, jab snaps straight, hook swings round in an arc
       const gx = B.x + snap + weave, gy = y - 10 + bob;
-      let lx = gx + f * 38, ly = gy - 22, rx = gx + f * 54, ry = gy + 4, lr = 0, rr = 0;
+      let lx = gx + f * 40, ly = gy + 22, rx = gx + f * 56, ry = gy + 34, lr = 0.3, rr = 0.15;
       if (B.guard) { lx = gx + f * 40; ly = gy - 44; rx = gx + f * 46; ry = gy - 24; lr = -0.6; rr = -0.3; }
-      if (P && !hook) { rx = gx + f * (54 + k * 92); ry = gy - 18; }
+      if (P && !hook) { rx = gx + f * (56 + k * 92); ry = gy + 34 - k * 54; }
       if (hook) { const a = -1.4 + k * 1.6; rx = gx + f * (30 + Math.cos(a) * 70 + k * 30); ry = gy - 20 + Math.sin(a) * 50; rr = a * 0.6; }
       // motion trail behind the punching glove
       if (P && k > 0.15) for (let q = 1; q <= 3; q++) { g.globalAlpha = 0.18 * (4 - q); this.glove(g, rx - f * q * (hook ? 10 : 22) * k, ry + (hook ? q * 8 * k : 0), col, 1.15, rr, f); } g.globalAlpha = 1;

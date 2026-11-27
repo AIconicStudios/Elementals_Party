@@ -311,16 +311,16 @@ MG.def({
       if (sl.d < 18) { // push phase
         const q = mem.reduce((a, i) => a + MGM.cadence(m, i, S.p[i], dt), 0) / mem.length;
         sl.v += (8 * q - sl.v) * 1.6 * dt;
-      } else { sl.v += ((sl.scrape > 0 ? 9 : 16) - sl.v) * 0.5 * dt; }
+      } else { sl.v += ((sl.scrape > 0 ? 11 : 16) - sl.v) * 0.5 * dt; }
       sl.d += sl.v * dt;
       // leaning: each curve is judged when the sled reaches it
       for (const c of S.curves) {
-        if (sl.d >= c.d - 2.6 && sl.d < c.d) mem.forEach(i => { if (S.p[i].lean[c.d] === undefined) { const l = m.pressed(i, 'left') || (m.axis(i).x < -0.6 && !S.p[i].ax) ? -1 : m.pressed(i, 'right') || (m.axis(i).x > 0.6 && !S.p[i].ax) ? 1 : 0; if (l) S.p[i].lean[c.d] = l === c.dir ? 1 + (sl.d > c.d - 1.3 ? 1 : 0) : -1; } });
+        if (sl.d >= c.d - 3.8 && sl.d < c.d) mem.forEach(i => { if (S.p[i].lean[c.d] === undefined) { const l = m.pressed(i, 'left') || (m.axis(i).x < -0.6 && !S.p[i].ax) ? -1 : m.pressed(i, 'right') || (m.axis(i).x > 0.6 && !S.p[i].ax) ? 1 : 0; if (l) S.p[i].lean[c.d] = l === c.dir ? 1 + (sl.d > c.d - 1.3 ? 1 : 0) : -1; } });
         if (sl.d >= c.d && !c['done' + tm]) {
           c['done' + tm] = true;
           const res = mem.map(i => S.p[i].lean[c.d] || -1), ok = res.filter(r => r > 0).length, perfect = res.filter(r => r > 1).length;
           if (ok === 2) { sl.v += 0.8 + perfect * 0.5; if (perfect === 2) MGH.burst(600, tm ? 520 : 240, ['#9fe0ff', '#fff'], 10, { speed: 160 }); }
-          else { sl.v *= ok ? 0.8 : 0.6; sl.scrape = 0.8; Sfx.thud(); }
+          else { sl.v *= ok ? 0.9 : 0.75; sl.scrape = 0.5; Sfx.thud(); }
           sl.last = { ok, perfect, t: S.t };
         }
       }
@@ -366,7 +366,7 @@ MG.def({
       g.restore();
       if (sl.scrape > 0) MGH.burst(sx + R.range(-60, 40), y0 + 160, ['#fff', '#cfe8ff'], 1, { speed: 80 });
       // the lean marker: a ring just ahead of the sled
-      if (!pushing && nc && !sl.fin) { const mx = sx + 2.6 * 11.2; g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 3; g.strokeRect(mx - 14.5, y0 + 46, 29, 108); }
+      if (!pushing && nc && !sl.fin) { const mx = sx + 3.8 * 11.2; g.strokeStyle = "rgba(255,255,255,0.7)"; g.lineWidth = 3; g.strokeRect(sx + 1.3 * 11.2, y0 + 46, mx - sx - 1.3 * 11.2, 108); }
       mem.forEach((i, k) => { const r = nc && S.p[i].lean[nc.d]; if (r !== undefined && r !== false && nc) MGH.text(g, r > 1 ? 'PERFECT' : r > 0 ? 'lean!' : 'wrong', sx + 40, y0 + 64 + k * 22, 14, r > 1 ? '#ffe680' : r > 0 ? '#3a9a3a' : '#e84a4a', 'center', 'bold'); });
       if (pushing && S.t > S.go) mem.forEach((i, k) => MGM.drawCadence(g, 200 + k * 220, y0 - 18, S.p[i], 70));
       MGH.text(g, MG.TEAMN[tm] + (sl.fin ? `  ${sl.fin.toFixed(2)}s` : ''), 1180, y0 + 30, 18, MG.TEAMC[tm], 'center', 'bold');

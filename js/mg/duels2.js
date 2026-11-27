@@ -454,7 +454,7 @@ MG.def({
     const p = m.players[i], k = mv ? Math.min(1, mv.t / 0.55) : 0, d = mv ? mv.d : -1, s = Math.sin(k * Math.PI);
     let dy = 0, rot = 0, sx = 1, hands;
     if (d === 0) { dy = -s * 70; hands = { n: { x: -1.3, y: -1.5, d: -130, o: true, m: true }, f: { x: 1.3, y: -1.5, d: -50, o: true, m: false } }; }
-    else if (d === 1) { sx = Math.cos(k * Math.PI * 2); hands = { n: { x: -1.4, y: -0.4, d: 180, o: true, m: true }, f: { x: 1.4, y: -0.4, d: 0, o: true, m: false } }; }
+    else if (d === 1) { const cf = Math.cos(k * Math.PI * 2); sx = (cf < 0 ? -1 : 1) * (0.84 + 0.16 * Math.abs(cf)); f = Math.sin(k * Math.PI * 2); hands = { n: { x: -1.4, y: -0.4, d: 180, o: true, m: true }, f: { x: 1.4, y: -0.4, d: 0, o: true, m: false } }; }
     else if (d === 2) { dy = s * 18; const c = s; hands = { n: { x: 0.2 - (1 - c) * 0.9, y: -0.6, d: 0, o: true, m: true }, f: { x: 0.25 + (1 - c) * 0.9, y: -0.6, d: 0, o: true, m: false } }; }
     else if (d === 3) { rot = -0.15 * s; hands = { n: { x: -0.5, y: -1.8, d: -100, o: false, m: true }, f: { x: 1.0, y: 0.2, d: 30, o: true, m: false } }; }
     else { dy = Math.abs(Math.sin(m.t * 3 + i)) * -4; }

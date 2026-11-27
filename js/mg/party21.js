@@ -11,16 +11,16 @@ const HOP = {
 const GG_ROUNDS = [
   { k: ['shock'], n: 'Shockwave!', tip: 'JUMP over the rings' },
   { mode: 'catch', n: 'Fruit Toss!', tip: 'Stand under the shadows to CATCH fruit — gold is worth 3' },
-  { mode: 'chicken', n: 'Stubborn Chickens!', tip: 'They chase you — run, or JUMP over them' },
+  { mode: 'chicken', n: 'Stubborn Chickens!', tip: 'CATCH the chickens! Dodge (or jump) when one charges — a missed charge leaves it dizzy' },
   { k: ['rocks', 'rams'], n: 'Boulders & Rams!', tip: 'Run from shadows, dodge the rams' },
   { mode: 'burst', n: 'Water Balloons!', tip: 'JUMP into balloons to burst them — gold is worth 3' },
   { mode: 'catch', bombs: true, n: 'Fruit… and BOMBS!', tip: 'Catch the fruit, NOT the bombs' },
-  { k: ['shock', 'rocks', 'rams', 'boar'], mode: 'finale', n: 'GRAND FINALE', tip: 'Everything at once — and chickens! Worth 2!' },
+  { k: ['shock', 'rocks', 'rams', 'boar'], mode: 'finale', n: 'GRAND FINALE', tip: 'Everything at once — catch chickens too! Surviving is worth 2' },
 ];
 MG.def({
   id: 'gauntlet', name: "Grumble's Gauntlet", type: 'Survival', controls: 'Move + A', dur: 0,
   rows: [['stick', 'Run'], ['a', 'Jump']],
-  how: 'Grumble the stone imp runs a gauntlet of seven rounds — and they\'re all different! Dodge shockwaves, boulders and rams; CATCH the fruit he throws (gold = 3, but not the bombs!); outrun his STUBBORN CHICKENS (or jump over them); and JUMP into water balloons to burst them. Each round brings hazards: SHOCKWAVE rings you must JUMP over (A), BOULDERS that drop where their shadow grows, RAMS that charge in from the edges (dodge or jump them), and the big THORNBOAR that charges where it glares. Get through a round without being hit to score a point. The grand finale throws everything at once — and is worth 2!',
+  how: 'Grumble the stone imp runs a gauntlet of seven rounds — and they\'re all different! Dodge shockwaves, boulders and rams; CATCH the fruit he throws (gold = 3, but not the bombs!); CATCH his STUBBORN CHICKENS (they charge — dodge, and grab them while they are dizzy); and JUMP into water balloons to burst them. Each round brings hazards: SHOCKWAVE rings you must JUMP over (A), BOULDERS that drop where their shadow grows, RAMS that charge in from the edges (dodge or jump them), and the big THORNBOAR that charges where it glares. Get through a round without being hit to score a point. The grand finale throws everything at once — and is worth 2!',
   wins: 'Most rounds survived.',
   X0: 230, X1: 1050, Y0: 270, Y1: 650, view: [190, 130, 1090, 665],
   init(m, S) {
@@ -75,7 +75,7 @@ MG.def({
     // ---- round over: award survivors
     if (S.pt > dur && !S.hz.length && (!S.boar || S.boar.st === 'leave') && !S.items.some(it => !it.done)) {
       S.ph = 'done'; S.pt = 0; S.boar = null; S.hens = []; const v = S.round === 6 ? 2 : 1, md = R0.mode || 'dodge';
-      if (md === 'catch' || md === 'burst') S.b.forEach(b => { if (b.got) MGH.pop(`+${b.got}`, b.x, b.y - 60, '#ffe680', 30); });
+      if (md === 'catch' || md === 'burst' || md === 'chicken') S.b.forEach(b => { if (b.got) MGH.pop(`+${b.got}`, b.x, b.y - 60, '#ffe680', 30); });
       else S.b.forEach((b, i) => { if (!b.fail) { b.pts += v; MGH.pop(`+${v}`, b.x, b.y - 60, '#ffe680', 30); } });
       Sfx.coin();
     }
@@ -97,11 +97,14 @@ MG.def({
     if (mode === 'chicken') {
       if (live && S.hens.length < cap && (S.hspawn = (S.hspawn || 0) - dt) <= 0) { S.hspawn = 1.2; const side = R.int(0, 3), x = side === 0 ? this.X0 : side === 1 ? this.X1 : R.range(this.X0, this.X1), y = side === 2 ? this.Y0 : side === 3 ? this.Y1 : R.range(this.Y0, this.Y1); S.hens.push({ x, y, vx: 0, vy: 0, st: 'wander', t: R.range(0.6, 1.4), face: 1, peck: 0 }); Sfx.tone(900, 0.1, 'square', 0.04, 300); }
       S.hens.forEach(h => { h.t -= dt; const tg = S.b.filter(b => b.stun <= 0).sort((p, q) => dist(p.x, p.y, h.x, h.y) - dist(q.x, q.y, h.x, h.y))[0];
-        if (h.st === 'wander') { if (h.t <= 0) { h.st = 'glare'; h.t = 0.55; } else { h.vx += R.range(-1, 1) * 400 * dt; h.vy += R.range(-1, 1) * 400 * dt; h.vx *= 0.96; h.vy *= 0.96; } }
+        if (h.st === 'wander') { if (h.t <= 0) { h.st = 'glare'; h.t = 0.55; } else { h.vx += R.range(-1, 1) * 400 * dt; h.vy += R.range(-1, 1) * 400 * dt; if (tg) { const d = dist(tg.x, tg.y + 16, h.x, h.y); if (d < 130) { h.vx += (h.x - tg.x) / (d || 1) * 900 * dt; h.vy += (h.y - tg.y - 16) / (d || 1) * 900 * dt; } } const sp = Math.hypot(h.vx, h.vy); if (sp > 210) { h.vx *= 210 / sp; h.vy *= 210 / sp; } h.vx *= 0.97; h.vy *= 0.97; } }
+        else if (h.st === 'dizzy') { h.vx *= 0.85; h.vy *= 0.85; if (h.t <= 0) { h.st = 'wander'; h.t = R.range(0.6, 1.2); } }
         else if (h.st === 'glare') { h.vx *= 0.8; h.vy *= 0.8; if (tg) h.face = Math.sign(tg.x - h.x) || 1; if (h.t <= 0 && tg) { const l = dist(tg.x, tg.y, h.x, h.y) || 1; h.vx = (tg.x - h.x) / l * 330; h.vy = (tg.y + 16 - h.y) / l * 330; h.st = 'run'; h.t = R.range(0.8, 1.3); if (!Settings.test) Sfx.tone(700, 0.08, 'sawtooth', 0.03, 400); } }
-        else if (h.st === 'run') { if (h.t <= 0) { h.st = 'wander'; h.t = R.range(0.5, 1.2); } }
+        else if (h.st === 'run') { if (h.t <= 0) { h.st = 'dizzy'; h.t = 1.8; h.vx *= 0.3; h.vy *= 0.3; } }
         h.x = clamp(h.x + h.vx * dt, this.X0, this.X1); h.y = clamp(h.y + h.vy * dt, this.Y0, this.Y1); if (Math.abs(h.vx) > 20) h.face = Math.sign(h.vx);
-        if (h.st === 'run') S.b.forEach((b, i) => { if (b.z < 18 && dist(b.x, b.y + 16, h.x, h.y) < 34) { this.hit(m, S, b, i, b.x - h.x, b.y - h.y); h.st = 'wander'; h.t = 1; } }); });
+        if (h.st === 'run') S.b.forEach((b, i) => { if (b.z < 18 && b.stun <= 0 && dist(b.x, b.y + 16, h.x, h.y) < 34) { this.hit(m, S, b, i, b.x - h.x, b.y - h.y); h.st = 'wander'; h.t = 1; } });
+        else if (h.st !== 'glare' || h.t > 0.2) S.b.forEach((b, i) => { if (!h.caught && b.stun <= 0 && b.z < 30 && dist(b.x, b.y + 16, h.x, h.y) < 32) { h.caught = true; b.pts++; b.got++; MGH.pop('+1 🐔', h.x, h.y - 50, '#ffe680', 22); MGH.burst(h.x, h.y - 16, ['#ffffff', '#f0e8d8'], 12, { speed: 160 }); if (!m.bot(i)) Sfx.coin(); } }); });
+      S.hens = S.hens.filter(h => !h.caught);
       if (!live) S.hens.forEach(h => { h.y -= 0; });
     }
     if (mode === 'burst') {
@@ -115,6 +118,9 @@ MG.def({
     const b = S.b[i], v = m.vin[i]; v.a = false; v.ax = 0; v.ay = 0; if (b.stun > 0) return;
     const md = (this.rnd(S) || {}).mode;
     if (md === 'catch' && S.ph === 'go') { const go = S.items.filter(it => !it.done && it.kind !== 'bomb').sort((p, q) => dist(p.x, p.y, b.x, b.y) - dist(q.x, q.y, b.x, b.y))[0]; let fx = 0, fy = 0; if (go) { fx = go.x - b.x; fy = go.y - 16 - b.y; } S.items.forEach(it => { if (!it.done && it.kind === 'bomb') { const d = dist(it.x, it.y, b.x, b.y + 16); if (d < 90) { fx += (b.x - it.x) * 3; fy += (b.y - it.y) * 3; } } }); const l = Math.hypot(fx, fy); if (l > 10) { v.ax = fx / l * (b.react || 0.9); v.ay = fy / l * (b.react || 0.9); } return; }
+    if (md === 'chicken' && S.ph === 'go') { let fx = 0, fy = 0, jump = false; const H = S.hens.filter(h => h.st !== 'run' && h.st !== 'glare').sort((p, q) => dist(p.x, p.y, b.x, b.y) - dist(q.x, q.y, b.x, b.y))[0]; if (H) { fx = H.x - b.x; fy = H.y - 16 - b.y; }
+      S.hens.forEach(h => { if (h.st === 'run' || h.st === 'glare') { const d = dist(b.x, b.y + 16, h.x, h.y); if (d < 140) { fx += (b.x - h.x) / (d || 1) * 400; fy += (b.y + 16 - h.y) / (d || 1) * 400; if (h.st === 'run' && d < 50 && b.z <= 0 && Math.random() < 0.4) jump = true; } } });
+      const l = Math.hypot(fx, fy); if (l > 8) { v.ax = fx / l * (b.react || 0.9); v.ay = fy / l * (b.react || 0.9); } v.a = jump; return; }
     if (md === 'burst' && S.ph === 'go') { const B = S.balloons.filter(q => q.pop < 0).sort((p, q) => dist(p.x, p.y, b.x, b.y) - dist(q.x, q.y, b.x, b.y))[0]; if (B) { const fx = B.x - b.x, fy = B.y - b.y, l = Math.hypot(fx, fy) || 1; if (l > 20) { v.ax = fx / l; v.ay = fy / l; } if (l < 60 && b.z <= 0 && Math.random() < 0.3) v.a = true; } return; }
     let fx = (640 - b.x) * 0.002, fy = (460 - b.y) * 0.002, jump = false;
     b.react = b.react === undefined ? R.range(0.75, 1) : b.react; if (Math.random() < 0.01) b.react = R.range(0.7, 1);
@@ -228,7 +234,7 @@ MG.def({
         g.beginPath(); g.arc(12, -32, 9, 0, 7); g.fill(); g.fillStyle = '#e8323e'; g.beginPath(); g.arc(10, -42, 4, 0, 7); g.arc(15, -42, 4, 0, 7); g.fill(); g.beginPath(); g.ellipse(18, -27, 3, 4, 0, 0, 7); g.fill();
         g.fillStyle = '#ffb030'; g.beginPath(); g.moveTo(20, -34); g.lineTo(28, -31); g.lineTo(20, -29); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.arc(14, -34, 1.8, 0, 7); g.fill();
         if (h.st !== 'wander') { g.strokeStyle = '#111'; g.lineWidth = 2; g.beginPath(); g.moveTo(10, -38); g.lineTo(17, -36); g.stroke(); }
-        g.restore(); if (h.st === 'glare') MGH.text(g, '❗', h.x, h.y - 58, 18, '#ff6a4a'); if (run) for (let q = 1; q < 4; q++) { g.fillStyle = `rgba(230,220,200,${0.3 - q * 0.08})`; g.beginPath(); g.arc(h.x - h.vx * q * 0.03, h.y - h.vy * q * 0.03, 8, 0, 7); g.fill(); } } }));
+        g.restore(); if (h.st === 'glare') MGH.text(g, '❗', h.x, h.y - 58, 18, '#ff6a4a'); if (h.st === 'dizzy') for (let q = 0; q < 3; q++) { const a = m.t * 6 + q * 2.1; MGH.star(g, h.x + Math.cos(a) * 16, h.y - 52 + Math.sin(a) * 4, 5, '#ffe680', a, false); } if (run) for (let q = 1; q < 4; q++) { g.fillStyle = `rgba(230,220,200,${0.3 - q * 0.08})`; g.beginPath(); g.arc(h.x - h.vx * q * 0.03, h.y - h.vy * q * 0.03, 8, 0, 7); g.fill(); } } }));
     (S.balloons || []).forEach(B => ents.push({ y: B.y, f: () => { const fl = Math.sin(B.t * 2 + B.hue) * 6; g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(B.x, B.y + 4, 14, 5, 0, 0, 7); g.fill();
         if (B.pop >= 0) { const k = B.pop / 0.5; for (let q = 0; q < 10; q++) { const a = q / 10 * 6.28; g.fillStyle = `rgba(180,230,255,${1 - k})`; g.beginPath(); g.arc(B.x + Math.cos(a) * k * 50, B.y - 46 + Math.sin(a) * k * 40 + k * k * 30, 5 * (1 - k) + 1, 0, 7); g.fill(); } return; }
         const col = B.gold ? '#ffd34d' : ['#ff6a8a', '#5ac8ff', '#7cf06a', '#c88aff', '#ff9a3a'][B.hue], y = B.y - 50 + fl; g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(B.x, y + 20); g.quadraticCurveTo(B.x + 6, B.y - 20, B.x, B.y - 2); g.stroke();
@@ -241,7 +247,7 @@ MG.def({
     // round banner + pips
     const R0 = this.rnd(S); if (R0) {
       if (S.ph === 'intro') { const k = Math.min(1, S.pt / 0.3); g.save(); g.translate(640, 360); g.scale(k, k); MGH.label(g, `Round ${S.round + 1}: ${R0.n}`, 0, -20, 40, '#ffe680'); MGH.label(g, R0.tip, 0, 34, 22, '#fff'); g.restore(); }
-      if (S.ph === 'done') MGH.label(g, R0.mode === 'catch' || R0.mode === 'burst' ? 'Round over!' : `${S.b.filter(b => !b.fail).length ? 'Survivors score!' : 'Nobody made it!'}`, 640, 330, 34, '#9fe0ff');
+      if (S.ph === 'done') MGH.label(g, R0.mode === 'catch' || R0.mode === 'burst' || R0.mode === 'chicken' ? 'Round over!' : `${S.b.filter(b => !b.fail).length ? 'Survivors score!' : 'Nobody made it!'}`, 640, 330, 34, '#9fe0ff');
     }
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, 1012, 52, 222, 32, 16); g.fill();
     for (let k = 0; k < 7; k++) { g.fillStyle = k < S.round || (k === S.round && S.ph === 'done') ? '#ffd34d' : k === S.round ? '#fff' : 'rgba(255,255,255,0.25)'; g.beginPath(); g.arc(1035 + k * 28, 68, k === 6 ? 11 : 8, 0, 7); g.fill(); }
