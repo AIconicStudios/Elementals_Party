@@ -233,7 +233,7 @@ const MG = {
           // any player's A, or any gamepad's A / B / Start, moves on from the results
           const anyPad = this.anyPadTap();
           if (phaseT > RP + 5.4 || (phaseT > RP + 1.5 && (anyPad || m.players.some(p => p.human && m.pressed(p.i, 'a'))))) {
-            phase = 'exit'; phaseT = 0; this.exitRes = { winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores };
+            phase = 'exit'; phaseT = 0; this.exitRes = { winners: winners.map(i => m.players[i].id), winner: m.players[winners[0]].id, scores: m.scores, coins: game.bonusCoins && game.coinsWon ? game.coinsWon(S) : null };
           }
         } else if (phase === 'exit') {
           // iris closes on the results, then back to the board

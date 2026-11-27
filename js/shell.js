@@ -335,12 +335,13 @@ const Shell = {
     this.logo(g, 640, 92, 0.62);
     const items = [
       { label: '🏆 Challenge', sub: this.ch ? `Game ${Math.min(this.ch.idx + 1, this.ch.order.length)} of ${this.ch.order.length}` : 'Every game once — who’s the champ?', fn: () => this.go('challenge'), col: '#ffcc33' },
+      { label: '🎲 Board', sub: 'The Crossing — stars, raids & duels', fn: () => this.go('boardsetup'), col: '#ff9a4a' },
       { label: '🎮 Free Play', sub: `${MG.list.length} minigames`, fn: () => { this.tab = this.tab || 0; this.go('browse'); }, col: '#7cf06a' },
       { label: '📜 Records', sub: 'Wins, champions, favourites', fn: () => this.go('records'), col: '#8fd8ff' },
       { label: '🙂 Change avatars', sub: 'Back to avatar select', fn: () => { this.seats.forEach(s => { s.picked = false; }); this.go('select'); }, col: '#ff9ad0' },
       { label: '⚙️ Settings', sub: 'Sound, music, controls', fn: () => this.go('settings'), col: '#c8b8ff' },
     ];
-    this.menuList(g, items, 90, 200, 470, 78, 92);
+    this.menuList(g, items, 90, 176, 470, 70, 82);
     this.panel(g, 620, 210, 600, 380);
     this.text(g, 'Today’s party', 920, 254, 26, '#ffe680');
     this.lineup(g, 700, 380, 146, 50);
