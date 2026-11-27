@@ -957,10 +957,10 @@
       if (f.spin) g.rotate(t * 16 * Math.sign(f.vx || 1));
       else if (f.spinJ > 0) { f.spinJ -= m.dt; g.rotate((0.35 - f.spinJ) / 0.35 * Math.PI * 2 * f.face); }
       // smooth motion: an eased squash on landing, a lean into the run, a stretch through jumps and falls
-      if (f.landT > 0) { f.landT -= m.dt; const q = Math.sin(Math.max(0, f.landT) / 0.12 * Math.PI / 2) * 0.12; g.translate(0, R0 * 1.25 * q * 0.5); g.scale(1 + q, 1 - q); }
-      else if (!f.ground && f.state !== 'hit' && !f.spinJ) { const st = clamp(Math.abs(f.vy) / 9000, 0, 0.07); g.scale(1 - st, 1 + st); }
-      if (!f.spin && f.state !== 'hit') { f.lean = (f.lean || 0) + (clamp(f.vx / 5000, -0.1, 0.1) - (f.lean || 0)) * Math.min(1, m.dt * 10); g.rotate(f.lean); }
-      if (f.state === 'brace') g.scale(1.08, 0.86);
+      // landing: a small dip (no squashing — heads keep their shape)
+      if (f.landT > 0) { f.landT -= m.dt; const q = Math.sin(Math.max(0, f.landT) / 0.12 * Math.PI / 2) * 0.12; g.translate(0, R0 * q * 0.6); }
+      if (!f.spin && f.state !== 'hit') { f.lean = (f.lean || 0) + (clamp(f.vx / 6000, -0.08, 0.08) - (f.lean || 0)) * Math.min(1, m.dt * 6); g.rotate(f.lean); }
+      if (f.state === 'brace') g.translate(0, R0 * 0.18);
       const blink = f.inv > 0 && Math.floor(t * 16) % 2 === 0;
       if (P.glow || f.charge > 0.2) MGH.glow(g, -f.face * 10, -6, 40 + Math.min(1, f.charge) * 30, PCOL[f.el], 0.8);
       if (f.shield > 0) { g.save(); const gr = g.createRadialGradient(-6, -14, 4, 0, 0, 60); gr.addColorStop(0, 'rgba(255,255,255,0.15)'); gr.addColorStop(0.8, 'rgba(120,200,255,0.35)'); gr.addColorStop(1, 'rgba(200,240,255,0.85)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 4, 58, 0, 7); g.fill(); g.restore(); }

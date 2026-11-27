@@ -600,7 +600,7 @@ MG.def({
   init(m, S) {
     S.ev = []; let d = 500;
     while (d < 16000) { if (Math.random() < 0.55) S.ev.push({ d, type: 'fork', safe: R.pick(['left', 'right']) }); else S.ev.push({ d, type: 'gap' }); d += R.range(380, 560); }
-    S.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 330, choice: null, air: 0, crash: 0, done: new Set(), side: 0, rx: R.range(0.18, 0.35) }));
+    S.p = [0, 1, 2, 3].map(() => ({ d: 0, v: 330, choice: null, air: 0, crash: 0, done: new Set(), side: 0, path: {}, wrongAt: -1, rx: R.range(0.18, 0.35) }));
   },
   update(m, S, dt) {
     S.p.forEach((p, i) => {
@@ -610,18 +610,23 @@ MG.def({
       p.air -= dt;
       p.v = Math.min(560, p.v + 6 * dt);
       p.d += p.v * dt;
-      p.side = lerp(p.side, 0, dt * 2);
+      if (p.wrongAt > 0 && p.d >= p.wrongAt) { p.wrongAt = -1; p.crash = 1.3; p.v *= 0.7; MGH.burst(i * 320 + 160 + this.off(S, p, p.d), 520, ['#8a7765', '#ffd34d', '#555'], 26, { speed: 300 }); MGH.shake(6); if (!m.bot(i)) Sfx.boom(); }
       S.ev.forEach((e, k) => {
         if (p.done.has(k) || p.d < e.d) return;
         p.done.add(k);
         if (e.type === 'fork') {
-          if (p.choice !== e.safe) { p.crash = 1.3; p.v *= 0.7; MGH.burst(i * 320 + 160, 520, ['#8a7765', '#ffd34d', '#555'], 26, { speed: 300 }); MGH.shake(6); if (!m.bot(i)) Sfx.boom(); }
-          else { p.side = e.safe === 'left' ? -1 : 1; MGH.burst(i * 320 + 160, 520, ['#ffe680'], 8, { speed: 140, kind: 'spark', size: 2 }); }
+          // the cart really takes the branch: the safe one curves round the rock, the other runs into broken track
+          const side = p.choice === e.safe ? (e.safe === 'left' ? -1 : 1) : (e.safe === 'left' ? 1 : -1); p.path[k] = side;
+          if (p.choice !== e.safe) p.wrongAt = e.d + 170; else MGH.burst(i * 320 + 160, 520, ['#ffe680'], 8, { speed: 140, kind: 'spark', size: 2 });
           p.choice = null;
         } else if (p.air <= 0) { p.crash = 1.1; p.v *= 0.75; MGH.burst(i * 320 + 160, 540, ['#8a7765', '#555'], 22, { speed: 260 }); if (!m.bot(i)) Sfx.bad(); }
       });
     });
   },
+  DET: 340,
+  bump(u) { return u <= 0 || u >= 1 ? 0 : 0.5 - 0.5 * Math.cos(u * Math.PI * 2); },
+  // how far left/right this player's track is at a distance along the mine
+  off(S, p, d) { let x = 0; S.ev.forEach((e, k) => { if (e.type === 'fork' && p.path[k]) x += p.path[k] * 110 * this.bump((d - e.d) / this.DET); }); return x; },
   bot(m, S, i) {
     const p = S.p[i], v = m.vin[i]; v.left = v.right = v.a = false;
     const e = S.ev.find((e, k) => !p.done.has(k));
@@ -641,15 +646,22 @@ MG.def({
       for (let k = 0; k < 6; k++) { const y = ((k * 140 + p.d * 0.9) % 840) - 60; MGH.gem(g, ox + 24, y, 7, ['#5fd8ff', '#ff6ad5', '#7cf06a'][k % 3], m.t); MGH.gem(g, ox + 296, y + 70, 6, ['#ffd34d', '#5fd8ff'][k % 2], m.t); }
       // lantern posts
       for (let k = 0; k < 8; k++) { const y = ((k * 110 + p.d * 0.9) % 880) - 120; g.fillStyle = 'rgba(255,190,90,0.18)'; g.beginPath(); g.arc(ox + 30, y, 26, 0, 7); g.arc(ox + 290, y + 55, 26, 0, 7); g.fill(); }
-      const rails = (x1, x2, y1, y2) => { g.strokeStyle = '#8a8a96'; g.lineWidth = 4; g.beginPath(); g.moveTo(x1 - 22, y1); g.lineTo(x2 - 22, y2); g.moveTo(x1 + 22, y1); g.lineTo(x2 + 22, y2); g.stroke(); };
-      rails(cx, cx, 40, 720);
-      for (let y = (p.d % 40) + 40; y < 720; y += 40) { g.fillStyle = '#5a3d22'; g.fillRect(cx - 32, y, 64, 8); }
+      const yAt = dd => yC - (dd - p.d), X = dd => cx + this.off(S, p, dd);
+      const railLine = (fx, broken) => { for (const sd of [-22, 22]) { g.strokeStyle = '#3a3a44'; g.lineWidth = 7; g.beginPath(); let started = false; for (let y = 760; y >= 20; y -= 16) { const dd = p.d + (yC - y); if (broken && broken(dd)) { started = false; continue; } const x = fx(dd) + sd; if (!started) { g.moveTo(x, y); started = true; } else g.lineTo(x, y); } g.stroke(); g.strokeStyle = '#b8b8c8'; g.lineWidth = 3; g.stroke(); } };
+      const ties = (fx, broken) => { for (let y = 760 - ((760 - yC + p.d) % 34); y >= 20; y -= 34) { const dd = p.d + (yC - y); if (broken && broken(dd)) continue; const x = fx(dd); g.fillStyle = '#5a3d22'; MGH.rr(g, x - 34, y - 4, 68, 9, 3); g.fill(); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x - 32, y - 4, 64, 2); } };
+      // upcoming (and passed) forks: the other branch, plus a rock pillar between them
+      S.ev.forEach((e, k) => { if (e.type !== 'fork') return; const y0 = yAt(e.d), y1 = yAt(e.d + this.DET); if (y1 > 800 || y0 < -40) return;
+        const midY = yAt(e.d + this.DET / 2); g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(cx + 6, midY + 18, 60, 16, 0, 0, 7); g.fill(); const rg = g.createLinearGradient(cx - 50, 0, cx + 50, 0); rg.addColorStop(0, '#8a7a68'); rg.addColorStop(1, '#4a3e32'); g.fillStyle = rg; g.beginPath(); g.moveTo(cx - 50, midY + 20); g.quadraticCurveTo(cx - 56, midY - 70, cx - 14, midY - 96); g.quadraticCurveTo(cx + 30, midY - 110, cx + 50, midY - 40); g.lineTo(cx + 48, midY + 20); g.closePath(); g.fill(); MGH.gem(g, cx - 10, midY - 50, 8, '#5fd8ff', m.t);
+        for (const sd of [-1, 1]) { if (p.path[k] === sd) continue; const bad = (sd < 0 ? 'left' : 'right') !== e.safe, fx = dd => cx + sd * 110 * this.bump((dd - e.d) / this.DET), brk = bad ? dd => dd > e.d + 150 && dd < e.d + 200 : null;
+          g.save(); g.beginPath(); g.rect(ox, Math.min(760, y1), 320, Math.max(0, Math.min(760, y0) - y1)); g.clip(); ties(fx, brk); railLine(fx, brk); g.restore();
+          if (bad) { const by = yAt(e.d + 175); g.fillStyle = '#0a0603'; g.beginPath(); g.ellipse(cx + sd * 100, by, 42, 22, 0, 0, 7); g.fill(); MGH.text(g, '💀', cx + sd * 100, by + 8, 22, '#fff'); } } });
+      // this player's own track (straight, or bending round the rocks they've chosen)
+      ties(X); railLine(X);
       S.ev.forEach((e, k) => {
-        const y = yC - (e.d - p.d); if (y < 0 || y > 760) return;
+        const y = yAt(e.d); if (y < 0 || y > 860) return;
         if (e.type === 'fork') {
-          rails(cx, cx - 110, y, y - 160); rails(cx, cx + 110, y, y - 160);
           const sy = y + 70;
-          if (sy < 760) {
+          if (sy < 760 && p.path[k] === undefined) {
             // a big lit signboard on two posts: green arrow = safe, red skull = crash
             const L = e.safe === 'left';
             MGH.glow(g, cx, sy - 20, 150, 'rgba(255,220,140,0.35)');
@@ -660,12 +672,12 @@ MG.def({
               MGH.text(g, sd < 0 ? (ok ? '◀ ✔' : '◀ 💀') : (ok ? '✔ ▶' : '💀 ▶'), cx + sd * 68, sy - 18, 30, '#fff', 'center', 'bold');
             }
           }
-        } else { g.fillStyle = '#0a0603'; g.fillRect(cx - 40, y - 26, 80, 30); MGH.text(g, '⚠️', cx + 60, y - 4, 18, '#fff'); }
+        } else { const gx = X(e.d); g.fillStyle = '#0a0603'; g.beginPath(); g.ellipse(gx, y - 10, 46, 18, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,120,40,0.35)'; g.beginPath(); g.ellipse(gx, y - 6, 34, 10, 0, 0, 7); g.fill(); MGH.text(g, '⚠️', gx + 60, y - 4, 18, '#fff'); }
       });
       const air = p.air > 0 ? Math.sin((0.55 - p.air) / 0.55 * Math.PI) : 0;
-      const sx = cx + p.side * 30 + (p.crash > 0 ? Math.sin(m.t * 40) * 6 : 0);
+      const sx = X(p.d) + (p.crash > 0 ? Math.sin(m.t * 40) * 6 : 0), tilt = Math.atan2(X(p.d + 20) - X(p.d - 20), 40) * 0.8;
       g.fillStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.ellipse(sx, yC + 26, 34, 10, 0, 0, 7); g.fill();
-      g.save(); g.translate(sx, yC - air * 30); g.scale(1 + air * 0.15, 1 + air * 0.15);
+      g.save(); g.translate(sx, yC - air * 30); g.rotate(tilt); g.scale(1 + air * 0.15, 1 + air * 0.15);
       g.fillStyle = MGH.grad(g, -10, 26, ['#8a6a4a', '#4a2e18']); MGH.rr(g, -32, -10, 64, 36, 6); g.fill(); g.strokeStyle = '#2a1a0c'; g.lineWidth = 3; g.stroke();
       g.fillStyle = '#9a9aa8'; g.fillRect(-32, -10, 64, 5); g.fillRect(-32, 8, 64, 4);
       for (const wx of [-22, 22]) { g.fillStyle = '#333'; g.beginPath(); g.arc(wx, 28, 7, 0, 7); g.fill(); }

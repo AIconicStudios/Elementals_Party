@@ -139,7 +139,7 @@ MG.def({
 // 53 ---------------------------------------------------------------- Gale Hammer Throw
 MG.def({
   id: 'hammer', name: 'Gale Hammer Throw', type: 'Skill', controls: '1 button (hold & release)', mouseA: true,
-  how: 'HOLD the button to spin the hammer faster and faster — but stay at full speed too long and you get dizzy! LET GO to throw: it flies off the way it is pointing, so release while it points up the field (inside the white lines). Two throws, best counts.',
+  how: 'HOLD the button to spin the hammer faster and faster — but stay at full speed too long and you get dizzy! LET GO to throw: it flies off the way it is pointing, so release while it points up the field — the ring around you glows GREEN at the right moment. Two throws, best counts.',
   wins: 'Longest throw.',
   init(m, S) { S.best = [0, 0, 0, 0]; S.att = 1; this.reset(S); },
   reset(S) { S.p = [0, 1, 2, 3].map(() => ({ a: Math.PI / 2, w: 1, last: null, st: 'spin', tm: 0, hx: 0, hy: 0, vx: 0, vy: 0, dist: 0, foul: false, bt: 0 })); S.wait = 0; },
@@ -149,7 +149,7 @@ MG.def({
         p.tm += dt;
         p.dizzy = Math.max(0, (p.dizzy || 0) - dt);
         const hold = m.held(i, 'a') && p.dizzy <= 0;
-        if (hold) { p.held = true; p.w = Math.min(15, p.w + 5.2 * dt); if (p.w >= 15) { p.over = (p.over || 0) + dt; if (p.over > 1.1) { p.dizzy = 1.2; p.w = 4; p.over = 0; p.held = false; MGH.pop('DIZZY!', i * 320 + 160, 520, '#ff9a9a', 26); if (!m.bot(i)) Sfx.bad(); } } }
+        if (hold) { p.held = true; p.w = Math.min(15, p.w + 5.2 * dt); if (p.w >= 15) { p.over = (p.over || 0) + dt; if (p.over > 1.9) { p.dizzy = 1.2; p.w = 4; p.over = 0; p.held = false; MGH.pop('DIZZY!', i * 320 + 160, 520, '#ff9a9a', 26); if (!m.bot(i)) Sfx.bad(); } } }
         else { p.over = 0; if (!p.held) p.w = Math.max(1, p.w - 2 * dt); }
         p.a += p.w * dt;
         if ((p.held && !hold && p.dizzy <= 0) || p.tm > 14) {
@@ -158,7 +158,7 @@ MG.def({
           // tangent direction of release (counter-clockwise spin): angle + 90°
           const tx = -Math.sin(ang), ty = Math.cos(ang);
           const upDev = Math.abs(Math.atan2(tx, ty));
-          p.st = 'fly'; p.hx = 0; p.hy = 0; const sp = p.w * 1.6; p.vx = tx * sp; p.vy = -ty * sp; p.foul = upDev > 0.6; p.dir = dir;
+          p.st = 'fly'; p.hx = 0; p.hy = 0; const sp = p.w * 1.6; p.vx = tx * sp; p.vy = -ty * sp; p.foul = upDev > 0.85; p.dir = dir;
           MGH.burst(i * 320 + 160, 640, ['#fff', '#ccd'], 8, { speed: 120 });
         }
       } else if (p.st === 'fly') {
@@ -193,16 +193,25 @@ MG.def({
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160, cy = 640;
       g.save(); g.beginPath(); g.rect(i * 320, 40, 320, 680); g.clip();
-      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx - Math.sin(0.6) * 700, cy - Math.cos(0.6) * 700); g.moveTo(cx, cy); g.lineTo(cx + Math.sin(0.6) * 700, cy - Math.cos(0.6) * 700); g.stroke();
-      for (let d = 10; d <= 70; d += 10) { const y = cy - d * 8 * 0.95; if (y < 50) break; MGH.text(g, d + 'm', cx + 120, y, 12, 'rgba(255,255,255,0.6)'); g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(cx - 100, y, 200, 1); }
-      if (S.best[i] > 0) { g.fillStyle = m.players[i].color; g.fillRect(cx - 30, cy - S.best[i] * 8 * 0.95, 60, 4); }
-      g.fillStyle = '#ccc'; g.beginPath(); g.arc(cx, cy, 40, 0, 7); g.globalAlpha = 0.3; g.fill(); g.globalAlpha = 1;
+      // a mown throwing sector with distance arcs, a concrete circle and a safety cage behind the thrower
+      const SEC = 0.85; g.fillStyle = 'rgba(120,200,90,0.35)'; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, 760, -Math.PI / 2 - SEC, -Math.PI / 2 + SEC); g.closePath(); g.fill();
+      for (let k = 0; k < 14; k++) { g.fillStyle = k % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,60,0,0.05)'; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, 760, -Math.PI / 2 - SEC + k * SEC / 7, -Math.PI / 2 - SEC + (k + 1) * SEC / 7); g.closePath(); g.fill(); }
+      g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx - Math.sin(SEC) * 760, cy - Math.cos(SEC) * 760); g.moveTo(cx, cy); g.lineTo(cx + Math.sin(SEC) * 760, cy - Math.cos(SEC) * 760); g.stroke();
+      for (let d = 10; d <= 70; d += 10) { const r = d * 8 * 0.95, y = cy - r; if (y < 50) break; g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1.5; g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2 - SEC, -Math.PI / 2 + SEC); g.stroke(); g.fillStyle = 'rgba(20,40,20,0.5)'; MGH.rr(g, cx + 96, y - 9, 34, 18, 6); g.fill(); MGH.text(g, d + 'm', cx + 113, y + 5, 12, '#fff'); }
+      if (S.best[i] > 0) { const r = S.best[i] * 8 * 0.95; g.strokeStyle = m.players[i].color; g.lineWidth = 4; g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2 - 0.3, -Math.PI / 2 + 0.3); g.stroke(); MGH.text(g, '🚩', cx, cy - r - 4, 18, '#fff'); }
+      g.strokeStyle = 'rgba(80,80,90,0.55)'; g.lineWidth = 2; for (let k = 0; k <= 10; k++) { const a = Math.PI * 0.1 + k * Math.PI * 0.08; g.beginPath(); g.moveTo(cx + Math.cos(a) * 70, cy + Math.sin(a) * 40 - 60); g.lineTo(cx + Math.cos(a) * 70, cy + Math.sin(a) * 40); g.stroke(); } g.beginPath(); g.ellipse(cx, cy - 60, 70, 40, 0, Math.PI * 0.1, Math.PI * 0.9); g.stroke();
+      g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(cx + 4, cy + 4, 46, 22, 0, 0, 7); g.fill(); g.fillStyle = '#c8c4bc'; g.beginPath(); g.ellipse(cx, cy, 44, 20, 0, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
       let hx, hy;
-      if (p.st === 'spin') { hx = cx + Math.cos(p.a) * 55; hy = cy - Math.sin(p.a) * 30; g.strokeStyle = '#aaa'; g.lineWidth = 2; g.beginPath(); g.moveTo(cx, cy - 10); g.lineTo(hx, hy); g.stroke(); }
-      else { hx = cx + clamp(p.hx * 0.3, -150, 150); hy = cy + p.hy * 0.95; }
-      MGH.av(g, m, i, cx, cy - 10, 22, p.st === 'done' ? (p.foul ? 'hurt' : p.dist > 40 ? 'cheer' : 'happy') : p.w > 10 ? 'dizzy' : 'determined', { look: { x: Math.cos(p.a), y: 0 } });
-      MGH.rock(g, hx, hy, 10, i, '#6a6a7a', m.t * 8);
+      if (p.st === 'spin') {
+        // the release window: when the hammer points up the field the ring glows green
+        const ang = ((p.a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2), tx = -Math.sin(ang), ty = Math.cos(ang), ok = ty > 0 && Math.abs(Math.atan2(tx, ty)) < SEC * 0.8;
+        if (ok && p.w > 4) { g.strokeStyle = 'rgba(120,255,120,0.9)'; g.lineWidth = 5; g.beginPath(); g.ellipse(cx, cy, 58, 30, 0, 0, 7); g.stroke(); MGH.text(g, 'LET GO!', cx, cy - 92, 16, '#9fff9a', 'center', 'bold'); }
+        hx = cx + Math.cos(p.a) * 58; hy = cy - Math.sin(p.a) * 30;
+        for (let q = 1; q <= 4; q++) { const a2 = p.a - q * 0.12 * Math.min(1, p.w / 8); g.fillStyle = `rgba(200,200,220,${0.18 - q * 0.035})`; g.beginPath(); g.arc(cx + Math.cos(a2) * 58, cy - Math.sin(a2) * 30, 9, 0, 7); g.fill(); }
+        g.strokeStyle = '#8a8a96'; g.lineWidth = 2; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(cx, cy - 18); g.lineTo(hx, hy); g.stroke(); g.setLineDash([]);
+      } else { hx = cx + clamp(p.hx * 0.3, -150, 150); hy = cy + p.hy * 0.95; if (p.st === 'fly') { g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(hx + 6, hy + 30, 10, 4, 0, 0, 7); g.fill(); } else { g.fillStyle = 'rgba(90,60,30,0.5)'; g.beginPath(); g.ellipse(hx, hy + 6, 16, 6, 0, 0, 7); g.fill(); } }
+      MGH.av(g, m, i, cx, cy - 10, 22, p.st === 'done' ? (p.foul ? 'hurt' : p.dist > 40 ? 'cheer' : 'happy') : p.dizzy > 0 ? 'dizzy' : p.w > 10 ? 'effort' : 'determined', { look: { x: Math.cos(p.a), y: 0 }, hands: p.st === 'spin' ? { n: { x: Math.cos(p.a) * 1.2, y: -Math.sin(p.a) * 0.6 - 0.3, d: 0, o: false, m: true }, f: { x: Math.cos(p.a) * 1.0, y: -Math.sin(p.a) * 0.5 - 0.2, d: 0, o: false, m: false } } : undefined });
+      const hg = g.createRadialGradient(hx - 4, hy - 4, 2, hx, hy, 12); hg.addColorStop(0, '#d8d8e8'); hg.addColorStop(1, '#3a3a48'); g.fillStyle = hg; g.beginPath(); g.arc(hx, hy, 11, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(hx - 4, hy - 4, 3, 0, 7); g.fill();
       g.fillStyle = '#222'; g.fillRect(cx - 60, 700, 120, 8); g.fillStyle = m.players[i].color; g.fillRect(cx - 60, 700, 120 * Math.min(1, p.w / 15), 8);
       g.restore();
     });

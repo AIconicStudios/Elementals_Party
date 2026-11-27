@@ -455,6 +455,7 @@ MG.def({
     for (const side of [0, 1]) { const w = S.wall; if (w < 2) continue; const x0 = side ? 1280 - w : 0; g.fillStyle = MGH.grad(g, 40, 720, ['#6a5a4a', '#3a2e24']); g.fillRect(x0, 40, w, 680); g.fillStyle = 'rgba(0,0,0,0.2)'; for (let y = 60; y < 720; y += 50) g.fillRect(x0 + (side ? 0 : w - 10), y, 10, 30); }
     for (const p of S.plats) {
       if (p.floor) continue;
+      if (p.st === 'gone' && p._ps !== 'gone') { p.sink = 0; p.sx0 = p.x; p.sy0 = p.y; } p._ps = p.st; if (p.st === 'gone' && p.sink !== undefined && p.sink < 1.2) { p.sink += 1 / 60; const k = p.sink, yy = p.sy0 + k * k * 500; if (yy < S.water + 10) { g.save(); g.translate(p.sx0 + p.w / 2, yy); g.rotate(k * 0.8); g.globalAlpha = Math.max(0, 1 - k * 0.6); MGH.plat(g, -p.w / 2, 0, p.w, 16, 'stone'); g.restore(); g.globalAlpha = 1; } else if (!p.splashed) { p.splashed = true; MGH.burst(p.sx0 + p.w / 2, S.water, ['#bfe9ff', '#ffffff'], 18, { speed: 260, up: 220, grav: 700 }); } } else if (p.st !== 'gone') p.splashed = false;
       if (p.st === 'gone') { if (p.tt < 1) { g.globalAlpha = 0.3; g.strokeStyle = '#ffe680'; g.setLineDash([6, 6]); MGH.rr(g, p.x, p.y, p.w, 14, 5); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; } continue; }
       const sx = p.st === 'crack' ? Math.sin(m.t * 60) * 3 : (p.load > 0.5 ? Math.sin(m.t * 40) * 1.5 : 0);
       MGH.plat(g, p.x + sx, p.y, p.w, 16, p.st === 'crack' ? 'stone' : 'grass');
@@ -465,8 +466,11 @@ MG.def({
     S.b.forEach((b, i) => {
       if (!b.alive) return;
       MGH.shadow(g, b.x, b.y, 18, 0.25);
-      MGH.av(g, m, i, b.x, b.y - 17, 16, S.water - b.y < 90 || (b.on && b.on.st === 'crack') ? 'scared' : (b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: b.dir * 0.8, y: -0.5 } });
+      if (b.ground && !b._wg) { b.land = 0.18; for (let q = 0; q < 6; q++) MGH.burst(b.x + (q - 2.5) * 6, b.y, 'rgba(230,220,200,0.8)', 1, { speed: 70, up: 30, life: 0.35, size: 3 }); } b._wg = b.ground; b.land = Math.max(0, (b.land || 0) - 1 / 60);
+      g.save(); g.translate(0, b.land * 30); // a small dip on landing
+      MGH.av(g, m, i, b.x, b.y - 17, 16, S.water - b.y < 90 || (b.on && b.on.st === 'crack') ? 'scared' : (b.ground ? 'determined' : 'cheer'), { walk: Math.abs(b.vx) > 10 ? 1 : 0, look: { x: b.dir * 0.8, y: -0.5 }, hands: b.ground ? undefined : { n: { x: -1.2, y: -1.4, d: -120, o: true, m: true }, f: { x: 1.2, y: -1.4, d: -60, o: true, m: false } } }); g.restore();
     });
+    for (let q = 0; q < 14; q++) { const ph = (m.t * 0.4 + q * 0.071) % 1, bx = (q * 97 + Math.sin(m.t + q) * 10) % 1280, by = S.water + 200 - ph * 190; if (by > S.water + 6) { g.strokeStyle = `rgba(220,245,255,${0.5 * ph})`; g.lineWidth = 1.5; g.beginPath(); g.arc(bx, by, 3 + (q % 3), 0, 7); g.stroke(); } }
     MGH.surface(g, S.water, m.t, 'rgba(200,240,255,0.9)', ['rgba(40,150,255,0.72)', 'rgba(10,40,120,0.95)'], 7);
   },
 });
@@ -480,7 +484,7 @@ MG.def({
     S.cols = 10; S.rows = 6; S.tw = 128; S.th = 680 / 6;
     S.state = new Array(60).fill(0); // 0 safe, 1 warn, 2 fire
     S.next = 1.5; S.phase = 'idle';
-    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(300 + i * 230, 380, 24), { outT: 0 }));
+    S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(300 + i * 230, 380, 24), { outT: 0 })); S.cool = new Array(60).fill(0); S.warnT = 0;
   },
   tileAt(S, x, y) { const c = clamp(Math.floor(x / S.tw), 0, 9), r = clamp(Math.floor((y - 40) / S.th), 0, 5); return r * 10 + c; },
   pattern(S, t) {
@@ -498,12 +502,12 @@ MG.def({
     return set;
   },
   update(m, S, dt) {
-    S.next -= dt;
+    S.next -= dt; S.cool = S.cool.map(c => Math.max(0, c - dt)); S.warnT = S.phase === 'warn' ? S.warnT + dt : 0;
     const speedUp = Math.max(0.55, 1 - m.t / 70);
     if (S.next <= 0) {
       if (S.phase === 'idle') { S.cur = this.pattern(S, m.t); S.cur.forEach(i => { S.state[i] = 1; }); S.phase = 'warn'; S.next = 1.1 * speedUp; }
       else if (S.phase === 'warn') { S.cur.forEach(i => { S.state[i] = 2; MGH.burst((i % 10 + 0.5) * S.tw, 40 + (Math.floor(i / 10) + 0.5) * S.th, ['#ff5a1f', '#ffd34d'], 3, { speed: 120, up: 100, life: 0.6 }); }); S.phase = 'fire'; S.next = 0.7; MGH.shake(3); Sfx.tone(140, 0.25, 'sawtooth', 0.04); }
-      else { S.state.fill(0); S.phase = 'idle'; S.next = 0.5 * speedUp; }
+      else { S.cur.forEach(i => { S.cool[i] = 0.9; }); S.state.fill(0); S.phase = 'idle'; S.next = 0.5 * speedUp; }
     }
     S.b.forEach((b, i) => {
       if (!b.alive) return;
@@ -536,18 +540,24 @@ MG.def({
       const x = (k % 10) * S.tw, y = 40 + Math.floor(k / 10) * S.th, s = S.state[k], w = S.tw - 4, h = S.th - 4;
       if (s === 2) {
         g.fillStyle = MGH.grad(g, y, y + h, ['#ffd34d', '#ff5a1f', '#a81e08']); g.fillRect(x + 2, y + 2, w, h);
-        for (let f = 0; f < 3; f++) { const fx = x + 2 + w * (0.25 + f * 0.25), fh = 30 + Math.sin(m.t * 12 + k + f) * 10; g.fillStyle = 'rgba(255,230,120,0.85)'; g.beginPath(); g.moveTo(fx - 10, y + h); g.quadraticCurveTo(fx, y + h - fh * 2, fx + 10, y + h); g.fill(); }
+        for (let f = 0; f < 3; f++) MGH.flame(g, x + 2 + w * (0.22 + f * 0.28), y + h - 4, 0.55 + 0.15 * Math.sin(m.t * 7 + k + f), m.t, k * 3 + f);
+        for (let f = 0; f < 2; f++) { const ph = (m.t * 0.8 + f * 0.5 + k * 0.13) % 1; g.fillStyle = `rgba(60,40,40,${0.35 * (1 - ph)})`; g.beginPath(); g.arc(x + w * (0.3 + f * 0.4), y + h * 0.3 - ph * 60, 10 + ph * 14, 0, 7); g.fill(); }
         if (Math.random() < 0.08) MGH.burst(x + S.tw / 2, y + S.th / 2, ['#ffd34d', '#ff8a3d'], 1, { speed: 60, up: 80, life: 0.6, size: 2 });
       } else {
         const warn = s === 1, pul = warn ? 0.5 + 0.5 * Math.sin(m.t * 26) : 0;
         g.fillStyle = MGH.grad(g, y, y + h, warn ? [`rgb(${120 + pul * 120},${50 + pul * 60},30)`, '#3a1a10'] : ((k + Math.floor(k / 10)) % 2 ? ['#4a3a34', '#2a201c'] : ['#433430', '#251c18']));
         g.fillRect(x + 2, y + 2, w, h);
+        if (S.cool[k] > 0) { g.fillStyle = `rgba(255,${100 + S.cool[k] * 80},40,${S.cool[k] * 0.55})`; g.fillRect(x + 2, y + 2, w, h); }
+        if (warn) { const heat = Math.min(1, S.warnT / 1.1); MGH.glow(g, x + w / 2, y + h / 2, 60 + heat * 30, `rgba(255,120,40,${0.2 + heat * 0.35})`); for (let f = 0; f < 3; f++) { const ph = (m.t * (1.5 + heat * 2) + f / 3 + k * 0.17) % 1; g.fillStyle = `rgba(255,${180 + f * 20},80,${(1 - ph) * (0.5 + heat * 0.5)})`; g.beginPath(); g.arc(x + w * (0.25 + f * 0.25) + Math.sin(ph * 9 + k) * 6, y + h - ph * h * 0.9, 2.5, 0, 7); g.fill(); } }
         g.strokeStyle = warn ? `rgba(255,${150 + pul * 100},60,${0.5 + pul * 0.5})` : 'rgba(255,90,30,0.25)'; g.lineWidth = warn ? 3 : 1.5;
         g.beginPath(); g.moveTo(x + w * 0.2, y + 6); g.lineTo(x + w * 0.45, y + h * 0.5); g.lineTo(x + w * 0.35, y + h - 4); g.moveTo(x + w * 0.45, y + h * 0.5); g.lineTo(x + w * 0.85, y + h * 0.4); g.stroke();
         g.fillStyle = 'rgba(255,255,255,0.05)'; g.fillRect(x + 2, y + 2, w, 6);
       }
     }
-    S.b.forEach((b, i) => { if (b.alive) { MGH.shadow(g, b.x, b.y + b.r * 1.2, b.r, 0.35); MGH.drawBody(g, b, m.players[i], '', S.state[this.tileAt(S, b.x, b.y)] === 1 ? 'scared' : null); } });
+    S.b.forEach((b, i) => {
+      if (b.alive) { const hot = S.state[this.tileAt(S, b.x, b.y)] === 1, hop = hot ? Math.abs(Math.sin(m.t * 18 + i)) * 10 : 0; MGH.shadow(g, b.x, b.y + b.r * 1.2, b.r, 0.35); g.save(); g.translate(0, -hop); MGH.drawBody(g, b, m.players[i], '', hot ? 'scared' : null); g.restore(); if (hot) for (let q = 0; q < 2; q++) MGH.text(g, '💦', b.x + (q ? 22 : -22), b.y - 40 - hop, 12, '#fff'); }
+      else { const k = Math.min(1, (m.t - b.outT) / 1.6); if (k < 1) { g.globalAlpha = 1 - k; g.fillStyle = 'rgba(80,70,70,0.6)'; for (let q = 0; q < 4; q++) { g.beginPath(); g.arc(b.x + Math.sin(k * 8 + q) * 14, b.y - k * 120 - q * 10, 10 + q * 3, 0, 7); g.fill(); } Char.draw(g, b.x, b.y - 40 - k * 140, 16, m.players[i].el.id, m.players[i].color, { headOnly: true, mood: 'dizzy', seed: i * 1.7, alpha: 0.7, noShadow: true }); g.globalAlpha = 1; } }
+    });
   },
 });
 

@@ -671,7 +671,7 @@ const MGH = {
     b._lean = (b._lean || 0) + (clamp(vx / 1100, -0.2, 0.2) - (b._lean || 0)) * 0.2;
     const acc = (b._psp !== undefined ? b._psp - sp : 0); b._psp = sp; b._sq = Math.max((b._sq || 0) * 0.85, acc > 25 ? Math.min(0.12, acc / 600) : 0);
     if (sp > 170 && b.alive !== false && !Settings.test) { const ph = (performance.now() / 1000 * 3 + (p.i || 0) * 0.3) % 1; g.fillStyle = `rgba(200,190,170,${0.35 * (1 - ph)})`; g.beginPath(); g.arc(b.x - vx / sp * (10 + ph * 26), fy - ph * 10, 4 + ph * 8, 0, 7); g.fill(); }
-    g.save(); g.translate(b.x, fy); g.rotate(b._lean); g.scale(1 + b._sq, 1 - b._sq);
+    g.save(); g.translate(b.x, fy + b._sq * r * 1.5); g.rotate(b._lean); // a little dip on hard stops (no squashing, so heads keep their shape)
     Char.draw(g, 0, -r * 1.25, r, p.el.id, p.color, { mood: MGH.persona(mood, p.el.id), look: b.face, walk: sp > 40 ? Math.min(1, sp / 160) : 0, seed: (p.i || 0) * 1.7, alpha: b.alive ? 1 : 0.4 });
     g.restore();
     if (extra && MGH.HELD.has(extra)) { // tools are held in the hand, not floating over the head
