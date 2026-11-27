@@ -309,9 +309,7 @@ MG.def({
   fmt(s) { return `${s} gems`; },
   hud(m, S, i) { return `💎 ${S.b[i].pts}`; },
   draw(m, S, g) {
-    g.fillStyle = '#0e1220'; g.fillRect(0, 0, 1280, 720);
-    for (let x = 60; x < 1220; x += 60) for (let y = 150; y < 700; y += 60) { g.fillStyle = Math.floor((x + y) / 60) % 2 ? '#161c30' : '#1a2238'; g.fillRect(x, y, 60, 60); }
-    g.strokeStyle = '#3a4a6a'; g.lineWidth = 6; g.strokeRect(60, 150, 1160, 550);
+    GX.blit(g, BG3.vault());
     S.gems.forEach(gm => MGH.gem(g, gm.x, gm.y, 14, '#5fd8ff', m.t));
     g.save(); g.beginPath(); g.rect(60, 150, 1160, 550); g.clip();
     S.L.forEach(l => { if (l.k === 'blink' && !l.on) return; const [x1, y1, x2, y2] = this.seg(l), warn = l.k === 'blink' && l.t < 0.3; g.strokeStyle = warn ? 'rgba(255,80,80,0.3)' : 'rgba(255,40,60,0.9)'; g.lineWidth = warn ? 2 : 5; g.shadowColor = '#ff2a3a'; g.shadowBlur = warn ? 0 : 16; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.shadowBlur = 0; for (const [x, y] of [[x1, y1], [x2, y2]]) { g.fillStyle = '#5a5a6a'; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill(); } }); g.restore();

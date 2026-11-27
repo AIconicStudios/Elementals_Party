@@ -87,10 +87,7 @@ MG.def({
   fmt(s) { return `${s} pts`; },
   hud(m, S, i) { return `${Math.round(S.b[i].pts)}`; },
   draw(m, S, g) {
-    g.fillStyle = '#120a20'; g.fillRect(0, 0, 1280, 720);
-    g.fillStyle = MGH.grad(g, 160, 720, ['#3a2a4a', '#2a1a38']); g.fillRect(40, 160, 1200, 560);
-    for (let x = 40; x < 1240; x += 60) { g.fillStyle = 'rgba(255,255,255,0.03)'; g.fillRect(x, 160, 2, 560); }
-    g.fillStyle = '#6a1a2a'; g.fillRect(0, 40, 1280, 110); for (let x = 0; x < 1280; x += 40) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x, 40, 16, 110); }
+    GX.blit(g, BG3.stage());
     MGH.crowd(g, m.t, 720, 30);
     g.save(); g.globalCompositeOperation = 'lighter';
     S.L.forEach(l => { const col = m.players[l.owner].color; const gr = g.createRadialGradient(l.x, l.y, 10, l.x, l.y, 90); gr.addColorStop(0, col + 'cc'); gr.addColorStop(1, col + '00'); g.fillStyle = gr; g.beginPath(); g.ellipse(l.x, l.y, 90, 70, 0, 0, 7); g.fill(); g.fillStyle = col + '22'; g.beginPath(); g.moveTo(l.x - 60, l.y); g.lineTo(l.x - 10, 150); g.lineTo(l.x + 10, 150); g.lineTo(l.x + 60, l.y); g.fill(); });

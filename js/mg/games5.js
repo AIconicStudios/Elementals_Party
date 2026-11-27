@@ -317,7 +317,7 @@ MG.def({
   fmt(s) { return s >= 100 ? `${Math.round(s - 100)} ♥ left` : `out at ${s.toFixed(1)}s`; },
   hud(m, S, i) { return S.hp[i] > 0 ? '♥'.repeat(S.hp[i]) : 'out'; },
   draw(m, S, g) {
-    MGH.scene(g, 'night', m.t);
+    GX.blit(g, BG3.nebula());
     MGH.glow(g, S.x0 + S.sz / 2, S.y0 + S.sz / 2, S.sz * 0.8, 'rgba(120,100,255,0.25)');
     g.fillStyle = MGH.grad(g, S.y0, S.y0 + S.sz, ['#14204a', '#0a1028']); g.fillRect(S.x0, S.y0, S.sz, S.sz);
     g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 2; g.setLineDash([10, 10]); g.beginPath(); g.moveTo(S.x0, S.y0); g.lineTo(S.x0 + S.sz, S.y0 + S.sz); g.moveTo(S.x0 + S.sz, S.y0); g.lineTo(S.x0, S.y0 + S.sz); g.stroke(); g.setLineDash([]);

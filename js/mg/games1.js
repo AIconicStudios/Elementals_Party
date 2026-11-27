@@ -43,7 +43,7 @@ MG.def({
   fmt(s) { return s >= 1000 ? 'Finished!' : Math.round(s / 10) + '%'; },
   hud(m, S, i) { return Math.min(100, Math.round(S.pos[i] / 10)) + '%'; },
   draw(m, S, g) {
-    MGH.scene(g, 'temple', m.t);
+    GX.blit(g, BG3.temple()); BG3.templeFx(g, m.t);
     const open = S.eye === 'open' ? 1 : S.eye === 'tell' ? 0.25 + 0.15 * Math.sin(m.t * 40) : 0.06;
     // the Ankar: a hovering shadow beast with one huge eye
     g.save(); g.translate(1170, 178 + Math.sin(m.t * 1.6) * 8);

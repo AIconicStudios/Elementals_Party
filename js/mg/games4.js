@@ -217,7 +217,7 @@ MG.def({
   fmt(s) { return s > 100 ? `${s - 15}% + gold` : `${s}% of the table`; },
   hud(m, S, i) { return `best ${S.p[i].best}%`; },
   draw(m, S, g) {
-    MGH.scene(g, 'night', m.t);
+    GX.blit(g, BG3.canyon());
     S.p.forEach((p, i) => {
       const cx = i * 320 + 160, base = 680;
       // the ledge: a tall stone pillar with a golden lip
