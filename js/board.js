@@ -902,15 +902,9 @@ const BoardArt = {
     if (v > 0) { MGH.glow(g, 0, -20, 20, 'rgba(255,220,100,0.5)'); if (H.stars) MGH.star(g, 0, -30, 6, '#ffe680', t * 2, false); }
     g.restore();
     // guard dog by the kennel
-    const dx = x - 62 + (chase ? Math.min(60, (t % 3) * 80) : 0), dy = y - 4, wag = Math.sin(t * (dogOn ? 14 : 4)) * 0.4, sleep = !dogOn;
+    const dx = x - 62 + (chase ? Math.min(60, (t % 3) * 80) : 0), dy = y - 4;
     g.fillStyle = '#a86a3a'; g.beginPath(); g.moveTo(dx - 20, dy - 8); g.lineTo(dx - 26, dy - 34); g.lineTo(dx - 2, dy - 30); g.lineTo(dx + 4, dy - 8); g.fill(); g.fillStyle = '#e8323e'; g.fillRect(dx - 26, dy - 36, 30, 5);
-    g.save(); g.translate(dx + 18, dy - 4);
-    g.fillStyle = '#c8945a'; g.beginPath(); g.ellipse(0, -8, 14, 9, 0, 0, 7); g.fill(); g.beginPath(); g.arc(12, -16, 8, 0, 7); g.fill(); g.fillStyle = '#8a5a2a'; g.beginPath(); g.ellipse(10, -22, 3, 6, -0.4, 0, 7); g.fill();
-    g.save(); g.translate(-13, -10); g.rotate(-0.8 + wag); g.fillStyle = '#c8945a'; g.fillRect(0, -2, 10, 4); g.restore();
-    g.fillStyle = '#2a1a10'; if (sleep) { g.fillRect(12, -18, 4, 1.5); } else { g.beginPath(); g.arc(14, -18, 1.6, 0, 7); g.fill(); } g.beginPath(); g.arc(20, -15, 2, 0, 7); g.fill();
-    if (sleep) MGH.text(g, 'z', 22 + Math.sin(t * 2) * 3, -30 - (t % 2) * 6, 12, '#fff', 'center', 'bold');
-    if (dogOn && !sleep) MGH.text(g, chase ? 'WOOF!' : '?', 20, -34, 16, chase ? '#ff6a4a' : '#fff', 'center', 'bold');
-    g.restore();
+    BoardArt.puppy(g, dx + 20, dy, t, dogOn, chase);
     // owner banner
     g.fillStyle = 'rgba(20,12,44,0.7)'; Shell.rr(g, x - 56, y + 14, 112, 22, 11); g.fill(); MGH.text(g, `${p.name}'s Hold`, x, y + 30, 13, col, 'center', 'bold');
   },
