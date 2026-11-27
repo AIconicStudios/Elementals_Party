@@ -6,7 +6,7 @@
 //   jog back. Shuffling about on foot attracts ZOMBIES (the more you walk, the more of them); bonk one with
 //   your can (A at the right moment) — but every bonk dents the can and it holds a little less.
 (() => {
-  const L = 34000, RIDE = 300, PUSH = 75, FOOT = 100, TANK = 10, BURN = 2.0, REFILL = 3, CANFILL = 1.0, LANE = 170;
+  const L = 34000, RIDE = 300, PUSH = 75, FOOT = 100, TANK = 10, BURN = 2.0, REFILL = 3, CANFILL = 1.0, CLEAR = 2.0, LANE = 170;
   const SEASON = [
     { n: '🌸 Spring', sky: ['#9ad8ff', '#e8f6ff'], hill: '#7cc86a', hill2: '#5aa850', tree: '#ffb8d8', trunk: '#7a5a3a', ground: '#8ad070' },
     { n: '☀️ Summer', sky: ['#4ab0f0', '#c8ecff'], hill: '#5ab84a', hill2: '#3a9a3a', tree: '#3aa040', trunk: '#6a4a2a', ground: '#6ac050' },
@@ -49,82 +49,75 @@
 
   MG.def({
     id: 'yearspassed', name: 'Years Passed', type: 'Race', controls: 'Move + A & B buttons', dur: 240,
-    rows: [['lr', 'Ride / walk'], ['a', 'Refuel · fill the can · pour · bonk zombies'], ['b', 'Hop off / back on the bike']],
-    how: 'A long straight race through spring, summer, autumn and winter! Hold → to ride — riding burns fuel. Roadside stations refill your tank (press A there) and it always takes the same 3 seconds, however empty you are — you can\'t refill a full tank. Run dry and you must push the bike, very slowly… or press B to hop off, jog to a station, fill your can (A), jog back and pour it in (A). Wandering on foot draws ZOMBIES — the longer you walk, the more come. Press A as one lunges to bonk it with your can… but each bonk dents the can and it holds a bit less. First across the line wins!',
+    rows: [['lr', 'Ride (← to roll back)'], ['a', 'Refuel at a station · HOLD to clear a roadblock · bonk zombies'], ['b', 'Hop off to clear a roadblock']],
+    how: 'Ride with →; riding burns fuel and stations refill your tank (A). Out of fuel? Push the bike — slowly. ROADBLOCKS: smash through at speed (fast, but your tank shrinks by 1 for good) or hop off (B) and HOLD A to clear it — slower, and a zombie may jump you (A as it lunges).',
     wins: 'First to the finish line (or furthest when time runs out).',
     init(m, S) {
       S.st = []; for (let x = 2600; x < L - 1500; x += R.range(2000, 3600)) S.st.push(x);
-      S.P = [0, 1, 2, 3].map(i => ({ x: 120, v: 0, fuel: TANK, mode: 'ride', fx: 0, cap: 10, canFull: true, busy: 0, busyK: '', walkT: 0, z: null, stun: 0, fin: 0, greed: R.range(0.35, 1.2), plan: null, wob: 0, msg: '', msgT: 0, zc: R.range(9, 15) }));
+      // 3 to 5 roadblocks, never right next to a fuel station
+      S.rb = []; const n = R.int(3, 5); for (let k = 0; k < n; k++) { for (let tr = 0; tr < 30; tr++) { const x = R.range(3000, L - 2500); if (S.st.every(s => Math.abs(s - x) > 500) && S.rb.every(r => Math.abs(r - x) > 2500)) { S.rb.push(x); break; } } } S.rb.sort((a, b) => a - b);
+      S.P = [0, 1, 2, 3].map(i => ({ x: 120, v: 0, fuel: TANK, tank: TANK, mode: 'ride', busy: 0, busyK: '', z: null, fin: 0, greed: R.range(0.35, 1.2), wob: 0, msg: '', msgT: 0, done: new Set(), clr: 0, rbX: 0, bashes: 0, smash: [] }));
       S.ph = 'go'; S.cd = 2.6; S.order = [];
     },
     stAt(S, x, r = 70) { return S.st.find(s => Math.abs(s - x) < r); },
+    rbAhead(S, P, r = 170) { return S.rb.find(x => !P.done.has(x) && x - P.x > -10 && x - P.x < r); },
     say(P, s) { P.msg = s; P.msgT = 1.4; },
     update(m, S, dt) {
       if (S.cd > 0) { S.cd -= dt; return; }
       S.P.forEach((P, i) => {
         P.msgT -= dt; if (P.fin) return;
         const a = m.axis(i), me = !m.bot(i);
-        if (P.busy > 0) { P.busy -= dt; P.v = 0; if (P.busy <= 0) { if (P.busyK === 'refill') { P.fuel = TANK; P.mode = 'ride'; P.walkT = 0; if (me) Sfx.coin(); } if (P.busyK === 'can') { P.canFull = true; if (me) Sfx.tone(700, 0.08, 'triangle', 0.04); } if (P.busyK === 'pour') { P.fuel = Math.min(TANK, P.fuel + P.cap); P.canFull = false; P.mode = 'ride'; P.walkT = 0; if (me) Sfx.coin(); } } return; }
-        // a zombie encounter: it shambles up, lunges — bonk it at the right moment
-        if (P.z) { const Z = P.z; Z.t += dt;
-          if (!Z.res && Z.t > 1.0 && Z.t < 1.55 && m.pressed(i, 'a')) { Z.res = 'bonk'; Z.rt = 0; P.cap = Math.max(3, P.cap - 1); this.say(P, `BONK! can now holds ${P.cap}`); Sfx.thud(); MGH.shake(3); }
-          else if (!Z.res && m.pressed(i, 'a') && Z.t <= 1.0) { Z.early = (Z.early || 0) + 1; }
-          if (!Z.res && Z.t >= 1.55) { Z.res = 'grab'; Z.rt = 0; this.say(P, 'Grabbed! Shake it off…'); if (me) Sfx.tone(160, 0.3, 'sawtooth', 0.04); }
-          if (Z.res) { Z.rt += dt; if ((Z.res === 'bonk' && Z.rt > 0.7) || (Z.res === 'grab' && Z.rt > 2.4)) P.z = null; }
-          return; }
-        const atSt = this.stAt(S, P.mode === 'foot' ? P.fx : P.x);
-        if (P.mode === 'ride' || P.mode === 'push') {
-          const want = a.x > 0 ? a.x : a.x * 0.55, top = P.mode === 'ride' ? RIDE : PUSH; // backward is slower
-          P.v += (want * top - P.v) * Math.min(1, dt * (P.mode === 'ride' ? 1.8 : 6));
-          P.x = Math.max(60, P.x + P.v * dt); if (Math.abs(P.v) > 8) P.dir = Math.sign(P.v);
-          if (P.mode === 'ride') { P.fuel -= (Math.abs(P.v) / RIDE) * dt / BURN; if (P.fuel <= 0) { P.fuel = 0; P.mode = 'push'; P.v = Math.min(P.v, PUSH); this.say(P, '⛽ Out of fuel!'); if (me) Sfx.tone(200, 0.4, 'square', 0.03, -60); } }
-          else this.walk(m, S, P, i, dt, Math.abs(P.v), 0.35); // pushing the bike draws far fewer zombies than wandering on foot
-          if (m.pressed(i, 'a') && atSt) { if (P.fuel >= TANK - 0.05) { this.say(P, 'Tank is full!'); if (me) Sfx.tone(240, 0.08, 'square', 0.03); } else { P.busy = REFILL; P.busyK = 'refill'; P.v = 0; } }
-          if (m.pressed(i, 'b')) { P.mode = 'foot'; P.fx = P.x; P.v = 0; }
-        } else { // on foot
-          const sp = a.x * FOOT; P.fx = clamp(P.fx + sp * dt, 0, L); P.wob += Math.abs(sp) * dt;
-          this.walk(m, S, P, i, dt, Math.abs(sp));
-          const nearBike = Math.abs(P.fx - P.x) < 46;
-          if (m.pressed(i, 'a')) {
-            if (nearBike && P.canFull) { P.busy = 1.0; P.busyK = 'pour'; }
-            else if (atSt && !P.canFull) { P.busy = CANFILL; P.busyK = 'can'; }
-            else if (atSt && P.canFull) this.say(P, 'Can is already full');
-          }
-          if (m.pressed(i, 'b') && nearBike) { P.mode = P.fuel > 0 ? 'ride' : 'push'; }
+        if (P.busy > 0) { P.busy -= dt; P.v = 0; if (P.busy <= 0 && P.busyK === 'refill') { P.fuel = P.tank; P.mode = 'ride'; if (me) Sfx.coin(); } return; }
+        // clearing a roadblock on foot: hold A; a zombie may jump out of the bushes
+        if (P.mode === 'clear') {
+          if (P.z) { const Z = P.z; Z.t += dt;
+            if (!Z.res && Z.t > 1.0 && Z.t < 1.55 && m.pressed(i, 'a')) { Z.res = 'bonk'; Z.rt = 0; this.say(P, 'BONK!'); Sfx.thud(); MGH.shake(3); }
+            if (!Z.res && Z.t >= 1.55) { Z.res = 'grab'; Z.rt = 0; this.say(P, 'Grabbed! Shake it off…'); if (me) Sfx.tone(160, 0.3, 'sawtooth', 0.04); }
+            if (Z.res) { Z.rt += dt; if ((Z.res === 'bonk' && Z.rt > 0.6) || (Z.res === 'grab' && Z.rt > 2.2)) P.z = null; }
+            return; }
+          if (m.held(i, 'a')) { P.clr += dt; P.wob += dt * 6; if (P.zNext !== undefined && P.clr > P.zNext) { P.zNext = undefined; P.z = { t: 0, k: R.range(0, 9) }; this.say(P, '🧟 Zombie!'); if (me) Sfx.tone(120, 0.4, 'sawtooth', 0.04); } }
+          if (P.clr >= CLEAR) { P.done.add(P.rbX); P.mode = P.fuel > 0 ? 'ride' : 'push'; this.say(P, 'Road clear!'); if (me) Sfx.tone(700, 0.1, 'triangle', 0.05); }
+          if (m.pressed(i, 'b') && P.clr < 0.2) { P.mode = P.fuel > 0 ? 'ride' : 'push'; }
+          return;
         }
+        const atSt = this.stAt(S, P.x), rb = this.rbAhead(S, P, 200);
+        const want = a.x > 0 ? a.x : a.x * 0.55, top = P.mode === 'ride' ? RIDE : PUSH;
+        P.v += (want * top - P.v) * Math.min(1, dt * (P.mode === 'ride' ? 1.8 : 6));
+        let nx = Math.max(60, P.x + P.v * dt); if (Math.abs(P.v) > 8) P.dir = Math.sign(P.v);
+        // reaching a roadblock: smash through at speed, or come to a stop against it
+        const hit = S.rb.find(x => !P.done.has(x) && P.x <= x - 34 && nx > x - 34);
+        if (hit !== undefined) {
+          if (P.mode === 'ride' && P.v > 150) { P.done.add(hit); P.tank = Math.max(3, P.tank - 1); P.fuel = Math.min(P.fuel, P.tank); P.v *= 0.6; P.bashes++; P.smash.push(hit); this.say(P, `💥 SMASH! tank now ${P.tank}`); Sfx.boom(); MGH.shake(4); MGH.burst(640, 40 + i * LANE + 130, ['#c8945a', '#ffd34d', '#fff'], 18, { speed: 280 }); }
+          else { nx = hit - 34; P.v = 0; if (!P.blkMsg) { this.say(P, 'Blocked! B to clear it, or back up and smash it'); P.blkMsg = true; } }
+        }
+        P.x = nx;
+        if (P.mode === 'ride') { P.fuel -= (Math.abs(P.v) / RIDE) * dt / BURN; if (P.fuel <= 0) { P.fuel = 0; P.mode = 'push'; P.v = Math.min(P.v, PUSH); this.say(P, '⛽ Out of fuel — push to a station!'); if (me) Sfx.tone(200, 0.4, 'square', 0.03, -60); } }
+        if (m.pressed(i, 'a') && atSt) { if (P.fuel >= P.tank - 0.05) { this.say(P, 'Tank is full!'); if (me) Sfx.tone(240, 0.08, 'square', 0.03); } else { P.busy = REFILL; P.busyK = 'refill'; P.v = 0; } }
+        if (m.pressed(i, 'b')) { if (rb !== undefined) { P.mode = 'clear'; P.rbX = rb; P.x = Math.min(P.x, rb - 120); P.v = 0; P.clr = 0; P.blkMsg = false; P.zNext = Math.random() < 0.45 ? R.range(0.3, CLEAR - 0.4) : undefined; } else this.say(P, 'No roadblock here'); }
         if (P.x >= L) { P.fin = m.t; S.order.push(i); this.say(P, S.order.length === 1 ? '🏁 WINNER!' : '🏁 Finished!'); Sfx.star(); MGH.burst(640, LANE * i + 120, ['#ffe680', '#fff', m.players[i].color], 24, { speed: 260 }); }
       });
       if (S.order.length && S.endT === undefined) S.endT = 30; if (S.order.length >= 4 && S.endT > 2) S.endT = 2;
       if (S.endT !== undefined && (S.endT -= dt) <= 0) m.finish(this.score(m, S));
     },
-    // every metre on foot makes the next zombie more likely
-    walk(m, S, P, i, dt, sp, rate = 1) {
-      if (sp < 5) return; P.walkT += dt; P.zc -= dt * rate * (1 + P.walkT * 0.12);
-      if (P.zc <= 0) { P.zc = R.range(10, 17); P.z = { t: 0, k: R.range(0, 9) }; this.say(P, '🧟 Zombie!'); if (!m.bot(i)) Sfx.tone(120, 0.4, 'sawtooth', 0.04); }
-    },
     bot(m, S, i, dt) {
       const v = m.vin[i], P = S.P[i]; v.a = v.b = false; v.ax = 0; if (P.fin || S.cd > 0 || P.busy > 0) return;
       const tap = k => { if (!m.prev[i][k]) v[k] = true; };
-      if (P.z) { if (!P.z.res && P.z.t > (P.z.bt || (P.z.bt = Math.random() < 0.72 ? R.range(1.05, 1.45) : 9))) tap('a'); return; }
-      const next = S.st.find(s => s > P.x + 70), prev = [...S.st].reverse().find(s => s < P.x - 70), atSt = this.stAt(S, P.mode === 'foot' ? P.fx : P.x);
+      if (P.mode === 'clear') { if (P.z) { if (!P.z.res && P.z.t > (P.z.bt || (P.z.bt = Math.random() < 0.72 ? R.range(1.05, 1.45) : 9))) tap('a'); return; } v.a = true; return; }
+      const atSt = this.stAt(S, P.x), rb = this.rbAhead(S, P, 260);
+      // a roadblock ahead: smash it (if the tank can spare it) or stop and clear it
+      if (rb !== undefined) { if (P.plan === undefined || P.planX !== rb) { P.planX = rb; P.plan = P.mode === 'ride' && P.tank > 7 && Math.random() < 0.55 ? 'smash' : 'clear'; }
+        if (P.plan === 'clear' || P.mode === 'push') { if (rb - P.x < 190) { tap('b'); return; } v.ax = 0.6; return; }
+        if (P.v < 160 && rb - P.x < 60) { v.ax = -1; P.plan = 'clear'; return; } v.ax = 1; return; }
       if (P.mode === 'ride') {
-        if (atSt && P.fuel < TANK - 0.05) { const after = S.st.find(s => s > atSt + 70) || L, need = (after - P.x) / (RIDE * BURN) * TANK / TANK; if (P.fuel < need * P.greed + 0.4) { if (Math.abs(atSt - P.x) < 40) { tap('a'); return; } v.ax = atSt > P.x ? 0.4 : 0; return; } }
-        v.ax = 1; return;
-      }
-      if (P.mode === 'push') {
-        if (atSt && Math.abs(atSt - P.x) < 40) { tap('a'); return; }
-        const dAhead = next ? next - P.x : 1e9, dBack = prev ? P.x - prev : 1e9;
-        if (!P.plan) P.plan = (dAhead > 900 && dBack * 2 < dAhead * 0.75 * 1.33) || dAhead > 1800 ? 'jog' : 'push';
-        if (P.plan === 'jog') { tap('b'); return; }
-        v.ax = 1; return;
-      }
-      // on foot: fetch a can from the nearest station, then come back and pour
-      if (!P.canFull) { const tgt = [prev, next].filter(s => s !== undefined).sort((a, b) => Math.abs(a - P.fx) - Math.abs(b - P.fx))[0]; if (Math.abs(tgt - P.fx) < 40) tap('a'); else v.ax = Math.sign(tgt - P.fx); }
-      else { if (Math.abs(P.x - P.fx) < 30) { tap('a'); P.plan = null; } else v.ax = Math.sign(P.x - P.fx); }
+        if (atSt && P.fuel < P.tank - 0.05) { const after = S.st.find(s => s > atSt + 70) || L, need = (after - P.x) / (RIDE * BURN) * TANK / P.tank * P.tank / TANK; if (P.fuel < need * P.greed + 0.4) { if (Math.abs(atSt - P.x) < 40) { tap('a'); return; } v.ax = atSt > P.x ? 0.4 : 0; return; } }
+        v.ax = 1; return; }
+      // pushing: on to the next station
+      if (atSt && Math.abs(atSt - P.x) < 40) { tap('a'); return; }
+      v.ax = 1;
     },
     score(m, S) { return S.P.map(P => P.fin ? Math.round(10000 - P.fin * 10) : Math.round(P.x / L * 1000)); },
     fmt(s) { return s >= 5000 ? `finished in ${((10000 - s) / 10).toFixed(1)} s` : `${Math.round(s / 10)}% of the road`; },
-    hud(m, S, i) { const P = S.P[i]; return P.fin ? `🏁 #${S.order.indexOf(i) + 1}` : `⛽ ${Math.ceil(P.fuel)}/10 · 🥫${P.cap}`; },
+    hud(m, S, i) { const P = S.P[i]; return P.fin ? `🏁 #${S.order.indexOf(i) + 1}` : `⛽ ${Math.ceil(P.fuel)}/${P.tank}`; },
     // ---------------------------------------------------------------- drawing: four stacked lanes, each with its own camera
     draw(m, S, g) {
       const t = m.t;
@@ -138,7 +131,7 @@
       if (S.cd > 0) MGH.label(g, S.cd > 0.6 ? String(Math.ceil(S.cd - 0.6)) : 'GO!', 640, 380, 60, '#ffe680');
     },
     drawLane(m, S, g, i, y0, t) {
-      const P = S.P[i], p = m.players[i], cx = (P.mode === 'foot' ? (P.fx + P.x) / 2 : P.x) - 360, road = y0 + 132, h = LANE;
+      const P = S.P[i], p = m.players[i], cx = P.x - 360, road = y0 + 132, h = LANE;
       const se = season(P.x), night = se.k === 3;
       g.save(); g.beginPath(); g.rect(0, y0, 1230, h); g.clip();
       // sky with a sun / moon that moves through the year
@@ -165,34 +158,34 @@
         MGH.text(g, '⛽ FUEL', x, road - 82, 13, '#fff', 'center', 'bold'); });
       // finish line
       const fl = L - cx; if (fl > -40 && fl < 1300) { for (let r = 0; r < 6; r++) for (let c = 0; c < 2; c++) { g.fillStyle = (r + c) % 2 ? '#fff' : '#111'; g.fillRect(fl + c * 8, road - 2 + r * 6, 8, 6); } g.fillStyle = '#9a9aa8'; g.fillRect(fl - 4, road - 90, 4, 90); g.fillRect(fl + 16, road - 90, 4, 90); g.fillStyle = '#e8323e'; g.fillRect(fl - 4, road - 96, 24, 10); MGH.text(g, 'FINISH', fl + 8, road - 100, 12, '#fff', 'center', 'bold'); }
+      // roadblocks: a striped barricade with cones and a fallen log; smashed ones leave splinters by the road
+      S.rb.forEach(rx0 => { const x = rx0 - cx; if (x < -140 || x > 1340) return;
+        if (P.smash.includes(rx0)) { for (let q = 0; q < 6; q++) { g.save(); g.translate(x + 30 + q * 18, road + 4 + (q % 2) * 6); g.rotate(q * 0.9); g.fillStyle = q % 2 ? '#e8e0d0' : '#e8323e'; g.fillRect(-10, -2, 20, 4); g.restore(); } return; }
+        if (P.done.has(rx0)) { g.fillStyle = '#7a5530'; g.save(); g.translate(x + 40, road - 30); g.rotate(-0.3); MGH.rr(g, -30, -8, 60, 16, 7); g.fill(); g.restore(); return; }
+        g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(x, road + 4, 60, 8, 0, 0, 7); g.fill();
+        g.fillStyle = '#6a4424'; MGH.rr(g, x - 46, road - 14, 92, 16, 8); g.fill(); g.fillStyle = '#8a5a30'; g.beginPath(); g.ellipse(x + 46, road - 6, 6, 8, 0, 0, 7); g.fill(); g.strokeStyle = '#5a3a1a'; g.lineWidth = 1.5; g.beginPath(); g.arc(x + 46, road - 6, 3, 0, 7); g.stroke();
+        for (const sd of [-1, 1]) { g.fillStyle = '#5a5a6a'; g.fillRect(x + sd * 34 - 2, road - 46, 4, 34); }
+        for (let q = 0; q < 2; q++) { const yy = road - 44 + q * 14; g.save(); g.beginPath(); g.rect(x - 40, yy, 80, 10); g.clip(); g.fillStyle = '#fff'; g.fillRect(x - 40, yy, 80, 10); g.fillStyle = '#e8323e'; for (let k = -3; k < 6; k++) { g.beginPath(); g.moveTo(x - 40 + k * 18, yy + 10); g.lineTo(x - 30 + k * 18, yy); g.lineTo(x - 22 + k * 18, yy); g.lineTo(x - 32 + k * 18, yy + 10); g.fill(); } g.restore(); g.strokeStyle = '#3a2a2a'; g.lineWidth = 1.5; g.strokeRect(x - 40, yy, 80, 10); }
+        for (const sd of [-1, 1]) { const cx2 = x + sd * 56; g.fillStyle = '#ff7a20'; g.beginPath(); g.moveTo(cx2 - 8, road); g.lineTo(cx2, road - 22); g.lineTo(cx2 + 8, road); g.fill(); g.fillStyle = '#fff'; g.fillRect(cx2 - 4, road - 13, 8, 4); }
+        if (Math.sin(t * 6) > 0) { g.fillStyle = '#ffcc1a'; g.beginPath(); g.arc(x - 34, road - 50, 4, 0, 7); g.arc(x + 34, road - 50, 4, 0, 7); g.fill(); MGH.glow(g, x - 34, road - 50, 14, 'rgba(255,200,40,0.5)'); }
+        if (P.mode === 'clear' && P.rbX === rx0) { const q = Math.min(1, P.clr / CLEAR); g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 6; g.beginPath(); g.arc(x, road - 74, 13, 0, 7); g.stroke(); g.strokeStyle = '#7cf06a'; g.beginPath(); g.arc(x, road - 74, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * q); g.stroke(); MGH.text(g, 'HOLD A', x, road - 94, 12, '#fff', 'center', 'bold'); }
+        else if (rx0 - P.x > 0 && rx0 - P.x < 260 && !P.fin) MGH.text(g, '⚠ B: clear · or SMASH at speed', x, road - 64, 12, '#ffe680', 'center', 'bold'); });
       // the bike (and the rider, on it or beside it)
       const bx = P.x - cx, on = P.mode === 'ride' && !(P.busy > 0 && P.busyK === 'pour'), spin = P.x * 0.08;
       this.bike(g, bx, road + 6, p.color, spin, P.mode === 'ride' && P.v > 30 ? Math.sin(t * 30) * 0.6 : 0);
       if (P.busy > 0 && P.busyK === 'refill') { g.strokeStyle = '#222'; g.lineWidth = 2; g.beginPath(); g.moveTo(this.stAt(S, P.x) - cx + 14, road - 26); g.quadraticCurveTo(bx + 30, road - 60, bx + 4, road - 30); g.stroke(); }
-      const walking = (P.mode === 'push' && P.v > 5) || (P.mode === 'foot' && Math.abs(m.axis(i).x) > 0.2 && !P.busy && !P.z);
+      const walking = P.mode === 'push' && P.v > 5;
       if (on) Char.draw(g, bx - 4, road - 40, 17, p.el.id, p.color, { mood: MGH.persona(P.z ? 'shock' : P.busy > 0 ? 'happy' : P.fuel < 2 ? 'nervous' : 'determined', p.el.id), seed: i * 1.7, look: { x: 1, y: 0 }, noFeet: true, hands: { n: { x: 1.3, y: 0.55, d: 0, o: false, m: true }, f: { x: 1.1, y: 0.7, d: 0, o: false, m: false } } });
-      else { const rx = P.mode === 'foot' ? P.fx - cx : bx - 34, face = P.mode === 'foot' ? (m.axis(i).x < -0.2 ? -1 : 1) : 1;
-        Char.draw(g, rx, road - 22, 17, p.el.id, p.color, { mood: MGH.persona(P.z ? (P.z.res === 'grab' ? 'hurt' : 'shock') : P.mode === 'push' ? 'tired' : 'determined', p.el.id), seed: i * 1.7, look: { x: face, y: 0 }, walk: walking ? 1 : 0, t, hands: P.mode === 'push' ? { n: { x: 1.5, y: 0.1, d: 0, o: false, m: true }, f: { x: 1.3, y: 0.2, d: 0, o: false, m: false } } : { n: { x: 0.9 * face, y: 0.5, d: 0, o: false, m: true }, f: { x: -0.6 * face, y: 0.6, d: 0, o: false, m: false } } });
-        if (P.mode === 'foot' && !(P.busy > 0 && (P.busyK === 'can' || P.busyK === 'pour'))) can(g, rx + 16 * face, road - 6, P.canFull, P.cap);
-        if (P.busy > 0 && P.busyK === 'can') { // the can sits under the pump nozzle and fills up
-          const q = 1 - P.busy / CANFILL, st = this.stAt(S, P.fx), px = st - cx, kx = px + 26, ky = road - 6;
-          g.strokeStyle = '#222'; g.lineWidth = 3; g.beginPath(); g.moveTo(px + 14, road - 30); g.quadraticCurveTo(px + 30, road - 44, kx + 2, ky - 26); g.stroke(); g.fillStyle = '#444'; g.fillRect(kx - 2, ky - 30, 8, 6);
-          g.strokeStyle = 'rgba(255,190,60,0.9)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(kx + 2, ky - 24); g.lineTo(kx + 2 + Math.sin(t * 40) * 0.8, ky - 12); g.stroke();
-          can(g, kx, ky, false, P.cap); g.fillStyle = '#e8323e'; g.fillRect(kx - 7, ky + 8 - 18 * q, 14, 18 * q); g.fillStyle = 'rgba(255,220,120,0.6)'; g.fillRect(kx - 5, ky + 8 - 18 * q, 10, 2);
-          MGH.text(g, `${Math.round(q * P.cap)}/${P.cap}`, kx, ky - 40, 12, '#fff', 'center', 'bold'); }
-        if (P.busy > 0 && P.busyK === 'pour') { // tip the can into the tank
-          const q = 1 - P.busy, kx = bx + 4, ky = road - 44; g.save(); g.translate(kx, ky); g.rotate(-1.1); can(g, 0, 0, q < 0.95, P.cap); g.restore();
-          g.strokeStyle = 'rgba(255,190,60,0.9)'; g.lineWidth = 3; g.beginPath(); g.moveTo(kx + 8, ky + 4); g.quadraticCurveTo(kx + 12, ky + 14, kx + 10, road - 24); g.stroke(); }
-        if (P.mode === 'foot' && Math.abs(P.fx - P.x) > 200) { const ax = clamp(bx, 30, 1200); MGH.text(g, bx < 30 ? '◀ bike' : bx > 1200 ? 'bike ▶' : '', ax, road - 60, 13, '#fff', 'center', 'bold'); } }
-      if (P.z) { const Z = P.z, px = (P.mode === 'foot' ? P.fx : P.x - 34) - cx, zx = px + 30 + Math.max(0, 1 - Z.t) * 140 - (Z.t > 1 && !Z.res ? 10 : 0) + (Z.res === 'bonk' ? Z.rt * 400 : 0);
+      else { const clearing = P.mode === 'clear', rx = clearing ? P.rbX - cx - 58 : bx - 34, face = 1, tug = clearing && m.held(i, 'a') ? Math.sin(t * 12) * 0.3 : 0;
+        Char.draw(g, rx, road - 22, 17, p.el.id, p.color, { mood: MGH.persona(P.z ? (P.z.res === 'grab' ? 'hurt' : 'shock') : P.mode === 'push' ? 'tired' : 'effort', p.el.id), seed: i * 1.7, look: { x: face, y: 0 }, walk: walking ? 1 : 0, t, hands: P.mode === 'push' ? { n: { x: 1.5, y: 0.1, d: 0, o: false, m: true }, f: { x: 1.3, y: 0.2, d: 0, o: false, m: false } } : { n: { x: 1.4 + tug, y: -0.1, d: 0, o: false, m: true }, f: { x: 1.2 - tug, y: 0.1, d: 0, o: false, m: false } } }); }
+      if (P.z) { const Z = P.z, px = (P.mode === 'clear' ? P.rbX - 58 : P.x - 34) - cx, zx = px + 30 + Math.max(0, 1 - Z.t) * 140 - (Z.t > 1 && !Z.res ? 10 : 0) + (Z.res === 'bonk' ? Z.rt * 400 : 0);
         zombie(g, zx, road + 2, t, Z.k, Z.res === 'bonk' ? Z.rt : 0);
         if (!Z.res && Z.t > 0.6) { const ready = Z.t > 1.0; MGH.glow(g, px, road - 70, 26, ready ? 'rgba(120,255,120,0.7)' : 'rgba(255,255,255,0.3)'); g.fillStyle = ready ? '#5fd85f' : '#888'; g.beginPath(); g.arc(px, road - 70, 15, 0, 7); g.fill(); MGH.text(g, 'A', px, road - 64, 17, '#fff', 'center', 'bold'); } }
-      if (P.busy > 0) { const tot = P.busyK === 'refill' ? REFILL : P.busyK === 'can' ? CANFILL : 1, px = P.mode === 'foot' ? P.fx - cx : bx; g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 6; g.beginPath(); g.arc(px, road - 76, 13, 0, 7); g.stroke(); g.strokeStyle = '#ffe680'; g.beginPath(); g.arc(px, road - 76, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - P.busy / tot)); g.stroke(); }
+      if (P.busy > 0) { const tot = REFILL, px = bx; g.strokeStyle = 'rgba(0,0,0,0.5)'; g.lineWidth = 6; g.beginPath(); g.arc(px, road - 76, 13, 0, 7); g.stroke(); g.strokeStyle = '#ffe680'; g.beginPath(); g.arc(px, road - 76, 13, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - P.busy / tot)); g.stroke(); }
       // lane panel: name, fuel gauge, can, season
       g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, 10, y0 + 8, 250, 46, 10); g.fill(); g.strokeStyle = p.color; g.lineWidth = 2.5; g.stroke();
       MGH.text(g, p.name, 20, y0 + 26, 15, p.color, 'left', 'bold'); MGH.text(g, `${se.S.n} · Year ${se.k + 1}`, 250, y0 + 26, 13, '#fff', 'right');
-      g.fillStyle = 'rgba(255,255,255,0.15)'; MGH.rr(g, 20, y0 + 34, 160, 12, 6); g.fill(); const fq = P.fuel / TANK; g.fillStyle = fq < 0.25 ? '#ff4a3a' : fq < 0.5 ? '#ffc34a' : '#5ae85a'; MGH.rr(g, 20, y0 + 34, 160 * fq, 12, 6); g.fill(); MGH.text(g, '⛽', 188, y0 + 45, 12, '#fff', 'left');
-      can(g, 222, y0 + 42, P.canFull, P.cap); MGH.text(g, String(P.cap), 244, y0 + 47, 13, '#fff', 'center', 'bold');
+      g.fillStyle = 'rgba(255,255,255,0.15)'; MGH.rr(g, 20, y0 + 34, 160 * P.tank / TANK, 12, 6); g.fill(); if (P.tank < TANK) { g.fillStyle = 'rgba(160,30,30,0.6)'; MGH.rr(g, 20 + 160 * P.tank / TANK, y0 + 34, 160 * (1 - P.tank / TANK), 12, 6); g.fill(); } const fq = P.fuel / TANK; g.fillStyle = P.fuel / P.tank < 0.25 ? '#ff4a3a' : P.fuel / P.tank < 0.5 ? '#ffc34a' : '#5ae85a'; MGH.rr(g, 20, y0 + 34, 160 * fq, 12, 6); g.fill(); MGH.text(g, `⛽ ${Math.ceil(P.fuel)}/${P.tank}`, 188, y0 + 45, 12, '#fff', 'left');
       if (P.fin) MGH.label(g, `🏁 #${S.order.indexOf(i) + 1}`, 640, y0 + 70, 28, '#ffe680'); else if (S.endT !== undefined && S.endT > 2) MGH.label(g, `⏱ ${Math.ceil(S.endT)}`, 640, y0 + 70, 20, '#ff9a9a');
       if (P.msgT > 0) MGH.label(g, P.msg, Math.min(1000, bx + 120), y0 + 40, 17, '#fff');
       g.restore();

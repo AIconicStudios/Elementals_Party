@@ -207,7 +207,7 @@ MG.byId.limbo && (MG.byId.limbo.draw = function (m, S, g) {
   g.fillStyle = '#ff3aa0'; g.fillRect(0, 628, 1280, 3); MGH.glow(g, 640, 630, 600, 'rgba(255,60,180,0.08)');
   // laser bars: emitter pods with a crackling beam between them
   S.beams.forEach(b => {
-    const y = b.low ? 606 : 474, col = b.low ? '255,50,60' : '60,150,255', L = 110, x0 = b.x - L / 2, x1 = b.x + L / 2;
+    const y = b.low ? 612 : 548, col = b.low ? '255,50,60' : '60,150,255', L = 110, x0 = b.x - L / 2, x1 = b.x + L / 2;
     g.save(); g.globalCompositeOperation = 'lighter';
     const gl = g.createLinearGradient(0, y - 18, 0, y + 18); gl.addColorStop(0, `rgba(${col},0)`); gl.addColorStop(0.5, `rgba(${col},0.55)`); gl.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gl; g.fillRect(x0, y - 18, L, 36);
     g.strokeStyle = `rgb(${col})`; g.lineWidth = 6; g.beginPath(); g.moveTo(x0, y); for (let s = 1; s <= 10; s++) g.lineTo(x0 + L * s / 10, y + (s < 10 ? Math.sin(m.t * 60 + s * 2.1) * 1.5 : 0)); g.stroke();
@@ -226,16 +226,16 @@ MG.byId.limbo && (MG.byId.limbo.draw = function (m, S, g) {
     GX.shadow(g, x, 632, 34 - Math.min(20, p.y * 0.08), 0.45);
     if (p.duck && !out) {
       // real crouch: drop low and lean forward, gloves over the head
-      g.save(); g.translate(x, 600); g.rotate(-0.28);
+      g.save(); g.translate(x, 616); g.rotate(-0.28);
       Char.draw(g, 0, 0, 30, pl.el.id, pl.color, { mood: 'scared', seed: i, noShadow: true, hands: { n: { x: -0.4, y: -1.25, d: 0, o: true, m: false }, f: { x: 0.35, y: -1.2, d: 0, o: true, m: false } } });
       g.restore();
     } else {
       const air = p.y > 0, tuck = air ? Math.min(1, p.vy > 0 ? 0.6 : 1) : 0;
-      g.save(); g.translate(x, 560 - p.y); if (air) g.rotate(Math.sin(Math.min(1, p.y / 120) * Math.PI) * 0.25 * (i % 2 ? 1 : -1));
+      g.save(); g.translate(x, 590 - p.y); if (air) g.rotate(Math.sin(Math.min(1, p.y / 120) * Math.PI) * 0.25 * (i % 2 ? 1 : -1));
       Char.draw(g, 0, 0, 32, pl.el.id, pl.color, { mood: out ? 'out' : p.hit > 0 ? 'hurt' : air ? 'cheer' : 'determined', seed: i, alpha: out ? 0.4 : 1, noShadow: true, walk: air ? 0.3 * tuck : 0 });
       g.restore();
     }
-    if (p.hit > 0) { g.save(); g.globalCompositeOperation = 'lighter'; MGH.glow(g, x, 560, 60 * p.hit, 'rgba(255,80,80,0.6)'); g.restore(); }
+    if (p.hit > 0) { g.save(); g.globalCompositeOperation = 'lighter'; MGH.glow(g, x, 590, 60 * p.hit, 'rgba(255,80,80,0.6)'); g.restore(); }
     g.fillStyle = 'rgba(0,0,0,0.4)'; MGH.rr(g, x - 50, 658, 100, 26, 13); g.fill();
     for (let h = 0; h < 3; h++) MGH.heart(g, x - 24 + h * 24, 671, 1.1, h < p.hearts ? '#ff4d6d' : 'rgba(255,255,255,0.2)');
     MGH.text(g, pl.name, x, 708, 16, pl.color, 'center', 'bold');

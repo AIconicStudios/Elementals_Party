@@ -181,7 +181,7 @@ const ncDef = (spec) => MG.def(Object.assign({
   newRound(m, S) {
     S.target = NC.target(S.round); S.ph = 'show'; S.pt = 0; S.winner = -1;
     { const sites = R.shuffle(NC.SITES.slice()); S.ops = ['+', '−', '×', '÷'].map((o, k) => ({ o, x: sites[k], t: 0, pop: 0 })); }
-    S.p = [0, 1, 2, 3].map(i => { const k = S.who.indexOf(i), x = k < 0 ? -999 : [110, 1170, 600, 680][k]; return { x, y: NC.GY, vx: 0, vy: 0, st: 'ground', rope: -1, tot: 0, op: '+', fall: 0, face: x < 640 ? 1 : -1, clim: 0, bump: 0, last: '', lastT: 0, nope: 0 }; });
+    S.p = [0, 1, 2, 3].map(i => { const k = S.who.indexOf(i), x = k < 0 ? -999 : [110, 1170, 600, 680][k]; return { x, y: NC.GY, vx: 0, vy: 0, st: 'ground', rope: -1, tot: null, op: null, fall: 0, face: x < 640 ? 1 : -1, clim: 0, bump: 0, last: '', lastT: 0, nope: 0 }; });
     S.tags.forEach(t => { t.v = R.int(1, 9); t.t = 0; });
   },
   update(m, S, dt) {
@@ -190,8 +190,8 @@ const ncDef = (spec) => MG.def(Object.assign({
     if (S.ops) S.ops.forEach(o => { o.pop = Math.max(0, o.pop - dt); if (o.t > 0) { o.t -= dt; if (o.t <= 0) { const used = S.ops.filter(q => q !== o && q.t <= 0).map(q => q.x).concat(S.who.map(j => S.p[j].x)); const free = NC.SITES.filter(x => used.every(u => Math.abs(u - x) > 60)); o.x = R.pick(free.length ? free : NC.SITES); o.pop = 0.4; } } });
     if (S.ph === 'show') { if (S.pt > 2.2) { S.ph = 'go'; S.pt = 0; } return; }
     if (S.ph === 'won') { if (S.pt > 2.6) { S.round++; if (S.round >= 5) { m.finish(this.score(m, S)); return; } this.newRound(m, S); } return; }
-    if (S.pt > 55) { // a long round ends: closest total takes it
-      const best = S.who.slice().sort((a, b) => Math.abs(S.p[a].tot - S.target) - Math.abs(S.p[b].tot - S.target))[0]; this.roundWin(m, S, best, true); return; }
+    if (S.pt > 70) { // a long round ends: closest total takes it
+      const best = S.who.slice().sort((a, b) => Math.abs((S.p[a].tot ?? 999) - S.target) - Math.abs((S.p[b].tot ?? 999) - S.target))[0]; this.roundWin(m, S, best, true); return; }
     S.who.forEach(i => {
       const P = S.p[i], a = m.axis(i); P.lastT -= dt; P.nope -= dt; P.bump -= dt;
       if (P.fall > 0) { P.fall -= dt; if (P.fall <= 0) { const I = NC.ISL.slice().sort((p, q) => Math.abs((p[0] + p[1]) / 2 - P.x) - Math.abs((q[0] + q[1]) / 2 - P.x))[0]; P.x = clamp(P.x, I[0] + 20, I[1] - 20); P.y = NC.GY; P.vx = P.vy = 0; P.st = 'ground'; } return; }
@@ -227,12 +227,19 @@ const ncDef = (spec) => MG.def(Object.assign({
         if (P.st === 'ground') { const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 14); if (r >= 0 && a.y < -0.5) { P.st = 'rope'; P.rope = r; P.y = Math.min(P.y, NC.BOT + 40); } }
       }
       // grab numbers (reach from the vine or mid-jump)
-      if (P.st !== 'ground') S.tags.forEach(t => { if (t.t > 0 || Math.abs(t.x - P.x) > 16 || Math.abs(t.y - (P.y - 46)) > 34) return; const res = NC.apply(P.tot, P.op, t.v);
+      // your board: a number first, then a sign, then a number (the answer becomes your new number), and so on
+      if (P.st !== 'ground') S.tags.forEach(t => { if (t.t > 0 || Math.abs(t.x - P.x) > 16 || Math.abs(t.y - (P.y - 46)) > 34) return;
+        if (P.tot !== null && P.op === null) { if (P.nope <= 0 && !m.bot(i)) { P.nope = 1; P.last = 'get a sign first!'; P.lastT = 1; } return; }
+        const res = P.tot === null ? t.v : NC.apply(P.tot, P.op, t.v);
         if (res === null) { if (P.nope <= 0) { P.nope = 0.6; P.last = `${P.tot} ÷ ${t.v} ✖`; P.lastT = 1.2; if (!m.bot(i)) Sfx.bad(); } return; }
-        P.last = `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -199, 199); t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
+        P.last = P.tot === null ? `${t.v}` : `${P.tot} ${P.op} ${t.v} = ${res}`; P.lastT = 1.6; P.tot = clamp(res, -199, 199); P.op = null; t.t = 2.2; if (!m.bot(i)) Sfx.coin(); S.fx.push({ k: 'pop', x: t.x, y: t.y, v: t.v, c: m.players[i].color, t: 0 });
         if (P.tot === S.target) this.roundWin(m, S, i, false); });
       // operator stones by the water
-      if (P.st === 'ground' && P.y === NC.GY && a.y < -0.5) S.ops.forEach(o => { if (o.t <= 0 && Math.abs(o.x - P.x) < 28 && P.op !== o.o) { P.op = o.o; o.t = 1.5; S.fx.push({ k: 'opgo', x: o.x, o: o.o, t: 0 }); if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04); } });
+      if (P.st === 'ground' && P.y === NC.GY && a.y < -0.5) S.ops.forEach(o => { if (Math.abs(o.x - P.x) >= 28) return;
+        if (P.tot === null || P.op !== null) { if (P.nope <= 0 && !m.bot(i)) { P.nope = 1; P.last = P.tot === null ? 'grab a number first!' : 'now grab a number!'; P.lastT = 1; } return; }
+        P.op = o.o; S.fx.push({ k: 'opgo', x: o.x, o: o.o, t: 0 }); if (!m.bot(i)) Sfx.tone(820, 0.06, 'triangle', 0.04);
+        // the sign hops to an island that has no sign on it
+        const used = S.ops.filter(q => q !== o).map(q => q.x), free = NC.SITES.filter(x => !used.includes(x) && Math.abs(x - o.x) > 30); o.x = R.pick(free.length ? free : NC.SITES.filter(x => !used.includes(x))); o.pop = 0.4; });
     });
     // climbers bump on a shared vine / crowd each other on islands (4-player)
     for (let x = 0; x < S.who.length; x++) for (let y = x + 1; y < S.who.length; y++) { const A = S.p[S.who[x]], B = S.p[S.who[y]]; if (A.fall > 0 || B.fall > 0) continue; if (Math.abs(A.x - B.x) < 26 && Math.abs(A.y - B.y) < 40) { if (A.st === 'ground' && B.st === 'ground') { const d = Math.sign(B.x - A.x) || 1, push = (26 - Math.abs(B.x - A.x)) / 2; A.x -= d * push; B.x += d * push; if (A.vx * d > 0) A.vx = 0; if (B.vx * d < 0) B.vx = 0; } } }
@@ -243,16 +250,18 @@ const ncDef = (spec) => MG.def(Object.assign({
   bot(m, S, i) {
     const v = m.vin[i]; v.a = false; v.ax = v.ay = 0; if (!S.who.includes(i) || S.ph !== 'go') return; const P = S.p[i]; if (P.fall > 0) return;
     P.think = (P.think || 0) - 1 / 60;
-    if (P.think <= 0 || !P.goal || (P.goal.tag && P.goal.tag.t > 0) || (!P.goal.tag && P.goal.op === P.op)) {
-      P.think = R.range(2.5, 4); const d0 = Math.abs(P.tot - S.target); let best = null;
-      const consider = (op, extra) => S.tags.forEach(t => { if (t.t > 0) return; const r = NC.apply(P.tot, op, t.v); if (r === null) return; const d = Math.abs(r - S.target), cost = Math.abs(t.x - P.x) / 300 + Math.abs(t.y - P.y) / 300 + extra; const sc = (d0 - d) * 3 - cost + (r === S.target ? 50 : 0); if (!best || sc > best.sc) best = { sc, tag: t, op }; });
-      consider(P.op, 0); S.ops.forEach(o => { if (o.t <= 0 && o.o !== P.op) consider(o.o, 1.5 + Math.abs(o.x - P.x) / 300); });
-      if (!best || best.sc < -1) { best = { op: S.target < P.tot ? '−' : '+', tag: null, sc: 0 }; }
-      P.goal = best; P.err = Math.random() < 0.12;
+    const state = `${P.tot}|${P.op}`;
+    if (P.think <= 0 || !P.goal || P.goalState !== state || (P.goal.tag && P.goal.tag.t > 0)) {
+      P.think = R.range(2.5, 4); P.goalState = state; let best = null;
+      const cost = (x, y) => Math.abs(x - P.x) / 300 + Math.abs(y - P.y) / 300;
+      if (P.tot === null) S.tags.forEach(t => { if (t.t > 0) return; const sc = -cost(t.x, t.y) - Math.abs(t.v - S.target) * 0.02 + (t.v === S.target ? 50 : 0); if (!best || sc > best.sc) best = { sc, tag: t }; });
+      else if (P.op === null) S.ops.forEach(o => S.tags.forEach(t => { if (t.t > 0) return; const r = NC.apply(P.tot, o.o, t.v); if (r === null) return; const sc = -Math.abs(r - S.target) * 3 - cost(o.x, NC.GY) - Math.abs(t.x - o.x) / 300 + (r === S.target ? 50 : 0); if (!best || sc > best.sc) best = { sc, op: o.o, tag: t }; }));
+      else S.tags.forEach(t => { if (t.t > 0) return; const r = NC.apply(P.tot, P.op, t.v); if (r === null) return; const sc = -Math.abs(r - S.target) * 3 - cost(t.x, t.y) + (r === S.target ? 50 : 0); if (!best || sc > best.sc) best = { sc, tag: t }; });
+      P.goal = best || { tag: null };
     }
     if (P.st === 'rope' && P.blk > 0.45) { P.stuck = (P.stuck || 0) + 1; if (P.stuck > 2) { P.stuck = 0; v.a = !m.prev[i].a; v.ax = R.pick([-1, 1]); P.think = 0; return; } }
     const G = P.goal;
-    if (G.op !== P.op) { const o = S.ops.find(q => q.o === G.op && q.t <= 0); if (!o) { P.think = 0; return; } this.botGo(m, S, i, o.x, NC.GY, true); return; }
+    if (P.tot !== null && P.op === null) { const o = S.ops.find(q => q.o === G.op) || S.ops[0]; this.botGo(m, S, i, o.x, NC.GY, true); return; }
     if (!G.tag) return; this.botGo(m, S, i, G.tag.x, G.tag.y + 46, false);
   },
   botGo(m, S, i, tx, ty, ground) {
@@ -269,8 +278,7 @@ const ncDef = (spec) => MG.def(Object.assign({
     const dx = tx - P.x, myI = NC.islandAt(P.x), tI = NC.islandAt(clamp(tx, 30, 1250)) || NC.ISL.slice().sort((p, q) => Math.abs((p[0] + p[1]) / 2 - tx) - Math.abs((q[0] + q[1]) / 2 - tx))[0];
     if (!myI) { v.ax = Math.sign(dx); return; }
     if (myI !== tI) { const dir = Math.sign(dx), edge = dir > 0 ? myI[1] : myI[0], toEdge = (edge - P.x) * dir; // run up, then leap the gap at full speed
-      if (toEdge < 70 && P.vx * dir < 170) { v.ax = toEdge < 30 ? -dir : dir; if (toEdge < 30) return; } else v.ax = dir;
-      if (toEdge < 34 && P.vx * dir > 170) v.a = true; return; }
+      v.ax = dir; if (toEdge < 26 && P.vx * dir > 90) v.a = true; return; }
     if (ground) { v.ax = Math.abs(dx) > 8 ? Math.sign(dx) : 0; if (Math.abs(dx) < 16) v.ay = -1; return; }
     const r = NC.ROPES.slice().sort((a, b) => Math.abs(a - tx) - Math.abs(b - tx))[0]; const rd = r - P.x;
     if (Math.abs(rd) > 12) { v.ax = Math.sign(rd); return; }
@@ -278,7 +286,7 @@ const ncDef = (spec) => MG.def(Object.assign({
   },
   score(m, S) { return [0, 1, 2, 3].map(i => S.who.includes(i) ? S.wins[i] : -1); },
   fmt(s) { return s < 0 ? 'watching' : `${s} round${s === 1 ? '' : 's'}`; },
-  hud(m, S, i) { return S.who.includes(i) ? `⭐${S.wins[i]} · ${S.p[i].tot} ${S.p[i].op}` : '👀 watching'; },
+  hud(m, S, i) { const P = S.p[i]; return S.who.includes(i) ? `⭐${S.wins[i]} · ${P.tot === null ? '_' : P.tot}${P.op ? ' ' + P.op : ''}` : '👀 watching'; },
   // ---------------------------------------------------------------- art
   climber(g, m, S, i, P) {
     const p = m.players[i], t = m.t, r = 22;

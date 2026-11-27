@@ -99,7 +99,7 @@
       // score boxes along the top: current total with sign, and wins
       S.who.forEach((i, k) => { const p = m.players[i], P2 = S.p[i], n = S.who.length, x = n === 2 ? (k ? 1010 : 30) : [10, 270, 790, 1050][k], w = n === 2 ? 240 : 220, y = 46;
         box(g, x, y, w, 80); g.fillStyle = p.color; g.fillRect(x + 10, y + 10, 14, 14);
-        ptext(g, `${P2.op}${P2.tot}`, x + 34, y + 44, 34, P2.tot === S.target ? P.green : P.white, 'left');
+        ptext(g, P2.tot === null ? '_' : `${P2.tot}${P2.op ? ' ' + P2.op : ''}`, x + 34, y + 44, 34, P2.tot === S.target && !P2.op ? P.green : P.white, 'left');
         ptext(g, 'WIN', x + 34, y + 70, 20, P.white, 'left'); for (let q = 0; q < S.wins[i]; q++) { g.fillStyle = P.chainHi; g.fillRect(x + 92 + q * 18, y + 56, 12, 12); }
         ptext(g, p.name.toUpperCase().slice(0, 7), x + w - 12, y + 30, 18, p.color, 'right');
         if (P2.lastT > 0) MGH.label(g, P2.last, P2.x, P2.y - 92, 15, p.color); });
