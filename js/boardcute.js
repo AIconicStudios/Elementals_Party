@@ -19,6 +19,7 @@
 
   // ----------------------------------------------------------------- the Holds' guard puppy
   BoardArt.puppy = (g, x, y, t, awake, chase) => {
+    g.save(); g.translate(x, y); g.scale(1.3, 1.3); g.translate(-x, -y);
     const wag = Math.sin(t * (awake ? 16 : 3)) * (awake ? 0.6 : 0.15), bob = chase ? Math.abs(Math.sin(t * 14)) * 4 : Math.sin(t * 2) * 1;
     g.save(); g.translate(x, y - bob);
     g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(0, 2 + bob, 20, 5, 0, 0, 7); g.fill();
@@ -43,6 +44,7 @@
     g.restore();
     if (!awake) MGH.text(g, 'z', x + 18 + Math.sin(t * 2) * 3, y - 54 - (t % 2) * 8, 13, '#fff', 'center', 'bold');
     if (awake) MGH.text(g, chase ? 'WOOF!' : '?', x + 16, y - 58, chase ? 16 : 14, chase ? '#ff6a4a' : '#fff', 'center', 'bold');
+    g.restore();
   };
 
   // ----------------------------------------------------------------- the zoo pet: a chubby baby dragon that grows
@@ -75,17 +77,17 @@
   BoardArt.zooPen = function (g, x, y, t, G) {
     // draw the pen without its old beast: temporarily hide the beast by drawing pen parts ourselves
     this.sunShadow(g, x, y, 130, 60);
-    g.fillStyle = '#c8a878'; g.beginPath(); g.ellipse(x, y, 62, 30, 0, 0, 7); g.fill(); g.fillStyle = '#9ad86a'; g.beginPath(); g.ellipse(x, y + 2, 54, 24, 0, 0, 7); g.fill();
+    g.fillStyle = '#c8a878'; g.beginPath(); g.ellipse(x, y, 80, 38, 0, 0, 7); g.fill(); g.fillStyle = '#9ad86a'; g.beginPath(); g.ellipse(x, y + 2, 70, 30, 0, 0, 7); g.fill();
     for (let q = 0; q < 8; q++) { g.fillStyle = q % 2 ? '#7ac04a' : '#b8f080'; g.beginPath(); g.arc(x - 44 + q * 12, y + 8 + (q % 3) * 3, 3, 0, 7); g.fill(); }
     // a feeding bowl
     g.fillStyle = '#e8443a'; g.beginPath(); g.ellipse(x + 34, y + 6, 10, 4, 0, 0, 7); g.fill(); g.fillStyle = '#ffb04a'; g.beginPath(); g.ellipse(x + 34, y + 4, 7, 2.5, 0, 0, 7); g.fill();
     const Z = G.zoo, k = Math.min(1, Z.size / BD.ZOOSTAR), lunge = Board.ui.zoo ? Math.sin(Math.min(1, (Board.ui.zoo.t || 0) / 0.5) * Math.PI) : 0, munch = Z.anim > 0 ? Math.abs(Math.sin(t * 14)) : 0;
-    BoardArt.dragon(g, x - 4, y + 2 - lunge * 16, t, k, lunge, munch);
+    g.save(); g.translate(x - 4, y + 2 - lunge * 16); g.scale(1.45, 1.45); BoardArt.dragon(g, 0, 0, t, k, lunge, munch); g.restore();
     if (Z.size < 6 && !Board.ui.zoo) MGH.text(g, 'z', x + 26 + Math.sin(t * 2) * 3, y - 52 - (t % 2) * 8, 14, '#fff', 'center', 'bold');
-    g.strokeStyle = '#8a6a3a'; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 62, 28, 0, 0.05, Math.PI - 0.05); g.stroke(); g.beginPath(); g.ellipse(x, y - 10, 62, 28, 0, 0.05, Math.PI - 0.05); g.stroke();
-    for (let q = 0; q <= 8; q++) { const a = q / 8 * Math.PI, px = x + Math.cos(a) * 62, py = y + Math.sin(a) * 28; g.fillStyle = '#a8804a'; MGH.rr(g, px - 3.5, py - 26, 7, 28, 3); g.fill(); g.fillStyle = '#ff8ab0'; g.beginPath(); g.arc(px, py - 27, 3.5, 0, 7); g.fill(); }
-    GX.plank(g, x - 46, y + 26, 92, 22, '#ffe8c0'); MGH.text(g, '🍖 Don\'t feed me!', x, y + 42, 10, '#8a2a3a', 'center', 'bold');
-    if (G.info) { g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 40, y - 108, 80, 10, 5); g.fill(); g.fillStyle = k > 0.99 ? '#ff4a7a' : '#ffb04a'; MGH.rr(g, x - 40, y - 108, 80 * k, 10, 5); g.fill(); }
+    g.strokeStyle = '#8a6a3a'; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 80, 36, 0, 0.05, Math.PI - 0.05); g.stroke(); g.beginPath(); g.ellipse(x, y - 12, 80, 36, 0, 0.05, Math.PI - 0.05); g.stroke();
+    for (let q = 0; q <= 8; q++) { const a = q / 8 * Math.PI, px = x + Math.cos(a) * 80, py = y + Math.sin(a) * 36; g.fillStyle = '#a8804a'; MGH.rr(g, px - 3.5, py - 26, 7, 28, 3); g.fill(); g.fillStyle = '#ff8ab0'; g.beginPath(); g.arc(px, py - 27, 3.5, 0, 7); g.fill(); }
+    GX.plank(g, x - 46, y + 36, 92, 22, '#ffe8c0'); MGH.text(g, '🍖 Don\'t feed me!', x, y + 52, 10, '#8a2a3a', 'center', 'bold');
+    if (G.info) { g.fillStyle = 'rgba(0,0,0,0.5)'; MGH.rr(g, x - 40, y - 150, 80, 10, 5); g.fill(); g.fillStyle = k > 0.99 ? '#ff4a7a' : '#ffb04a'; MGH.rr(g, x - 40, y - 150, 80 * k, 10, 5); g.fill(); }
   };
 
   // ----------------------------------------------------------------- the stone Alternator: a cute grumpy boulder
@@ -114,17 +116,17 @@
     const bz = (P0, C, E, q) => { const u = 1 - q; return { x: u * u * P0.x + 2 * u * q * C.x + q * q * E.x, y: u * u * P0.y + 2 * u * q * C.y + q * q * E.y }; };
     const ent = bz(A, B.ctrl, BD.spaces[B.b], 0.08), side = { x: first.y - A.y, y: -(first.x - A.x) }, l = Math.hypot(side.x, side.y) || 1;
     if (kind === 'gate') return BoardArt._gate(g, f, t, G, ent, A, first);
-    let x = ent.x + side.x / l * 52, y = ent.y + side.y / l * 52 + 6;
+    let x = ent.x + side.x / l * 70, y = ent.y + side.y / l * 70 + 6;
     if (kind === 'alternator') { const onMain = G.alt[f] === 'main', S3 = BD.spaces[B.a + 1], st = Board.ui.altStomp && Board.ui.altStomp.f === f ? Math.min(1, (Board.ui.altStomp.t || 0) / 0.8) : 1;
       const tx = onMain ? (A.x + S3.x) / 2 : ent.x, ty = onMain ? (A.y + S3.y) / 2 + 4 : ent.y + 4, fx = onMain ? ent.x : (A.x + S3.x) / 2, fy = onMain ? ent.y + 4 : (A.y + S3.y) / 2 + 4;
       x = fx + (tx - fx) * st; y = fy + (ty - fy) * st - Math.sin(st * Math.PI) * 40; }
-    this.sunShadow(g, x, y, 60, 70);
+    this.sunShadow(g, x, y, 90, 120);
     const shake = hit * Math.sin(t * 40) * 3, tag = (txt) => { g.fillStyle = 'rgba(40,24,60,0.85)'; MGH.rr(g, x - 30, y + 6, 60, 20, 10); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 1.5; g.stroke(); MGH.text(g, txt, x, y + 21, 13, '#ffe680', 'center', 'bold'); };
-    if (kind === 'alternator') { g.save(); g.translate(x + shake, y); golem(g, t, hit); g.restore(); tag(`🚫 ${BD.GUARDS.alternator.toll[G.tod]}🪙`); return; }
-    if (kind === 'collector') { Char.npc(g, x + shake, y - 34, 24, 'host', { t, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.4, y: 0.2 }, hands: { n: { x: 1.1, y: -0.2, d: 20, o: false, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } }); sack(g, x + 30 + shake, y - 22, t); if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 40, y - 40, 4, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
+    if (kind === 'alternator') { g.save(); g.translate(x + shake, y); g.scale(1.6, 1.6); golem(g, t, hit); g.restore(); tag(`🚫 ${BD.GUARDS.alternator.toll[G.tod]}🪙`); return; }
+    if (kind === 'collector') { Char.npc(g, x + shake, y - 62, 42, 'host', { t, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.4, y: 0.2 }, hands: { n: { x: 1.1, y: -0.2, d: 20, o: false, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } }); g.save(); g.translate(x + 50 + shake, y - 34); g.scale(1.6, 1.6); sack(g, 0, 0, t); g.restore(); if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 64, y - 64, 6, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
     // the Competitor: the sensei with a big die bouncing in one hand
-    Char.npc(g, x + shake, y - 34, 24, 'sensei', { t, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.4, y: 0 }, hands: { n: { x: 1.2, y: -1.0, d: -50, o: true, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } });
-    const dz = Math.abs(Math.sin(t * 3)) * 16; die(g, x + 32 + shake, y - 74 - dz, 10, t * 3);
+    Char.npc(g, x + shake, y - 62, 42, 'sensei', { t, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.4, y: 0 }, hands: { n: { x: 1.2, y: -1.0, d: -50, o: true, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } });
+    const dz = Math.abs(Math.sin(t * 3)) * 22; die(g, x + 54 + shake, y - 126 - dz, 15, t * 3);
     tag(`🎲 d${BD.GUARDS.competitor.die[G.tod]}`);
   };
   // keep the iron gate from the previous art pass
