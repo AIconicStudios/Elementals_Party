@@ -81,7 +81,7 @@
       const starts = S.who.length === 2 ? [1178, 580] : [1150, 1205, 560, 600];
       S.who.forEach((i, k) => { const P2 = S.p[i]; P2.x = starts[k]; P2.y = NC.GY; P2.face = -1; });
     };
-    G.rows = [['stick', 'Climb · LEFT/RIGHT = move across to the next chain (dodge numbers you don\'t want) · UP at a sign = take it'], ['a', 'Jump']];
+    G.rows = [['stick', 'Climb · LEFT/RIGHT = move across to the next chain (dodge numbers you don\'t want) · walk onto a sign to take it'], ['a', 'Jump']];
     G.draw = function (m, S, g) {
       const t = m.t;
       GX.blit(g, GX.bake('numclimb_retro', b => NCART.bg(b)));
