@@ -15,5 +15,6 @@ MG.retire([
   'fireworks',   // too close to Dance Floor
   'balloonbump', // too close to Wheel Drive
   'statues', 'camo', 'nightfright', 'pinata', // removed on request
-  'forge', 'sumo', 'rune', 'standoff', 'coinrun', 'rally', // removed on request (Coin Run's coins now live in Cloud Hop)
+  'forge', 'sumo', 'rune', 'standoff', 'coinrun', 'rally',
+  'trail', 'doors', 'quickdraw', 'cliffdive', // removed on request // removed on request (Coin Run's coins now live in Cloud Hop)
 ]);

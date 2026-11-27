@@ -174,7 +174,7 @@ const Music = (() => {
       this.out.connect(lim); lim.connect(c.destination);
       const glue = c.createDynamicsCompressor(); glue.threshold.value = -18; glue.knee.value = 8; glue.ratio.value = 3; glue.attack.value = 0.015; glue.release.value = 0.2;
       const clip = c.createWaveShaper(); clip.curve = curve(1.3); clip.oversample = '2x';
-      const master = G(0.42); glue.connect(clip); clip.connect(master); master.connect(this.out);
+      const master = G(0.3); glue.connect(clip); clip.connect(master); master.connect(this.out);
       this.bus = G(1);
       // master tone: a touch of air on top, tidy low end
       const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 5000; air.gain.value = 5;

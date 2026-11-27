@@ -54,12 +54,12 @@ const Sfx = {
     try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ctx = null; return; }
     const c = this.ctx;
     // mix chain: bus -> clean lows -> soft top -> glue comp -> limiter, plus a short room reverb send
-    const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.18;
-    const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3.5; comp.attack.value = 0.004; comp.release.value = 0.18;
+    const lim = c.createDynamicsCompressor(); lim.threshold.value = -1.5; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.08;
     const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 55;
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9500;
     const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 4000; air.gain.value = 2.5;
-    this.bus = c.createGain(); this.bus.gain.value = 1.1;
+    this.bus = c.createGain(); this.bus.gain.value = 2.3;
     this.bus.connect(hp); hp.connect(lp); lp.connect(air); air.connect(comp); comp.connect(lim); lim.connect(c.destination);
     const rl = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, rl, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let k = 0; k < rl; k++) d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / rl, 3.2); }

@@ -170,12 +170,14 @@ MG.def({
 MG.def({
   id: 'beach', name: 'Beach Sweep', type: 'Coins', controls: 'Move + button', dur: 45,
   rows: [['stick', 'Walk the beach'], ['a', 'Drop your bag in your bin']],
-  how: 'Tidy the beach! Walk over litter to pick it up (you can carry six pieces), then bring it to YOUR bin and it counts. Grumpy crabs scuttle sideways — touch one and you drop everything. Waves wash up now and then and push you back up the sand. Cleanest helper wins!',
+  how: 'Tidy the beach! Walk over litter to pick it up (you can carry six pieces), then bring it to YOUR bin and it counts. Now and then a sparkling GOLDEN bottle washes up — it\'s worth 3, but it fades away fast! Grumpy crabs scuttle sideways — touch one and you drop everything. Waves wash up now and then and push you back up the sand. Cleanest helper wins!',
   wins: 'Most litter binned.',
   BIN: [[120, 200], [1160, 200], [120, 560], [1160, 560]],
-  init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(this.BIN[i][0] + (i % 2 ? -80 : 80), this.BIN[i][1], 20), { carry: 0, bank: 0, stun: 0 })); S.lit = []; for (let k = 0; k < 14; k++) S.lit.push(this.litter()); S.crabs = [0, 1, 2].map(() => ({ x: R.range(300, 980), y: R.range(220, 620), vx: R.pick([-1, 1]) * R.range(90, 150), t: 0 })); S.wave = { t: R.range(5, 8), on: 0 }; },
+  init(m, S) { S.b = [0, 1, 2, 3].map(i => Object.assign(MGH.body(this.BIN[i][0] + (i % 2 ? -80 : 80), this.BIN[i][1], 20), { carry: 0, val: 0, bank: 0, stun: 0 })); S.gold = 6; S.lit = []; for (let k = 0; k < 14; k++) S.lit.push(this.litter()); S.crabs = [0, 1, 2].map(() => ({ x: R.range(300, 980), y: R.range(220, 620), vx: R.pick([-1, 1]) * R.range(90, 150), t: 0 })); S.wave = { t: R.range(5, 8), on: 0 }; },
   litter() { return { x: R.range(230, 1050), y: R.range(170, 660), k: R.int(0, 3) }; },
   update(m, S, dt) {
+    S.gold -= dt; if (S.gold <= 0) { S.gold = R.range(6, 10); S.lit.push(Object.assign(this.litter(), { k: 9, v: 3, life: 7 })); Sfx.tone(1400, 0.1, 'triangle', 0.04); }
+    S.lit.forEach(l => { if (l.life !== undefined) { l.life -= dt; if (l.life <= 0) l.got = true; } });
     S.wave.t -= dt; if (S.wave.t <= 0) { S.wave.on = 1.6; S.wave.t = R.range(6, 9); Sfx.noise(1, 500, 0.08, 'lowpass'); } S.wave.on -= dt;
     S.crabs.forEach(c => { c.t += dt; c.x += c.vx * dt; if (c.x < 220 || c.x > 1060) c.vx *= -1; c.y += Math.sin(c.t * 2) * 20 * dt; });
     S.b.forEach((b, i) => {
@@ -183,29 +185,29 @@ MG.def({
       if (b.stun > 0) { b.vx *= 0.9; b.vy *= 0.9; } else MGH.steer(b, a.x, a.y, dt, 1800, 280 - b.carry * 12, 7);
       if (S.wave.on > 0 && b.y > 360) b.vy -= 900 * dt;
       MGH.integrate(b, dt, 40, 150, 1240, 700);
-      S.lit.forEach(l => { if (!l.got && b.carry < 6 && dist(l.x, l.y, b.x, b.y) < 30) { l.got = true; b.carry++; Sfx.pop(); } });
-      S.crabs.forEach(c => { if (b.stun <= 0 && dist(c.x, c.y, b.x, b.y) < 34) { b.stun = 0.9; for (let k = 0; k < b.carry; k++) S.lit.push({ x: b.x + R.range(-50, 50), y: b.y + R.range(-50, 50), k: R.int(0, 3) }); b.carry = 0; Sfx.bad(); } });
-      const [bx, by] = this.BIN[i]; if (b.carry && dist(bx, by, b.x, b.y) < 60) { b.bank += b.carry; b.carry = 0; Sfx.coin(); }
+      S.lit.forEach(l => { if (!l.got && b.carry < 6 && dist(l.x, l.y, b.x, b.y) < (l.k === 9 ? 38 : 30)) { l.got = true; b.carry++; b.val += l.v || 1; if (l.k === 9) { Sfx.coin(); MGH.pop('+3 GOLDEN!', l.x, l.y - 30, '#ffe680', 18); } else Sfx.pop(); } });
+      S.crabs.forEach(c => { if (b.stun <= 0 && dist(c.x, c.y, b.x, b.y) < 34) { b.stun = 0.9; for (let k = 0; k < b.carry; k++) S.lit.push({ x: b.x + R.range(-50, 50), y: b.y + R.range(-50, 50), k: R.int(0, 3) }); b.carry = 0; b.val = 0; Sfx.bad(); } });
+      const [bx, by] = this.BIN[i]; if (b.carry && dist(bx, by, b.x, b.y) < 60) { b.bank += b.val; b.carry = 0; b.val = 0; Sfx.coin(); }
     });
-    S.lit = S.lit.filter(l => !l.got); while (S.lit.length < 12) S.lit.push(this.litter());
+    S.lit = S.lit.filter(l => !l.got); while (S.lit.filter(l => l.k !== 9).length < 12) S.lit.push(this.litter());
     MGH.collide(S.b, 0.6);
   },
   bot(m, S, i) {
     const b = S.b[i], v = m.vin[i], [bx, by] = this.BIN[i]; v.a = false;
-    let g; if (b.carry >= 6 || (b.carry >= 3 && dist(bx, by, b.x, b.y) < 260)) g = { x: bx, y: by }; else g = S.lit.slice().sort((p, q) => dist(p.x, p.y, b.x, b.y) - dist(q.x, q.y, b.x, b.y))[0];
+    let g; if (b.carry >= 6 || (b.carry >= 3 && dist(bx, by, b.x, b.y) < 260)) g = { x: bx, y: by }; else g = S.lit.slice().sort((p, q) => dist(p.x, p.y, b.x, b.y) / (p.v || 1) - dist(q.x, q.y, b.x, b.y) / (q.v || 1))[0];
     let dx = g.x - b.x, dy = g.y - b.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
     S.crabs.forEach(c => { const d = dist(c.x, c.y, b.x, b.y); if (d < 90) { dx += (b.x - c.x) / d * 1.2; dy += (b.y - c.y) / d * 1.2; } });
     const n = Math.hypot(dx, dy) || 1; v.ax = dx / n; v.ay = dy / n;
   },
   score(m, S) { return S.b.map(b => b.bank); },
   fmt(s) { return `${s} pieces`; },
-  hud(m, S, i) { return `🗑️ ${S.b[i].bank}` + (S.b[i].carry ? ` (+${S.b[i].carry})` : ''); },
+  hud(m, S, i) { return `🗑️ ${S.b[i].bank}` + (S.b[i].carry ? ` (+${S.b[i].val})` : ''); },
   draw(m, S, g) {
     g.fillStyle = MGH.grad(g, 0, 720, ['#f4e0a8', '#e8c880']); g.fillRect(0, 0, 1280, 720);
     g.fillStyle = MGH.grad(g, 0, 150, ['#5ab8f0', '#8ad0f8']); g.fillRect(0, 40, 1280, 110);
     const wv = S.wave.on > 0 ? Math.sin((1 - S.wave.on / 1.6) * Math.PI) : 0; g.fillStyle = 'rgba(120,200,255,0.55)'; g.beginPath(); g.moveTo(0, 720); for (let x = 0; x <= 1280; x += 40) g.lineTo(x, 720 - wv * 360 + Math.sin(x * 0.03 + m.t * 3) * 10); g.lineTo(1280, 720); g.fill();
     this.BIN.forEach(([x, y], i) => { g.fillStyle = m.players[i].color; MGH.rr(g, x - 26, y - 36, 52, 66, 8); g.fill(); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(x - 26, y - 36, 52, 10); MGH.text(g, `${S.b[i].bank}`, x, y + 12, 20, '#fff', 'center', 'bold'); });
-    S.lit.forEach(l => { if (l.k === 0) { g.fillStyle = '#7ab8e8'; MGH.rr(g, l.x - 6, l.y - 14, 12, 26, 4); g.fill(); } else if (l.k === 1) { g.fillStyle = '#c8c8d0'; g.beginPath(); g.ellipse(l.x, l.y, 10, 7, 0.4, 0, 7); g.fill(); } else if (l.k === 2) { g.fillStyle = '#e84a4a'; g.fillRect(l.x - 10, l.y - 6, 20, 12); } else { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(l.x - 10, l.y + 8); g.lineTo(l.x, l.y - 10); g.lineTo(l.x + 10, l.y + 8); g.fill(); } });
+    S.lit.forEach(l => { if (l.k === 9) { const a = Math.min(1, l.life / 1.5); g.globalAlpha = a; MGH.glow(g, l.x, l.y, 34, 'rgba(255,220,80,0.7)'); g.fillStyle = '#ffc83a'; MGH.rr(g, l.x - 8, l.y - 18, 16, 32, 6); g.fill(); g.fillStyle = '#fff6b0'; g.fillRect(l.x - 4, l.y - 24, 8, 8); g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(l.x - 5, l.y - 12, 3, 18); if ((m.t * 3) % 1 < 0.3) MGH.star(g, l.x + 10, l.y - 18, 5, '#fff', m.t, false); g.globalAlpha = 1; return; } if (l.k === 0) { g.fillStyle = '#7ab8e8'; MGH.rr(g, l.x - 6, l.y - 14, 12, 26, 4); g.fill(); } else if (l.k === 1) { g.fillStyle = '#c8c8d0'; g.beginPath(); g.ellipse(l.x, l.y, 10, 7, 0.4, 0, 7); g.fill(); } else if (l.k === 2) { g.fillStyle = '#e84a4a'; g.fillRect(l.x - 10, l.y - 6, 20, 12); } else { g.fillStyle = '#fff'; g.beginPath(); g.moveTo(l.x - 10, l.y + 8); g.lineTo(l.x, l.y - 10); g.lineTo(l.x + 10, l.y + 8); g.fill(); } });
     S.crabs.forEach(c => { const cl = Math.sin(m.t * 10) * 3; g.fillStyle = '#e8503a'; g.beginPath(); g.ellipse(c.x, c.y, 22, 14, 0, 0, 7); g.fill(); g.beginPath(); g.arc(c.x - 26, c.y - 8 + cl, 8, 0, 7); g.arc(c.x + 26, c.y - 8 - cl, 8, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(c.x - 6, c.y - 14, 4, 0, 7); g.arc(c.x + 6, c.y - 14, 4, 0, 7); g.fill(); g.fillStyle = '#222'; g.beginPath(); g.arc(c.x - 6, c.y - 14, 2, 0, 7); g.arc(c.x + 6, c.y - 14, 2, 0, 7); g.fill(); });
     S.b.forEach((b, i) => { MGH.drawBody(g, b, m.players[i], '', b.stun > 0 ? 'hurt' : b.carry >= 6 ? 'effort' : 'happy'); if (b.carry) { g.fillStyle = '#5a8a3a'; g.beginPath(); g.arc(b.x + 22, b.y + 6, 6 + b.carry * 1.5, 0, 7); g.fill(); } });
   },

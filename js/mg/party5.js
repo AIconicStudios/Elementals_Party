@@ -166,8 +166,8 @@ MG.def({
       const turns = Math.floor(Math.abs(p.rot) / (Math.PI * 2)); if (turns > p.spun) { p.spun = turns; const v = Math.round(10 + p.h / 20); p.pts += v; p.msg = `+${v}`; p.msgT = 0.6; if (!m.bot(i)) Sfx.tone(700 + turns * 100, 0.06, 'triangle', 0.05); }
       if (p.h <= 0) {
         p.h = 0; const off = Math.abs(Math.atan2(Math.sin(p.rot), Math.cos(p.rot)));
-        if (off > 0.6) { p.crash = 0.8; p.vy = 160; p.msg = 'CRASH!'; p.msgT = 0.9; if (!m.bot(i)) Sfx.thud(); }
-        else { const dtp = Math.abs(m.t - p.pressT); const good = dtp < 0.12; p.vy = Math.min(1150, Math.max(260, Math.abs(p.vy) * (good ? 1.12 : 0.85) + (good ? 40 : 0))); if (good) { p.msg = 'BOING!'; p.msgT = 0.5; if (!m.bot(i)) Sfx.tone(420, 0.1, 'sine', 0.06, 300); } }
+        if (off > 0.75) { p.crash = 0.8; p.vy = 160; p.msg = 'CRASH!'; p.msgT = 0.9; if (!m.bot(i)) Sfx.thud(); }
+        else { const dtp = Math.abs(m.t - p.pressT); const good = dtp < 0.22; p.vy = Math.min(1150, Math.max(260, Math.abs(p.vy) * (good ? 1.12 : 0.85) + (good ? 40 : 0))); if (good) { p.msg = 'BOING!'; p.msgT = 0.5; if (!m.bot(i)) Sfx.tone(420, 0.1, 'sine', 0.06, 300); } }
         p.rot = 0; p.spun = 0;
       }
     });
@@ -263,18 +263,20 @@ MG.def({
   init(m, S) { S.p = [0, 1, 2, 3].map(() => ({ y: 0, vy: 0, duck: false, hearts: 3, hit: 0, outT: 0 })); S.beams = []; S.next = 1.5; S.n = 0; },
   update(m, S, dt) {
     S.next -= dt;
-    if (S.next <= 0) { S.n++; const sp = 300 + S.n * 14, low = Math.random() < 0.5, dir = Math.random() < 0.5 ? 1 : -1; S.beams.push({ x: dir > 0 ? -60 : 1340, dir, sp, low, hit: [] }); if (S.n > 8 && Math.random() < 0.35) S.beams.push({ x: dir > 0 ? -60 - 170 : 1340 + 170, dir, sp, low: !low, hit: [] }); S.next = Math.max(0.85, 2.2 - S.n * 0.05); Sfx.tone(low ? 300 : 900, 0.12, 'sawtooth', 0.03); }
+    if (S.next <= 0 && S.pendDir === undefined) S.pendDir = Math.random() < 0.5 ? 1 : -1;
+    if (S.next <= 0 && S.beams.some(b => b.dir !== S.pendDir && b.x > 0 && b.x < 1280)) S.next = 0.15; // never fire into a beam still crossing the other way
+    if (S.next <= 0) { S.n++; const sp = 300 + S.n * 14, low = Math.random() < 0.5, dir = S.pendDir; S.pendDir = undefined; S.beams.push({ x: dir > 0 ? -60 : 1340, dir, sp, low, hit: [], t0: m.t }); if (S.n > 8 && Math.random() < 0.35) S.beams.push({ x: dir > 0 ? -60 - 170 : 1340 + 170, dir, sp, low: !low, hit: [], t0: m.t + 0.01 }); S.next = Math.max(0.85, 2.2 - S.n * 0.05); Sfx.tone(low ? 300 : 900, 0.12, 'sawtooth', 0.03); }
     S.beams.forEach(b => { b.x += b.dir * b.sp * dt; });
     S.beams = S.beams.filter(b => b.x > -400 && b.x < 1700);
     S.p.forEach((p, i) => {
       p.hit -= dt; if (p.hearts <= 0) return;
       p.duck = m.held(i, 'down') && p.y <= 0;
-      if (m.pressed(i, 'a') && p.y <= 0) { p.vy = 560; if (!m.bot(i)) Sfx.tone(500, 0.05, 'triangle', 0.05, 300); }
-      p.vy -= 1500 * dt; p.y = Math.max(0, p.y + p.vy * dt); if (p.y <= 0) p.vy = 0;
+      if (m.pressed(i, 'a') && p.y <= 0) { p.vy = 640; if (!m.bot(i)) Sfx.tone(500, 0.05, 'triangle', 0.05, 300); }
+      p.vy -= 2500 * dt; p.y = Math.max(0, p.y + p.vy * dt); if (p.y <= 0) p.vy = 0;
       const x = 200 + i * 290;
-      S.beams.forEach(b => { if (b.hit.includes(i) || Math.abs(b.x - x) > 14) return; const hitIt = b.low ? p.y < 40 : !p.duck; if (hitIt) { b.hit.push(i); p.hearts--; p.hit = 0.7; Sfx.bad(); MGH.burst(x, b.low ? 600 : 470, [b.low ? '#ff4a3a' : '#4a8aff', '#fff'], 14, { speed: 200 }); if (p.hearts <= 0) p.outT = m.t; } else b.hit.push(i); });
+      S.beams.forEach(b => { if (b.hit.includes(i) || Math.abs(b.x - x) > 14) return; const hitIt = b.low ? p.y < 40 : !p.duck; if (hitIt) { b.hit.push(i); p.hearts--; p.hit = 0.7; Sfx.bad(); MGH.burst(x, b.low ? 600 : 470, [b.low ? '#ff4a3a' : '#4a8aff', '#fff'], 14, { speed: 200 }); if (p.hearts <= 0) p.outT = b.t0 || m.t; } else b.hit.push(i); }); // knocked out by the same beam = the same time
     });
-    if (S.p.filter(p => p.hearts > 0).length <= 1 || S.n > 46) m.finish(this.score(m, S));
+    if ((S.p.filter(p => p.hearts > 0).length <= 1 && !S.beams.some(b => b.x > -20 && b.x < 1300)) || S.n > 46) m.finish(this.score(m, S));
   },
   bot(m, S, i) {
     const p = S.p[i], v = m.vin[i], x = 200 + i * 290; v.a = false; v.down = false; if (p.hearts <= 0) return;

@@ -281,7 +281,7 @@
           P.gT -= dt; if (P.gT <= 0) { P.gust = R.pick([-1, 1]) * R.range(2.2, 3.6); P.gT = R.range(1.4, 2.6); P.gw = 0.5; }
           P.gw = Math.max(0, (P.gw || 0) - dt);
           const push = P.gw > 0 ? 0 : P.gust; P.gust *= Math.exp(-1.6 * dt);
-          P.bv += (R.range(-1, 1) * 2.4 + P.bal * 2.6 + push) * dt; P.bv -= m.axis(i).x * 6.5 * dt; P.bal += P.bv * dt; P.bv *= Math.exp(-1.8 * dt);
+          P.bv += (R.range(-1, 1) * 2.4 + P.bal * 2.6 + push) * dt; P.bv += m.axis(i).x * 6.5 * dt; P.bal += P.bv * dt; P.bv *= Math.exp(-1.8 * dt);
           const steady = 1 - Math.min(1, Math.abs(P.bal)); P.x += (1.4 + 1.6 * steady) * dt;
           if (Math.abs(P.bal) > 1) { P.fall = 1.2; P.x = Math.max(10, P.x - 5); P.bal = 0; P.bv = 0; P.gust = 0; say(T, i, 'SPLASH! back 5 m', '#ff6b6b'); Sfx.noise(0.4, 800, 0.1, 'lowpass'); MGH.burst(60 + P.x * 11.6, MGM.lane(i, 110, 150).y1 - 20, ['#9fe0ff', '#fff'], 16, { speed: 200, grav: 500 }); }
         }
@@ -324,7 +324,7 @@
       const s = this.sec(P);
       if (s.k === 'sprint') v.a = true;
       if (s.k === 'tread') MGM.botCadence(m, i, P, dt);
-      if (s.k === 'beam') { const pre = P.gw > 0 ? P.gust * 0.12 : 0; v.ax = clamp((P.bal * 1.5 + P.bv * 0.55 + pre) + R.range(-0.3, 0.3), -1, 1); }
+      if (s.k === 'beam') { const pre = P.gw > 0 ? P.gust * 0.12 : 0; v.ax = -clamp((P.bal * 1.5 + P.bv * 0.55 + pre) + R.range(-0.3, 0.3), -1, 1); }
       if (s.k === 'net' && P.need && P.slip <= 0) { P.bR = P.bR || R.range(0.3, 0.6); if (P.react > P.bR && !P.bPrev) { v[Math.random() < 0.07 ? R.pick(DIRS) : P.need] = true; P.bR = 0; } }
       P.bPrev = v.left || v.right || v.up;
       if (s.k === 'zip') { v.a = Math.random() > 0.003; const nx = PADS.find(pd => pd > P.x && !P.zipHit.has(pd)); if (nx !== undefined && nx - P.x < P.v * 0.22 + R.range(-0.4, 0.6) && P.tuck <= -0.25) v.b = true; }

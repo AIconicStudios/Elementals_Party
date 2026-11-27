@@ -196,9 +196,11 @@ MG.def({
   init(m, S) { S.beat = R.range(0.5, 0.7); S.taps = [[], [], [], []]; S.lastBeat = -1; S.drift = [0, 0, 0, 0].map(() => R.range(-0.03, 0.03)); S.nextBot = [0, 1, 2, 3].map(() => 8 + R.range(0, 0.1)); },
   update(m, S, dt) {
     const k = Math.floor(m.t / S.beat);
-    if (k !== S.lastBeat) { S.lastBeat = k; if (m.t < 8) Sfx.tone(1000, 0.05, 'square', 0.06); S.pulse = 0.15; }
+    if (k !== S.lastBeat) { S.lastBeat = k; if (m.t < 8) { const acc = k % 4 === 0; // a wooden tick-tock: woodblock click with a resonant body, accent on the first beat of each bar
+      Sfx.noise(0.025, acc ? 2600 : 2100, acc ? 0.32 : 0.24, 'bandpass', 0, 0, 6); Sfx.tone(acc ? 1250 : 880, 0.09, 'triangle', acc ? 0.22 : 0.16, -200); Sfx.tone(acc ? 420 : 330, 0.12, 'sine', 0.12, -60); }
+      else if (k === Math.ceil(8 / S.beat)) { Sfx.tone(196, 1.2, 'sine', 0.16); Sfx.tone(392, 0.9, 'triangle', 0.06); } S.pulse = 0.15; }
     if (S.pulse > 0) S.pulse -= dt;
-    for (let i = 0; i < 4; i++) if (m.pressed(i, 'a') && m.t >= 8) { S.taps[i].push(m.t); MGH.ring(190 + i * 300, 560, m.players[i].color, 30, 50, 0.4); }
+    for (let i = 0; i < 4; i++) if (m.pressed(i, 'a') && m.t >= 8) { S.taps[i].push(m.t); MGH.ring(190 + i * 300, 560, m.players[i].color, 30, 50, 0.4); if (!m.bot(i)) { Sfx.noise(0.02, 1600 + i * 200, 0.18, 'bandpass', 0, 0, 5); Sfx.tone(520 + i * 70, 0.12, 'sine', 0.14, -40); } }
   },
   bot(m, S, i, dt) {
     const v = m.vin[i]; v.a = false;

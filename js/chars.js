@@ -726,8 +726,8 @@ const Char = {
       for (let k = 0; k < 8; k++) { const a = Math.PI + (k / 7) * Math.PI, d = r * (0.6 + q * 1.1); g.fillStyle = `rgba(120,190,255,${1 - q})`; g.beginPath(); g.ellipse(Math.cos(a) * d, r * 1.15 + Math.sin(a) * d * 0.6 - q * r * 0.2, r * 0.07, r * 0.11, 0, 0, 7); g.fill(); }
       g.strokeStyle = `rgba(160,215,255,${1 - q})`; g.lineWidth = r * 0.05; g.beginPath(); g.ellipse(0, r * 1.3, r * (0.6 + q), r * (0.12 + q * 0.15), 0, 0, 7); g.stroke();
     }
-    if (pose === 'pump' && back) {
-      for (let k = 0; k < 7; k++) { const a = -Math.PI / 2 + (k - 3) * 0.35, h = r * (0.5 + 0.35 * Math.sin(t * 12 + k)) * Math.sin(pp * Math.PI); g.fillStyle = k % 2 ? 'rgba(255,200,60,0.85)' : 'rgba(255,110,40,0.8)'; g.beginPath(); g.moveTo(Math.cos(a - 0.15) * r, Math.sin(a - 0.15) * r); g.quadraticCurveTo(Math.cos(a) * (r + h * 1.8), Math.sin(a) * (r + h * 1.8), Math.cos(a + 0.15) * r, Math.sin(a + 0.15) * r); g.fill(); }
+    if (pose === 'pump' && back) { // a few small sparks, no big flame ring around the head
+      for (let k = 0; k < 3; k++) { const ph = (pp * 2 + k / 3) % 1; g.fillStyle = `rgba(255,${170 + k * 30},60,${0.8 * (1 - ph)})`; g.beginPath(); g.arc((k - 1) * r * 0.5, -r * 0.9 - ph * r * 0.6, r * 0.05, 0, 7); g.fill(); }
     }
     if ((pose === 'flex' || pose === 'stomp') && back && pp > 0.4 && pp < 0.75) {
       const q = (pp - 0.4) / 0.35;

@@ -271,7 +271,7 @@ MG.def({
 // ===================================================================== CANNON DUEL (aim, power, wind — topple the enemy flag)
 MG.def({
   id: 'cannons', name: 'Cannon Duel', type: 'Duel', mode: 'duel', controls: 'Move + hold A', dur: 0,
-  rows: [['pad', 'UP/DOWN: aim the barrel'], ['a', 'Hold for power, let go to fire']],
+  rows: [['pad', 'Rotate the cannon (up/down or left/right)'], ['a', 'Hold for power, let go to fire']],
   how: 'Two forts face each other across a valley. Take turns: aim your cannon with UP/DOWN, HOLD A to build power and let go to fire. Watch the WIND flag — it bends every shot! Cannonballs smash the stone blocks of the fort. Hit the enemy FLAG to win. Ten shots each — if nobody hits the flag, the fort with the most stone left wins.',
   wins: 'Hit the enemy flag (or have the most fort left).',
   G: 520,
@@ -290,7 +290,7 @@ MG.def({
     if (S.ph === 'end') { if (S.pt > 3) m.finish(this.score(m, S)); return; }
     const j = S.turn, i = S.d[j], F = S.fort[j];
     if (S.ph === 'aim') {
-      const ay = m.axis(i).y; if (Math.abs(ay) > 0.3) { const lo = j ? -Math.PI + 0.15 : -1.45, hi = j ? -Math.PI + 1.45 : -0.15; F.ang = clamp(F.ang + (j ? -ay : ay) * 1.2 * dt, j ? -Math.PI + 0.15 : -1.45, j ? -1.69 : -0.15); }
+      const ax0 = m.axis(i), ay = Math.abs(ax0.y) > Math.abs(ax0.x) ? ax0.y : (j ? -ax0.x : ax0.x) * 1; if (Math.abs(ay) > 0.3) { if (!F.creak || F.creak <= 0) { F.creak = 0.12; if (!m.bot(i)) Sfx.tone(240 + (F.ang + 3.2) * 60, 0.04, 'square', 0.05); } F.creak -= dt; const lo = j ? -Math.PI + 0.15 : -1.45, hi = j ? -Math.PI + 1.45 : -0.15; F.ang = clamp(F.ang + (j ? -ay : ay) * 1.2 * dt, j ? -Math.PI + 0.15 : -1.45, j ? -1.69 : -0.15); }
       if (m.held(i, 'a')) { if (F.hold < 0) F.hold = 0; F.hold += dt; F.pow = 0.5 - 0.5 * Math.cos(F.hold * 2.6); }
       else if (F.hold > 0) { const [mx, my] = this.muzzle(j, F), v = 260 + F.pow * 560; S.ball = { x: mx, y: my, vx: Math.cos(F.ang) * v, vy: Math.sin(F.ang) * v, own: j, t: 0 }; F.hold = -1; S.ph = 'fly'; S.shots[j]++; Sfx.boom(); MGH.shake(4); }
       if (S.pt > 15 && F.hold < 0) { F.hold = 0.6; }
@@ -356,7 +356,7 @@ MG.def({
       if (S.ph === 'end' && S.winner !== j) { MGH.flame(g, fx, fy, 0.4, t, j); }
       const [mx, my, cx, cy] = this.muzzle(j, F); g.fillStyle = '#5a3a1a'; g.beginPath(); g.arc(cx, cy + 8, 12, 0, 7); g.fill(); g.save(); g.translate(cx, cy); g.rotate(F.ang); const cg = g.createLinearGradient(0, -9, 0, 9); cg.addColorStop(0, '#6a6a78'); cg.addColorStop(1, '#2a2a30'); g.fillStyle = cg; MGH.rr(g, -6, -9, 44, 18, 8); g.fill(); g.restore();
       Char.draw(g, cx + (j ? 34 : -34), cy - 10, 22, p.el.id, p.color, { mood: MGH.persona(S.ph === 'end' ? (S.winner === j ? 'cheer' : 'sad') : S.turn === j ? 'determined' : 'happy', p.el.id), seed: S.d[j] * 1.7, look: { x: j ? -1 : 1, y: 0 } });
-      if (S.turn === j && S.ph === 'aim') { g.setLineDash([6, 8]); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + Math.cos(F.ang) * 90, my + Math.sin(F.ang) * 90); g.stroke(); g.setLineDash([]); if (F.hold >= 0) drawPowerBar(g, cx, cy - 70, 100, F.pow); }
+      if (S.turn === j && S.ph === 'aim') { const v0 = 260 + Math.max(0.45, F.pow) * 560; g.fillStyle = 'rgba(255,255,255,0.75)'; for (let q = 1; q <= 9; q++) { const tt = q * 0.09; g.beginPath(); g.arc(mx + Math.cos(F.ang) * v0 * tt, my + Math.sin(F.ang) * v0 * tt + 0.5 * this.G * tt * tt, 4 - q * 0.3, 0, 7); g.fill(); } MGH.label(g, `${Math.round(Math.abs((j ? Math.PI + F.ang : -F.ang) * 180 / Math.PI))}°`, cx + (j ? -50 : 50), cy - 70, 15, '#fff'); g.setLineDash([6, 8]); g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 2; g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + Math.cos(F.ang) * 90, my + Math.sin(F.ang) * 90); g.stroke(); g.setLineDash([]); if (F.hold >= 0) drawPowerBar(g, cx, cy - 70, 100, F.pow); }
       g.fillStyle = 'rgba(0,0,0,0.45)'; MGH.rr(g, (j ? 1060 : 60), 660, 160, 32, 16); g.fill(); MGH.text(g, `${p.name} · ${10 - S.shots[j]} shots`, (j ? 1140 : 140), 682, 15, p.color, 'center', 'bold');
     });
     if (S.ball) { const B = S.ball; g.fillStyle = 'rgba(80,80,80,0.3)'; for (let q = 1; q <= 4; q++) { g.beginPath(); g.arc(B.x - B.vx * 0.02 * q, B.y - B.vy * 0.02 * q, 10 - q * 2, 0, 7); g.fill(); } const bg = g.createRadialGradient(B.x - 3, B.y - 3, 1, B.x, B.y, 10); bg.addColorStop(0, '#8a8a90'); bg.addColorStop(1, '#111'); g.fillStyle = bg; g.beginPath(); g.arc(B.x, B.y, 9, 0, 7); g.fill(); }
@@ -370,8 +370,8 @@ MG.def({
 const MM_MOVES = [{ k: 'Y', n: 'Star jump' }, { k: 'B', n: 'Spin' }, { k: 'A', n: 'Clap!' }, { k: 'X', n: 'Pose' }];
 MG.def({
   id: 'mirror', name: 'Mirror Mirror', type: 'Duel', mode: 'duel', controls: 'A B X Y', dur: 0, noPadSkip: true,
-  rows: [['abxy', 'Y star jump · B spin · A clap · X pose']],
-  how: 'A dance-off under the spotlight! Each button is a dance move: Y = star jump, B = spin, A = clap, X = pose. Take turns: repeat the WHOLE dance so far, in order, then add ONE new move of your own. The dance keeps growing — first dancer to slip up loses the round. Best of three rounds.',
+  rows: [['a', 'Clap'], ['b', 'Spin']],
+  how: 'A dance-off under the spotlight! There are two moves: A = CLAP and B = SPIN. Take turns: repeat the WHOLE dance so far, in order, then add ONE new move of your own. The dance keeps growing — first dancer to slip up loses the round. Best of three rounds.',
   wins: 'Best of 3 rounds.',
   init(m, S) { S.d = DU.pair(m); S.wins = [0, 0]; S.round = 0; this.newRound(S); },
   newRound(S) { S.round++; S.chain = []; S.turn = (S.round + 1) % 2; S.k = 0; S.ph = 'turn'; S.pt = 0; S.move = null; S.last = null; S.loser = -1; },
@@ -380,17 +380,18 @@ MG.def({
     if (S.ph === 'oops') { if (S.pt > 2.4) { if (S.wins.some(w => w >= 2)) m.finish(this.score(m, S)); else this.newRound(S); } return; }
     if (S.ph === 'added') { if (S.pt > 0.9) { S.turn = 1 - S.turn; S.k = 0; S.ph = 'turn'; S.pt = 0; } return; }
     const i = S.d[S.turn]; if (S.pt > 4) { this.oops(S); return; }
-    if (S.move) return; const d = abxyPress(m, i); if (d < 0) return;
+    if (S.move) return; const d = m.pressed(i, 'a') ? 2 : m.pressed(i, 'b') ? 1 : -1; if (d < 0) return;
     S.move = { d, t: 0, who: S.turn }; S.pt = 0; Sfx.tone([660, 784, 523, 880][d], 0.12, 'triangle', 0.06);
     if (S.k < S.chain.length) { if (S.chain[S.k] !== d) { this.oops(S); return; } S.k++; }
     else { S.chain.push(d); S.last = d; S.ph = 'added'; S.pt = 0; Sfx.coin(); }
   },
   oops(S) { S.loser = S.turn; S.wins[1 - S.turn]++; S.ph = 'oops'; S.pt = 0; Sfx.bad(); },
   bot(m, S, i) {
-    const j = S.d.indexOf(i); if (j < 0 || S.turn !== j || S.ph !== 'turn' || S.move) { abxyBot(m, i, -1); return; }
-    S.bw = (S.bw || 0) - 1 / 60; if (S.bw > 0) { abxyBot(m, i, -1); return; } S.bw = R.range(0.35, 0.7);
-    if (S.k < S.chain.length) { const slip = Math.random() < 0.012 * S.chain.length; abxyBot(m, i, slip ? (S.chain[S.k] + R.int(1, 3)) % 4 : S.chain[S.k]); }
-    else abxyBot(m, i, R.int(0, 3));
+    const j = S.d.indexOf(i); m.vin[i].a = m.vin[i].b = false; if (j < 0 || S.turn !== j || S.ph !== 'turn' || S.move) return;
+    S.bw = (S.bw || 0) - 1 / 60; if (S.bw > 0) return; S.bw = R.range(0.35, 0.7);
+    const v = m.vin[i], tap = d => { v.a = d === 2 && !m.prev[i].a; v.b = d === 1 && !m.prev[i].b; };
+    if (S.k < S.chain.length) { const slip = Math.random() < 0.012 * S.chain.length; tap(slip ? 3 - S.chain[S.k] : S.chain[S.k]); }
+    else tap(R.pick([1, 2]));
   },
   score(m, S) { return DU.scores(m, S.wins[0], S.wins[1]); },
   fmt(s) { return s < 0 ? 'watching' : `${s} round${s === 1 ? '' : 's'}`; },

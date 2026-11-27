@@ -28,8 +28,8 @@ MG.def({
       W.brace = (W.brace || 0) - dt; W.bcd = (W.bcd || 0) - dt;
       if (m.pressed(i, 'b') && !walking && Math.abs(W.bal) < 0.3 && W.bcd <= 0) { W.brace = 1.6; W.bcd = 3; Sfx.tone(500, 0.1, 'triangle', 0.04); }
       const braced = W.brace > 0 && !walking;
-      const gust = F.gust > 0 && F.gRope === W.rope && !braced ? F.dir * 7.5 : 0;
-      W.bv += (R.range(-1, 1) * (walking ? 3.2 : braced ? 0.3 : 1.4) + W.bal * (braced ? 0.6 : 2.4) + gust) * dt; W.bv -= ((m.held(i, 'rb') || m.held(i, 'rt') ? 1 : 0) - (m.held(i, 'lb') || m.held(i, 'lt') ? 1 : 0)) * 6 * dt; W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
+      const gust = F.gust > 0 && F.gRope === W.rope && !braced ? F.dir * 6.2 : 0;
+      W.bv += (R.range(-1, 1) * (walking ? 3.2 : braced ? 0.3 : 1.4) + W.bal * (braced ? 0.6 : 2.4) + gust) * dt; W.bv += ((m.held(i, 'rb') || m.held(i, 'rt') ? 1 : 0) - (m.held(i, 'lb') || m.held(i, 'lt') ? 1 : 0)) * 6 * dt; // LB moves the bar left, RB right W.bal += W.bv * dt; W.bv *= Math.exp(-1.6 * dt);
       if (walking) W.x += (1 - Math.min(0.7, Math.abs(W.bal))) * 6.2 * dt;
       if (Math.abs(W.bal) > 1) { W.fall = 1.4; W.falls++; Sfx.bad(); MGH.burst(140 + W.x * 10, this.ROPE[W.rope] + 20, ['#fff', m.players[i].color], 12, { speed: 200, grav: 600 }); }
       if (W.x >= 100) { W.done = true; S.crossed++; Sfx.coin(); MGH.burst(1150, this.ROPE[W.rope], ['#ffe680', '#fff'], 20, { speed: 240 }); }
@@ -48,7 +48,7 @@ MG.def({
     const W = S.w.find(W => W.i === i); if (!W || W.done || W.fall > 0) return;
     const gustSoon = S.f.spin > 0 && S.f.rope === W.rope;
     if (gustSoon && Math.abs(W.bal) < 0.3 && (W.bcd || 0) <= 0 && Math.random() < 0.06) { v.b = true; return; }
-    { const want = clamp(W.bal * 1.4 + W.bv * 0.6 + R.range(-0.25, 0.25), -1, 1); W.rl = (W.rl || 0) - 1 / 60; if (W.rl <= 0) { W.rl = R.range(0.05, 0.13); W.hb = want > 0.2 ? 1 : want < -0.2 ? -1 : 0; } v.rb = W.hb > 0; v.lb = W.hb < 0; }
+    { const want = clamp(W.bal * 1.4 + W.bv * 0.6 + R.range(-0.25, 0.25), -1, 1); W.rl = (W.rl || 0) - 1 / 60; if (W.rl <= 0) { W.rl = R.range(0.05, 0.13); W.hb = want > 0.2 ? 1 : want < -0.2 ? -1 : 0; } v.lb = W.hb > 0; v.rb = W.hb < 0; }
     v.a = Math.abs(W.bal) < 0.45 && !gustSoon;
   },
   score(m, S) { const walkersWon = S.win === 1; return m.players.map((p, i) => (i === S.fan) !== walkersWon ? 1 : 0); },
