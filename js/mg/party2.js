@@ -178,22 +178,38 @@ const GOLF = [
   { name: 'Bumper Lane', par: 2, tee: [60, 160], cup: [540, 160], walls: [], bumpers: [[300, 110, 24], [300, 210, 24], [420, 160, 18]], sand: [[380, 40, 90, 50]], water: [], way: [] },
   { name: 'Dog Leg Pond', par: 3, tee: [60, 250], cup: [540, 70], walls: [[300, 0, 300, 205]], bumpers: [[150, 120, 18]], sand: [[180, 230, 60, 70]], water: [[400, 120, 90, 70]], way: [[330, 260]] },
   { name: 'Windmill Hill', par: 3, tee: [60, 160], cup: [545, 160], walls: [[320, 0, 320, 115], [320, 205, 320, 320]], bumpers: [[470, 90, 16], [470, 230, 16]], sand: [], water: [[200, 260, 80, 60], [200, 0, 80, 50]], way: [[320, 160]], mill: [320, 160, 62] },
+  { name: 'Zig Zag', par: 3, tee: [50, 60], cup: [550, 260], walls: [[200, 0, 200, 210], [400, 110, 400, 320]], bumpers: [], sand: [[250, 240, 90, 60]], water: [], way: [[400, 55], [200, 265]] },
+  { name: 'Island Green', par: 3, tee: [60, 160], cup: [490, 160], walls: [], bumpers: [[200, 100, 16], [200, 220, 16]], sand: [], water: [[340, 0, 60, 120], [340, 200, 60, 120], [420, 30, 170, 50], [420, 240, 170, 50]], way: [] },
+  { name: 'Pinball Alley', par: 2, tee: [60, 160], cup: [560, 160], walls: [], bumpers: [[200, 80, 16], [200, 240, 16], [300, 160, 20], [400, 80, 16], [400, 240, 16], [480, 160, 14]], sand: [], water: [], way: [[300, 110]] },
+  { name: 'Hairpin', par: 3, tee: [60, 70], cup: [70, 255], walls: [[0, 160, 440, 160]], bumpers: [[540, 60, 14], [540, 260, 14]], sand: [[220, 210, 90, 60]], water: [], way: [[510, 160]] },
+  { name: 'Windmill Dash', par: 3, tee: [60, 160], cup: [540, 160], walls: [], bumpers: [[460, 70, 14], [460, 250, 14]], sand: [[400, 20, 60, 50], [400, 250, 60, 50]], water: [], way: [], mill: [300, 160, 70] },
+  { name: 'Sand Trap Valley', par: 3, tee: [50, 160], cup: [550, 160], walls: [], bumpers: [[310, 40, 14], [310, 280, 14]], sand: [[150, 40, 110, 240], [370, 70, 100, 180]], water: [], way: [] },
+  { name: 'Narrow Bridge', par: 3, tee: [60, 160], cup: [540, 160], walls: [], bumpers: [[500, 90, 12], [500, 230, 12]], sand: [], water: [[150, 0, 300, 128], [150, 192, 300, 128]], way: [] },
+];
+// every game picks one of these looks for its island
+const GOLF_THEME = [
+  { name: 'Tropical Isle', bg: ['#3ab8e8', '#1a88c8', '#0a5a98'], rim: '#f0dca0', frame: '#5a3a20', turf: ['#5ad45a', '#3aa83a'], sand: '#f0d898', water: '#3aa8e8', wall: ['#8a5a32', '#c88a4a'], bump: '#ff5a6e', fx: 'waves' },
+  { name: 'Desert Canyon', bg: ['#ffb070', '#e8783a', '#a8482a'], rim: '#e8c890', frame: '#7a3a1a', turf: ['#9ac850', '#6a9a3a'], sand: '#f8e0a0', water: '#4ac0d8', wall: ['#8a4a2a', '#c87a4a'], bump: '#3ac8a8', fx: 'dunes' },
+  { name: 'Frosty Peaks', bg: ['#cfe8ff', '#9ac8f0', '#6a98c8'], rim: '#f4f8ff', frame: '#5a6a8a', turf: ['#7ad8b8', '#4aa890'], sand: '#ffffff', water: '#8ad0ff', wall: ['#6a7a9a', '#aab8d0'], bump: '#5a8aff', fx: 'snow' },
+  { name: 'Candy Land', bg: ['#ffb8d8', '#ff8ab8', '#d85a98'], rim: '#fff0f8', frame: '#a83a6a', turf: ['#9af0c8', '#5ac898'], sand: '#ffe680', water: '#8a5a3a', wall: ['#e85a8a', '#ffb0d0'], bump: '#ff5a5a', fx: 'sprinkles' },
+  { name: 'Volcano Rim', bg: ['#4a1a1a', '#2a0a0a', '#1a0505'], rim: '#6a5a5a', frame: '#2a1a1a', turf: ['#4a8a3a', '#2a6a2a'], sand: '#8a8a8a', water: '#ff6a1a', wall: ['#3a2a2a', '#6a4a3a'], bump: '#ffd34d', fx: 'embers' },
+  { name: 'Moonlit Garden', bg: ['#1a2050', '#101838', '#080c20'], rim: '#b8b0c8', frame: '#2a2440', turf: ['#3a8a4a', '#24683a'], sand: '#d8d0b0', water: '#2a4aa8', wall: ['#4a3a5a', '#8a7aa8'], bump: '#c88aff', fx: 'stars' },
 ];
 MG.def({
   id: 'golf', name: 'Mini Golf Isle', type: 'Skill', controls: 'Move + hold', dur: 0, sport: true,
   rows: [['lr', 'Aim (▲▼ fine)'], ['a', 'Hold for power, let go']],
   how: 'Three holes on a tropical island — everyone putts at the same time on their own copy of the hole. Aim with LEFT/RIGHT (UP/DOWN to fine-tune), hold A to swing the power bar and let go to putt. Bumpers bounce, sand slows you, water costs a stroke, and on hole 3 time your putt past the spinning windmill! A ball moving too fast skips over the cup.',
   wins: 'Fewest strokes over three holes.',
-  init(m, S) { S.hole = -1; S.tot = [0, 0, 0, 0]; this.nextHole(m, S); },
+  init(m, S) { S.hole = -1; S.tot = [0, 0, 0, 0]; S.holes = R.shuffle(GOLF.slice()).slice(0, 3); S.th = R.pick(GOLF_THEME); this.nextHole(m, S); },
   nextHole(m, S) {
-    S.hole++; const H = GOLF[S.hole];
+    S.hole++; const H = S.holes[S.hole];
     S.p = m.players.map(() => ({ x: H.tee[0], y: H.tee[1], vx: 0, vy: 0, ang: Math.atan2(H.cup[1] - H.tee[1], H.cup[0] - H.tee[0]), hold: -1, strokes: 0, done: false, lx: H.tee[0], ly: H.tee[1], sink: 0 }));
     S.phase = 'play'; S.pt = 0; S.mill = 0;
   },
   segs(H) { const W = [[0, 0, 600, 0], [600, 0, 600, 320], [600, 320, 0, 320], [0, 320, 0, 0], ...H.walls]; return W; },
   inRect(x, y, R2) { return x > R2[0] && x < R2[0] + R2[2] && y > R2[1] && y < R2[1] + R2[3]; },
   update(m, S, dt) {
-    S.pt += dt; const H = GOLF[S.hole]; S.mill += dt * 1.6;
+    S.pt += dt; const H = S.holes[S.hole]; S.mill += dt * 1.6;
     S.p.forEach((b, i) => {
       if (b.done) { b.sink += dt; return; }
       const moving = Math.hypot(b.vx, b.vy) > 3;
@@ -221,17 +237,40 @@ MG.def({
       S.p.forEach((b, i) => { if (!b.done) b.strokes = Math.min(8, b.strokes + 2); S.tot[i] += b.strokes; });
       S.phase = 'card'; S.pt = 0;
     }
-    if (S.phase === 'card' && S.pt > 2.6) { if (S.hole >= GOLF.length - 1) m.finish(this.score(m, S)); else this.nextHole(m, S); }
+    if (S.phase === 'card' && S.pt > 2.6) { if (S.hole >= S.holes.length - 1) m.finish(this.score(m, S)); else this.nextHole(m, S); }
+  },
+  // how far a resting ball still is from the cup, going round walls via the hole's waypoints
+  pathDist(H, x, y) {
+    const walls = this.segs(H).slice(4), clear = (ax, ay, bx, by) => !walls.some(w => segHit(ax, ay, bx, by, w[0], w[1], w[2], w[3]));
+    if (clear(x, y, H.cup[0], H.cup[1])) return Math.hypot(x - H.cup[0], y - H.cup[1]);
+    let best = 1e9; H.way.forEach(w => { if (clear(x, y, w[0], w[1])) best = Math.min(best, Math.hypot(x - w[0], y - w[1]) + Math.hypot(w[0] - H.cup[0], w[1] - H.cup[1]) + 40); });
+    return best < 1e9 ? best : Math.hypot(x - H.cup[0], y - H.cup[1]) + 400;
+  },
+  // a silent copy of the ball physics used by the computer golfers to plan a shot
+  simShot(H, x, y, ang, pw) {
+    const b = { x, y, vx: Math.cos(ang) * (40 + pw * 640), vy: Math.sin(ang) * (40 + pw * 640) }, segs = this.segs(H); let sandEnd = false;
+    for (let st = 0; st < 600; st++) { const h = 1 / 180;
+      b.x += b.vx * h; b.y += b.vy * h;
+      const sand = H.sand.some(r => this.inRect(b.x, b.y, r)), sp = Math.hypot(b.vx, b.vy); if (sp < 3) break;
+      const dec = (sand ? 520 : 95) + sp * (sand ? 1.2 : 0.35), ns = Math.max(0, sp - dec * h); b.vx *= ns / sp; b.vy *= ns / sp; sandEnd = sand;
+      segs.forEach(w => bounceSeg(b, w[0], w[1], w[2], w[3], 7, 0.75));
+      H.bumpers.forEach(([bx, by, br]) => { const dx = b.x - bx, dy = b.y - by, d = Math.hypot(dx, dy); if (d < br + 7 && d > 0) { const nx = dx / d, ny = dy / d; b.x = bx + nx * (br + 7); b.y = by + ny * (br + 7); const vn = b.vx * nx + b.vy * ny; if (vn < 0) { b.vx -= 2.15 * vn * nx; b.vy -= 2.15 * vn * ny; } } });
+      if (Math.hypot(b.x - H.cup[0], b.y - H.cup[1]) < 9 && Math.hypot(b.vx, b.vy) < 330) return { x: b.x, y: b.y, sunk: true };
+      if (H.water.some(r => this.inRect(b.x, b.y, r))) return { x: b.x, y: b.y, water: true };
+    }
+    return { x: b.x, y: b.y, sand: sandEnd };
   },
   bot(m, S, i, dt) {
-    const v = m.vin[i], b = S.p[i], H = GOLF[S.hole]; v.left = v.right = v.up = v.down = false;
+    const v = m.vin[i], b = S.p[i], H = S.holes[S.hole]; v.left = v.right = v.up = v.down = false;
     if (b.done || Math.hypot(b.vx, b.vy) > 3 || S.phase !== 'play') { v.a = false; return; }
     if (!b.plan || b.plan.s !== b.strokes) {
-      const clear = (tx, ty) => !this.segs(H).slice(4).some(w => segHit(b.x, b.y, tx, ty, w[0], w[1], w[2], w[3])) && !H.water.some(r => segHit(b.x, b.y, tx, ty, r[0], r[1] + r[3] / 2, r[0] + r[2], r[1] + r[3] / 2));
-      let tx = H.cup[0], ty = H.cup[1];
-      if (!clear(tx, ty)) { const w = H.way.find(p => clear(p[0], p[1])); if (w) { tx = w[0]; ty = w[1]; } }
-      const d = Math.hypot(tx - b.x, ty - b.y), need = Math.sqrt(2 * 120 * d) * 1.05 + 20;
-      b.plan = { s: b.strokes, ang: Math.atan2(ty - b.y, tx - b.x) + R.range(-0.05, 0.05), pw: clamp((need - 40) / 640 + R.range(-0.04, 0.05), 0.08, 1), wait: R.range(0.4, 1.2) };
+      // try a fan of shots with the real ball physics and keep the one that ends nearest the cup
+      let best = null;
+      for (let a = 0; a < 48; a++) for (const pw of [0.12, 0.2, 0.28, 0.36, 0.45, 0.55, 0.66, 0.8]) {
+        const ang = a / 48 * Math.PI * 2, r = this.simShot(H, b.x, b.y, ang, pw), sc = r.sunk ? -1000 + pw : r.water ? 9999 : this.pathDist(H, r.x, r.y) + (r.sand ? 25 : 0);
+        if (!best || sc < best.sc) best = { sc, ang, pw };
+      }
+      const skill = 0.06; b.plan = { s: b.strokes, ang: best.ang + R.range(-skill, skill), pw: clamp(best.pw + R.range(-0.05, 0.05), 0.08, 1), wait: R.range(0.4, 1.2) };
     }
     const d = Math.atan2(Math.sin(b.plan.ang - b.ang), Math.cos(b.plan.ang - b.ang));
     if (Math.abs(d) > 0.02) { if (Math.abs(d) > 0.12) { if (d > 0) v.right = true; else v.left = true; } else { if (d > 0) v.down = true; else v.up = true; } v.a = false; return; }
@@ -245,20 +284,27 @@ MG.def({
   qx(i) { return i % 2 ? 660 : 20; }, qy(i) { return i < 2 ? 52 : 384; },
   draw(m, S, g) {
     // ocean and island
-    g.fillStyle = MGH.grad(g, 0, 720, ['#3ab8e8', '#1a88c8', '#0a5a98']); g.fillRect(0, 0, 1280, 720);
-    for (let k = 0; k < 30; k++) { const x = (k * 97 + m.t * 20) % 1300 - 10, y = 40 + (k * 61) % 680; g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 8, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
-    const H = GOLF[S.hole];
+    const T = S.th || GOLF_THEME[0];
+    g.fillStyle = MGH.grad(g, 0, 720, T.bg); g.fillRect(0, 0, 1280, 720);
+    for (let k = 0; k < 40; k++) { const x = (k * 97 + m.t * 20) % 1300 - 10, y = 40 + (k * 61) % 680;
+      if (T.fx === 'waves') { g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 8, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      else if (T.fx === 'dunes') { g.strokeStyle = 'rgba(255,230,180,0.25)'; g.lineWidth = 3; g.beginPath(); g.arc((k * 131) % 1280, 40 + (k * 61) % 680, 30, Math.PI * 1.15, Math.PI * 1.85); g.stroke(); }
+      else if (T.fx === 'snow') { g.fillStyle = 'rgba(255,255,255,0.8)'; g.beginPath(); g.arc((k * 131 + Math.sin(m.t + k) * 20) % 1280, (k * 61 + m.t * 30) % 720, 2.5, 0, 7); g.fill(); }
+      else if (T.fx === 'sprinkles') { g.save(); g.translate((k * 131) % 1280, 40 + (k * 61) % 680); g.rotate(k); g.fillStyle = ['#fff', '#ffe680', '#8ae0ff', '#7cf06a'][k % 4]; g.fillRect(-6, -2, 12, 4); g.restore(); }
+      else if (T.fx === 'embers') { const q = (m.t * 0.3 + k / 40) % 1; g.fillStyle = `rgba(255,${120 + (k % 3) * 40},40,${0.8 * (1 - q)})`; g.beginPath(); g.arc((k * 131) % 1280, 720 - q * 700, 2.5, 0, 7); g.fill(); }
+      else { const a = 0.4 + 0.5 * Math.sin(m.t * 2 + k); g.fillStyle = `rgba(255,255,230,${a})`; g.fillRect((k * 131) % 1280, 40 + (k * 61) % 680, 2, 2); } }
+    const H = S.holes[S.hole];
     S.p.forEach((b, i) => {
       const ox = this.qx(i), oy = this.qy(i), p = m.players[i];
       g.save(); g.translate(ox, oy);
-      g.fillStyle = '#f0dca0'; MGH.rr(g, -12, -12, 624, 344, 26); g.fill();
-      g.fillStyle = '#5a3a20'; MGH.rr(g, -6, -6, 612, 332, 18); g.fill();
-      const tg = g.createLinearGradient(0, 0, 600, 320); tg.addColorStop(0, '#5ad45a'); tg.addColorStop(1, '#3aa83a'); g.fillStyle = tg; g.fillRect(0, 0, 600, 320);
+      g.fillStyle = T.rim; MGH.rr(g, -12, -12, 624, 344, 26); g.fill();
+      g.fillStyle = T.frame; MGH.rr(g, -6, -6, 612, 332, 18); g.fill();
+      const tg = g.createLinearGradient(0, 0, 600, 320); tg.addColorStop(0, T.turf[0]); tg.addColorStop(1, T.turf[1]); g.fillStyle = tg; g.fillRect(0, 0, 600, 320);
       g.fillStyle = 'rgba(255,255,255,0.06)'; for (let k = 0; k < 12; k++) g.fillRect(k * 50, 0, 25, 320);
-      H.sand.forEach(r => { g.fillStyle = '#f0d898'; MGH.rr(g, r[0], r[1], r[2], r[3], 18); g.fill(); g.fillStyle = 'rgba(180,140,80,0.3)'; for (let k = 0; k < 8; k++) { g.beginPath(); g.arc(r[0] + MGH.hash(k + r[0]) * r[2], r[1] + MGH.hash(k * 3 + r[1]) * r[3], 2, 0, 7); g.fill(); } });
-      H.water.forEach(r => { g.fillStyle = '#3aa8e8'; MGH.rr(g, r[0], r[1], r[2], r[3], 18); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2; g.beginPath(); g.arc(r[0] + r[2] / 2 + Math.sin(m.t * 2) * 10, r[1] + r[3] / 2, 10, Math.PI, Math.PI * 1.8); g.stroke(); });
-      H.walls.forEach(w => { g.strokeStyle = '#8a5a32'; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath(); g.moveTo(w[0], w[1]); g.lineTo(w[2], w[3]); g.stroke(); g.strokeStyle = '#c88a4a'; g.lineWidth = 6; g.stroke(); });
-      H.bumpers.forEach(([bx, by, br]) => { g.fillStyle = '#ff5a6e'; g.beginPath(); g.arc(bx, by, br, 0, 7); g.fill(); g.fillStyle = '#ffd0d8'; g.beginPath(); g.arc(bx - br * 0.3, by - br * 0.3, br * 0.35, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(bx, by, br, 0, 7); g.stroke(); });
+      H.sand.forEach(r => { g.fillStyle = T.sand; MGH.rr(g, r[0], r[1], r[2], r[3], 18); g.fill(); g.fillStyle = 'rgba(180,140,80,0.3)'; for (let k = 0; k < 8; k++) { g.beginPath(); g.arc(r[0] + MGH.hash(k + r[0]) * r[2], r[1] + MGH.hash(k * 3 + r[1]) * r[3], 2, 0, 7); g.fill(); } });
+      H.water.forEach(r => { if (T.fx === 'embers') MGH.glow(g, r[0] + r[2] / 2, r[1] + r[3] / 2, Math.max(r[2], r[3]) * 0.7, 'rgba(255,120,30,0.4)'); g.fillStyle = T.water; MGH.rr(g, r[0], r[1], r[2], r[3], 18); g.fill(); g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2; g.beginPath(); g.arc(r[0] + r[2] / 2 + Math.sin(m.t * 2) * 10, r[1] + r[3] / 2, 10, Math.PI, Math.PI * 1.8); g.stroke(); });
+      H.walls.forEach(w => { g.strokeStyle = T.wall[0]; g.lineWidth = 12; g.lineCap = 'round'; g.beginPath(); g.moveTo(w[0], w[1]); g.lineTo(w[2], w[3]); g.stroke(); g.strokeStyle = T.wall[1]; g.lineWidth = 6; g.stroke(); });
+      H.bumpers.forEach(([bx, by, br]) => { g.fillStyle = T.bump; g.beginPath(); g.arc(bx, by, br, 0, 7); g.fill(); g.fillStyle = '#ffd0d8'; g.beginPath(); g.arc(bx - br * 0.3, by - br * 0.3, br * 0.35, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(bx, by, br, 0, 7); g.stroke(); });
       if (H.mill) { const [mx, my, ml] = H.mill; g.fillStyle = '#e8e0d0'; g.beginPath(); g.arc(mx, my, 20, 0, 7); g.fill(); for (let k = 0; k < 4; k++) { const a = S.mill + k * Math.PI / 2; g.strokeStyle = '#8a5a32'; g.lineWidth = 9; g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + Math.cos(a) * ml, my + Math.sin(a) * ml); g.stroke(); g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke(); } g.fillStyle = '#c8302a'; g.beginPath(); g.arc(mx, my, 9, 0, 7); g.fill(); }
       // cup + flag
       g.fillStyle = '#123'; g.beginPath(); g.ellipse(H.cup[0], H.cup[1], 10, 8, 0, 0, 7); g.fill();
@@ -273,7 +319,7 @@ MG.def({
       MGH.text(g, `${p.name} · ${b.strokes} stroke${b.strokes === 1 ? '' : 's'}`, 300, 312, 15, '#fff', 'center', 'bold');
       g.restore();
     });
-    MGH.label(g, `Hole ${S.hole + 1}: ${H.name} · par ${H.par}`, 640, 368, 18, '#fff', 'rgba(0,0,0,0.6)');
+    MGH.label(g, `${T.name} · Hole ${S.hole + 1}: ${H.name} · par ${H.par}`, 640, 368, 18, '#fff', 'rgba(0,0,0,0.6)');
     if (S.phase === 'card') { g.fillStyle = 'rgba(10,20,40,0.85)'; MGH.rr(g, 400, 220, 480, 260, 24); g.fill(); MGH.text(g, `Scorecard after hole ${S.hole + 1}`, 640, 266, 24, '#ffe680', 'center', 'bold'); [0, 1, 2, 3].sort((a, b) => S.tot[a] - S.tot[b]).forEach((i, k) => MGH.text(g, `${k + 1}. ${m.players[i].name} — ${S.tot[i]}`, 640, 312 + k * 38, 24, m.players[i].color, 'center', 'bold')); }
   },
 });

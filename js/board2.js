@@ -100,7 +100,7 @@ BoardGame.prototype.setup2 = function (opts) {
 };
 // keep the board's own start, but run the extra set-up before tokens are placed
 Board.start = function (players, opts) {
-  this.game = new BoardGame(players, opts); this.game.setup2(opts); this.ui = {}; this.fx = []; this.floats = []; this.paused = false; this.done = false; this.cam.target = null; this.camZ = 0.66; Settings.paused = false;
+  this.game = new BoardGame(players, opts); this.game.setup2(opts); this.ui = {}; this.fx = []; this.floats = []; this.paused = false; this.done = false; this.cam.target = null; this.camZ = 0.48; Settings.paused = false;
   this.tok = this.game.players.map(p => { const s = BD.spaces[p.pos]; return { x: s.x, y: s.y, hop: 0, fx: s.x, fy: s.y, face: 1 }; });
   this.intro = { t: 0 };
   Shell.go('board');
@@ -119,8 +119,9 @@ Object.assign(BoardGame.prototype, {
 
   // ------------------------------------------------------------------ the whole game
   async run() {
-    Board.cam.z = 0.6; Board.cam.x = 800; Board.cam.y = 500; Board.focus = null;
+    Board.cam.z = 0.48; Board.cam.x = BD.W / 2; Board.cam.y = BD.H / 2; Board.focus = null;
     await this.flyover();
+    await this.guide();
     await Board.banner('Welcome to the Crossing!', `I'm Alin, your host! ${this.rounds} rounds. Buy ⭐ stars at the bank that has one, stash treasure in your Hold — and raid your rivals'!`, 4000);
     await Board.banner(`${this.rule.icon} Today's rule: ${this.rule.name}`, this.rule.desc, 3000);
     await Board.banner('Turn order', this.order.map(i => this.P(i).name).join(' → '), 2000);
@@ -133,6 +134,23 @@ Object.assign(BoardGame.prototype, {
       await this.minigame();
     }
     await this.finish();
+  },
+  // a short how-to-play for newcomers (asked once at the start)
+  async guide() {
+    const who = this.players.find(p => p.human); if (!who || Settings.test) return;
+    const knows = await Board.ask(who.i, '👋 New to The Crossing?', [{ label: '📖 Show me how to play', value: false, desc: 'A quick guide — about a minute.' }, { label: '✅ I know how to play', value: true }], () => true);
+    if (knows) return;
+    const steps = [
+      ['🎲 Your turn', 'Pick a dice block — Regular (1–10), Safe (3–6) or your hero\'s own dice — and hop that many spaces.'],
+      ['⭐ Stars win the game', 'One bank sells the star — it glows. Pass it with enough coins and buy it. After a sale the star flies to another bank.'],
+      ['🪙 Coins', 'Blue spaces give coins, red ones take them. The minigame after each round pays the most: 10 for 1st, 5 for 2nd, 2 for 3rd.'],
+      ['🔀 Forks', 'Inner paths are full of chests, honey and geysers — but each fork has a guardian: pay the Collector, slip past the Alternator, beat the Competitor\'s dice, or open the gate with a Key.'],
+      ['🏰 Your Hold', 'Passing your own Gate lets you stash coins and stars in your Hold. From round 3 rivals can raid it — set traps, padlocks and decoys!'],
+      ['🎪 Event spaces', 'Fishing Pier, Honeycomb, Wishing Fountain, Market, Raffle, Weather Vane, Bounty Board… and the Zoo: feed the beast when you pass, but whoever LANDS there gets bitten.'],
+      ['🎒 Items', 'Shops sell items. You can use ONE item and buy ONE item per turn (buying the star doesn\'t count).'],
+      ['🏆 The end', 'After the last round Alin hands out secret bonus stars. Most stars wins — coins break ties. Have fun!'],
+    ];
+    for (const [t, d] of steps) await Board.banner(t, d, 5200);
   },
   async flyover() {
     if (Settings.test) return;
@@ -445,7 +463,7 @@ Object.assign(BoardGame.prototype, {
   },
   async raffleDraw() {
     const Rf = this.raffle, tot = Rf.t.reduce((a, b) => a + b, 0); if (!tot) { Rf.pot += 5; return; }
-    Board.focus = null; Board.cam.z = 0.66; Board.ui.drum = 1; Sfx.drum(0); await Board.banner('🎟️ RAFFLE DRAW!', `Alin reaches into the drum… prize: ${Rf.pot} coins`, 2000); Board.ui.drum = 0;
+    Board.focus = null; Board.cam.z = 0.48; Board.ui.drum = 1; Sfx.drum(0); await Board.banner('🎟️ RAFFLE DRAW!', `Alin reaches into the drum… prize: ${Rf.pot} coins`, 2000); Board.ui.drum = 0;
     const blank = Math.max(2, Math.round(tot * 0.4)); let r = Math.random() * (tot + blank), w = -1; for (let k = 0; k < 4; k++) { r -= Rf.t[k]; if (r < 0) { w = k; break; } }
     if (w < 0) { Rf.pot += 5; await Board.banner('🎟️ A blank ticket!', `Nobody wins — the prize grows to ${Rf.pot} coins.`, 1800); }
     else { const p = this.P(w); p.coins += Rf.pot; Sfx.star(); await Board.banner(`🎟️ ${p.name} wins the raffle!`, `${Rf.pot} coins!`, 2000); Rf.pot = 10; }

@@ -82,7 +82,7 @@
     // a feeding bowl
     g.fillStyle = '#e8443a'; g.beginPath(); g.ellipse(x + 34, y + 6, 10, 4, 0, 0, 7); g.fill(); g.fillStyle = '#ffb04a'; g.beginPath(); g.ellipse(x + 34, y + 4, 7, 2.5, 0, 0, 7); g.fill();
     const Z = G.zoo, k = Math.min(1, Z.size / BD.ZOOSTAR), lunge = Board.ui.zoo ? Math.sin(Math.min(1, (Board.ui.zoo.t || 0) / 0.5) * Math.PI) : 0, munch = Z.anim > 0 ? Math.abs(Math.sin(t * 14)) : 0;
-    g.save(); g.translate(x - 4, y + 2 - lunge * 16); g.scale(1.45, 1.45); BoardArt.dragon(g, 0, 0, t, k, lunge, munch); g.restore();
+    g.save(); g.translate(x - 4, y + 2 - lunge * 16); g.scale(1.05, 1.05); BoardArt.dragon(g, 0, 0, t, k, lunge, munch); g.restore();
     if (Z.size < 6 && !Board.ui.zoo) MGH.text(g, 'z', x + 26 + Math.sin(t * 2) * 3, y - 52 - (t % 2) * 8, 14, '#fff', 'center', 'bold');
     g.strokeStyle = '#8a6a3a'; g.lineWidth = 4; g.beginPath(); g.ellipse(x, y + 2, 80, 36, 0, 0.05, Math.PI - 0.05); g.stroke(); g.beginPath(); g.ellipse(x, y - 12, 80, 36, 0, 0.05, Math.PI - 0.05); g.stroke();
     for (let q = 0; q <= 8; q++) { const a = q / 8 * Math.PI, px = x + Math.cos(a) * 80, py = y + Math.sin(a) * 36; g.fillStyle = '#a8804a'; MGH.rr(g, px - 3.5, py - 26, 7, 28, 3); g.fill(); g.fillStyle = '#ff8ab0'; g.beginPath(); g.arc(px, py - 27, 3.5, 0, 7); g.fill(); }
@@ -122,7 +122,7 @@
       x = fx + (tx - fx) * st; y = fy + (ty - fy) * st - Math.sin(st * Math.PI) * 40; }
     this.sunShadow(g, x, y, 90, 120);
     const shake = hit * Math.sin(t * 40) * 3, tag = (txt) => { g.fillStyle = 'rgba(40,24,60,0.85)'; MGH.rr(g, x - 30, y + 6, 60, 20, 10); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 1.5; g.stroke(); MGH.text(g, txt, x, y + 21, 13, '#ffe680', 'center', 'bold'); };
-    if (kind === 'alternator') { g.save(); g.translate(x + shake, y); g.scale(1.6, 1.6); golem(g, t, hit); g.restore(); tag(`🚫 ${BD.GUARDS.alternator.toll[G.tod]}🪙`); return; }
+    if (kind === 'alternator') { g.save(); g.translate(x + shake, y); g.scale(1.12, 1.12); golem(g, t, hit); g.restore(); tag(`🚫 ${BD.GUARDS.alternator.toll[G.tod]}🪙`); return; }
     if (kind === 'collector') { Char.npc(g, x + shake, y - 62, 42, 'host', { t, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.4, y: 0.2 }, hands: { n: { x: 1.1, y: -0.2, d: 20, o: false, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } }); g.save(); g.translate(x + 50 + shake, y - 34); g.scale(1.6, 1.6); sack(g, 0, 0, t); g.restore(); if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 64, y - 64, 6, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
     // the Competitor: the sensei with a big die bouncing in one hand
     Char.npc(g, x + shake, y - 62, 42, 'sensei', { t, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.4, y: 0 }, hands: { n: { x: 1.2, y: -1.0, d: -50, o: true, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } });
