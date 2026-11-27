@@ -86,12 +86,22 @@ MG.def({
   score(m, S) { return S.b.map(b => b.pts); },
   fmt(s) { return `${s} hit${s === 1 ? '' : 's'}`; },
   hud(m, S, i) { const b = S.b[i]; return `🪃×${b.held}${b.gold ? '✨' : ''} · ${b.pts}`; },
-  rang(g, x, y, a, col, gold, s = 1) {
-    g.save(); g.translate(x, y); g.rotate(a); g.scale(s, s);
-    if (gold) MGH.glow(g, 0, 0, 30, 'rgba(255,220,80,0.6)');
-    const wg = g.createLinearGradient(-18, -18, 18, 18); wg.addColorStop(0, gold ? '#fff2a0' : '#e8b878'); wg.addColorStop(1, gold ? '#d8a020' : '#a8743e'); g.fillStyle = wg;
-    g.beginPath(); g.moveTo(-20, -6); g.quadraticCurveTo(-2, -14, 2, -2); g.quadraticCurveTo(6, -20, 6, -24); g.quadraticCurveTo(14, -22, 12, -4); g.quadraticCurveTo(10, 8, -18, 4); g.closePath(); g.fill(); g.strokeStyle = '#5a3a18'; g.lineWidth = 2; g.stroke();
-    g.fillStyle = col; g.beginPath(); g.arc(-17, -1, 4, 0, 7); g.arc(9, -21, 4, 0, 7); g.fill();
+  // a classic V-shaped boomerang: two rounded wooden arms, an ink outline, painted bands and a shine
+  rang(g, x, y, a, col, gold, s = 1, alpha = 1) {
+    g.save(); g.translate(x, y); g.rotate(a); g.scale(s, s); g.globalAlpha *= alpha;
+    if (gold) MGH.glow(g, 0, 0, 32, 'rgba(255,220,80,0.55)');
+    const E = { x: 0, y: 9 }, A = { x: -19, y: -8 }, B = { x: 19, y: -8 };
+    const arms = () => { g.beginPath(); g.moveTo(A.x, A.y); g.lineTo(E.x, E.y); g.lineTo(B.x, B.y); };
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.strokeStyle = gold ? '#7a5008' : '#4a2a10'; g.lineWidth = 13; arms(); g.stroke();
+    const wg = g.createLinearGradient(0, -12, 0, 12); wg.addColorStop(0, gold ? '#fff4b0' : '#f0c890'); wg.addColorStop(0.5, gold ? '#ffd34d' : '#d8a060'); wg.addColorStop(1, gold ? '#c88a10' : '#a8703a'); g.strokeStyle = wg; g.lineWidth = 9; arms(); g.stroke();
+    // painted bands near each tip in the owner's colour
+    g.strokeStyle = col; g.lineWidth = 9; g.lineCap = 'butt';
+    for (const T of [A, B]) { g.beginPath(); g.moveTo(E.x + (T.x - E.x) * 0.55, E.y + (T.y - E.y) * 0.55); g.lineTo(E.x + (T.x - E.x) * 0.72, E.y + (T.y - E.y) * 0.72); g.stroke(); }
+    g.lineCap = 'round';
+    // wood grain and a shine along the top edge
+    g.strokeStyle = 'rgba(90,50,20,0.35)'; g.lineWidth = 1; arms(); g.stroke();
+    g.strokeStyle = 'rgba(255,250,230,0.75)'; g.lineWidth = 2; g.beginPath(); g.moveTo(A.x + 2, A.y - 2.5); g.lineTo(E.x, E.y - 3.5); g.lineTo(B.x - 2, B.y - 2.5); g.stroke();
     g.restore();
   },
   draw(m, S, g) {
@@ -111,7 +121,7 @@ MG.def({
     BMRG22.COR.forEach((c, i) => { g.fillStyle = m.players[i].color + '44'; g.beginPath(); g.ellipse(c.x, c.y + 26, 50, 18, 0, 0, 7); g.fill(); });
     if (S.gold) { const bob = Math.sin(t * 4) * 6; MGH.glow(g, S.gold.x, S.gold.y - 30 + bob, 46, 'rgba(255,220,80,0.6)'); this.rang(g, S.gold.x, S.gold.y - 30 + bob, t * 3, '#fff', true, 1.4); }
     // trails under everything
-    S.r.forEach(r => { r.trail.forEach((p, k) => { g.fillStyle = `rgba(255,255,255,${0.04 * k})`; g.beginPath(); g.arc(p.x, p.y, 4 + k, 0, 7); g.fill(); }); });
+    S.r.forEach(r => { if (r.st === 'drop') return; r.trail.forEach((p, k) => { if (k % 3) return; this.rang(g, p.x, p.y, r.spin - (r.trail.length - k) * 0.35, m.players[r.o].color, r.gold, 1.1, 0.06 + k * 0.025); }); });
     const ents = [];
     BMRG22.PIL.forEach(P => ents.push({ y: P.y, f: () => { GX.shadow(g, P.x + 8, P.y + 6, 44, 0.35); const pg = g.createLinearGradient(P.x - 34, 0, P.x + 34, 0); pg.addColorStop(0, '#8a7a6a'); pg.addColorStop(0.45, '#d8c8b0'); pg.addColorStop(1, '#6a5a4a'); g.fillStyle = pg; g.fillRect(P.x - 30, P.y - 90, 60, 90); g.fillStyle = '#e8dcc8'; g.beginPath(); g.ellipse(P.x, P.y - 90, 34, 12, 0, 0, 7); g.fill(); g.fillStyle = '#b8a890'; g.beginPath(); g.ellipse(P.x, P.y, 32, 10, 0, 0, Math.PI); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.15)'; g.lineWidth = 2; for (let q = -18; q <= 18; q += 12) { g.beginPath(); g.moveTo(P.x + q, P.y - 84); g.lineTo(P.x + q, P.y - 4); g.stroke(); } g.fillStyle = '#5ab83a'; g.beginPath(); g.ellipse(P.x - 10, P.y - 92, 14, 5, -0.2, 0, 7); g.fill(); } }));
     S.b.forEach((b, i) => ents.push({ y: b.y, f: () => {
@@ -119,11 +129,18 @@ MG.def({
       MGH.drawBody(g, b, m.players[i], '', b.stun > 0 ? 'dizzy' : b.sh > 0 ? 'determined' : undefined); g.globalAlpha = 1;
       if (b.stun > 0) for (let q = 0; q < 3; q++) { const a = t * 6 + q * 2.1; MGH.star(g, b.x + Math.cos(a) * 22, b.y - 72 + Math.sin(a) * 6, 6, '#ffe680', a, false); }
       // boomerangs in hand
-      for (let k = 0; k < b.held; k++) this.rang(g, b.x - b.face.x * 6 + (k ? 10 : 0), b.y - 34 + k * 4, -0.6 + Math.sin(t * 3) * 0.1, m.players[i].color, b.gold && k === 0, 0.8);
+      { const sd = b.face.x < -0.25 ? -1 : 1; for (let k = 0; k < b.held; k++) this.rang(g, b.x + sd * (26 - k * 40), b.y - 18 - k * 14, sd * (0.9 + k * 0.6) + Math.sin(t * 3 + k) * 0.08, m.players[i].color, b.gold && k === 0, 0.75 - k * 0.1); }
       if (b.rack > 0) { g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 3; g.beginPath(); g.arc(b.x, b.y - 80, 9, -Math.PI / 2, -Math.PI / 2 + b.rack / 3 * Math.PI * 2); g.stroke(); }
       // shield: a glowing round shield held out front
-      if (b.sh > 0) { const fx = b.face.x, fy = b.face.y, sx = b.x + fx * 30, sy = b.y - 14 + fy * 22, perfect = b.shT < 0.16, a = Math.atan2(fy, fx);
-        g.save(); g.translate(sx, sy); g.rotate(a); MGH.glow(g, 0, 0, 40, perfect ? 'rgba(160,255,160,0.6)' : 'rgba(180,220,255,0.45)'); const sg = g.createRadialGradient(-4, -6, 2, 0, 0, 26); sg.addColorStop(0, '#ffffff'); sg.addColorStop(0.4, m.players[i].color); sg.addColorStop(1, Char.shade(m.players[i].color, -0.4)); g.fillStyle = sg; g.beginPath(); g.ellipse(0, 0, 8, 26, 0, 0, 7); g.fill(); g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.stroke(); g.restore(); }
+      if (b.sh > 0) { const fx = b.face.x, fy = b.face.y, sx = b.x + fx * 30, sy = b.y - 20 + fy * 16, perfect = b.shT < 0.16, col = m.players[i].color, sq = 0.55 + 0.45 * Math.abs(fy);
+        MGH.glow(g, sx, sy, 44, perfect ? 'rgba(160,255,160,0.55)' : 'rgba(190,220,255,0.35)');
+        g.save(); g.translate(sx, sy); g.scale(sq, 1);
+        g.fillStyle = '#6a4a2a'; g.beginPath(); g.arc(0, 0, 24, 0, 7); g.fill();
+        const sg = g.createRadialGradient(-7, -8, 2, 0, 0, 22); sg.addColorStop(0, '#ffffff'); sg.addColorStop(0.35, col); sg.addColorStop(1, Char.shade(col, -0.45)); g.fillStyle = sg; g.beginPath(); g.arc(0, 0, 20, 0, 7); g.fill();
+        g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 20, 0, 7); g.stroke();
+        const bg = g.createRadialGradient(-2, -2, 1, 0, 0, 7); bg.addColorStop(0, '#fff6c0'); bg.addColorStop(1, '#c8901a'); g.fillStyle = bg; g.beginPath(); g.arc(0, 0, 6, 0, 7); g.fill();
+        for (let q = 0; q < 6; q++) { const a2 = q / 6 * 6.28; g.fillStyle = '#e8d0a0'; g.beginPath(); g.arc(Math.cos(a2) * 14, Math.sin(a2) * 14, 1.6, 0, 7); g.fill(); }
+        g.restore(); }
     } }));
     S.r.forEach(r => ents.push({ y: r.y + 30, f: () => { if (r.st === 'drop') { GX.shadow(g, r.x, r.y + 18, 18, 0.3); this.rang(g, r.x, r.y + 10, 0.4, m.players[r.o].color, r.gold, 1); MGH.text(g, '!', r.x, r.y - 14 + Math.sin(t * 6) * 3, 16, m.players[r.o].color, 'center', 'bold'); return; } g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(r.x, r.y + 34, 14, 5, 0, 0, 7); g.fill(); this.rang(g, r.x, r.y, r.spin, m.players[r.o].color, r.gold, 1.15); } }));
     ents.sort((a, b) => a.y - b.y).forEach(e => e.f());
@@ -248,10 +265,10 @@ MG.def({
     S.c.forEach(c => { const k = c.t / c.T, cy = c.y - 190, dark = 0.35 + k * 0.4;
       for (let q = 0; q < 7; q++) { const a = q / 7 * 6.28, x = c.x + Math.cos(a) * c.r * 0.55, y = cy + Math.sin(a) * c.r * 0.18; const cg = g.createRadialGradient(x - 10, y - 14, 4, x, y, c.r * 0.5); cg.addColorStop(0, c.gold ? `rgba(255,240,180,${0.95})` : `rgba(${200 - dark * 120},${205 - dark * 120},${225 - dark * 110},0.95)`); cg.addColorStop(1, c.gold ? 'rgba(200,150,40,0.85)' : `rgba(${70 - dark * 40},${74 - dark * 40},${100 - dark * 40},0.9)`); g.fillStyle = cg; g.beginPath(); g.arc(x, y, c.r * 0.45, 0, 7); g.fill(); }
       if (c.T - c.t < 1.2) for (let q = 0; q < 3; q++) if (Math.sin(t * 30 + q * 2) > 0.5) { g.strokeStyle = c.gold ? '#fff2a0' : '#e8f4ff'; g.lineWidth = 2; g.beginPath(); let x = c.x + (q - 1) * 30, y = cy + 10; g.moveTo(x, y); for (let s = 0; s < 3; s++) { x += R.range(-10, 10); y += 10; g.lineTo(x, y); } g.stroke(); }
+      if (k > 0.25 && !c.gold) { g.strokeStyle = `rgba(190,210,240,${0.25 + k * 0.3})`; g.lineWidth = 1.5; g.beginPath(); for (let q = 0; q < 26; q++) { const rx = c.x + (MGH.hash(q + c.r) - 0.5) * c.r * 1.6, ph = (t * 1.6 + MGH.hash(q * 3 + c.r)) % 1, top = cy + 20, bot = c.y + (MGH.hash(q + 7) - 0.5) * c.r * 0.6, y1 = top + (bot - top) * ph; g.moveTo(rx, y1); g.lineTo(rx - 3, y1 + 16); } g.stroke(); }
       const left = Math.max(0, c.T - c.t); g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.arc(c.x, cy - c.r * 0.35, 14, 0, 7); g.fill(); g.strokeStyle = c.gold ? '#ffe680' : '#ffffff'; g.lineWidth = 3; g.beginPath(); g.arc(c.x, cy - c.r * 0.35, 12, -Math.PI / 2, -Math.PI / 2 + (1 - left / c.T) * Math.PI * 2); g.stroke(); });
     // bolts
     S.bolts.forEach(bo => { const a = 1 - bo.t / 0.45; g.save(); g.globalAlpha = a; g.strokeStyle = bo.col; g.lineWidth = 8; g.shadowColor = bo.col; g.shadowBlur = 20; g.beginPath(); let x = bo.x, y = bo.y - 260; g.moveTo(x, y); let s = bo.seed; for (let q = 0; q < 8; q++) { s = (s * 9301 + 49297) % 233280; x = bo.x + (s / 233280 - 0.5) * 50 * (1 - q / 8); y += 260 / 8; g.lineTo(x, y); } g.stroke(); g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke(); g.restore(); });
     if (S.flash > 0) { g.fillStyle = `rgba(230,240,255,${S.flash * 0.35})`; g.fillRect(0, 0, 1280, 720); }
-    S.b.forEach((b, i) => MGH.text(g, `${m.players[i].name} ⚡${b.pts}`, 160 + i * 320, 74, 17, m.players[i].color, 'center', 'bold'));
   },
 });
