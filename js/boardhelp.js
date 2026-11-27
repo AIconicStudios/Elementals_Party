@@ -19,6 +19,21 @@
     Sfx.tone(600, 0.05, 'triangle', 0.04);
   };
 
+  // choosing a road at a fork: arrows on the board itself (left/right or up/down to switch, A to go)
+  Board.forkPick = function (i, pos, opts, botFn, steps) {
+    const p = this.game.P(i);
+    return new Promise(res => {
+      const first = opts.findIndex(o => !o.off), pick = k => { this.ui.fork = null; res(opts[k].value); };
+      if (Settings.test) { const v = botFn(); res(v); return; }
+      this.ui.fork = { pos, t: 0, opts, sel: Math.max(0, first), i, steps, human: p.human, botT: 1.1 * this.sp(), botV: p.human ? null : botFn(), pick };
+    });
+  };
+  const forkUpdate = (B, dt) => { const F = B.ui.fork; if (!F || B.ui.banner || B.paused) return false; F.t += dt;
+    if (!F.human) { if (F.t > F.botT * 0.45) F.sel = Math.max(0, F.opts.findIndex(o => o.value === F.botV)); if (F.t > F.botT) F.pick(F.sel); return true; }
+    const ev = B.devOf(F.i), mv = d => { for (let q = 0; q < F.opts.length; q++) { F.sel = (F.sel + d + F.opts.length) % F.opts.length; if (!F.opts[F.sel].off) break; } Sfx.tone(880, 0.03, 'triangle', 0.03); };
+    if (ev.left || ev.up) mv(-1); if (ev.right || ev.down) mv(1);
+    if (ev.a && F.t > 0.25 && !F.opts[F.sel].off) { Sfx.tone(700, 0.08, 'triangle', 0.07); F.pick(F.sel); }
+    return false; };
   // while Help or the Map is open the game simply waits
   const oldUpdate = Board.update.bind(Board);
   Board.update = function (dt) {
@@ -30,17 +45,19 @@
       this.t += dt; return; }
     if (this.mapView) { const M = this.mapView; M.t += dt; const sp = 700 / M.z;
       if (held('left')) M.x -= sp * dt; if (held('right')) M.x += sp * dt; if (held('up')) M.y -= sp * dt; if (held('down')) M.y += sp * dt;
-      if (Shell.any('a')) M.z = M.z < 0.7 ? 1.0 : 0.42;
+      if (Shell.any('a')) M.z = M.z < 0.7 ? 1.0 : 0.36;
       M.x = clamp(M.x, 0, BD.W); M.y = clamp(M.y, 0, BD.H);
       this.cam.x += (M.x - this.cam.x) * Math.min(1, dt * 8); this.cam.y += (M.y - this.cam.y) * Math.min(1, dt * 8); this.camZ += (M.z - this.camZ) * Math.min(1, dt * 6);
       if (M.t > 0.25 && (Shell.any('b') || (Shell.ev.esc && Shell.ev.esc.b) || Shell.any('start'))) closeOverlay(this);
       this.t += dt; return; }
+    forkUpdate(this, dt);
     oldUpdate(dt);
   };
   const oldDraw = Board.draw.bind(Board);
   Board.draw = function (g, dt) {
     if (this.mapView) { const keep = { ui: this.ui }; this.ui = {}; oldDraw(g, dt); this.ui = keep.ui; this.drawMapUI(g); return; }
     oldDraw(g, dt);
+    const F = this.ui.fork; if (F && !this.ui.banner) { const p = this.game.P(F.i); g.fillStyle = 'rgba(24,12,52,0.9)'; Shell.rr(g, 390, 640, 500, 56, 20); g.fill(); g.strokeStyle = p.color; g.lineWidth = 3; g.stroke(); Shell.text(g, F.human ? `${p.name}: pick a road with ◀ ▶ and press Ⓐ (${F.steps} to go)` : `${p.name} is choosing a road…`, 640, 675, 17, '#fff'); }
     if (this.help) this.drawHelp(g);
   };
   // F1 = help, F2 = map, any time on the board
@@ -108,11 +125,14 @@
     if (tab === 'rules') { const R2 = [
         ['⭐', 'Stars win', `Buy the star at the glowing bank (${G.starPrice ? G.starPrice() : BD.STAR} coins now: cheaper at golden hour, dearer at night). It then flies to another bank.`],
         ['🔁', 'A turn', 'Use one item if you like, pick a dice block, move. Passing a bank lets you buy the star; passing the Zoo lets you feed the beast.'],
+        ['🤝', 'Meeting a rival', 'Land on a rival and choose: punch (take 3 coins), duel for a star, or duel for coins. Rivals only risk what they carry — you may stake your banked coins or stars.'],
+        ['👁️', 'The Ankar', 'Roams 3 spaces after every turn and snatches 1–15 coins from anyone it passes. It gets angrier every round; once RED it swallows a carried star, then calms down. It only takes what you carry — bank it!'],
+        ['🐦', 'Golden-hour thieves', 'Magpies peck 5 coins from anyone carrying 20+, and Bandit Camps rob harder at golden hour (and may take a star at night).'],
         ['🛒', 'Shopping', 'One item purchase per turn. Buying the star does not count as an item.'],
         ['🏰', 'Holds', 'Pass your own Gate to stash coins and stars. From round 3 rivals can raid Holds — not while the owner is within 5 spaces of home.'],
         ['🎮', 'Minigames', 'After every round: 1st gets 10 coins, 2nd 5, 3rd 2. Last place picks which game.'],
         ['📜', 'Bounty', 'The Bounty Board puts a price on the leader. Land on the WANTED player to collect it.'],
-        ['🔥', 'Final Frenzy', 'The last 5 rounds: blue and red spaces count double and landing on a rival starts a duel.'],
+        ['🔥', 'Final Frenzy', 'The last 5 rounds: blue and red spaces count double.'],
         ['🎁', 'Comebacks', 'Every third round the player in last place gets a random item.'],
         ['🏆', 'The end', 'Secret bonus stars are handed out, then most stars wins — coins break ties.'],
       ]; R2.forEach(([i, t, d]) => line(i, '#6b5bd6', null, t, '', d)); }

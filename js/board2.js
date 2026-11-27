@@ -16,6 +16,7 @@ Object.assign(BD.SPACE, {
   bridge:   { name: 'Rope Bridge', col: '#b8905a', dark: '#6a4a2a', icon: '🌉', desc: 'A shortcut that frays a little with every crossing… until it snaps.' },
   vane:     { name: 'Weather Vane', col: '#9ab8d8', dark: '#4a6a8a', icon: '🌦️', desc: 'Choose the weather for the next round.' },
   raffle:   { name: 'Raffle Booth', col: '#e85ac8', dark: '#9a2a7a', icon: '🎟️', desc: 'Buy raffle tickets. Every 4 rounds Alin draws a winner.' },
+  bandit:   { name: 'Bandit Camp', col: '#6a4a3a', dark: '#3a2418', icon: '🦹', desc: 'Bandits rob what you carry: a little by day, a lot at golden hour, and at night they may take a star.' },
   lantern:  { name: 'Lantern Stall', col: '#ffb84a', dark: '#a86a1a', icon: '🏮', desc: 'By day: +3 coins. At night: the Night Market with rare items.' },
 });
 delete BD.SPACE.event;
@@ -32,7 +33,7 @@ Object.assign(BD.ITEMS, {
 
 // ---------------------------------------------------------------- layout: types are shuffled every game
 BD.MAINMIX = ['bounty', 'pier', 'market', 'vane', 'zoo', 'fountain', 'raffle', 'lucky', 'lucky', 'item', 'item', 'item', 'swirl',
-  'red', 'red', 'red', 'red', 'red', 'red', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue'];
+  'red', 'red', 'red', 'red', 'red', 'red', 'bandit', 'bandit', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue'];
 BD.BRANCHMIX = [['chest', 'comb', 'red', 'mush', 'blue'], ['bridge', 'chest', 'geyser', 'red', 'blue'], ['comb', 'chest', 'geyser', 'mush', 'red'], ['lantern', 'chest', 'lantern', 'balloon', 'lantern']];
 BD.BRANCHES.forEach((B, k) => { B.types = BD.BRANCHMIX[k].slice(); });
 BD.layout = () => {
@@ -96,11 +97,11 @@ BoardGame.prototype.setup2 = function (opts) {
   this.zoo = { size: this.rule.id === 'hungry' ? 20 : 0, fed: [0, 0, 0, 0], anim: 0 };
   this.bounty = null; this.fountain = { pot: 5, n: 0 }; this.raffle = { t: [0, 0, 0, 0], pot: 10 };
   this.pumpPrice = R.int(4, 7); this.bridge = { wear: 0, max: R.int(5, 7), downUntil: 0 };
-  this.weather = null; this.traps = {}; this.nextBank = R.pick([0, 1, 2, 3].filter(b => b !== this.starBank));
+  this.weather = null; this.traps = {}; { const sp = BD.spaces.filter(q => q.i < 40 && q.type !== 'gate' && q.type !== 'bank'); this.ankar = { pos: R.pick(sp).i, anger: 0 }; } this.nextBank = R.pick([0, 1, 2, 3].filter(b => b !== this.starBank));
 };
 // keep the board's own start, but run the extra set-up before tokens are placed
 Board.start = function (players, opts) {
-  this.game = new BoardGame(players, opts); this.game.setup2(opts); this.ui = {}; this.fx = []; this.floats = []; this.paused = false; this.done = false; this.cam.target = null; this.camZ = 0.48; Settings.paused = false;
+  this.game = new BoardGame(players, opts); this.game.setup2(opts); this.ui = {}; this.fx = []; this.floats = []; this.paused = false; this.done = false; this.cam.target = null; this.camZ = 0.4; Settings.paused = false;
   this.tok = this.game.players.map(p => { const s = BD.spaces[p.pos]; return { x: s.x, y: s.y, hop: 0, fx: s.x, fy: s.y, face: 1 }; });
   this.intro = { t: 0 };
   Shell.go('board');
@@ -119,7 +120,7 @@ Object.assign(BoardGame.prototype, {
 
   // ------------------------------------------------------------------ the whole game
   async run() {
-    Board.cam.z = 0.48; Board.cam.x = BD.W / 2; Board.cam.y = BD.H / 2; Board.focus = null;
+    Board.cam.z = 0.4; Board.cam.x = BD.W / 2; Board.cam.y = BD.H / 2; Board.focus = null;
     await this.flyover();
     await this.guide();
     await Board.banner('Welcome to the Crossing!', `I'm Alin, your host! ${this.rounds} rounds. Buy ⭐ stars at the bank that has one, stash treasure in your Hold — and raid your rivals'!`, 4000);
@@ -171,6 +172,8 @@ Object.assign(BoardGame.prototype, {
     // the bounty grows and follows the leader
     if (this.bounty) { this.bounty.val += 2; const lead = this.standings()[0]; if (lead !== this.bounty.on && this.totStars(lead) + this.totCoins(lead) > 0) { this.bounty.on = lead; await Board.banner('📜 The WANTED poster moves!', `${this.P(lead).name} is the new leader — bounty ${this.bounty.val} coins.`, 1500, true); } }
     if (this.bridge.downUntil && this.round >= this.bridge.downUntil) { this.bridge = { wear: 0, max: R.int(5, 7), downUntil: 0 }; await Board.banner('🌉 The rope bridge is fixed!', 'Crystal Creek is open again.', 1300, true); }
+    if (this.round > 1) { const was = this.ankar.anger >= 1; this.ankar.anger = Math.min(1, this.ankar.anger + (this.tod === 'golden' ? 0.22 : 0.12)); if (!was && this.ankar.anger >= 1) { Sfx.tone(90, 0.8, 'sawtooth', 0.06, -30); await Board.banner('👁️ The Ankar turns RED!', 'Furious now — it will swallow a STAR from anyone it passes who carries one. Bank your stars!', 2600); } }
+    if (this.tod === 'golden') { const hit = this.players.filter(q => q.coins >= 20); if (hit.length) { Board.ui.magpie = { t: 0 }; Sfx.tone(1200, 0.1, 'square', 0.03); await Board.banner('🐦 Golden-hour magpies!', `They peck 5 coins from anyone carrying 20 or more: ${hit.map(q => q.name).join(', ')}. Keep your coins in your Hold!`, 2400); hit.forEach(q => { q.coins -= 5; Board.float(q.i, '−5🪙', '#ff8a8a'); }); Board.ui.magpie = null; } }
     const W = this.weatherNow ? BD.WEATHER[this.weatherNow] : null;
     await Board.banner(`Round ${this.round} of ${this.rounds}`, `${T.icon} ${T.name} · ⭐ ${this.starPrice()} coins${W ? ` · ${W.icon} ${W.name}: ${W.desc}` : ''}`, 1900);
     // comeback help: every third round the last-place player gets a random item (very rarely the Midas Touch)
@@ -194,6 +197,7 @@ Object.assign(BoardGame.prototype, {
     }
     if (roll > 0) await this.move(i, roll); else { await Board.banner(`${p.name} stays put.`, '', 800, true); }
     await sleep(300);
+    await this.ankarMove();
   },
   async useItem(i, id) {
     const p = this.P(i), it = BD.ITEMS[id];
@@ -269,9 +273,7 @@ Object.assign(BoardGame.prototype, {
     if (kind === 'gate') { const has = p.items.includes('key'); br.label += has ? ' — unlock with your 🗝️' : ' — 🔐 locked (needs a Key)'; br.off = !has; }
     if (B.ids.some(id => BD.spaces[id].type === 'bridge') && this.bridge.downUntil) { br.label = `${B.icon} ${B.name} — 🌉 the bridge is out!`; br.off = true; }
     if (main.off && br.off) main.off = false; // never stuck: the main road lets you through for free
-    Board.ui.fork = { pos, t: 0 };
-    let v = await Board.ask(i, `${p.name}: which way? (${steps} to go)`, [main, br], () => BoardAI.pathPick(this, i, sp, main, br));
-    Board.ui.fork = null;
+    let v = await Board.forkPick(i, pos, [main, br], () => BoardAI.pathPick(this, i, sp, main, br), steps);
     const o = v === 'main' ? main : br;
     if (o.off) v = 'main';
     else if (o.blocked || (v === 'branch' && kind === 'collector')) { const t = Math.min(p.coins, toll); p.coins -= t; p.st.spent += t; Sfx.coin(); Board.ui.guardHit = { f, t: 0 }; await Board.banner(`${G.icon} ${G.name} takes ${t} coins`, `…and lets ${p.name} through.`, 1100, true); }
@@ -322,6 +324,10 @@ Object.assign(BoardGame.prototype, {
     else if (t === 'vane') await this.vane(i);
     else if (t === 'raffle') await this.raffleBuy(i);
     else if (t === 'lantern') await this.nightMarket(i);
+    else if (t === 'bandit') { Board.ui.bandit = { pos: p.pos, t: 0 }; Sfx.tone(300, 0.2, 'sawtooth', 0.05, -100);
+      if (this.tod === 'night' && p.stars > 0 && Math.random() < 0.4) { p.stars--; p.st.bad += 2; await Board.banner('🦹 Night bandits!', `They make off with one of ${p.name}'s stars!`, 2000); }
+      else { const n = Math.min(p.coins, this.tod === 'golden' ? Math.max(3, Math.ceil(p.coins * 0.35)) : this.tod === 'night' ? Math.ceil(p.coins * 0.25) : 3); p.coins -= n; p.st.bad++; await Board.banner(`🦹 Bandits${this.tod === 'golden' ? ' at golden hour' : ''}!`, n ? `They rob ${p.name} of ${n} coins.` : `${p.name}'s pockets are empty — they leave grumbling.`, 1800); }
+      Board.ui.bandit = null; }
     await sleep(400);
     // a snare set by a rival
     const tr = this.traps[p.pos]; if (tr && tr.owner !== i) { delete this.traps[p.pos]; const o = this.P(tr.owner); Board.ui.trapT = 1; Sfx.boom();
@@ -329,10 +335,58 @@ Object.assign(BoardGame.prototype, {
       else { const n = Math.min(10, p.coins); p.coins -= n; o.coins += n; await Board.banner(`🪤 ${p.name} steps in ${o.name}'s snare!`, `${n} coins go to ${o.name}.`, 1800); } p.st.bad++; }
     // the WANTED player is here: collect the bounty
     if (this.bounty && this.bounty.on !== i && this.P(this.bounty.on).pos === p.pos) { const v = this.bounty.val; this.bounty = null; p.coins += v; Sfx.coin(); Board.ui.bountyGet = { i, t: 0 }; await Board.banner(`📜 ${p.name} catches the WANTED player!`, `The Bounty Board pays ${v} coins.`, 1900); Board.ui.bountyGet = null; }
+    if (this.ankar && this.ankar.pos === p.pos) await this.ankarHit(i);
     const others = this.players.filter(q => q.i !== i && q.pos === p.pos && t !== 'gate');
-    if (others.length) { const o = others[0].i; if (this.frenzy) await this.duel(i, o); else await this.punch(i, o); }
+    if (others.length) await this.meet(i, others[0].i);
   },
 
+  // ------------------------------------------------------------------ the roaming Ankar
+  async ankarMove() {
+    const A = this.ankar; if (!A) return;
+    for (let k = 0; k < 3; k++) { this.chk(); const nx = BD.spaces[A.pos].nx; A.pos = R.pick(nx); Sfx.tone(140, 0.12, "triangle", 0.04, -40); await sleep(260);
+      for (const q of this.players) if (q.pos === A.pos) await this.ankarHit(q.i); }
+  },
+  async ankarHit(i) {
+    const A = this.ankar, q = this.P(i); Board.ui.ankarBite = { t: 0, i };
+    if (A.anger >= 1 && q.stars > 0) { q.stars--; A.anger = 0; q.st.bad += 2; Sfx.bad(); MGH.shake(6); await Board.banner('👁️ The red Ankar swallows a STAR!', `${q.name} loses a ⭐ — the Ankar calms down… for now.`, 2400); }
+    else { const n = Math.min(q.coins, Math.round(1 + A.anger * 14)); if (n) { q.coins -= n; q.st.bad++; Sfx.bad(); await Board.banner(`👁️ The Ankar snatches ${n} coins from ${q.name}!`, A.anger >= 1 ? 'It is RED — it wants a star!' : 'It grows hungrier every round…', 1700); } }
+    Board.ui.ankarBite = null;
+  },
+  // ------------------------------------------------------------------ landing on a rival: bump for 3 coins, or duel for a star / coins
+  // the challenger may stake what they carry or what's in their Hold; the rival only risks what they carry
+  async meet(i, o) {
+    const p = this.P(i), q = this.P(o), H = this.holds[i], myStars = p.stars + H.stars, myCoins = p.coins + H.coins;
+    const opts = [];
+    if (q.coins > 0) opts.push({ label: `👊 Bump ${q.name} — snatch ${Math.min(BD.PUNCH, q.coins)} coins`, value: 'bump' });
+    if (q.stars > 0 && myStars > 0) opts.push({ label: `⚔️ Duel for a STAR (${q.name} carries ${q.stars}⭐)`, value: 'star', desc: 'Win a minigame duel to take one of their stars — lose and you give one of yours (from your hand first, then your Hold).' });
+    if (q.coins > 0 && myCoins > 0) opts.push({ label: `🪙 Duel for coins (${q.name} carries ${q.coins}🪙)`, value: 'coins', desc: 'Pick the stake, then win the duel to take it.' });
+    if (!opts.length) { await Board.banner(`${p.name} meets ${q.name}…`, `${q.name}'s pockets are empty — nothing to take.`, 1300, true); return; }
+    opts.push({ label: 'Leave them be', value: null });
+    const v = await Board.ask(i, `${p.name} lands on ${q.name}!`, opts, () => BoardAI.meetPick(this, i, o, opts));
+    if (!v) return;
+    if (v === 'bump') return this.punch(i, o);
+    let amt = 1;
+    if (v === 'coins') { const cap = Math.min(q.coins, myCoins), list = [5, 10, 20].filter(n => n < cap).map(n => ({ label: `🪙 ${n} coins`, value: n })).concat([{ label: `🪙 ${cap} coins (the most ${q.name} can lose)`, value: cap }]);
+      amt = await Board.ask(i, `${p.name}: how many coins are at stake?`, list, () => BoardAI.duelBet(this, i, o, cap)); }
+    await this.duel2(i, o, v, amt);
+  },
+  // pay a stake: from the hand first, then (for the challenger only) the Hold
+  takeFrom(k, kind, n, holdOK) { const p = this.P(k), H = this.holds[k]; let got = 0; const key = kind === 'star' ? 'stars' : 'coins';
+    const a = Math.min(p[key], n); p[key] -= a; got += a; if (holdOK && got < n) { const b = Math.min(H[key], n - got); H[key] -= b; got += b; } return got; },
+  async duel2(i, o, prize, amt) {
+    const a = this.P(i), b = this.P(o); this.n.duels++;
+    await Board.banner('⚔️ DUEL! ⚔️', `${a.name} challenges ${b.name} — stakes: ${prize === 'star' ? '⭐ 1 star' : `🪙 ${amt} coins`}!`, 2000);
+    const pool = MG.list.filter(g => g.mode === 'duel' && !Shell.isBrawl(g)).map(g => g.id);
+    const id = R.pick(pool), teams = [-1, -1, -1, -1]; teams[i] = 0; teams[o] = 1;
+    const res = await Board.runMG(id, { mode: 'duel', teams });
+    let w = -1;
+    if (res && res.scores) { const sa = res.scores[i], sb = res.scores[o]; w = sa > sb ? i : sb > sa ? o : -1; }
+    if (w < 0) { await Board.banner('A draw!', 'Nobody loses anything.', 1800); return; }
+    const L = w === i ? o : i, W = this.P(w), Lp = this.P(L); W.st.duelWins++; Lp.st.bad++;
+    const n = this.takeFrom(L, prize, prize === 'star' ? 1 : amt, L === i);
+    if (prize === 'star') { W.stars += n; Sfx.star(); } else { W.coins += n; Sfx.coin(); }
+    await Board.banner(`🏆 ${W.name} wins the duel!`, prize === 'star' ? `${W.name} takes a ⭐ from ${Lp.name}!` : `${W.name} takes ${n} coins from ${Lp.name}!`, 2400);
+  },
   // ------------------------------------------------------------------ stars and shops
   async starOffer(i) {
     const p = this.P(i), price = this.starPrice(), half = Math.ceil(price / 2), bundle = p.items.includes('bundle'), coupon = p.items.includes('coupon') && !p.debt;
@@ -351,7 +405,7 @@ Object.assign(BoardGame.prototype, {
     else p.coins -= price;
     p.stars += n; p.st.spent += price * n; this.n.stars += n; Sfx.star(); Board.ui.starGet = { i, t: 0 };
     await Board.banner(`⭐ ${p.name} got ${n > 1 ? n + ' STARS' : 'a STAR'}! ⭐`, k === 'c' ? `Remember: ${p.debt} coins due at the next bank.` : '', 2200); Board.ui.starGet = null;
-    this.starBank = this.nextBank; this.nextBank = R.pick([0, 1, 2, 3].filter(b => b !== this.starBank));
+    this.starBank = R.pick([0, 1, 2, 3].filter(b => b !== this.starBank)); this.nextBank = this.starBank;
     Board.ui.starHop = { t: 0 }; Sfx.whoosh();
     await Board.banner('The star flies away…', `…to the ${BD.BANK_NAMES[this.starBank]}!`, 1900); Board.ui.starHop = null;
   },
@@ -465,7 +519,7 @@ Object.assign(BoardGame.prototype, {
   },
   async raffleDraw() {
     const Rf = this.raffle, tot = Rf.t.reduce((a, b) => a + b, 0); if (!tot) { Rf.pot += 5; return; }
-    Board.focus = null; Board.cam.z = 0.48; Board.ui.drum = 1; Sfx.drum(0); await Board.banner('🎟️ RAFFLE DRAW!', `Alin reaches into the drum… prize: ${Rf.pot} coins`, 2000); Board.ui.drum = 0;
+    Board.focus = null; Board.cam.z = 0.4; Board.ui.drum = 1; Sfx.drum(0); await Board.banner('🎟️ RAFFLE DRAW!', `Alin reaches into the drum… prize: ${Rf.pot} coins`, 2000); Board.ui.drum = 0;
     const blank = Math.max(2, Math.round(tot * 0.4)); let r = Math.random() * (tot + blank), w = -1; for (let k = 0; k < 4; k++) { r -= Rf.t[k]; if (r < 0) { w = k; break; } }
     if (w < 0) { Rf.pot += 5; await Board.banner('🎟️ A blank ticket!', `Nobody wins — the prize grows to ${Rf.pot} coins.`, 1800); }
     else { const p = this.P(w); p.coins += Rf.pot; Sfx.star(); await Board.banner(`🎟️ ${p.name} wins the raffle!`, `${Rf.pot} coins!`, 2000); Rf.pot = 10; }
@@ -475,6 +529,8 @@ Object.assign(BoardGame.prototype, {
 
 // ---------------------------------------------------------------- computer players for the new choices
 Object.assign(BoardAI, {
+  meetPick(G, i, o, opts) { const q = G.P(o), has = v => opts.some(x => x.value === v);
+    if (has('star') && Math.random() < 0.55) return 'star'; if (has('coins') && q.coins >= 12 && Math.random() < 0.45) return 'coins'; return has('bump') ? 'bump' : null; },
   dicePick(G, i) {
     const p = G.P(i), d = this.distTo(G, i, G.starBank * 10 + 5), price = G.starPrice();
     if (p.coins >= price && d >= 3 && d <= 6) return 'safe';

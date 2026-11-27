@@ -265,3 +265,8 @@ MG.byId.planes && Object.assign(MG.byId.planes, {
     });
   },
 });
+
+// Paper Planes: show the time left so players know when the flight ends (the 60 s limit is unchanged)
+MG.byId.planes && (() => { const P = MG.byId.planes, d0 = P.draw; P.draw = function (m, S, g) { d0.call(this, m, S, g); const left = Math.max(0, Math.ceil(60 - m.t)), hot = left <= 10;
+  g.fillStyle = hot ? 'rgba(160,20,30,0.85)' : 'rgba(20,20,50,0.75)'; MGH.rr(g, 640 - 56, 344 + 40 - 22, 112, 44, 22); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.stroke();
+  MGH.text(g, `⏱ ${left}s`, 640, 344 + 40 + 9 + (hot ? Math.sin(m.t * 12) * 1.5 : 0), 24, hot ? '#ffe0e0' : '#fff', 'center', 'bold'); }; })();

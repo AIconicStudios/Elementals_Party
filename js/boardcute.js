@@ -107,6 +107,34 @@
     g.fillStyle = grad(g, 0, -16, 20, '#e0dce8', '#a8a4b8', '#7a768e'); g.beginPath(); g.ellipse(-8, -14, 14, 6, 0.25, 0, 7); g.fill(); outline(g, 2); g.beginPath(); g.ellipse(8, -14, 14, 6, -0.25, 0, 7); g.fill(); outline(g, 2);
   };
   BoardArt._golem = golem;
+  // ----------------------------------------------------------------- the roaming Ankar: a one-eyed shadow puff that grows redder with anger
+  BoardArt.ankar = function (g, x, y, t, A) {
+    const k = Math.min(1, A.anger || 0), red = k >= 1, bob = Math.sin(t * 3) * 4, bite = Board.ui.ankarBite ? Math.abs(Math.sin(t * 16)) : 0;
+    const c0 = red ? '#ff8a8a' : '#8a7aa8', c1 = red ? '#d8262e' : k > 0.5 ? '#6a3a6a' : '#4a3a6a', c2 = red ? '#6a0a14' : '#1e1430';
+    g.save(); g.translate(x, y);
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0, 4, 34, 10, 0, 0, 7); g.fill();
+    if (red) { const gl = g.createRadialGradient(0, -50, 10, 0, -50, 90); gl.addColorStop(0, 'rgba(255,60,60,0.35)'); gl.addColorStop(1, 'rgba(255,60,60,0)'); g.fillStyle = gl; g.beginPath(); g.arc(0, -50, 90, 0, 7); g.fill(); }
+    g.translate(0, bob - 8);
+    // wispy tail-feet
+    for (let q = 0; q < 5; q++) { const a = -0.8 + q * 0.4, w = Math.sin(t * 5 + q) * 4; g.fillStyle = c2; g.beginPath(); g.ellipse(Math.sin(a) * 26 + w, -6, 9, 12, a * 0.5, 0, 7); g.fill(); }
+    g.fillStyle = grad(g, 0, -46, 42, c0, c1, c2); g.beginPath(); g.moveTo(-36, -10); g.quadraticCurveTo(-46, -84, 0, -90); g.quadraticCurveTo(46, -84, 36, -10); g.quadraticCurveTo(0, 2, -36, -10); g.fill(); outline(g, 3);
+    // horns
+    for (const sd of [-1, 1]) { g.fillStyle = red ? '#ffd0a0' : '#e8dcc8'; g.beginPath(); g.moveTo(sd * 18, -82); g.quadraticCurveTo(sd * 34, -104, sd * 30, -116); g.quadraticCurveTo(sd * 26, -98, sd * 8, -86); g.fill(); outline(g, 2); }
+    // the one big eye
+    const lx = Math.sin(t * 0.9) * 0.4, ey = -56;
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(0, ey, 20, 18, 0, 0, 7); g.fill(); outline(g, 2.5);
+    g.fillStyle = red ? '#ff2a2a' : k > 0.5 ? '#ff9a2a' : '#ffd34d'; g.beginPath(); g.arc(lx * 10, ey + 2, 10, 0, 7); g.fill();
+    g.fillStyle = INK; g.beginPath(); g.ellipse(lx * 10, ey + 2, 3.5, 8, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(lx * 10 - 4, ey - 3, 3, 0, 7); g.fill();
+    // angry brow
+    g.strokeStyle = INK; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(-20, ey - 22 + k * 4); g.lineTo(0, ey - 18 + k * 10); g.lineTo(20, ey - 22 + k * 4); g.stroke(); g.lineCap = 'butt';
+    // grinning mouth with fangs
+    const mo = 4 + bite * 10; g.fillStyle = '#2a0a1a'; g.beginPath(); g.ellipse(0, -26, 16, mo, 0, 0, Math.PI); g.fill(); outline(g, 2);
+    g.fillStyle = '#fff'; g.beginPath(); g.moveTo(-10, -26); g.lineTo(-7, -26 + 6 + bite * 3); g.lineTo(-4, -26); g.moveTo(4, -26); g.lineTo(7, -26 + 6 + bite * 3); g.lineTo(10, -26); g.fill();
+    g.restore();
+    // anger meter
+    g.fillStyle = 'rgba(0,0,0,0.55)'; MGH.rr(g, x - 32, y - 142, 64, 9, 4.5); g.fill(); g.fillStyle = red ? '#ff3a3a' : '#ff9a3a'; MGH.rr(g, x - 32, y - 142, 64 * k, 9, 4.5); g.fill();
+    MGH.text(g, red ? 'ANKAR — RED!' : 'Ankar', x, y - 150, 12, red ? '#ff6a6a' : '#e8dcff', 'center', 'bold');
+  };
   // a cute dice for the Competitor
   const die = (g, x, y, r, a) => { g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#fff'; MGH.rr(g, -r, -r, r * 2, r * 2, r * 0.4); g.fill(); g.strokeStyle = INK; g.lineWidth = 2; g.stroke(); g.fillStyle = '#e8323e'; g.beginPath(); g.arc(0, 0, r * 0.22, 0, 7); g.fill(); g.fillStyle = INK; for (const [dx, dy] of [[-0.5, -0.5], [0.5, 0.5]]) { g.beginPath(); g.arc(dx * r, dy * r, r * 0.18, 0, 7); g.fill(); } g.restore(); };
   const sack = (g, x, y, t) => { const jig = Math.sin(t * 6) * 2; g.fillStyle = grad(g, x, y + jig, 13, '#f8e0b0', '#d8a868', '#a87038'); g.beginPath(); g.moveTo(x - 4, y - 12 + jig); g.quadraticCurveTo(x - 16, y + jig, x - 10, y + 12 + jig); g.quadraticCurveTo(x, y + 16 + jig, x + 10, y + 12 + jig); g.quadraticCurveTo(x + 16, y + jig, x + 4, y - 12 + jig); g.closePath(); g.fill(); outline(g, 2); g.fillStyle = '#8a5028'; g.fillRect(x - 6, y - 12 + jig, 12, 3); MGH.text(g, '🪙', x, y + 6 + jig, 11, '#fff'); };
@@ -121,12 +149,14 @@
       const tx = onMain ? (A.x + S3.x) / 2 : ent.x, ty = onMain ? (A.y + S3.y) / 2 + 4 : ent.y + 4, fx = onMain ? ent.x : (A.x + S3.x) / 2, fy = onMain ? ent.y + 4 : (A.y + S3.y) / 2 + 4;
       x = fx + (tx - fx) * st; y = fy + (ty - fy) * st - Math.sin(st * Math.PI) * 40; }
     this.sunShadow(g, x, y, 90, 120);
-    const shake = hit * Math.sin(t * 40) * 3, tag = (txt) => { g.fillStyle = 'rgba(40,24,60,0.85)'; MGH.rr(g, x - 30, y + 6, 60, 20, 10); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 1.5; g.stroke(); MGH.text(g, txt, x, y + 21, 13, '#ffe680', 'center', 'bold'); };
+    const shake = hit * Math.sin(t * 40) * 3, tag = (txt) => { g.fillStyle = 'rgba(40,24,60,0.85)'; MGH.rr(g, x - 30, y + 16, 60, 20, 10); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 1.5; g.stroke(); MGH.text(g, txt, x, y + 31, 13, '#ffe680', 'center', 'bold'); };
+    // a little round stone stage so the guardian stands firmly on the ground
+    const stand = () => { g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x + 4, y + 8, 46, 14, 0, 0, 7); g.fill(); g.fillStyle = '#8a8298'; g.beginPath(); g.ellipse(x, y + 4, 40, 12, 0, 0, 7); g.fill(); g.fillStyle = '#c8c0d4'; g.beginPath(); g.ellipse(x, y, 40, 12, 0, 0, 7); g.fill(); outline(g, 2); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(x, y + 1, 22, 6, 0, 0, 7); g.fill(); };
     if (kind === 'alternator') { g.save(); g.translate(x + shake, y); g.scale(1.12, 1.12); golem(g, t, hit); g.restore(); tag(`🚫 ${BD.GUARDS.alternator.toll[G.tod]}🪙`); return; }
-    if (kind === 'collector') { Char.npc(g, x + shake, y - 62, 42, 'host', { t, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.4, y: 0.2 }, hands: { n: { x: 1.1, y: -0.2, d: 20, o: false, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } }); g.save(); g.translate(x + 50 + shake, y - 34); g.scale(1.6, 1.6); sack(g, 0, 0, t); g.restore(); if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 64, y - 64, 6, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
+    if (kind === 'collector') { stand(); Char.npc(g, x + shake, y - 44, 42, 'host', { t, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.4, y: 0.2 }, hands: { n: { x: 1.1, y: -0.2, d: 20, o: false, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } }); g.save(); g.translate(x + 50 + shake, y - 16); g.scale(1.6, 1.6); sack(g, 0, 0, t); g.restore(); if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 64, y - 46, 6, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
     // the Competitor: the sensei with a big die bouncing in one hand
-    Char.npc(g, x + shake, y - 62, 42, 'sensei', { t, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.4, y: 0 }, hands: { n: { x: 1.2, y: -1.0, d: -50, o: true, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } });
-    const dz = Math.abs(Math.sin(t * 3)) * 22; die(g, x + 54 + shake, y - 126 - dz, 15, t * 3);
+    stand(); Char.npc(g, x + shake, y - 44, 42, 'sensei', { t, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.4, y: 0 }, hands: { n: { x: 1.2, y: -1.0, d: -50, o: true, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } });
+    const dz = Math.abs(Math.sin(t * 3)) * 22; die(g, x + 54 + shake, y - 108 - dz, 15, t * 3);
     tag(`🎲 d${BD.GUARDS.competitor.die[G.tod]}`);
   };
   // keep the iron gate from the previous art pass

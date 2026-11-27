@@ -11,11 +11,11 @@
 // =====================================================================================================
 
 const BD = {
-  W: 2240, H: 1350,
+  W: 2800, H: 1650,
   // the map is spread out: M() turns the original design coordinates into the roomier layout
-  M: (x, y) => ({ x: 1120 + (x - 800) * 1.4, y: 675 + (y - 500) * 1.35 }),
-  CORNERS: [{ x: 476, y: 256 }, { x: 1764, y: 256 }, { x: 1764, y: 1094 }, { x: 476, y: 1094 }],
-  HOLDS: [{ x: 235, y: 130 }, { x: 2005, y: 130 }, { x: 2005, y: 1220 }, { x: 235, y: 1220 }],
+  M: (x, y) => ({ x: 1400 + (x - 800) * 1.75, y: 825 + (y - 500) * 1.65 }),
+  CORNERS: [{ x: 595, y: 314 }, { x: 2205, y: 314 }, { x: 2205, y: 1336 }, { x: 595, y: 1336 }],
+  HOLDS: [{ x: 294, y: 158 }, { x: 2506, y: 158 }, { x: 2506, y: 1492 }, { x: 294, y: 1492 }],
   // one quarter of the loop: every quarter starts with a Gate (corner) and has a Bank in the middle
   QUARTERS: [
     ['gate', 'blue', 'lucky', 'blue', 'red', 'bank', 'blue', 'item', 'red', 'event'],
@@ -68,7 +68,7 @@ const BD = {
     }
     S.forEach(s => { s.nx = [(s.i + 1) % 40]; if (s.type === 'gate') s.owner = s.i / 10; if (s.type === 'bank') s.bank = (s.i - 5) / 10; });
     this.BRANCHES.forEach((B, side) => {
-      const A = S[side * 10 + 2], E = S[side * 10 + 8], dep = side % 2 ? 230 : 205, inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][side];
+      const A = S[side * 10 + 2], E = S[side * 10 + 8], dep = side % 2 ? 290 : 250, inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][side];
       const cx = (A.x + E.x) / 2 + inw[0] * dep * 2, cy = (A.y + E.y) / 2 + inw[1] * dep * 2; B.ctrl = { x: cx, y: cy }; B.a = A.i; B.b = E.i; B.ids = [];
       B.types.forEach((type, k) => { const f = (k + 1) / 6, u = 1 - f, id = S.length; B.ids.push(id);
         S.push({ i: id, x: u * u * A.x + 2 * u * f * cx + f * f * E.x, y: u * u * A.y + 2 * u * f * cy + f * f * E.y, type, side, branch: side, m: side * 10 + 2 + k + 1, nx: [k < 4 ? id + 1 : E.i] }); });
@@ -107,7 +107,7 @@ class BoardGame {
 
   // ------------------------------------------------------------------ the whole game
   async run() {
-    Board.cam.z = 0.48; Board.cam.x = BD.W / 2; Board.cam.y = BD.H / 2; Board.focus = null;
+    Board.cam.z = 0.4; Board.cam.x = BD.W / 2; Board.cam.y = BD.H / 2; Board.focus = null;
     await Board.banner('Welcome to the Crossing!', `I'm Alin, your host! ${this.rounds} rounds. Buy ⭐ stars at the bank that has one, stash treasure in your Hold — and raid your rivals'!`, 4200);
     await Board.banner('Turn order', this.order.map(i => this.P(i).name).join(' → '), 2200);
     for (this.round = 1; this.round <= this.rounds; this.round++) {
@@ -376,7 +376,7 @@ class BoardGame {
   }
   // ------------------------------------------------------------------ end-of-round minigame
   async minigame() {
-    Board.focus = null; Board.cam.z = 0.48; Board.current = -1;
+    Board.focus = null; Board.cam.z = 0.4; Board.current = -1;
     const finale = this.round === this.rounds && !this.brawlUsed;
     let id;
     if (finale) {
@@ -410,7 +410,7 @@ class BoardGame {
   }
   // ------------------------------------------------------------------ end: bonus stars and the winner
   async finish() {
-    Board.focus = null; Board.cam.z = 0.48; Board.current = -1;
+    Board.focus = null; Board.cam.z = 0.4; Board.current = -1;
     await Board.banner('That\'s the last round!', 'Time to count the stars…', 2400);
     if (this.bonus) {
       const n = this.rounds <= 12 ? R.int(1, 2) : R.int(1, 3);
@@ -509,7 +509,7 @@ const BoardAI = {
 // =====================================================================================================
 // THE BOARD SCREEN: camera, drawing, prompts, dice, wheels and banners
 const Board = {
-  game: null, cam: { x: 1120, y: 675, z: 0.48, target: null }, focus: null, current: -1,
+  game: null, cam: { x: 1400, y: 825, z: 0.4, target: null }, focus: null, current: -1,
   tok: [], fx: [], floats: [], ui: {}, t: 0, pulseAt: -1, pulseT: 0,
   start(players, opts) {
     this.game = new BoardGame(players, opts); this.ui = {}; this.fx = []; this.floats = []; this.paused = false; this.done = false; this.cam.target = null; this.camZ = 0.66; Settings.paused = false;
@@ -571,7 +571,7 @@ const Board = {
     if (this.cam.target) { fx = this.cam.target.x; fy = this.cam.target.y; }
     else if (this.focus !== null && this.focus >= 0) { fx = this.tok[this.focus].x; fy = this.tok[this.focus].y; }
     const z = this.cam.target ? 1.0 : this.cam.z, k = 1 - Math.exp(-3 * dt);
-    this.cam.x += (fx - this.cam.x) * k; this.cam.y += (fy - this.cam.y) * k; this.camZ = (this.camZ || 0.48) + (z - (this.camZ || 0.48)) * k;
+    this.cam.x += (fx - this.cam.x) * k; this.cam.y += (fy - this.cam.y) * k; this.camZ = (this.camZ || 0.4) + (z - (this.camZ || 0.4)) * k;
     const hw = 640 / this.camZ, hh = 360 / this.camZ; this.cam.x = clamp(this.cam.x, Math.min(BD.W / 2, hw - 40), Math.max(BD.W / 2, BD.W - hw + 40)); this.cam.y = clamp(this.cam.y, Math.min(BD.H / 2, hh - 60), Math.max(BD.H / 2, BD.H - hh + 60));
     // tokens
     this.tok.forEach((T, i) => {
@@ -664,7 +664,7 @@ const Board = {
     Shell.text(g, `${tod.icon} ${tod.name}`, 590, 39, 17, tod.col);
     Shell.text(g, `⭐ ${BD.BANK_NAMES[G.starBank].split(' ')[0]} · ${G.starPrice ? G.starPrice() : BD.STAR}🪙`, 740, 39, 16, '#ffe680');
     if (G.rule) Shell.text(g, G.rule.icon + (G.weatherNow ? ' ' + BD.WEATHER[G.weatherNow].icon : ''), 860, 39, 18, '#fff');
-    if (G.info) { g.save(); g.fillStyle = 'rgba(20,12,44,0.55)'; Shell.rr(g, 430, 58, 420, 26, 13); g.fill(); g.restore(); const alt = G.guard.indexOf('alternator'); Shell.text(g, `Next ⭐: ${BD.BANK_NAMES[G.nextBank].split(' ')[0]} · 🗿 next: ${G.alt[alt] === 'main' ? BD.BRANCHES[alt].name : 'main road'} · 🦖 ${G.zoo.size}/${BD.ZOOSTAR}`, 640, 76, 13, '#d8ccff'); }
+    if (G.info) { g.save(); g.fillStyle = 'rgba(20,12,44,0.55)'; Shell.rr(g, 430, 58, 420, 26, 13); g.fill(); g.restore(); const alt = G.guard.indexOf('alternator'); Shell.text(g, `⭐ moves to a random bank when bought · 🗿 next: ${G.alt[alt] === 'main' ? BD.BRANCHES[alt].name : 'main road'} · 🦖 ${G.zoo.size}/${BD.ZOOSTAR}`, 640, 76, 13, '#d8ccff'); }
     if (G.frenzy) { g.save(); g.globalAlpha = 0.85 + Math.sin(t * 5) * 0.15; Shell.text(g, '🔥 FINAL FRENZY 🔥', 640, G.info ? 104 : 76, 18, '#ff8a4a'); g.restore(); }
     // player cards in the corners
     const pos = [[12, 8], [1012, 8], [12, 612], [1012, 612]];
