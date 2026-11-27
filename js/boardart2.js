@@ -43,7 +43,11 @@
       const off = side === 0 ? 70 : side === 2 ? 88 : 86;
       P.push({ kind: s.type, x: s.x + out[0] * off + alongV[0] * along * 34, y: s.y + out[1] * off + alongV[1] * along * 34 + (side === 0 ? 10 : 0), s });
     });
-    return (BoardArt._props = P);
+    // small landmarks give way to big ones when they would overlap
+    const big = ['zoo', 'market', 'raffle', 'bounty', 'pier', 'fountain', 'vane'];
+    const keep = P.filter(q => big.includes(q.kind)), small = P.filter(q => !big.includes(q.kind));
+    small.forEach(q => { if (!keep.some(k => Math.hypot(k.x - q.x, k.y - q.y) < 95)) keep.push(q); });
+    return (BoardArt._props = keep);
   };
 
   // ----------------------------------------------------------------- the ground (baked once per game)
