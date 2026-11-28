@@ -7,16 +7,32 @@
   const LW = r => Math.max(1, r * 0.04);
   // the base hair cap: covers the crown from a front hairline to the back of the head
   //   vol = how far it stands off the scalp, back = how low it reaches at the back (in r), front = how far the fringe pokes forward
+  // the base hair: crown + fringe locks across the forehead + a sideburn + a nape at the back, so it reads
+  // as hair (not a helmet). vol = puffiness above the scalp, back = how far it falls at the nape,
+  // locks = fringe locks (0 = a straight cut), sweep = the fringe sweeps forward
   function cap(g, r, fill, ink, o = {}) {
-    const v = (o.vol ?? 0.12) * r, back = (o.back ?? 0.05) * r, fr = (o.front ?? 0.05) * r, hl = (o.hairline ?? 0.48) * r;
-    g.beginPath(); g.moveTo(-r * 0.88, -hl);
-    g.bezierCurveTo(-r * 0.98 - fr, -r * 0.82 - v * 0.5, -r * 0.5, -r * 1.02 - v, r * 0.05, -r * 1.0 - v);
-    g.bezierCurveTo(r * 0.68, -r * 0.98 - v, r * 1.02 + v, -r * 0.55, r * 1.0 + v * 0.6, back - r * 0.05);
-    g.quadraticCurveTo(r * 0.95, back + r * 0.1, r * 0.82, back + r * 0.05);
-    g.quadraticCurveTo(r * 0.62, -r * 0.3, r * 0.12, -hl - r * 0.04);
-    g.quadraticCurveTo(-r * 0.45, -hl - r * 0.06, -r * 0.88, -hl);
+    const v = (o.vol ?? 0.08) * r, back = (o.back ?? 0) * r, n = o.locks ?? 4, sw = (o.sweep ?? 0) * r;
+    g.beginPath(); g.moveTo(-r * 0.94 - sw, -r * 0.5);
+    g.bezierCurveTo(-r * 1.0 - sw * 0.6, -r * 0.88 - v * 0.6, -r * 0.5, -r * 1.02 - v, r * 0.05, -r * 1.01 - v);
+    g.bezierCurveTo(r * 0.72, -r * 0.98 - v, r * 1.04 + v * 0.6, -r * 0.5, r * 1.02 + v * 0.4, -r * 0.05);
+    g.quadraticCurveTo(r * 1.0, r * 0.3 + back, r * 0.8, r * 0.44 + back);            // nape
+    g.quadraticCurveTo(r * 0.6, r * 0.3, r * 0.42, r * 0.16);                          // behind the ear
+    g.quadraticCurveTo(r * 0.3, -r * 0.02, r * 0.16, r * 0.04);                        // around the ear
+    g.lineTo(r * 0.05, r * 0.06); g.quadraticCurveTo(r * 0.0, -r * 0.2, -r * 0.08, -r * 0.44); // sideburn up to the temple
+    if (n > 0) { const x0 = -r * 0.08, x1 = -r * 0.94 - sw; for (let k = 0; k < n; k++) { const xa = x0 + (x1 - x0) * k / n, xb = x0 + (x1 - x0) * (k + 1) / n, tip = -r * (0.36 + (k % 2) * 0.05) - (k === n - 1 ? 0 : 0); g.quadraticCurveTo(xa + (xb - xa) * 0.2, -r * 0.47, (xa + xb) / 2 - r * 0.03 - sw * 0.15, tip); g.quadraticCurveTo(xb + (xa - xb) * 0.25, -r * 0.46, xb, -r * 0.5); } }
+    else g.quadraticCurveTo(-r * 0.5, -r * 0.47, -r * 0.94 - sw, -r * 0.5);
     g.closePath(); g.fillStyle = fill; g.strokeStyle = ink; g.lineWidth = LW(r); g.lineJoin = 'round'; g.fill(); g.stroke();
+    // texture: strands flowing from the crown to the nape, and a soft shine band
+    g.save(); g.clip(); g.strokeStyle = o.strand || 'rgba(0,0,0,0.18)'; g.lineWidth = Math.max(0.6, r * 0.02);
+    for (let k = 0; k < 5; k++) { g.beginPath(); g.moveTo(-r * (0.75 - k * 0.12), -r * (0.55 + k * 0.08)); g.quadraticCurveTo(r * (0.15 + k * 0.08), -r * (1.05 - k * 0.04), r * (0.9 - k * 0.06), r * (0.25 - k * 0.12)); g.stroke(); }
+    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = Math.max(1, r * 0.07); g.beginPath(); g.arc(r * 0.05, -r * 0.1, r * 0.82, Math.PI * 1.2, Math.PI * 1.5); g.stroke();
+    g.restore();
   }
+  // a row of fringe locks over the forehead (for the long styles)
+  const fringe = (g, r, fill, ink, c1) => { // one soft side-swept bang across the forehead
+    g.beginPath(); g.moveTo(r * 0.25, -r * 0.98); g.bezierCurveTo(-r * 0.3, -r * 1.06, -r * 0.92, -r * 0.9, -r * 1.02, -r * 0.44); g.quadraticCurveTo(-r * 0.76, -r * 0.58, -r * 0.45, -r * 0.6); g.quadraticCurveTo(-r * 0.05, -r * 0.7, r * 0.25, -r * 0.98); g.closePath();
+    g.fillStyle = c1 ? lin(g, -r * 1.05, -r * 0.4, [c1, fill]) : fill; g.strokeStyle = ink; g.lineWidth = LW(r); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,0.15)'; g.lineWidth = Math.max(0.6, r * 0.02); for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(r * (0.15 - k * 0.08), -r * (0.95 - k * 0.04)); g.quadraticCurveTo(-r * (0.5 + k * 0.05), -r * (0.92 - k * 0.08), -r * (0.95 - k * 0.1), -r * (0.5 + k * 0.03)); g.stroke(); } };
   const shine = (g, r, x = -0.3, y = -0.98, w = 0.3) => { g.fillStyle = 'rgba(255,255,255,0.32)'; g.beginPath(); g.ellipse(r * x, r * y, r * w, r * 0.065, -0.2, 0, 7); g.fill(); };
   const strands = (g, r, col, n = 4) => { g.strokeStyle = col; g.lineWidth = Math.max(0.6, r * 0.022); for (let k = 0; k < n; k++) { g.beginPath(); g.moveTo(-r * (0.7 - k * 0.22), -r * (0.62 + k * 0.08)); g.quadraticCurveTo(r * (0.1 + k * 0.1), -r * (1.0 - k * 0.02), r * (0.85 - k * 0.05), -r * (0.35 - k * 0.12)); g.stroke(); } };
   const spikes = (g, r, fill, ink, a0, a1, n, len, base = 0.9) => {
@@ -27,40 +43,41 @@
   const blob = (g, x, y, rr, fill, ink, lw) => { g.beginPath(); g.arc(x, y, rr, 0, 7); g.fillStyle = fill; g.fill(); if (ink) { g.strokeStyle = ink; g.lineWidth = lw; g.stroke(); } };
 
   const HAIR = {
-    15(g, r) { // Gravo: violet undercut with a long swoop falling forward
-      g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip(); g.fillStyle = 'rgba(70,40,120,0.25)'; g.beginPath(); g.arc(0, 0, r, Math.PI * 1.1, Math.PI * 2.1); g.lineTo(r * 0.3, -r * 0.1); g.fill(); g.restore(); // shaved sides
-      g.beginPath(); g.moveTo(r * 0.75, -r * 0.55); g.bezierCurveTo(r * 0.6, -r * 1.25, -r * 0.6, -r * 1.35, -r * 1.12, -r * 0.82); g.quadraticCurveTo(-r * 1.2, -r * 0.62, -r * 1.02, -r * 0.5); g.quadraticCurveTo(-r * 0.6, -r * 0.78, r * 0.2, -r * 0.72); g.quadraticCurveTo(r * 0.55, -r * 0.65, r * 0.75, -r * 0.55); g.closePath();
-      g.fillStyle = lin(g, -r * 1.3, -r * 0.5, ['#d8b8ff', '#9a6aff', '#5a2ab8']); g.strokeStyle = '#2a1060'; g.lineWidth = LW(r); g.fill(); g.stroke(); strands(g, r, 'rgba(60,20,120,0.4)', 3); shine(g, r, -0.35, -1.05, 0.28);
+    15(g, r) { // Gravo: violet hair with a long side-swept fringe
+      cap(g, r, lin(g, -r * 1.1, r * 0.4, ['#c8a8ff', '#8a5aef', '#4a2a9a']), '#2a1060', { vol: 0.1, locks: 0, strand: 'rgba(40,10,90,0.3)' });
+      g.beginPath(); g.moveTo(r * 0.3, -r * 0.98); g.bezierCurveTo(-r * 0.3, -r * 1.12, -r * 0.95, -r * 0.92, -r * 1.06, -r * 0.42); g.quadraticCurveTo(-r * 0.78, -r * 0.6, -r * 0.5, -r * 0.6); g.quadraticCurveTo(-r * 0.1, -r * 0.72, r * 0.3, -r * 0.98); g.closePath();
+      g.fillStyle = lin(g, -r * 1.1, -r * 0.4, ['#e0ccff', '#9a6aff']); g.strokeStyle = '#2a1060'; g.lineWidth = LW(r); g.fill(); g.stroke();
+      g.strokeStyle = 'rgba(60,20,120,0.35)'; g.lineWidth = Math.max(0.6, r * 0.02); for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(r * (0.2 - k * 0.08), -r * (0.95 - k * 0.04)); g.quadraticCurveTo(-r * (0.5 + k * 0.05), -r * (0.95 - k * 0.08), -r * (0.95 - k * 0.1), -r * (0.5 + k * 0.03)); g.stroke(); }
     },
-    16(g, r) { // Echo: a big lavender afro puff
-      cap(g, r, '#c89aff', '#6a3a9a', { vol: 0.05, back: 0.1 });
-      for (let k = 0; k < 11; k++) { const a = -Math.PI * 0.95 + k * Math.PI * 0.95 / 10, x = r * 0.22 + Math.cos(a) * r * 0.78, y = -r * 0.72 + Math.sin(a) * r * 0.62; blob(g, x, y, r * 0.3, '#b880ff', '#6a3a9a', LW(r)); }
-      blob(g, r * 0.22, -r * 0.82, r * 0.68, lin(g, -r * 1.5, -r * 0.3, ['#e8d0ff', '#b880ff', '#8a4ad8']));
-      for (let k = 0; k < 14; k++) { g.fillStyle = 'rgba(255,255,255,0.28)'; g.beginPath(); g.arc(r * 0.22 + Math.cos(k * 2.4) * r * 0.45, -r * 0.85 + Math.sin(k * 1.7) * r * 0.4, r * 0.05, 0, 7); g.fill(); }
-      g.fillStyle = '#ff6ad8'; g.beginPath(); g.ellipse(-r * 0.3, -r * 0.6, r * 0.32, r * 0.07, -0.25, 0, 7); g.fill(); // headband
+    16(g, r) { // Echo: a big round puff of lavender curls with a pink headband
+      cap(g, r, '#a870e0', '#6a3a9a', { vol: 0.22, back: 0.05, locks: 0 });
+      for (let k = 0; k < 15; k++) { const a = -2.75 + k * 0.245, R = r * 1.12; blob(g, Math.cos(a) * R + r * 0.02, Math.sin(a) * R - r * 0.05, r * 0.26, k % 2 ? '#c89aff' : '#b07ae8', '#6a3a9a', LW(r) * 0.8); }
+      for (let k = 0; k < 9; k++) { const a = -2.6 + k * 0.33, R = r * 0.78; blob(g, Math.cos(a) * R, Math.sin(a) * R - r * 0.1, r * 0.2, k % 2 ? '#d8b0ff' : '#c89aff', null); }
+      for (let k = 0; k < 5; k++) blob(g, -r * (0.86 - k * 0.15), -r * (0.5 + (k % 2) * 0.05), r * 0.12, '#c89aff', '#6a3a9a', LW(r) * 0.6);
     },
     17(g, r) { // Venom: lime anime spikes with darker roots
       cap(g, r, '#5aaa1a', '#1a4a0a', { vol: 0.06 });
       spikes(g, r, lin(g, -r * 1.6, -r * 0.5, ['#e8ff8a', '#9aff3a', '#4a9a10']), '#1a4a0a', -2.7, -0.15, 7, 0.55, 0.88);
       shine(g, r, -0.2, -1.05, 0.25);
     },
-    18(g, r) { // Mags: a blunt bob, dyed half red, half blue
-      g.save(); g.beginPath(); g.rect(-r * 2, -r * 2, r * 2.05, r * 4); g.clip(); cap(g, r, lin(g, -r, r * 0.4, ['#ff7a7a', '#e8323e']), '#7a0a14', { vol: 0.14, back: 0.45, front: 0.02 }); g.restore();
-      g.save(); g.beginPath(); g.rect(r * 0.05, -r * 2, r * 2, r * 4); g.clip(); cap(g, r, lin(g, -r, r * 0.4, ['#7aa8ff', '#2a4aa8']), '#0a1a5a', { vol: 0.14, back: 0.45, front: 0.02 }); g.restore();
-      g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = LW(r); g.beginPath(); g.moveTo(r * 0.05, -r * 1.12); g.lineTo(r * 0.05, -r * 0.55); g.stroke(); shine(g, r, -0.35, -1.0, 0.25);
+    18(g, r, t) { // Mags: long straight hair dyed red at the roots fading to electric blue, with a side-swept bang
+      const sw = Math.sin(t * 1.6) * r * 0.03;
+      g.beginPath(); g.moveTo(-r * 0.9, -r * 0.46); g.bezierCurveTo(-r * 1.05, -r * 1.0, -r * 0.4, -r * 1.16, r * 0.15, -r * 1.1); g.bezierCurveTo(r * 0.85, -r * 1.0, r * 1.16, -r * 0.4, r * 1.13, r * 0.35); g.bezierCurveTo(r * 1.13 + sw, r * 0.8, r * 1.0 + sw, r * 1.1, r * 0.84 + sw, r * 1.32); g.lineTo(r * 0.6 + sw, r * 1.15); g.bezierCurveTo(r * 0.7, r * 0.7, r * 0.68, r * 0.2, r * 0.55, -r * 0.05); g.bezierCurveTo(r * 0.35, -r * 0.4, -r * 0.1, -r * 0.55, -r * 0.45, -r * 0.54); g.quadraticCurveTo(-r * 0.72, -r * 0.52, -r * 0.9, -r * 0.46); g.closePath();
+      g.fillStyle = lin(g, -r * 1.1, r * 1.3, ['#ff7a8a', '#e8324e', '#8a3ab8', '#3a6aff']); g.strokeStyle = '#2a0a3a'; g.lineWidth = LW(r); g.fill(); g.stroke();
+      strands(g, r, 'rgba(60,10,60,0.3)', 4); fringe(g, r, '#e8324e', '#2a0a3a', '#ff8a9a');
     },
     19(g, r, t) { // Boo: long wavy white hair fading to icy blue tips
       const sw = Math.sin(t * 1.6) * r * 0.05;
       g.beginPath(); g.moveTo(-r * 0.88, -r * 0.47); g.bezierCurveTo(-r * 1.0, -r * 0.95, -r * 0.45, -r * 1.14, r * 0.05, -r * 1.12); g.bezierCurveTo(r * 0.8, -r * 1.05, r * 1.15, -r * 0.5, r * 1.12, r * 0.15);
       for (let k = 0; k < 4; k++) g.quadraticCurveTo(r * (1.25 - (k % 2) * 0.2) + sw, r * (0.35 + k * 0.28), r * (1.05 - k * 0.05) + sw, r * (0.5 + k * 0.28));
       g.lineTo(r * 0.65 + sw, r * 1.35); g.bezierCurveTo(r * 0.72, r * 0.8, r * 0.7, r * 0.3, r * 0.58, r * 0.02); g.bezierCurveTo(r * 0.4, -r * 0.35, r * 0.0, -r * 0.52, -r * 0.42, -r * 0.52); g.quadraticCurveTo(-r * 0.7, -r * 0.52, -r * 0.88, -r * 0.47); g.closePath();
-      g.fillStyle = lin(g, -r * 1.1, r * 1.4, ['#ffffff', '#f0f8ff', '#9ad8ff']); g.strokeStyle = '#6a8ab0'; g.lineWidth = LW(r); g.fill(); g.stroke(); strands(g, r, 'rgba(120,170,220,0.45)', 4);
+      g.fillStyle = lin(g, -r * 1.1, r * 1.4, ['#ffffff', '#f0f8ff', '#9ad8ff']); g.strokeStyle = '#6a8ab0'; g.lineWidth = LW(r); g.fill(); g.stroke(); strands(g, r, 'rgba(120,170,220,0.45)', 4); fringe(g, r, '#e8f4ff', '#6a8ab0', '#ffffff');
     },
-    20(g, r) { // Tick: a teal pompadour quiff with a gold streak
-      cap(g, r, '#1a9a8a', '#0a3a3a', { vol: 0.1, back: 0.0 });
-      g.beginPath(); g.moveTo(-r * 0.9, -r * 0.55); g.bezierCurveTo(-r * 1.3, -r * 0.9, -r * 0.9, -r * 1.45, -r * 0.2, -r * 1.3); g.quadraticCurveTo(r * 0.3, -r * 1.22, r * 0.5, -r * 0.9); g.quadraticCurveTo(-r * 0.2, -r * 0.95, -r * 0.9, -r * 0.55); g.closePath();
-      g.fillStyle = lin(g, -r * 1.45, -r * 0.6, ['#a8fff0', '#3ad8c8', '#1a8a7a']); g.strokeStyle = '#0a3a3a'; g.lineWidth = LW(r); g.fill(); g.stroke();
-      g.strokeStyle = '#ffd34d'; g.lineWidth = Math.max(1, r * 0.06); g.beginPath(); g.moveTo(-r * 0.85, -r * 0.7); g.bezierCurveTo(-r * 1.0, -r * 1.05, -r * 0.6, -r * 1.3, -r * 0.1, -r * 1.2); g.stroke(); shine(g, r, -0.45, -1.2, 0.2);
+    20(g, r) { // Tick: a teal quiff swept up from the forehead, with a gold streak
+      cap(g, r, lin(g, -r * 1.1, r * 0.4, ['#7af0e0', '#2ab8a8', '#0a6a6a']), '#0a3a3a', { vol: 0.08, locks: 0 });
+      g.beginPath(); g.moveTo(-r * 0.94, -r * 0.5); g.bezierCurveTo(-r * 1.22, -r * 0.85, -r * 0.85, -r * 1.36, -r * 0.2, -r * 1.24); g.quadraticCurveTo(r * 0.25, -r * 1.16, r * 0.45, -r * 0.95); g.quadraticCurveTo(-r * 0.25, -r * 1.0, -r * 0.6, -r * 0.62); g.closePath();
+      g.fillStyle = lin(g, -r * 1.35, -r * 0.5, ['#c8fff4', '#3ad8c8']); g.strokeStyle = '#0a3a3a'; g.lineWidth = LW(r); g.fill(); g.stroke();
+      g.strokeStyle = '#ffd34d'; g.lineWidth = Math.max(1, r * 0.055); g.beginPath(); g.moveTo(-r * 0.8, -r * 0.6); g.bezierCurveTo(-r * 0.98, -r * 0.95, -r * 0.62, -r * 1.22, -r * 0.1, -r * 1.14); g.stroke();
     },
     21(g, r) { // Inky: shaggy black hair dripping into blue at the tips
       cap(g, r, lin(g, -r * 1.2, r * 0.3, ['#1a1a2a', '#14143a', '#3a4aff']), '#05051a', { vol: 0.16, back: 0.25 });
@@ -76,7 +93,7 @@
     23(g, r, t) { // Nova: long galaxy hair swept to one side, sprinkled with stars
       g.beginPath(); g.moveTo(-r * 0.9, -r * 0.46); g.bezierCurveTo(-r * 1.05, -r * 1.0, -r * 0.4, -r * 1.18, r * 0.15, -r * 1.12); g.bezierCurveTo(r * 0.85, -r * 1.02, r * 1.18, -r * 0.4, r * 1.15, r * 0.35); g.bezierCurveTo(r * 1.15, r * 0.8, r * 1.0, r * 1.15, r * 0.82, r * 1.4); g.lineTo(r * 0.6, r * 1.2); g.bezierCurveTo(r * 0.7, r * 0.7, r * 0.68, r * 0.2, r * 0.55, -r * 0.05); g.bezierCurveTo(r * 0.35, -r * 0.4, -r * 0.1, -r * 0.55, -r * 0.45, -r * 0.54); g.quadraticCurveTo(-r * 0.72, -r * 0.52, -r * 0.9, -r * 0.46); g.closePath();
       g.fillStyle = lin(g, -r * 1.1, r * 1.4, ['#c88aff', '#6a3aff', '#1a2a9a', '#0a0a3a']); g.strokeStyle = '#0a0a2a'; g.lineWidth = LW(r); g.fill(); g.stroke();
-      for (let k = 0; k < 9; k++) { const x = r * (-0.3 + (k * 0.37) % 1.3), y = r * (-0.9 + (k * 0.53) % 2.1), a = 0.5 + 0.5 * Math.sin(t * 3 + k); if (y > -r * 0.5 && x < r * 0.55) continue; g.fillStyle = `rgba(255,255,255,${a})`; g.beginPath(); g.arc(x, y, r * 0.03, 0, 7); g.fill(); }
+      for (let k = 0; k < 9; k++) { const x = r * (-0.3 + (k * 0.37) % 1.3), y = r * (-0.9 + (k * 0.53) % 2.1), a = 0.5 + 0.5 * Math.sin(t * 3 + k); if (y > -r * 0.5 && x < r * 0.55) continue; g.fillStyle = `rgba(255,255,255,${a})`; g.beginPath(); g.arc(x, y, r * 0.03, 0, 7); g.fill(); } fringe(g, r, '#7a4aff', '#0a0a2a', '#d0a8ff');
     },
     24(g, r, t) { // Candi: rainbow pigtails tied with bows
       const rb = lin(g, -r * 1.1, r * 1.2, ['#ff5a7a', '#ffb04a', '#fff05a', '#6ae07a', '#5ab8ff', '#b07aff']);
@@ -98,23 +115,23 @@
       for (let k = 0; k < 4; k++) blob(g, -r * (0.82 - k * 0.12), -r * (0.5 + (k % 2) * 0.05), r * 0.1, '#e0884a', '#5a2a10', LW(r) * 0.6);
       shine(g, r, -0.25, -1.08, 0.25);
     },
-    27(g, r) { // Origa: a crisp white bob with folded, angular edges
-      g.beginPath(); g.moveTo(-r * 0.92, -r * 0.48); g.lineTo(-r * 0.98, -r * 0.9); g.lineTo(-r * 0.45, -r * 1.15); g.lineTo(r * 0.3, -r * 1.12); g.lineTo(r * 0.95, -r * 0.75); g.lineTo(r * 1.1, r * 0.1); g.lineTo(r * 0.95, r * 0.42); g.lineTo(r * 0.72, r * 0.3); g.lineTo(r * 0.6, -r * 0.2); g.lineTo(r * 0.1, -r * 0.55); g.lineTo(-r * 0.92, -r * 0.48); g.closePath();
-      g.fillStyle = lin(g, -r * 1.15, r * 0.4, ['#ffffff', '#ece6da']); g.strokeStyle = '#8a7a6a'; g.lineWidth = LW(r); g.lineJoin = 'miter'; g.fill(); g.stroke();
-      g.strokeStyle = 'rgba(138,122,106,0.55)'; g.beginPath(); g.moveTo(-r * 0.45, -r * 1.15); g.lineTo(r * 0.1, -r * 0.55); g.moveTo(r * 0.3, -r * 1.12); g.lineTo(r * 0.6, -r * 0.2); g.stroke();
-      g.fillStyle = '#e8324a'; g.beginPath(); g.moveTo(r * 0.55, -r * 0.95); g.lineTo(r * 0.75, -r * 0.82); g.lineTo(r * 0.5, -r * 0.75); g.closePath(); g.fill(); // red paper clip
+    27(g, r) { // Origa: a soft white bob with a red folded-paper crane clip
+      cap(g, r, lin(g, -r * 1.1, r * 0.5, ['#ffffff', '#f0ebe0', '#d8d0c0']), '#9a8a78', { vol: 0.12, back: 0.2, locks: 5, strand: 'rgba(120,100,80,0.2)' });
+      g.save(); g.translate(r * 0.45, -r * 0.82); g.rotate(-0.3); g.fillStyle = '#e8324a'; g.strokeStyle = '#8a0a1a'; g.lineWidth = Math.max(0.7, r * 0.02);
+      g.beginPath(); g.moveTo(-r * 0.22, 0); g.lineTo(0, -r * 0.16); g.lineTo(r * 0.22, 0); g.lineTo(0, r * 0.05); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.moveTo(r * 0.12, -r * 0.03); g.lineTo(r * 0.24, -r * 0.18); g.lineTo(r * 0.18, -r * 0.02); g.closePath(); g.fill(); g.restore();
     },
-    28(g, r, t) { // Neon: hot-pink buzz cut with glowing shaved stripes
-      cap(g, r, lin(g, -r * 1.05, -r * 0.4, ['#ff8ae8', '#ff3ad8']), '#7a0a6a', { vol: 0.02, back: -0.05, front: 0 });
-      const gl = 0.6 + 0.4 * Math.sin(t * 5); g.save(); g.shadowColor = '#3affe8'; g.shadowBlur = r * 0.25 * gl; g.strokeStyle = `rgba(58,255,232,${0.7 + 0.3 * gl})`; g.lineWidth = Math.max(1, r * 0.05);
-      for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(r * (0.1 + k * 0.2), -r * (0.95 - k * 0.05)); g.lineTo(r * (0.35 + k * 0.2), -r * (0.6 - k * 0.1)); g.stroke(); } g.restore();
+    28(g, r, t) { // Neon: a short hot-pink crop with glowing shaved lines on the side
+      cap(g, r, lin(g, -r * 1.05, r * 0.3, ['#ff9aec', '#ff3ad8', '#b81a98']), '#7a0a6a', { vol: 0.05, locks: 5, back: -0.08 });
+      const gl = 0.6 + 0.4 * Math.sin(t * 5); g.save(); g.strokeStyle = `rgba(58,255,232,${0.65 + 0.35 * gl})`; g.lineWidth = Math.max(1, r * 0.045); g.lineCap = 'round';
+      for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(r * (0.3 + k * 0.14), -r * (0.62 - k * 0.04)); g.lineTo(r * (0.5 + k * 0.14), -r * (0.3 - k * 0.04)); g.stroke(); } g.restore();
     },
-    29(g, r, t) { // Buzz: yellow-and-black striped spikes with little antennae
-      cap(g, r, '#2a2a1a', '#000', { vol: 0.05 });
-      spikes(g, r, lin(g, -r * 1.5, -r * 0.6, ['#ffe86a', '#ffd02a', '#c89a10']), '#3a2a0a', -2.6, -0.3, 5, 0.38, 0.9);
-      g.strokeStyle = '#2a2a1a'; g.lineWidth = Math.max(1, r * 0.08); for (let k = 0; k < 3; k++) { const a = -2.3 + k * 0.6; g.beginPath(); g.arc(0, 0, r * 1.1, a - 0.12, a + 0.12); g.stroke(); }
+    29(g, r, t) { // Buzz: short spiky hair in honey-yellow with black stripes, and two little antennae
+      cap(g, r, lin(g, -r * 1.1, r * 0.4, ['#ffe86a', '#ffd02a', '#c89a10']), '#3a2a0a', { vol: 0.06, locks: 4 });
+      spikes(g, r, lin(g, -r * 1.5, -r * 0.6, ['#fff08a', '#ffd02a', '#e0a810']), '#3a2a0a', -2.65, -0.25, 6, 0.32, 0.9);
+      g.save(); g.beginPath(); g.arc(0, 0, r * 1.45, 0, 7); g.clip(); g.strokeStyle = 'rgba(42,42,26,0.9)'; g.lineWidth = Math.max(1, r * 0.09);
+      for (const a of [-1.85, -1.15]) { g.beginPath(); g.moveTo(Math.cos(a) * r * 0.86, Math.sin(a) * r * 0.86); g.lineTo(Math.cos(a - 0.08) * r * 1.3, Math.sin(a - 0.08) * r * 1.3); g.stroke(); } g.restore();
       const bob = Math.sin(t * 6) * r * 0.04; g.strokeStyle = '#2a2a1a'; g.lineWidth = Math.max(1, r * 0.04);
-      for (const s of [-1, 1]) { g.beginPath(); g.moveTo(r * (-0.2 + s * 0.15), -r * 1.15); g.quadraticCurveTo(r * (-0.3 + s * 0.3), -r * 1.55, r * (-0.4 + s * 0.35), -r * 1.6 + bob); g.stroke(); blob(g, r * (-0.4 + s * 0.35), -r * 1.6 + bob, r * 0.08, '#2a2a1a'); }
+      for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(r * (-0.15 + sd * 0.12), -r * 1.12); g.quadraticCurveTo(r * (-0.25 + sd * 0.3), -r * 1.55, r * (-0.35 + sd * 0.35), -r * 1.62 + bob); g.stroke(); blob(g, r * (-0.35 + sd * 0.35), -r * 1.62 + bob, r * 0.08, '#2a2a1a'); }
     },
   };
   // tattoos and small face details: cheek (-0.55r, 0.25r) and temple (0.05r, -0.3r) stay clear of the eye and mouth
