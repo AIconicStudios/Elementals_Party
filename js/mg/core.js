@@ -103,7 +103,7 @@ const MG = {
     if (Settings.test) return this.simulate(game, players, order, opts.mode ? opts : this.defOpts(game));
     const layer = document.getElementById('mgLayer');
     const quiet = game.type === 'Rhythm' || game.quietMusic;
-    Music.play(Music.nextMini()); Music.setDuck(0.45, 0.3); // quieter background music under the minigame sounds
+    Music.play(Music.nextMini()); Music.setDuck(0.35, 0.3); // quieter background music under the minigame sounds
     layer.classList.remove('hidden');
     let m = this.makeCtx(game, players, opts);
     let S = {};

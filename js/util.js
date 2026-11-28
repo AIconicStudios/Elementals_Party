@@ -59,7 +59,7 @@ const Sfx = {
     const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 55;
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9500;
     const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 4000; air.gain.value = 2.5;
-    this.bus = c.createGain(); this.bus.gain.value = 2.3;
+    this.bus = c.createGain(); this.bus.gain.value = 3.4;
     this.bus.connect(hp); hp.connect(lp); lp.connect(air); air.connect(comp); comp.connect(lim); lim.connect(c.destination);
     const rl = Math.floor(c.sampleRate * 0.9), ir = c.createBuffer(2, rl, c.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let k = 0; k < rl; k++) d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / rl, 3.2); }
@@ -67,7 +67,7 @@ const Sfx = {
     this.bus.connect(send); send.connect(rev); rev.connect(ret); ret.connect(comp);
     const len = c.sampleRate, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0); for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1; this.nbuf = b;
   },
-  ok() { if (!Settings.sound || Settings.test || this.suppress) return null; this.init(); const c = this.ctx; if (!c) return null; if (c.state === 'suspended') c.resume(); return c; },
+  ok() { if (!Settings.sound || Settings.test || this.suppress) return null; this.init(); const c = this.ctx; if (!c) return null; if (c.state === 'suspended') c.resume(); if (typeof Music !== 'undefined' && Music.dip) Music.dip(); return c; },
   tone(freq, dur = 0.08, type = 'square', vol = 0.06, slide = 0, delay = 0) {
     const c = this.ok(); if (!c) return;
     const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();

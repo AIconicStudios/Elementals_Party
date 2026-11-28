@@ -174,7 +174,7 @@ const Music = (() => {
       this.out.connect(lim); lim.connect(c.destination);
       const glue = c.createDynamicsCompressor(); glue.threshold.value = -18; glue.knee.value = 8; glue.ratio.value = 3; glue.attack.value = 0.015; glue.release.value = 0.2;
       const clip = c.createWaveShaper(); clip.curve = curve(1.3); clip.oversample = '2x';
-      const master = G(0.3); glue.connect(clip); clip.connect(master); master.connect(this.out);
+      const master = G(0.3); glue.connect(clip); clip.connect(master); this.dk = G(1); master.connect(this.dk); this.dk.connect(this.out);
       this.bus = G(1);
       // master tone: a touch of air on top, tidy low end
       const air = c.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 5000; air.gain.value = 5;
@@ -227,7 +227,9 @@ const Music = (() => {
       this.metalBuf = mb;
     },
 
-    level() { return (Settings.music ? 0.62 : 0) * this.duck; },
+    level() { return (Settings.music ? 0.5 : 0) * this.duck; },
+    // a quick dip under each sound effect so the effects always cut through the music
+    dip() { const c = this.c; if (!c || !this.dk) return; const now = c.currentTime; if (this._dipT && now - this._dipT < 0.05) return; this._dipT = now; const g = this.dk.gain; g.cancelScheduledValues(now); g.setValueAtTime(Math.max(0.3, g.value), now); g.linearRampToValueAtTime(0.5, now + 0.02); g.linearRampToValueAtTime(1, now + 0.45); },
     isMini(n) { return n === 'mini' || n === 'mini2'; },
     // minigames take turns between the two minigame themes
     nextMini() { this.miniTurn++; return this.miniTurn % 2 ? 'mini' : 'mini2'; },
