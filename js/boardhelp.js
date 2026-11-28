@@ -128,6 +128,7 @@
         ['🤝', 'Meeting a rival', 'Land on a rival and choose: punch (take 3 coins), duel for a star, or duel for coins. Rivals only risk what they carry — you may stake your banked coins or stars.'],
         ['👁️', 'The Ankar', 'Roams 3 spaces after every turn and snatches 1–15 coins from anyone it passes. It gets angrier every round; once RED it swallows a carried star, then calms down. It only takes what you carry — bank it!'],
         ['🐦', 'Golden-hour thieves', 'Magpies peck 5 coins from anyone carrying 20+, and Bandit Camps rob harder at golden hour (and may take a star at night).'],
+        ['😄', 'Emotes & dodges', 'Press Ⓨ any time to pop an emote over your character. When a thief lunges, press Ⓐ just as the closing ring meets the circle to dodge and keep half.'],
         ['🛒', 'Shopping', 'One item purchase per turn. Buying the star does not count as an item.'],
         ['🏰', 'Holds', 'Pass your own Gate to stash coins and stars. From round 3 rivals can raid Holds — not while the owner is within 5 spaces of home.'],
         ['🎮', 'Minigames', 'After every round: 1st gets 10 coins, 2nd 5, 3rd 2. Last place picks which game.'],

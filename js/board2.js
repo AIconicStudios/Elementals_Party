@@ -173,7 +173,7 @@ Object.assign(BoardGame.prototype, {
     if (this.bounty) { this.bounty.val += 2; const lead = this.standings()[0]; if (lead !== this.bounty.on && this.totStars(lead) + this.totCoins(lead) > 0) { this.bounty.on = lead; await Board.banner('📜 The WANTED poster moves!', `${this.P(lead).name} is the new leader — bounty ${this.bounty.val} coins.`, 1500, true); } }
     if (this.bridge.downUntil && this.round >= this.bridge.downUntil) { this.bridge = { wear: 0, max: R.int(5, 7), downUntil: 0 }; await Board.banner('🌉 The rope bridge is fixed!', 'Crystal Creek is open again.', 1300, true); }
     if (this.round > 1) { const was = this.ankar.anger >= 1; this.ankar.anger = Math.min(1, this.ankar.anger + (this.tod === 'golden' ? 0.22 : 0.12)); if (!was && this.ankar.anger >= 1) { Sfx.tone(90, 0.8, 'sawtooth', 0.06, -30); await Board.banner('👁️ The Ankar turns RED!', 'Furious now — it will swallow a STAR from anyone it passes who carries one. Bank your stars!', 2600); } }
-    if (this.tod === 'golden') { const hit = this.players.filter(q => q.coins >= 20); if (hit.length) { Board.ui.magpie = { t: 0 }; Sfx.tone(1200, 0.1, 'square', 0.03); await Board.banner('🐦 Golden-hour magpies!', `They peck 5 coins from anyone carrying 20 or more: ${hit.map(q => q.name).join(', ')}. Keep your coins in your Hold!`, 2400); hit.forEach(q => { q.coins -= 5; Board.float(q.i, '−5🪙', '#ff8a8a'); }); Board.ui.magpie = null; } }
+    if (this.tod === 'golden') { const hit = this.players.filter(q => q.coins >= 20); if (hit.length) { Board.ui.magpie = { t: 0 }; Sfx.tone(1200, 0.1, 'square', 0.03); await Board.banner('🐦 Golden-hour magpies!', `They peck 5 coins from anyone carrying 20 or more: ${hit.map(q => q.name).join(', ')}. Keep your coins in your Hold!`, 2400); hit.forEach(q => { q.coins -= 5; Board.float(q.i, '−5🪙', '#ff8a8a'); Board.magpie && Board.magpie(q.i); }); Board.ui.magpie = null; } }
     const W = this.weatherNow ? BD.WEATHER[this.weatherNow] : null;
     await Board.banner(`Round ${this.round} of ${this.rounds}`, `${T.icon} ${T.name} · ⭐ ${this.starPrice()} coins${W ? ` · ${W.icon} ${W.name}: ${W.desc}` : ''}`, 1900);
     // comeback help: every third round the last-place player gets a random item (very rarely the Midas Touch)
@@ -326,7 +326,7 @@ Object.assign(BoardGame.prototype, {
     else if (t === 'lantern') await this.nightMarket(i);
     else if (t === 'bandit') { Board.ui.bandit = { pos: p.pos, t: 0 }; Sfx.tone(300, 0.2, 'sawtooth', 0.05, -100);
       if (this.tod === 'night' && p.stars > 0 && Math.random() < 0.4) { p.stars--; p.st.bad += 2; await Board.banner('🦹 Night bandits!', `They make off with one of ${p.name}'s stars!`, 2000); }
-      else { const n = Math.min(p.coins, this.tod === 'golden' ? Math.max(3, Math.ceil(p.coins * 0.35)) : this.tod === 'night' ? Math.ceil(p.coins * 0.25) : 3); p.coins -= n; p.st.bad++; await Board.banner(`🦹 Bandits${this.tod === 'golden' ? ' at golden hour' : ''}!`, n ? `They rob ${p.name} of ${n} coins.` : `${p.name}'s pockets are empty — they leave grumbling.`, 1800); }
+      else { let n = Math.min(p.coins, this.tod === 'golden' ? Math.max(3, Math.ceil(p.coins * 0.35)) : this.tod === 'night' ? Math.ceil(p.coins * 0.25) : 3); if (n > 1 && await Board.qte(i, 'HIDE YOUR PURSE!')) n = Math.floor(n / 2); Board.bandit && Board.bandit(i, n); if (n && Board.flyCoins) Board.flyCoins({ x: Board.tok[i].x, y: Board.tok[i].y - 70 }, { x: Board.tok[i].x + 40, y: Board.tok[i].y - 60 }, n, { d: 0.5, ding: false }); await Board.wait(500); p.coins -= n; p.st.bad++; await Board.banner(`🦹 Bandits${this.tod === 'golden' ? ' at golden hour' : ''}!`, n ? `They rob ${p.name} of ${n} coins.` : `${p.name}'s pockets are empty — they leave grumbling.`, 1800); }
       Board.ui.bandit = null; }
     await sleep(400);
     // a snare set by a rival
@@ -347,10 +347,11 @@ Object.assign(BoardGame.prototype, {
       for (const q of this.players) if (q.pos === A.pos) await this.ankarHit(q.i); }
   },
   async ankarHit(i) {
-    const A = this.ankar, q = this.P(i); Board.ui.ankarBite = { t: 0, i };
-    if (A.anger >= 1 && q.stars > 0) { q.stars--; A.anger = 0; q.st.bad += 2; Sfx.bad(); MGH.shake(6); await Board.banner('👁️ The red Ankar swallows a STAR!', `${q.name} loses a ⭐ — the Ankar calms down… for now.`, 2400); }
-    else { const n = Math.min(q.coins, Math.round(1 + A.anger * 14)); if (n) { q.coins -= n; q.st.bad++; Sfx.bad(); await Board.banner(`👁️ The Ankar snatches ${n} coins from ${q.name}!`, A.anger >= 1 ? 'It is RED — it wants a star!' : 'It grows hungrier every round…', 1700); } }
-    Board.ui.ankarBite = null;
+    const A = this.ankar, q = this.P(i), camWas = Board.cam.target; Board.ui.ankarBite = { t: 0, i }; if (Board.tok[i]) Board.cam.target = { x: Board.tok[i].x + 20, y: Board.tok[i].y - 40 };
+    if (A.anger >= 1 && q.stars > 0) { q.stars--; A.anger = 0; q.st.bad += 2; Sfx.bad(); MGH.shake(6); if (Board.flyStar) Board.flyStar({ x: Board.tok[i].x, y: Board.tok[i].y - 70 }, { x: (A.vx || 0) + 46, y: (A.vy || 0) - 50 }, { d: 0.8 }); await Board.banner('👁️ The red Ankar swallows a STAR!', `${q.name} loses a ⭐ — the Ankar calms down… for now.`, 2400); }
+    else { let n = Math.min(q.coins, Math.round(1 + A.anger * 14)); if (n && n > 1) { await Board.banner('👁️ The Ankar lunges!', q.human ? 'Press Ⓐ as the ring closes to dodge and keep half!' : '', 900, true); if (await Board.qte(i)) n = Math.floor(n / 2); }
+      if (n) { const T = Board.tok[i]; Board.flyCoins({ x: T.x, y: T.y - 70 }, { x: (A.vx || T.x) + 46, y: (A.vy || T.y) - 30 }, n, { ding: false }); MGH.shake && MGH.shake(4); q.coins -= n; q.st.bad++; Sfx.bad(); await Board.banner(`👁️ The Ankar snatches ${n} coins from ${q.name}!`, A.anger >= 1 ? 'It is RED — it wants a star!' : 'It grows hungrier every round…', 1700); } }
+    Board.ui.ankarBite = null; Board.cam.target = camWas;
   },
   // ------------------------------------------------------------------ landing on a rival: bump for 3 coins, or duel for a star / coins
   // the challenger may stake what they carry or what's in their Hold; the rival only risks what they carry
@@ -384,7 +385,8 @@ Object.assign(BoardGame.prototype, {
     if (w < 0) { await Board.banner('A draw!', 'Nobody loses anything.', 1800); return; }
     const L = w === i ? o : i, W = this.P(w), Lp = this.P(L); W.st.duelWins++; Lp.st.bad++;
     const n = this.takeFrom(L, prize, prize === 'star' ? 1 : amt, L === i);
-    if (prize === 'star') { W.stars += n; Sfx.star(); } else { W.coins += n; Sfx.coin(); }
+    if (prize === 'star') { W.stars += n; Sfx.star(); Board.flyStar && Board.flyStar({ x: Board.tok[L].x, y: Board.tok[L].y - 70 }, { x: Board.tok[w].x, y: Board.tok[w].y - 70 }); } else { W.coins += n; Sfx.coin(); Board.flyCoins && Board.flyCoins({ x: Board.tok[L].x, y: Board.tok[L].y - 70 }, { x: Board.tok[w].x, y: Board.tok[w].y - 70 }, n); }
+    Board.confetti && Board.confetti(Board.tok[w].x, Board.tok[w].y - 80, 30); Board.emote && Board.emote(w, '😎'); Board.emote && Board.emote(L, '😭');
     await Board.banner(`🏆 ${W.name} wins the duel!`, prize === 'star' ? `${W.name} takes a ⭐ from ${Lp.name}!` : `${W.name} takes ${n} coins from ${Lp.name}!`, 2400);
   },
   // ------------------------------------------------------------------ stars and shops
@@ -403,7 +405,7 @@ Object.assign(BoardGame.prototype, {
     if (k === 2) { n = 2; p.items.splice(p.items.indexOf('bundle'), 1); p.coins -= price * 2; }
     else if (k === 'c') { p.items.splice(p.items.indexOf('coupon'), 1); p.coins -= half; p.debt = price - half; }
     else p.coins -= price;
-    p.stars += n; p.st.spent += price * n; this.n.stars += n; Sfx.star(); Board.ui.starGet = { i, t: 0 };
+    p.stars += n; p.st.spent += price * n; this.n.stars += n; Sfx.star(); Board.ui.starGet = { i, t: 0 }; if (Board.flyStar) { const sb = BD.spaces[this.starBank * 10 + 5]; Board.flyStar({ x: sb.x, y: sb.y - 120 }, { x: Board.tok[i].x, y: Board.tok[i].y - 70 }); Board.confetti(Board.tok[i].x, Board.tok[i].y - 80, 50); Board.emote(i, '🤩'); }
     await Board.banner(`⭐ ${p.name} got ${n > 1 ? n + ' STARS' : 'a STAR'}! ⭐`, k === 'c' ? `Remember: ${p.debt} coins due at the next bank.` : '', 2200); Board.ui.starGet = null;
     this.starBank = R.pick([0, 1, 2, 3].filter(b => b !== this.starBank)); this.nextBank = this.starBank;
     Board.ui.starHop = { t: 0 }; Sfx.whoosh();

@@ -414,7 +414,8 @@
     if (U.splash) { const T = this.tok[U.splash.i], P = BoardArt.props().find(p => p.kind === 'fountain') || T, q = Math.min(1, U.splash.t / 0.6); MGH.coin ? MGH.coin(g, T.x + (P.x - T.x) * q, T.y - 70 + (P.y - 20 - T.y + 70) * q - Math.sin(q * Math.PI) * 80, 8, t * 10) : null; }
     if (U.balloonFly) { const T = this.tok[U.balloonFly.i], q = Math.min(1, U.balloonFly.t / 1.2); const by = T.y - 120 - q * 160; g.fillStyle = '#ff6a7a'; g.beginPath(); g.ellipse(T.x, by, 30, 38, 0, 0, 7); g.fill(); g.strokeStyle = '#5a3a1a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(T.x - 18, by + 28); g.lineTo(T.x - 10, by + 70); g.moveTo(T.x + 18, by + 28); g.lineTo(T.x + 10, by + 70); g.stroke(); }
     if (this.ui.starHop) { const q = Math.min(1, this.ui.starHop.t / 1.4); MGH.star(g, sb.x, sb.y - 90 - (1 - q) * 300, 26, '#ffe680', t * 4, false); }
-    this.floats.forEach(f => { g.globalAlpha = 1 - f.t / 1.4; MGH.text(g, f.text, f.x, f.y - f.t * 50, 26, f.col, 'center', 'bold'); g.globalAlpha = 1; });
+    if (this.worldFx) this.worldFx(g, t);
+    this.floats.forEach(f => { if (this.drawFloat) return this.drawFloat(g, f); g.globalAlpha = 1 - f.t / 1.4; MGH.text(g, f.text, f.x, f.y - f.t * 50, 26, f.col, 'center', 'bold'); g.globalAlpha = 1; });
     BoardArt.clouds(g, t, G.tod);
     g.restore();
     BoardArt.todOverlay(g, G.tod, t, this);
