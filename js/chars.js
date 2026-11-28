@@ -217,7 +217,9 @@ const Char = {
     if (this.OUTFIT[el] && this.OUTFIT[el].tie) { const O = this.OUTFIT[el], rx = h * 0.68, ry = h * 0.6; g.fillStyle = O.tie; g.strokeStyle = '#2a6fb0'; g.lineWidth = Math.max(0.8, h * 0.02); g.beginPath(); g.moveTo(tx - rx * 0.42, ty - ry * 0.62); g.lineTo(tx - rx * 0.62, ty - ry * 0.05); g.lineTo(tx - rx * 0.32, ty - ry * 0.2); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.ellipse(tx - rx * 0.44, ty - ry * 0.6, h * 0.07, h * 0.055, 0, 0, 7); g.fill(); g.stroke(); }
     if (P) {
       if (P.wave && h > 9) { g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = h * 0.035; g.lineCap = 'round'; for (const k of [0, 1]) { g.beginPath(); g.arc(tx + P.n.x * h, ty + P.n.y * h, h * (0.34 + k * 0.1), -Math.PI * 0.95, -Math.PI * 0.62); g.stroke(); } }
-      this.floatHand(g, h, C, tx + P.n.x * h, ty + P.n.y * h, P.n, true, faceMood);
+      // the near glove never covers the face: if a pose would put it inside the head, slide it out to the edge
+      let nx = tx + P.n.x * h, ny = ty + P.n.y * h; { const dx = nx, dy = ny - hy, d = Math.hypot(dx, dy), R = h * 1.1; if (d < R) { const k = d > 0.001 ? R / d : 1; nx = d > 0.001 ? dx * k : -R; ny = hy + (d > 0.001 ? dy * k : 0); } }
+      this.floatHand(g, h, C, nx, ny, P.n, true, faceMood);
     }
     // effects that belong to the head ride along with it
     g.save(); g.translate(0, hy); if (!o.simple) this.flair(g, h, el, t, seed); this.moodFx(g, h, faceMood, t, seed); g.restore();

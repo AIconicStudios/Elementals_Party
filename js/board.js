@@ -664,7 +664,11 @@ const Board = {
     Shell.text(g, `${tod.icon} ${tod.name}`, 590, 39, 17, tod.col);
     Shell.text(g, `⭐ ${BD.BANK_NAMES[G.starBank].split(' ')[0]} · ${G.starPrice ? G.starPrice() : BD.STAR}🪙`, 740, 39, 16, '#ffe680');
     if (G.rule) Shell.text(g, G.rule.icon + (G.weatherNow ? ' ' + BD.WEATHER[G.weatherNow].icon : ''), 860, 39, 18, '#fff');
-    if (G.info) { g.save(); g.fillStyle = 'rgba(20,12,44,0.55)'; Shell.rr(g, 430, 58, 420, 26, 13); g.fill(); g.restore(); const alt = G.guard.indexOf('alternator'); Shell.text(g, `⭐ moves to a random bank when bought · 🗿 next: ${G.alt[alt] === 'main' ? BD.BRANCHES[alt].name : 'main road'} · 🦖 ${G.zoo.size}/${BD.ZOOSTAR}`, 640, 76, 13, '#d8ccff'); }
+    if (G.info) { // icon chips instead of a sentence: where the 🗿 Alternator stands next, and the zoo beast's hunger
+      const alt = G.guard.indexOf('alternator'), nextIcon = alt >= 0 ? (G.alt[alt] === 'main' ? BD.BRANCHES[alt].icon : '🛣️') : null, k = Math.min(1, G.zoo.size / BD.ZOOSTAR);
+      g.save(); g.fillStyle = 'rgba(20,12,44,0.6)'; Shell.rr(g, 520, 58, 240, 30, 15); g.fill(); g.restore();
+      if (nextIcon) Shell.text(g, `🗿➜${nextIcon}`, 570, 80, 16, '#fff');
+      Shell.text(g, '🦖', 625, 80, 16, '#fff'); g.fillStyle = 'rgba(0,0,0,0.5)'; Shell.rr(g, 640, 68, 100, 10, 5); g.fill(); g.fillStyle = k > 0.99 ? '#ff4a7a' : '#7cf06a'; Shell.rr(g, 640, 68, 100 * k, 10, 5); g.fill(); }
     if (G.frenzy) { g.save(); g.globalAlpha = 0.85 + Math.sin(t * 5) * 0.15; Shell.text(g, '🔥 FINAL FRENZY 🔥', 640, G.info ? 104 : 76, 18, '#ff8a4a'); g.restore(); }
     // player cards in the corners
     const pos = [[12, 8], [1012, 8], [12, 612], [1012, 612]];

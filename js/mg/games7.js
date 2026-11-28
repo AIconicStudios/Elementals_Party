@@ -1035,7 +1035,7 @@
         const ph = f.mvT < mv.st ? 'st' : f.mvT < mv.st + mv.act ? 'act' : 'end';
         if (k === 'jab') return ph === 'st' ? { hands: { n: S_(0.2, -0.2, 175), f: S_(-0.9, -0.15, 180) }, mood: 'effort' } : ph === 'act' ? { hands: { n: S_(-1.75, -0.28, 180), f: S_(0.7, 0.0, 160) }, mood: 'angry' } : { hands: { n: S_(-1.25, -0.2, 176), f: S_(0.72, 0.05, 160) }, mood: 'determined' };
         if (k === 'proj') return { hands: { n: S_(-1.55, -0.42, 180, 1, 1), f: S_(0.65, -0.1, 165) }, mood: 'determined' };
-        if (k === 'up') return { hands: { n: S_(-0.85, -1.55, -95), f: S_(0.75, -1.72, -82) }, feet: airFeet, mood: 'cheer' };
+        if (k === 'up') return { hands: { n: S_(-1.05, -2.45, -95), f: S_(0.85, -2.5, -82) }, feet: airFeet, mood: 'cheer' };
         if (k === 'down') { if (mv.shield) return { hands: { n: S_(-0.8, -0.6, -110, 1, 1), f: S_(0.7, -0.62, -70, 1, 1) }, mood: 'smug' }; return { hands: { n: S_(-0.75, 0.55, 90), f: S_(0.68, 0.55, 90) }, feet: air ? airFeet : null, mood: 'angry' }; }
       }
       if (f.bHeld && f.charge > 0.2) return { hands: { n: S_(0.55, -0.35, 160), f: S_(-0.9, -0.12, 180) }, mood: 'effort', glow: true };

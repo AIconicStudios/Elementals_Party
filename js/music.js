@@ -243,6 +243,7 @@ const Music = (() => {
       const c = this.ctx(); if (!c) return;
       this.setup(c);
       if (c.state === 'suspended') c.resume();
+      if (name === 'board' && this.chip) { this.chip.start(this, c, c.currentTime + 0.12); this.fade(this.level(), 0.8); this.timer = setInterval(() => this.chip.tick(this, c), 25); return; }
       this.start(this.songs[name], c.currentTime + 0.12);
       this.fade(this.level(), 1.0);
       this.timer = setInterval(() => this.tick(), 25);
@@ -256,7 +257,7 @@ const Music = (() => {
       this.mfilter.frequency.cancelScheduledValues(t0); this.mfilter.frequency.setValueAtTime(20000, t0);
       this.pump.gain.cancelScheduledValues(t0); this.pump.gain.setValueAtTime(1, t0);
     },
-    stop() { if (this.timer) clearInterval(this.timer); this.timer = null; if (this.out) this.fade(0, 0.3); },
+    stop() { if (this.timer) clearInterval(this.timer); this.timer = null; if (this.out) this.fade(0, 0.3); if (this.chip) this.chip.stop(); },
     fade(v, secs) { const c = this.c; if (!c || !this.out) return; const g = this.out.gain; g.cancelScheduledValues(c.currentTime); g.setValueAtTime(Math.max(0.0001, g.value), c.currentTime); g.linearRampToValueAtTime(Math.max(0.0001, v), c.currentTime + secs); },
     setDuck(d, secs = 0.6) { this.duck = d; this.fade(this.level(), secs); },
     refresh() { if (!Settings.music) this.fade(0, 0.3); else if (this.cur && !this.timer) { const n = this.cur; this.cur = null; this.play(n); } else this.fade(this.level(), 0.4); },
@@ -492,6 +493,59 @@ const Music = (() => {
       g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + (h ? 0.03 : 0.015)); g.gain.setValueAtTime(v, t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       g.connect(this.S.chop); this.play1(o, t, t + dur + 0.02);
       if (h) this.nz(t, 0.05, v * 0.5, 'bandpass', 1800, 1, this.S.chop);
+    },
+  };
+})();
+
+// ======================================================================== 8-bit board theme
+// A classic chiptune loop for the board: a 25% pulse lead, a 12.5% pulse arpeggio, a triangle bass and noise drums.
+// It plays through Music's own output chain, so volume, ducking and the sound-effect dip all still apply.
+Music.chip = (() => {
+  const N = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const midi = s => { const m = /^([A-G])(#?)(\d)$/.exec(s); return 12 * (+m[3] + 1) + N[m[1]] + (m[2] ? 1 : 0); };
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  // 16 steps per bar: a note, '-' hold, '.' rest
+  const parse = str => str.split('|').map(b => b.trim().split(/\s+/)).flat();
+  const LEAD = parse(
+    'E5 . G5 . C6 . G5 . A5 . G5 . E5 . D5 .|C5 . E5 . A5 . E5 . G5 - - . E5 . C5 .|F5 . A5 . C6 . A5 . G5 . F5 . A5 . G5 .|D5 . G5 . B5 . D6 . C6 - - - B5 - - .|' +
+    'E5 . G5 . C6 . G5 . A5 . G5 . E5 . D5 .|C5 . E5 . A5 . E5 . G5 - - . A5 . B5 .|C6 - A5 . F5 . A5 . G5 . E5 . D5 . C5 .|D5 - - . G4 - - . C5 - - - - - . .|' +
+    'A5 - C6 - A5 . F5 . G5 . A5 . F5 . D5 .|B4 . D5 . G5 . B5 . A5 . G5 . D5 . B4 .|G5 - E5 . G5 . B5 . A5 . G5 . E5 . G5 .|A5 - - . C6 - - . B5 - G5 . D6 - - .|' +
+    'C6 . B5 . A5 . G5 . A5 - F5 . A5 . C6 .|B5 . A5 . G5 . F5 . G5 - D5 . G5 . B5 .|C6 . G5 . E5 . G5 . A5 . F5 . D5 . B4 .|C5 - - - E5 - - - G5 - - - C6 - . .');
+  const CH = ['C', 'Am', 'F', 'G', 'C', 'Am', 'F', 'G', 'F', 'G', 'Em', 'Am', 'F', 'G', 'F', 'C'];
+  const TONES = { C: [48, 52, 55], Am: [45, 48, 52], F: [41, 45, 48], G: [43, 47, 50], Em: [40, 43, 47] };
+  const KICK = 'x...x...x...x...', SNARE = '....x.......x..x', HAT = 'x.xxx.xxx.xxx.xx';
+  const BPM = 138, STEP = 60 / BPM / 4;
+  let waves = null, noise = null, st = 0, nextT = 0, on = false, hold = {}, out = null;
+  const pulse = (c, duty) => { const n = 64, re = new Float32Array(n), im = new Float32Array(n); for (let k = 1; k < n; k++) im[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty); return c.createPeriodicWave(re, im); };
+  function tone(c, wave, m, t, dur, v, slide) {
+    const o = c.createOscillator(), g = c.createGain(); if (typeof wave === 'string') o.type = wave; else o.setPeriodicWave(wave);
+    o.frequency.setValueAtTime(hz(m), t); if (slide) o.frequency.exponentialRampToValueAtTime(hz(m + slide), t + Math.min(dur, 0.12));
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.004); g.gain.setValueAtTime(v * 0.8, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function hiss(c, t, dur, v, hp) { const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = noise; f.type = 'highpass'; f.frequency.value = hp; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(out); s.start(t); s.stop(t + dur + 0.02); }
+  return {
+    start(M, c, t0) {
+      if (!waves) { waves = { p25: pulse(c, 0.25), p12: pulse(c, 0.125), p50: pulse(c, 0.5) }; const len = c.sampleRate * 0.5, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0); let v = 0; for (let k = 0; k < len; k++) { if (k % 3 === 0) v = Math.random() * 2 - 1; d[k] = v; } noise = b; } // stepped noise = crunchy 8-bit drums
+      out = c.createGain(); out.gain.value = 2.2; out.connect(M.dk || M.out); st = 0; nextT = t0; on = true;
+    },
+    stop() { on = false; if (out) { const o = out; setTimeout(() => { try { o.disconnect(); } catch (e) { /* ignore */ } }, 600); } },
+    tick(M, c) {
+      if (!on) return;
+      while (nextT < c.currentTime + 0.12) {
+        const t = nextT, i = st % LEAD.length, bar = Math.floor(i / 16), k = i % 16, ch = TONES[CH[bar % CH.length]];
+        // lead: hold length counted from the following '-' steps
+        const n = LEAD[i]; if (n !== '-' && n !== '.') { let len = 1; while (LEAD[(i + len) % LEAD.length] === '-') len++; tone(c, waves.p25, midi(n), t, len * STEP * 0.95, 0.07); tone(c, waves.p50, midi(n) - 12, t + STEP * 0.5, len * STEP * 0.7, 0.012); }
+        // arpeggio: fast rolling chord tones an octave up
+        tone(c, waves.p12, ch[k % 3] + 24, t, STEP * 0.85, 0.022);
+        // bass: octave bounce on the triangle
+        if (k % 2 === 0) tone(c, 'triangle', ch[0] - 12 + (k % 4 === 2 ? 12 : 0), t, STEP * 1.8, 0.16);
+        // drums
+        if (KICK[k] === 'x') tone(c, 'square', 40, t, 0.09, 0.09, -14);
+        if (SNARE[k] === 'x') hiss(c, t, 0.12, 0.12, 1200);
+        if (HAT[k] === 'x') hiss(c, t, 0.03, 0.035, 7000);
+        nextT += STEP; st++;
+      }
     },
   };
 })();

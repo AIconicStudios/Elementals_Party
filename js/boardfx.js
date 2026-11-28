@@ -143,6 +143,8 @@
     const m = /^\s*(\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*)/u.exec(title || ''), icon = m ? m[1] : null, key = icon || (title || '').split(' ')[0];
     // once an event has been explained, its repeat shows the picture and a short title only
     if (sub && ms < 4000 && seen.has(key) && !/bank|next|due|Remember/i.test(sub)) { sub = ''; ms = Math.max(900, ms * 0.6); }
+    // keep subtitles short: a long one keeps just its first clause (the tutorial cards are left whole)
+    if (sub && ms < 4000 && sub.length > 60 && !/due|Remember/i.test(sub)) { const cut = sub.split(/(?<=[.!?])\s+|\s+—\s+|;\s+/)[0]; if (cut.length >= 8) sub = cut; }
     seen.add(key);
     const pr = banner0(icon ? title.replace(m[0], '').trim() : title, sub, ms, small);
     if (this.ui.banner) this.ui.banner.icon = icon;

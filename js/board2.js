@@ -157,8 +157,8 @@ Object.assign(BoardGame.prototype, {
     if (Settings.test) return;
     const stops = BD.BRANCHES.map((B, f) => ({ f, x: (BD.spaces[B.a].x + BD.spaces[B.b].x) / 2 * 0.5 + B.ctrl.x * 0.5, y: (BD.spaces[B.a].y + BD.spaces[B.b].y) / 2 * 0.5 + B.ctrl.y * 0.5 }));
     for (const s of stops) { const G = BD.GUARDS[this.guard[s.f]], B = BD.BRANCHES[s.f]; Board.cam.target = s; Board.ui.spot = s.f;
-      await Board.banner(`${B.icon} ${B.name}`, `Guarded by ${G.icon} ${G.name}${this.guard[s.f] === 'gate' ? ' — bring a 🗝️ Key' : this.guard[s.f] === 'competitor' ? ' — beat his dice to pass' : this.guard[s.f] === 'collector' ? ' — he charges a toll' : ' — he blocks one road and switches every round'}.`, 2100, true); }
-    const zoo = BD.spaces.find(s => s.type === 'zoo'); if (zoo) { Board.cam.target = zoo; await Board.banner('🦖 The Zoo', 'Don\'t feed the animals… or do. It bites whoever lands here!', 2100, true); }
+      await Board.banner(`${B.icon} ${B.name}`, `${G.icon} ${this.guard[s.f] === 'gate' ? '🔒 → 🗝️' : this.guard[s.f] === 'competitor' ? '🎲 beat his roll' : this.guard[s.f] === 'collector' ? '🪙 toll' : '🚧 ↔ every round'}`, 1700, true); }
+    const zoo = BD.spaces.find(s => s.type === 'zoo'); if (zoo) { Board.cam.target = zoo; await Board.banner('🦖 The Zoo', '🍖 feed it passing · 😬 it bites on landing', 1700, true); }
     Board.cam.target = null; Board.ui.spot = null;
   },
   async roundStart() {
