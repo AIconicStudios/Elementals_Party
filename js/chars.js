@@ -22,11 +22,11 @@ const CLAN = [
   { wrap: '#2a2f6a', wrap2: '#fff3b0', hem: '#c8b8ff', pattern: 'moon', orn: 'moon', glove: '#3a3f80', cuff: '#c8b8ff', shoe: '#1a1d40', sole: '#c8b8ff', lace: '#fff3b0' },                   // Nyx (Night)
   { wrap: '#9aa6b4', wrap2: '#5a6676', hem: '#5a6676', pattern: 'rivet', orn: 'gear', glove: '#ffb03a', cuff: '#5a6676', shoe: '#5a6676', sole: '#2a2e36', lace: '#ffb03a', boot: true },      // Rivet (Metal)
   // ---- the Ring Legends (15-19): wrestling crossover heroes
-  { wrap: '#1a1a22', wrap2: '#e8323e', hem: '#e8323e', pattern: 'plain', orn: 'mohawk', glove: '#e8323e', cuff: '#1a1a22', shoe: '#1a1a22', sole: '#e8323e', lace: '#ffffff', boot: true },   // Brick
-  { wrap: '#2ad07a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'plain', orn: 'crest', glove: '#ffd34d', cuff: '#2ad07a', shoe: '#2ad07a', sole: '#ffd34d', lace: '#ffffff', boot: true },   // Rayo
-  { wrap: '#7a2ad0', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'star', orn: 'crown', glove: '#ffd34d', cuff: '#7a2ad0', shoe: '#ffd34d', sole: '#7a2ad0', lace: '#ffffff', boot: true },     // Duke
-  { wrap: '#1e2a1e', wrap2: '#7adf3a', hem: '#7adf3a', pattern: 'plain', orn: 'longhair', glove: '#2a2a2a', cuff: '#7adf3a', shoe: '#1e2a1e', sole: '#7adf3a', lace: '#7adf3a', boot: true }, // Viper
-  { wrap: '#e8323e', wrap2: '#ffffff', hem: '#ffffff', pattern: 'star', orn: 'bandana', glove: '#3a7aff', cuff: '#ffffff', shoe: '#3a7aff', sole: '#ffffff', lace: '#e8323e', boot: true },  // Tank
+  { wrap: '#1a1a22', wrap2: '#e8323e', hem: '#e8323e', pattern: 'none', orn: null, glove: '#e8323e', cuff: '#1a1a22', shoe: '#1a1a22', sole: '#e8323e', lace: '#ffffff', boot: true },   // Brick
+  { wrap: '#2ad07a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'none', orn: null, glove: '#ffd34d', cuff: '#2ad07a', shoe: '#2ad07a', sole: '#ffd34d', lace: '#ffffff', boot: true },   // Rayo
+  { wrap: '#7a2ad0', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'none', orn: null, glove: '#ffd34d', cuff: '#7a2ad0', shoe: '#ffd34d', sole: '#7a2ad0', lace: '#ffffff', boot: true },     // Duke
+  { wrap: '#1e2a1e', wrap2: '#7adf3a', hem: '#7adf3a', pattern: 'none', orn: null, glove: '#2a2a2a', cuff: '#7adf3a', shoe: '#1e2a1e', sole: '#7adf3a', lace: '#7adf3a', boot: true }, // Viper
+  { wrap: '#e8323e', wrap2: '#ffffff', hem: '#ffffff', pattern: 'star', orn: null, glove: '#3a7aff', cuff: '#ffffff', shoe: '#3a7aff', sole: '#ffffff', lace: '#e8323e', boot: true },  // Tank
   // ---- NPCs (same species, never playable): 20 referee, 21 show host, 22 chef, 23 guard, 24 sensei
   { wrap: '#1a1a1a', wrap2: '#ffffff', hem: '#ffffff', pattern: 'plain', orn: 'refcap', glove: '#ffffff', cuff: '#1a1a1a', shoe: '#1a1a1a', sole: '#ffffff', lace: '#ffffff' },
   { wrap: '#7a1a3a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'plain', orn: 'tophat', glove: '#ffffff', cuff: '#e8e8f0', shoe: '#1a1a2a', sole: '#3a3a4a', lace: '#ffd34d' },

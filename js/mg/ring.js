@@ -16,9 +16,22 @@
     gloves:  { name: 'Golden Gloves', pick: true },
   };
   const WEAPONS = ['chair', 'kendo', 'can', 'guitar', 'ext', 'chicken'], PICKS = ['soda', 'star', 'gloves'];
-  const FIN = { 15: ['press', 'Mountain Drop'], 16: ['spring', 'Sky Rayo'], 17: ['spin', 'Royal Spin'], 18: ['ddt', 'Fang Drop'], 19: ['lariat', 'Freight Train'] };
-  const FINB = [['spring', 'Tornado Spring'], ['lariat', 'Tidal Lariat'], ['spin', 'Blaze Spin'], ['press', 'Quake Press']];
-  const finOf = el => FIN[el] || FINB[EL_BASE[el] ?? 0];
+  // every hero has their own finisher: [animation, name, effect colours, effect style, duration]
+  const FIN = {
+    0: ['tornado', 'Cyclone Spin', ['#e8f4ff', '#9fd8ff'], 'wind', 1.5],     1: ['splash', 'Tidal Splash', ['#4f8dff', '#bfe4ff'], 'drops', 1.4],
+    2: ['discus', 'Blaze Lariat', ['#ff6a3d', '#ffd34d'], 'fire', 1.3],       3: ['quake', 'Earthquake Stomp', ['#a87a48', '#6fae3c'], 'rocks', 1.4],
+    4: ['vanish', 'Smoke Screen', ['#cfd3dc', '#8a8e98'], 'smoke', 1.4],      5: ['moonsault', 'Rainbow Moonsault', ['#ffd23a', '#9fd0ff'], 'drops', 1.3],
+    6: ['powerbomb', 'Boulder Bomb', ['#b0a690', '#ffcc40'], 'rocks', 1.4],    7: ['heelkick', 'Petal Kick', ['#ff8ab8', '#ffffff'], 'petals', 1.2],
+    8: ['slide', 'Glacier Slide', ['#bfe8ff', '#ffffff'], 'ice', 1.2],        9: ['spear', 'Thunder Spear', ['#ffe03a', '#b07aff'], 'bolt', 1.1],
+    10: ['spinebuster', 'Sandstorm Buster', ['#e0c48a', '#b08a4a'], 'sand', 1.3], 11: ['meteor', 'Magma Meteor', ['#ff8a3a', '#ffd34d'], 'fire', 1.6],
+    12: ['corkscrew', 'Starlight 450', ['#fff3b0', '#ffcf3a'], 'stars', 1.5], 13: ['chokeslam', 'Eclipse Slam', ['#8a7aff', '#2a2f6a'], 'dark', 1.4],
+    14: ['piledriver', 'Gear Grinder', ['#9aa6b4', '#ffb03a'], 'sparks', 1.3],
+    15: ['press', 'Mountain Drop', ['#e8323e', '#ffd34d'], 'rocks', 1.4],      16: ['spring', 'Sky Rayo', ['#2ad07a', '#ffd34d'], 'wind', 1.25],
+    17: ['spin', 'Royal Spin', ['#c86aff', '#ffd34d'], 'stars', 1.3],         18: ['ddt', 'Fang Drop', ['#7adf3a', '#1e2a1e'], 'dark', 1.0],
+    19: ['lariat', 'Freight Train', ['#3a7aff', '#e8323e'], 'sparks', 1.4],
+  };
+  const finOf = el => FIN[el] || FIN[EL_BASE[el] || 0];
+  window.RING_FIN = FIN;
   const THEMES = [
     { name: 'Grand Arena', mat: '#e8e4f0', apron: '#2a1a5a', apronTxt: '#ffd34d', rope: ['#e8323e', '#ffffff', '#3a7aff'], post: '#c8c8d0', pad: '#e8323e', bg0: '#0a0618', bg1: '#2a1050', light: 'rgba(255,220,140,', floor: '#1a1428' },
     { name: 'Rooftop Rumble', mat: '#dfe8f0', apron: '#101820', apronTxt: '#5affd8', rope: ['#5affd8', '#ff5ad8', '#5affd8'], post: '#3a4250', pad: '#ff5ad8', bg0: '#020414', bg1: '#141a40', light: 'rgba(120,255,230,', floor: '#20262e', city: true },
@@ -71,7 +84,7 @@
     dropHeld(S, W) { const it = W.item; if (!it) return; it.holder = -1; it.x = W.x + W.face * 20; it.z = W.z; it.h = 40; it.vh = 120; it.vx = W.face * 60; W.item = null; },
     // ------------------------------------------------------------------ scripted moves (both wrestlers locked into an animation)
     startMove(m, S, A, V, kind, o = {}) {
-      const mv = { kind, a: A.i, v: V.i, t: 0, dur: { suplex: 1.0, slam: 0.9, flip: 0.75, dive: 0.8, press: 1.4, spring: 1.25, spin: 1.3, ddt: 1.0, lariat: 1.4, double: 1.1 }[kind] || 1, x0: A.x, z0: A.z, vx0: V.x, vz0: V.z, face: A.face, fin: !!o.fin, mate: o.mate, h0: A.h };
+      const F = o.fin ? finOf(m.players[A.i].el.id) : null; const mv = { kind, a: A.i, v: V.i, t: 0, F, dur: F ? F[4] : { suplex: 1.0, slam: 0.9, flip: 0.75, dive: 0.8, double: 1.1 }[kind] || 1, x0: A.x, z0: A.z, vx0: V.x, vz0: V.z, face: A.face, fin: !!o.fin, mate: o.mate, h0: A.h };
       if (A.st === 'grab') A.held = undefined; A.st = 'move'; A.t = 0; V.st = 'moved'; V.t = 0; V.mood = 'shock'; A.mood = 'effort'; S.mv = S.mv || []; S.mv.push(mv);
       if (o.mate !== undefined) { const M = S.w[o.mate]; M.st = 'move'; M.t = 0; }
       if (o.fin) { const [, nm] = finOf(m.players[A.i].el.id); this.say(S, nm.toUpperCase() + '!', m.players[A.i].color, 'FINISHER', 1.6); A.mom = 0; S.flashT = 1.2; Sfx.tone(220, 0.5, 'sawtooth', 0.06, 200); }
@@ -90,9 +103,32 @@
         case 'spin': { A.rot = 0; A.spin = q < 0.75 ? q * 30 : 0; A.x = ax + f * 30 * Math.max(0, (q - 0.6) / 0.15) ; V.x = q > 0.75 ? mv.vx0 + f * 160 * e((q - 0.75) / 0.25) : mv.vx0; V.h = q > 0.75 ? Math.sin((q - 0.75) / 0.25 * Math.PI) * 80 : 0; V.rot = q > 0.75 ? f * Math.PI * 1.5 * (q - 0.75) / 0.25 : 0; break; }
         case 'ddt': { const k = Math.min(1, q / 0.6), d = Math.max(0, (q - 0.6) / 0.4); A.h = Math.sin(k * Math.PI) * 70; A.x = ax - f * 30 * k; A.rot = f * 1.3 * d; V.x = ax + f * 20 - f * 20 * k; V.h = Math.sin(k * Math.PI) * 60; V.rot = -f * Math.PI * 0.9 * e(k); break; }
         case 'lariat': { if (q < 0.55) { const k = q / 0.55; A.x = ax - f * 200 * Math.sin(k * Math.PI); } else { const k = (q - 0.55) / 0.45; V.rot = f * Math.PI * 2 * e(k); V.h = Math.sin(k * Math.PI) * 90; V.x = mv.vx0 + f * 60 * k; } break; }
+        case 'tornado': { const up = Math.min(1, q / 0.65), d = Math.max(0, (q - 0.65) / 0.35); V.x = ax + f * 40; V.h = 150 * e(up) * (1 - d * d); V.spin = up * 22; V.rot = -f * Math.PI / 2 * d; A.spin = q * 14; break; }
+        case 'splash': { V.rot = -f * Math.PI / 2 * e(Math.min(1, q / 0.2)); const k = Math.max(0, (q - 0.2) / 0.8); A.x = ax + (mv.vx0 - ax) * e(k); A.h = Math.sin(k * Math.PI) * 230; A.rot = -f * Math.PI / 2 * e(Math.max(0, (k - 0.5) / 0.5)); break; }
+        case 'discus': { const k = Math.min(1, q / 0.65), d = Math.max(0, (q - 0.65) / 0.35); A.spin = k * 26; A.x = ax + f * 20 * k; V.x = mv.vx0 + f * 140 * e(d); V.h = Math.sin(d * Math.PI) * 110; V.rot = f * Math.PI * 2 * e(d) - (d >= 1 ? f * Math.PI * 0.5 : 0); break; }
+        case 'quake': { const k = Math.min(1, q / 0.5), d = Math.max(0, (q - 0.5) / 0.5); A.h = Math.sin(k * Math.PI) * 190; A.x = ax - f * 30 * Math.sin(k * Math.PI); V.h = Math.sin(d * Math.PI) * 120; V.rot = -f * Math.PI / 2 * e(d) + (d > 0 ? Math.sin(d * 9) * 0.3 : 0); break; }
+        case 'vanish': { const k = Math.min(1, q / 0.35); A.alpha = q < 0.35 ? 1 - k : q < 0.45 ? (q - 0.35) / 0.1 : 1; A.x = q < 0.35 ? ax : mv.vx0 + f * 60; const d = Math.max(0, (q - 0.5) / 0.5); A.rot = -f * Math.PI * 2 * e(d) * -1; A.h = Math.sin(d * Math.PI) * 70; V.face = -f; V.x = mv.vx0 - f * 60 * e(d); V.rot = d > 0.4 ? f * Math.PI / 2 * e((d - 0.4) / 0.6) : 0; break; }
+        case 'moonsault': { V.rot = -f * Math.PI / 2 * e(Math.min(1, q / 0.2)); const k = Math.max(0, (q - 0.2) / 0.8); A.x = ax + (mv.vx0 - ax) * e(k); A.h = Math.sin(k * Math.PI) * 200; A.rot = f * Math.PI * 2 * e(k) - f * Math.PI / 2 * Math.max(0, (k - 0.85) / 0.15); break; }
+        case 'powerbomb': { const up = Math.min(1, q / 0.5), d = Math.max(0, (q - 0.65) / 0.35); V.x = ax + f * 25; V.h = 120 * e(up) * (1 - d * d) + 10 * (1 - d); V.rot = f * Math.PI * e(up) - f * Math.PI * 0.5 * d; A.h = 0; break; }
+        case 'heelkick': { const k = Math.min(1, q / 0.6), d = Math.max(0, (q - 0.6) / 0.4); A.spin = k * 18; A.h = Math.sin(k * Math.PI) * 60; V.x = mv.vx0 + f * 120 * e(d); V.h = Math.sin(d * Math.PI) * 60; V.rot = -f * Math.PI / 2 * e(d) * -1; break; }
+        case 'slide': { const k = Math.min(1, q / 0.55), d = Math.max(0, (q - 0.5) / 0.5); A.x = ax - f * 160 + f * 200 * e(k); A.rot = -f * Math.PI / 2 * 0.85; A.h = -4; V.h = Math.sin(d * Math.PI) * 130; V.rot = f * Math.PI * 2 * e(d) + f * Math.PI / 2 * (d >= 1 ? 1 : 0); V.x = mv.vx0 + f * 40 * d; break; }
+        case 'spear': { const back = Math.min(1, q / 0.35), dash = Math.max(0, Math.min(1, (q - 0.4) / 0.2)), d = Math.max(0, (q - 0.6) / 0.4); A.x = ax - f * 220 * e(back) + f * (220 + 60) * dash; A.rot = f * 0.6 * dash * (1 - d); V.x = mv.vx0 + f * 130 * e(d); V.rot = -f * Math.PI / 2 * e(d) * -1; V.h = Math.sin(d * Math.PI) * 40; break; }
+        case 'spinebuster': { const up = Math.min(1, q / 0.45), d = Math.max(0, (q - 0.55) / 0.45); V.x = ax + f * 30; V.h = 70 * e(up) * (1 - d); V.rot = -f * Math.PI / 2 * e(up); A.spin = up * 6 + d * 0; break; }
+        case 'meteor': { V.rot = -f * Math.PI / 2 * e(Math.min(1, q / 0.2)); const k = Math.max(0, (q - 0.2) / 0.8); A.x = ax + (mv.vx0 - ax) * e(k); A.h = k < 0.6 ? 520 * e(k / 0.6) : 520 * (1 - e((k - 0.6) / 0.4)); A.rot = -f * Math.PI / 2 * Math.max(0, (k - 0.6) / 0.4); break; }
+        case 'corkscrew': { V.rot = -f * Math.PI / 2 * e(Math.min(1, q / 0.2)); const k = Math.max(0, (q - 0.2) / 0.8); A.x = ax + (mv.vx0 - ax) * e(k); A.h = Math.sin(k * Math.PI) * 240; A.rot = -f * Math.PI * 2.5 * e(k); A.spin = k * 10; break; }
+        case 'chokeslam': { const up = Math.min(1, q / 0.5), d = Math.max(0, (q - 0.7) / 0.3); V.x = ax + f * 45; V.h = 150 * e(up) * (1 - d * d); V.rot = -f * Math.PI / 2 * e(d); A.rot = f * 0.15 * up; break; }
+        case 'piledriver': { const up = Math.min(1, q / 0.45), d = Math.max(0, (q - 0.6) / 0.4); V.x = ax + f * 18; V.h = 70 * e(up) * (1 - d) + 30 * (1 - d) * up; V.rot = f * Math.PI * e(up) - f * Math.PI * 0.5 * d * 0; A.h = Math.sin(Math.min(1, Math.max(0, (q - 0.45) / 0.3)) * Math.PI) * 50; if (d >= 1) V.rot = -f * Math.PI / 2; break; }
         case 'double': { const k = Math.min(1, q / 0.6), d = Math.max(0, (q - 0.6) / 0.4); V.h = 130 * e(k) * (1 - d * d); V.rot = -f * Math.PI * e(k); V.x = ax + f * 30; break; }
       }
       return { A, V };
+    },
+    finTrail(S, mv) {
+      const q = Math.min(1, mv.t / mv.dur), ps = this.movePose(mv, q, S), [c0, c1] = mv.F[2], st = mv.F[3];
+      if (st === 'dark') S.dark = Math.max(S.dark || 0, Math.sin(q * Math.PI) * 0.55);
+      for (const o of [ps.A, ps.V]) for (let k = 0; k < 2; k++) {
+        const up = st === 'fire' || st === 'smoke' || st === 'stars' || st === 'wind' ? 1 : -1;
+        S.fx.push({ k: 'p', st, x: o.x + R.range(-22, 22), z: (o.z || 0) + R.range(-10, 10), h: (o.h || 0) + R.range(20, 90), vx: R.range(-60, 60), vz: 0, vh: up * R.range(30, 120), t: 0, life: R.range(0.35, 0.7), col: Math.random() < 0.5 ? c0 : c1, r: R.range(3, 7), rot: Math.random() * 6 });
+      }
     },
     endMove(m, S, mv) {
       const A = S.w[mv.a], V = S.w[mv.v], pose = this.movePose(mv, 1, S);
@@ -101,7 +137,7 @@
       const dmg = mv.fin ? 32 : { suplex: 14, slam: 12, flip: 12, dive: 18, double: 22 }[mv.kind] || 10;
       if (mv.kind === 'dive' && !mv.hits) { A.hp = Math.max(0, A.hp - 6); this.down(A, 0, 1.2); this.say(S, 'CRASH AND BURN!', '#ff8a8a', '', 1); Sfx.boom(); MGH.shake(6); V.st = V.st === 'moved' ? 'idle' : V.st; return; }
       V.st = 'idle'; this.hit(m, S, A, V, dmg, 'down', { push: mv.face * (mv.fin ? 220 : 120), big: mv.fin, move: true });
-      if (mv.fin) { V.hurtFin = 6; S.slow = 0.45; for (let k = 0; k < 24; k++) S.flash.push({ x: R.range(0, 1280), y: R.range(60, 300), t: R.range(0, 0.4) }); Sfx.tone(80, 0.6, 'sawtooth', 0.08, -40); }
+      if (mv.fin) { const [c0, c1] = mv.F[2]; S.fx.push({ k: 'ring', x: V.x, z: V.z, h: 0, t: 0, life: 0.6, col: c0 }); for (let k = 0; k < 30; k++) { const a = Math.random() * 6.28, sp = R.range(120, 380); S.fx.push({ k: 'p', st: mv.F[3], x: V.x, z: V.z, h: 20, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp * 0.3, vh: R.range(150, 420), t: 0, life: R.range(0.5, 0.9), col: k % 2 ? c0 : c1, r: R.range(4, 9), rot: a }); } V.hurtFin = 6; S.slow = 0.45; for (let k = 0; k < 24; k++) S.flash.push({ x: R.range(0, 1280), y: R.range(60, 300), t: R.range(0, 0.4) }); Sfx.tone(80, 0.6, 'sawtooth', 0.08, -40); }
       if (mv.kind === 'suplex') this.down(A, 0, 0.45);
       A.mom = Math.min(100, A.mom + (mv.fin ? 0 : 14));
       // near the ropes with a battered foe: over the top they go!
@@ -115,7 +151,7 @@
       S.ropes = S.ropes.map(r => Math.max(0, r - dt * 3)); S.flashT = Math.max(0, (S.flashT || 0) - dt0);
       S.flash.forEach(f => f.t += dt0); S.flash = S.flash.filter(f => f.t < 0.5);
       // scripted moves
-      (S.mv || []).forEach(mv => { mv.t += dt; if (mv.kind === 'dive' && !mv.checked && mv.t / mv.dur > 0.85) { mv.checked = true; const V = S.w[mv.v]; mv.hits = !V.elim && Math.hypot(V.x - mv.tx, (V.z - mv.tz) * 1.5) < 60 && V.st !== 'move'; if (mv.hits) { V.st = 'moved'; } } if (mv.t >= mv.dur) { mv.done = true; this.endMove(m, S, mv); } });
+      (S.mv || []).forEach(mv => { mv.t += dt; if (mv.F) this.finTrail(S, mv); if (mv.kind === 'dive' && !mv.checked && mv.t / mv.dur > 0.85) { mv.checked = true; const V = S.w[mv.v]; mv.hits = !V.elim && Math.hypot(V.x - mv.tx, (V.z - mv.tz) * 1.5) < 60 && V.st !== 'move'; if (mv.hits) { V.st = 'moved'; } } if (mv.t >= mv.dur) { mv.done = true; this.endMove(m, S, mv); } });
       S.mv = (S.mv || []).filter(mv => !mv.done);
       S.w.forEach(W => this.wrestler(m, S, W, dt));
       const free = W => !W.elim && ['idle', 'walk', 'run', 'hurt', 'strike', 'getup'].includes(W.st) && W.h < 5;
@@ -284,7 +320,7 @@
         it.vx = (it.vx || 0) * Math.pow(0.4, dt); it.x = clamp(it.x, -OX, OX); it.z = clamp(it.z, -RD + 8, OZF);
         if (it.thrown !== undefined && Math.abs(it.vx) > 200) { const T = S.w[it.thrown]; const V = this.foes(m, S, T).find(o => Math.abs(o.x - it.x) < 40 && Math.abs(o.z - it.z) < 30 && !['down', 'move', 'moved'].includes(o.st)); if (V) { const I = ITEMS[it.k]; this.hit(m, S, T, V, Math.round((I.dmg || 6) * 0.9), 'down', { push: Math.sign(it.vx) * 120, weapon: true }); it.vx *= -0.2; it.vh = 200; it.thrown = undefined; it.uses--; if (it.uses <= 0) { const p = P(it.x, it.z, 30); MGH.burst(p.x, p.y, ['#c8c8d0', '#fff'], 16, { speed: 240 }); S.items.splice(S.items.indexOf(it), 1); } } }
       });
-      S.fx.forEach(f => f.t += dt); S.fx = S.fx.filter(f => f.t < f.life);
+      S.fx.forEach(f => { f.t += dt; if (f.k === 'p') { f.x += f.vx * dt; f.z += f.vz * dt; f.h += f.vh * dt; if (f.st !== 'fire' && f.st !== 'smoke' && f.st !== 'stars' && f.st !== 'wind') f.vh -= 900 * dt; if (f.h < 0) { f.h = 0; f.vh *= -0.3; f.vx *= 0.5; } f.rot += dt * 6; } }); S.fx = S.fx.filter(f => f.t < f.life); S.dark = Math.max(0, (S.dark || 0) - dt * 0.8);
     },
     refUpdate(S, dt) { const R0 = S.ref; if (S.count) { const V = S.w[S.count.v]; R0.tx = V.x + 60; R0.tz = V.z + 8; } else { const mx = S.w.filter(w => !w.elim).reduce((a, w) => a + w.x, 0) / Math.max(1, S.w.filter(w => !w.elim).length); R0.tx = mx > 0 ? -RW + 70 : RW - 70; R0.tz = -RD + 40; }
       R0.x += (R0.tx - R0.x) * Math.min(1, dt * 3); R0.z += (R0.tz - R0.z) * Math.min(1, dt * 3); R0.slap = Math.max(0, R0.slap - dt); R0.face = S.count ? -1 : (R0.x < 0 ? 1 : -1); },
@@ -332,10 +368,20 @@
       S.w.forEach(W => list.push({ z: W.z + (W.st === 'perch' ? -20 : 0), f: () => this.drawW(m, S, g, W, t) }));
       S.items.forEach(it => { if (it.holder < 0) list.push({ z: it.z - 1, f: () => this.drawItem(g, it, P(it.x, it.z, it.h), t) }); });
       list.push({ z: S.ref.z, f: () => { const p = P(S.ref.x, S.ref.z), r = 28 * p.k; if (S.count) { g.save(); g.translate(p.x, p.y); Char.npc(g, 0, -r * 1.0 + (S.ref.slap > 0 ? 6 : 0), r, 'ref', { t, mood: 'determined', noIdle: true, look: { x: -1, y: 0.4 }, hands: S.ref.slap > 0 ? { n: { x: -1.2, y: 0.9, d: 90, o: true, m: true }, f: { x: 0.8, y: 0.2, d: 0, o: true, m: false } } : undefined }); g.restore(); } else Char.npc(g, p.x, p.y - r * 1.25, r, 'ref', { t, mood: 'neutral', look: { x: S.ref.face, y: 0 } }); } });
-      S.fx.forEach(f => list.push({ z: f.z + 1, f: () => { if (f.t < 0) return; const q = f.t / f.life, p = P(f.x, f.z, f.h); g.globalAlpha = 0.7 * (1 - q); g.fillStyle = '#f4f8ff'; g.beginPath(); g.arc(p.x, p.y, f.r * (1 + q), 0, 7); g.fill(); g.globalAlpha = 1; } }));
+      S.fx.forEach(f => list.push({ z: f.z + 1, f: () => { if (f.t < 0) return; const q = f.t / f.life, p = P(f.x, f.z, f.h);
+        if (f.k === 'ring') { g.globalAlpha = 1 - q; g.strokeStyle = f.col; g.lineWidth = 8 * (1 - q) + 1; g.beginPath(); g.ellipse(p.x, p.y, 40 + q * 220, 14 + q * 70, 0, 0, 7); g.stroke(); g.globalAlpha = 1; return; }
+        if (f.k === 'p') { g.save(); g.globalAlpha = 1 - q; g.translate(p.x, p.y); g.rotate(f.rot); g.fillStyle = f.col; const r = f.r * p.k;
+          if (f.st === 'petals' || f.st === 'drops') { g.beginPath(); g.ellipse(0, 0, r, r * 0.55, 0, 0, 7); g.fill(); }
+          else if (f.st === 'ice' || f.st === 'rocks' || f.st === 'sparks') { g.beginPath(); g.moveTo(0, -r); g.lineTo(r * 0.7, 0); g.lineTo(0, r); g.lineTo(-r * 0.7, 0); g.closePath(); g.fill(); }
+          else if (f.st === 'stars') { MGH.star(g, 0, 0, r, f.col, 0, false); }
+          else if (f.st === 'bolt') { g.strokeStyle = f.col; g.lineWidth = 2.5; g.beginPath(); g.moveTo(-r, -r); g.lineTo(0, 0); g.lineTo(-r * 0.3, r * 0.3); g.lineTo(r, r * 1.2); g.stroke(); }
+          else { g.beginPath(); g.arc(0, 0, r * (1 + q * (f.st === 'smoke' || f.st === 'wind' ? 1.5 : 0.3)), 0, 7); g.fill(); }
+          g.restore(); return; }
+        g.globalAlpha = 0.7 * (1 - q); g.fillStyle = '#f4f8ff'; g.beginPath(); g.arc(p.x, p.y, f.r * (1 + q), 0, 7); g.fill(); g.globalAlpha = 1; } }));
       (S.mv || []).forEach(mv => { if (mv.kind === 'press' || mv.kind === 'spin' || mv.fin) {} });
       list.sort((a, b) => a.z - b.z).forEach(o => o.f());
       this.drawRingFront(g, S, th, t);
+      if (S.dark > 0.01) { g.fillStyle = `rgba(10,4,30,${S.dark})`; g.fillRect(0, 40, 1280, 680); }
       // front barricade + crowd heads
       g.fillStyle = '#14101e'; g.fillRect(0, 690, 1280, 30); for (let k = 0; k < 40; k++) { const x = k * 33 + 10, b = Math.abs(Math.sin(t * 6 + k * 1.7)) * (S.flashT > 0 ? 10 : 4); g.fillStyle = ['#3a2a4a', '#4a3a2a', '#2a3a4a'][k % 3]; g.beginPath(); g.arc(x, 712 - b, 15, 0, 7); g.fill(); }
       g.fillStyle = th.post; g.fillRect(0, 684, 1280, 8);
@@ -407,7 +453,7 @@
       let x = W.x, z = W.z, h = W.h, rot = 0, spin = 0, lying = W.st === 'down' || W.st === 'pinned' || (W.st === 'elim' && false);
       // inside a scripted move
       const mv = (S.mv || []).find(mv => mv.a === W.i || mv.v === W.i || mv.mate === W.i);
-      if (mv) { const q = Math.min(1, mv.t / mv.dur), ps = this.movePose(mv, q, S), o = mv.v === W.i ? ps.V : ps.A; x = o.x; z = mv.mate === W.i ? o.z + 22 : o.z; h = o.h; rot = o.rot; spin = o.spin || 0; lying = false; }
+      if (mv) { const q = Math.min(1, mv.t / mv.dur), ps = this.movePose(mv, q, S), o = mv.v === W.i ? ps.V : ps.A; x = o.x; z = mv.mate === W.i ? o.z + 22 : o.z; h = o.h; rot = o.rot; spin = o.spin || 0; lying = false; W._alpha = o.alpha; } else W._alpha = undefined;
       if (W.st === 'getup') { rot = -W.face * Math.PI / 2 * (1 - W.t / 0.35); }
       if (lying) rot = -W.face * Math.PI / 2;
       if (W.st === 'pin') { rot = -W.face * Math.PI * 0.42; h = -6; }
@@ -419,7 +465,7 @@
       g.strokeStyle = m.teams ? MG.TEAMC[W.team] : pl.color; g.lineWidth = 3; g.beginPath(); g.ellipse(p.x, gy + 2, 38 * p.k, 11 * p.k, 0, 0, 7); g.stroke();
       const stance = W.st === 'strike' ? Math.sin(Math.min(1, W.t / (W.strikeDur || 0.28)) * Math.PI) : 0;
       const mood = W.st === 'grab' ? 'effort' : W.st === 'strike' ? 'angry' : W.st === 'perch' ? 'cheer' : W.st === 'hurt' ? 'hurt' : W.st === 'run' ? 'determined' : W.st === 'whipped' ? 'shock' : W.mood;
-      g.save(); g.translate(p.x, gy - h * p.k);
+      g.save(); if (W._alpha !== undefined) g.globalAlpha = Math.max(0, W._alpha); g.translate(p.x, gy - h * p.k);
       if (rot) { g.translate(0, -r * 0.6); g.rotate(rot); g.translate(0, r * 0.6); }
       if (spin) g.scale(Math.cos(spin), 1);
       const lean = W.st === 'run' ? W.face * 0.25 : W.st === 'strike' ? W.face * 0.18 * stance : W.st === 'hurt' ? -W.face * 0.25 : 0; if (lean) g.rotate(lean);

@@ -549,8 +549,8 @@ const Shell = {
     ];
     this.menuList(g, items, 90, 190, 470, 70, 86);
     this.panel(g, 620, 170, 600, 440); this.text(g, 'The Ring Legends', 920, 214, 26, '#ffe680');
-    [15, 16, 17, 18, 19].forEach((c, k) => { const x = 690 + k * 115; this.hero(g, x, 330, 34, c, { mood: 'determined', t: this.t + k, look: { x: -0.5, y: 0 } }); this.text(g, ELEMENTS[c].mascot, x, 400, 17, ELEMENTS[c].color, 'center', 'bold'); this.text(g, ELEMENTS[c].name, x, 420, 12, '#d8ccff', 'center', '', null); });
-    this.wrap(g, 'Move · Ⓐ strike · Ⓑ grab, pick up, pin, climb. In a grab: Ⓐ knee, Ⓑ slam, direction + Ⓑ whip into the ropes. Full HYPE = finisher!', 920, 470, 540, 24, 17, '#f0ecff', 'center');
+    [15, 16, 17, 18, 19].forEach((c, k) => { const x = 690 + k * 115; this.hero(g, x, 330, 34, c, { mood: 'determined', t: this.t + k, look: { x: -0.5, y: 0 } }); this.text(g, ELEMENTS[c].mascot, x, 400, 17, ELEMENTS[c].color, 'center', 'bold'); this.text(g, ELEMENTS[c].name, x, 420, 12, '#d8ccff', 'center', '', null); if (window.RING_FIN && RING_FIN[c]) this.text(g, '💥 ' + RING_FIN[c][1], x, 440, 11, '#ffd34d', 'center', 'bold', null); });
+    this.wrap(g, 'Move · Ⓐ strike · Ⓑ grab, pick up, pin, climb. In a grab: Ⓐ knee, Ⓑ slam, direction + Ⓑ whip into the ropes. Full HYPE = your hero\'s own finisher!', 920, 480, 540, 24, 17, '#f0ecff', 'center');
     this.hints(g, [['A', 'Choose'], ['B', 'Back']]);
     if (this.any('b')) this.go('menu');
   },
