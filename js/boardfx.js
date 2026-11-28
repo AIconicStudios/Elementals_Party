@@ -166,3 +166,55 @@
     g.restore();
   };
 })();
+
+// ------------------------------------------------------------------ clarity layer: rings under tokens, reachable spaces, see-through HUD, living water
+(() => {
+  const tok0 = Board.drawToken;
+  Board.drawToken = function (g, p, x, y, hop, t, face) {
+    // every player stands on a disc of their own colour, so tokens read even from far away
+    g.save(); g.globalAlpha = 0.85; g.fillStyle = p.color; g.beginPath(); g.ellipse(x, y + 3, 30, 11, 0, 0, 7); g.fill(); g.globalAlpha = 1; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.stroke(); g.restore();
+    tok0.call(this, g, p, x, y, hop, t, face);
+    if (this.camZ < 0.6) { // a big name pin at overview zoom
+      const R0 = 20 / this.camZ, py = y - 120 - R0 * 1.6 - hop; g.save(); g.fillStyle = p.color; g.strokeStyle = '#fff'; g.lineWidth = R0 * 0.16; g.beginPath(); g.moveTo(x - R0 * 0.45, py + R0 * 0.8); g.lineTo(x, py + R0 * 1.55); g.lineTo(x + R0 * 0.45, py + R0 * 0.8); g.closePath(); g.fill(); g.stroke(); g.beginPath(); g.arc(x, py, R0, 0, 7); g.fill(); g.stroke();
+      Char.draw(g, x, py + R0 * 0.2, R0 * 0.72, p.el.id, p.color, { headOnly: true, noArms: true, noFeet: true, noShadow: true, mood: MGH.persona(p.mood || 'happy', p.el.id), seed: p.i * 1.7 }); g.restore(); }
+  };
+  // which spaces can be reached in exactly n more steps (both ways at a fork)
+  const reach = (pos, n) => { let cur = new Set([pos]); for (let k = 0; k < n; k++) { const nx = new Set(); cur.forEach(c => BD.spaces[c].nx.forEach(z => nx.add(z))); cur = nx; } return [...cur]; };
+  Board.reachFx = function (g, t) {
+    const U = this.ui, st = U.steps; if (!st || st.left <= 0) return; const p = this.game.P(st.i);
+    reach(p.pos, st.left).forEach(id => { const s = BD.spaces[id], k = 0.5 + 0.5 * Math.sin(t * 6);
+      MGH.glow(g, s.x, s.y, 70, p.color + '88'); g.strokeStyle = '#fff'; g.lineWidth = 4 + k * 3; g.beginPath(); g.ellipse(s.x, s.y, 44 + k * 8, 30 + k * 5, 0, 0, 7); g.stroke();
+      g.save(); g.translate(s.x, s.y - 70 - k * 10); g.fillStyle = p.color; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(-16, -18); g.lineTo(16, -18); g.lineTo(0, 4); g.closePath(); g.fill(); g.stroke(); g.restore(); });
+  };
+  // the creek and pond glitter
+  Board.waterFx = function (g, t) {
+    const C = [{ x: 2039, y: 432 }, { x: 2012, y: 776 }, { x: 1724, y: 949 }], bz = f => { const u = 1 - f; return { x: u * u * C[0].x + 2 * u * f * C[1].x + f * f * C[2].x, y: u * u * C[0].y + 2 * u * f * C[1].y + f * f * C[2].y }; };
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 26; k++) { const f = ((k / 26) + t * 0.05) % 1, p = bz(f), a = 0.35 * Math.max(0, Math.sin(t * 3 + k * 1.7)); g.fillStyle = `rgba(200,240,255,${a})`; g.beginPath(); g.ellipse(p.x + Math.sin(k * 3.3) * 10, p.y, 9, 2.5, 0.6, 0, 7); g.fill(); }
+    for (let k = 0; k < 10; k++) { const a = 0.35 * Math.max(0, Math.sin(t * 2 + k * 2.1)), x = 1706 + Math.sin(k * 5.1) * 60, y = 957 + Math.cos(k * 3.7) * 26; g.fillStyle = `rgba(220,250,255,${a})`; g.beginPath(); g.ellipse(x, y, 12, 3, 0, 0, 7); g.fill(); }
+    const rq = (t * 0.5) % 1; g.strokeStyle = `rgba(255,255,255,${0.4 * (1 - rq)})`; g.lineWidth = 2; g.beginPath(); g.ellipse(1690, 950, 10 + rq * 50, 4 + rq * 20, 0, 0, 7); g.stroke();
+    g.restore();
+  };
+  // the banks are the key landmarks: draw them a size larger
+  const bank0 = BoardArt.bank;
+  BoardArt.bank = function (g, x, y, ...a) { g.save(); g.translate(x, y); g.scale(1.3, 1.3); g.translate(-x, -y); bank0.call(this, g, x, y, ...a); g.restore(); };
+  // a soft depth haze at the top and bottom of the screen when zoomed in
+  const sun0 = BoardArt.sunlight;
+  BoardArt.sunlight = function (g, tod, t) { sun0.call(this, g, tod, t); const z = Board.camZ || 0.4; if (z < 0.8) return; const a = Math.min(1, (z - 0.8) / 0.4) * (tod === 'night' ? 0.25 : 0.18), col = tod === 'night' ? '20,30,70' : tod === 'golden' ? '255,200,140' : '235,245,255';
+    let gr = g.createLinearGradient(0, 0, 0, 160); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 0, 1280, 160);
+    gr = g.createLinearGradient(0, 720, 0, 580); gr.addColorStop(0, `rgba(${col},${a * 0.8})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(0, 560, 1280, 160); };
+  const wfx0 = Board.worldFx;
+  Board.worldFx = function (g, t) { this.waterFx(g, t); this.reachFx(g, t); wfx0.call(this, g, t); };
+  // corner cards turn see-through when a player, hold or the Ankar is behind them
+  const hud1 = Board.drawHUD;
+  Board.drawHUD = function (g, t) {
+    const rects = [[12, 8], [1012, 8], [12, 612], [1012, 612]], pts = [];
+    this.tok.forEach(T => pts.push(this.toScreen(T.x, T.y - 60))); const A = this.game.ankar; if (A && A.vx) pts.push(this.toScreen(A.vx, A.vy - 50));
+    this._hudFade = this._hudFade || [1, 1, 1, 1];
+    rects.forEach(([x, y], k) => { const hit = pts.some(q => q.x > x - 20 && q.x < x + 276 && q.y > y - 20 && q.y < y + 120); this._hudFade[k] += ((hit ? 0.45 : 1) - this._hudFade[k]) * 0.15; });
+    if (this._hudFade.every(f => f > 0.97)) return hud1.call(this, g, t);
+    // fade only the cards that cover something: draw the HUD clipped per card, the rest solid
+    g.save(); g.beginPath(); g.rect(0, 0, 1280, 720); rects.forEach(([x, y]) => g.rect(x + 256 + 10, y - 6, -(256 + 20), 112)); g.clip('evenodd'); hud1.call(this, g, t); g.restore();
+    rects.forEach(([x, y], k) => { g.save(); g.beginPath(); g.rect(x - 10, y - 6, 276, 112); g.clip(); g.globalAlpha = this._hudFade[k]; hud1.call(this, g, t); g.restore(); });
+  };
+})();

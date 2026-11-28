@@ -144,7 +144,8 @@
     const bz = (P0, C, E, q) => { const u = 1 - q; return { x: u * u * P0.x + 2 * u * q * C.x + q * q * E.x, y: u * u * P0.y + 2 * u * q * C.y + q * q * E.y }; };
     const ent = bz(A, B.ctrl, BD.spaces[B.b], 0.08), side = { x: first.y - A.y, y: -(first.x - A.x) }, l = Math.hypot(side.x, side.y) || 1;
     if (kind === 'gate') return BoardArt._gate(g, f, t, G, ent, A, first);
-    let x = ent.x + side.x / l * 70, y = ent.y + side.y / l * 70 + 6;
+    const inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][f], alg = [[1, 0], [0, 1], [-1, 0], [0, -1]][f];
+    let x = A.x + inw[0] * 105 - alg[0] * 95, y = A.y + inw[1] * 105 - alg[1] * 95 + 10;
     if (kind === 'alternator') { const onMain = G.alt[f] === 'main', S3 = BD.spaces[B.a + 1], st = Board.ui.altStomp && Board.ui.altStomp.f === f ? Math.min(1, (Board.ui.altStomp.t || 0) / 0.8) : 1;
       const tx = onMain ? (A.x + S3.x) / 2 : ent.x, ty = onMain ? (A.y + S3.y) / 2 + 4 : ent.y + 4, fx = onMain ? ent.x : (A.x + S3.x) / 2, fy = onMain ? ent.y + 4 : (A.y + S3.y) / 2 + 4;
       x = fx + (tx - fx) * st; y = fy + (ty - fy) * st - Math.sin(st * Math.PI) * 40; }

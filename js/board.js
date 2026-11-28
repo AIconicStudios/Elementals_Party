@@ -68,7 +68,7 @@ const BD = {
     }
     S.forEach(s => { s.nx = [(s.i + 1) % 40]; if (s.type === 'gate') s.owner = s.i / 10; if (s.type === 'bank') s.bank = (s.i - 5) / 10; });
     this.BRANCHES.forEach((B, side) => {
-      const A = S[side * 10 + 2], E = S[side * 10 + 8], dep = side % 2 ? 290 : 250, inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][side];
+      const A = S[side * 10 + 2], E = S[side * 10 + 8], dep = side % 2 ? 330 : 300, inw = [[0, 1], [-1, 0], [0, -1], [1, 0]][side];
       const cx = (A.x + E.x) / 2 + inw[0] * dep * 2, cy = (A.y + E.y) / 2 + inw[1] * dep * 2; B.ctrl = { x: cx, y: cy }; B.a = A.i; B.b = E.i; B.ids = [];
       B.types.forEach((type, k) => { const f = (k + 1) / 6, u = 1 - f, id = S.length; B.ids.push(id);
         S.push({ i: id, x: u * u * A.x + 2 * u * f * cx + f * f * E.x, y: u * u * A.y + 2 * u * f * cy + f * f * E.y, type, side, branch: side, m: side * 10 + 2 + k + 1, nx: [k < 4 ? id + 1 : E.i] }); });

@@ -35,12 +35,12 @@
     const P = [];
     BD.spaces.forEach(s => {
       const k = s.i % 10, side = s.side; if (s.i >= 40) { // branch spaces: their landmark sits on the inner side of the path
-        const B = BD.BRANCHES[s.branch], C = B.ctrl, dx = C.x - s.x, dy = C.y - s.y, l = Math.hypot(dx, dy) || 1, off = 62;
+        const B = BD.BRANCHES[s.branch], C = B.ctrl, dx = C.x - s.x, dy = C.y - s.y, l = Math.hypot(dx, dy) || 1, off = 80;
         if (['comb', 'mush', 'lantern', 'balloon', 'geyser'].includes(s.type)) P.push({ kind: s.type, x: s.x + dx / l * off, y: s.y + dy / l * off * 0.8 + 18, s });
         return; }
       if (['gate', 'bank', 'blue', 'red', 'swirl'].includes(s.type)) return;
       const out = [[0, -1], [1, 0], [0, 1], [-1, 0]][side], along = k === 4 ? -1 : k === 6 ? 1 : 0, alongV = [[1, 0], [0, 1], [-1, 0], [0, -1]][side];
-      const off = side === 0 ? 70 : side === 2 ? 88 : 86;
+      const off = side === 0 ? 100 : side === 2 ? 112 : 112;
       P.push({ kind: s.type, x: s.x + out[0] * off + alongV[0] * along * 34, y: s.y + out[1] * off + alongV[1] * along * 34 + (side === 0 ? 10 : 0), s });
     });
     // small landmarks give way to big ones when they would overlap
@@ -84,29 +84,34 @@
     // the main loop: a sandy road with worn verges, grain and tufts
     const C = BD.CORNERS, loop = () => { g.beginPath(); g.moveTo(C[0].x + 40, C[0].y); for (let k = 1; k <= 4; k++) { const a = C[k % 4], b = C[(k + 1) % 4]; g.arcTo(a.x, a.y, b.x, b.y, 40); } g.closePath(); };
     g.lineCap = 'round'; g.lineJoin = 'round';
-    for (const [lw, col] of [[104, 'rgba(50,80,25,0.32)'], [92, '#a8824e'], [82, '#d8b878'], [60, '#ecd49a'], [20, 'rgba(255,245,210,0.35)']]) { g.strokeStyle = col; g.lineWidth = lw; loop(); g.stroke(); }
+    for (const [lw, col] of [[132, 'rgba(30,60,15,0.22)'], [118, 'rgba(50,80,25,0.32)'], [106, '#a8824e'], [96, '#d8b878'], [72, '#ecd49a'], [24, 'rgba(255,245,210,0.35)']]) { g.strokeStyle = col; g.lineWidth = lw; loop(); g.stroke(); }
     for (let k = 0; k < 2800; k++) { const f = H(k + 11), side = Math.floor(H(k + 33) * 4), a = C[side], b = C[(side + 1) % 4], off = (H(k + 55) - 0.5) * 70; const x = a.x + (b.x - a.x) * f + (side % 2 ? off : 0), y = a.y + (b.y - a.y) * f + (side % 2 ? 0 : off); g.fillStyle = H(k) > 0.5 ? 'rgba(140,100,55,0.35)' : 'rgba(255,248,215,0.5)'; g.beginPath(); g.arc(x, y, 1.4 + H(k + 7) * 1.8, 0, 7); g.fill(); }
     for (let side = 0; side < 4; side++) { const a = C[side], b = C[(side + 1) % 4]; for (let k = 0; k < 90; k++) { const f = (k + H(k + side * 50)) / 90, off = (k % 2 ? 1 : -1) * (44 + H(k + side) * 8), x = a.x + (b.x - a.x) * f + (side % 2 ? off : 0), y = a.y + (b.y - a.y) * f + (side % 2 ? 0 : off); tuft(x, y + 4, 0.7 + H(k) * 0.4, k * 13 + side); } }
     // the four inner paths, each in its region's style
     BD.BRANCHES.forEach((B, bi) => { const A = BD.spaces[B.a], E = BD.spaces[B.b], cv = () => { g.beginPath(); g.moveTo(A.x, A.y); g.quadraticCurveTo(B.ctrl.x, B.ctrl.y, E.x, E.y); };
       const pal = [['#6a4a2a', '#8a6038', '#a87a48'], ['#5a3a1a', '#8a6034', '#b8884e'], ['#4a5a3a', '#6a7a4a', '#8a9a62'], ['#6a5a50', '#9a8a7a', '#c8b8a0']][bi];
-      for (const [lw, col] of [[90, 'rgba(40,60,20,0.32)'], [78, pal[0]], [68, pal[1]], [48, pal[2]]]) { g.strokeStyle = col; g.lineWidth = lw; cv(); g.stroke(); }
+      for (const [lw, col] of [[118, 'rgba(30,50,15,0.22)'], [104, 'rgba(40,60,20,0.32)'], [92, pal[0]], [80, pal[1]], [58, pal[2]]]) { g.strokeStyle = col; g.lineWidth = lw; cv(); g.stroke(); }
       for (let k = 0; k <= 60; k++) { const f = k / 60, p = bez(A, B.ctrl, E, f), q = bez(A, B.ctrl, E, Math.min(1, f + 0.01)), dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
         if (bi === 1) { g.strokeStyle = 'rgba(40,24,10,0.55)'; g.lineWidth = 2; g.beginPath(); g.moveTo(p.x + nx * 30, p.y + ny * 30); g.lineTo(p.x - nx * 30, p.y - ny * 30); g.stroke(); }                       // boardwalk planks
         else if (bi === 3) { for (let q2 = -2; q2 <= 2; q2++) { g.fillStyle = H(k * 7 + q2) > 0.5 ? 'rgba(220,210,190,0.55)' : 'rgba(140,125,110,0.5)'; g.beginPath(); g.ellipse(p.x + nx * q2 * 12 + (k % 2) * 5, p.y + ny * q2 * 12, 6, 4.5, 0, 0, 7); g.fill(); } } // cobbles
         else if (bi === 2) { if (k % 2) { g.fillStyle = 'rgba(110,170,70,0.5)'; g.beginPath(); g.ellipse(p.x + nx * (H(k) - 0.5) * 40, p.y + ny * (H(k + 2) - 0.5) * 40, 9, 5, 0, 0, 7); g.fill(); } }        // moss on stones
         else { g.strokeStyle = 'rgba(70,45,20,0.4)'; g.lineWidth = 1.2; const a = H(k) * 6.28; g.beginPath(); g.moveTo(p.x + nx * (H(k + 5) - 0.5) * 50, p.y + ny * (H(k + 5) - 0.5) * 50); g.lineTo(p.x + nx * (H(k + 5) - 0.5) * 50 + Math.cos(a) * 8, p.y + ny * (H(k + 5) - 0.5) * 50 + Math.sin(a) * 8); g.stroke(); } // needles
-        if (k % 3 === 0) tuft(p.x + nx * 42 * (k % 2 ? 1 : -1), p.y + ny * 42 * (k % 2 ? 1 : -1) + 4, 0.7, k * 19 + bi);
+        if (k % 3 === 0) tuft(p.x + nx * 52 * (k % 2 ? 1 : -1), p.y + ny * 52 * (k % 2 ? 1 : -1) + 4, 0.7, k * 19 + bi);
       } });
     // the creek shows through between the boardwalk's planks at the bridge
     // paths out to the holds
     BD.HOLDS.forEach((Hd, k) => { const a = C[k]; for (const [lw, col] of [[74, 'rgba(50,80,25,0.32)'], [62, '#a8824e'], [52, '#d8b878']]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(Hd.x, Hd.y); g.stroke(); } });
     // flower beds
-    for (const [x, y] of [[796, 470], [2004, 1180], [1146, 776]]) { g.fillStyle = 'rgba(0,0,0,0.15)'; g.beginPath(); g.ellipse(x + 4, y + 6, 72, 32, 0, 0, 7); g.fill(); g.fillStyle = '#7a4a2a'; g.beginPath(); g.ellipse(x, y, 70, 30, 0, 0, 7); g.fill(); g.strokeStyle = '#a8a8b0'; g.lineWidth = 5; g.beginPath(); g.ellipse(x, y, 70, 30, 0, 0, 7); g.stroke(); for (let k = 0; k < 40; k++) { const a = H(k + x) * 6.28, d = Math.sqrt(H(k + y)) * 58; g.fillStyle = '#3a8a32'; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.4 + 2, 3, 0, 7); g.fill(); g.fillStyle = ['#ff5a7a', '#ffd34d', '#fff', '#c88aff', '#ff8a3a'][k % 5]; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.4, 3.6, 0, 7); g.fill(); } }
+    for (const [x, y] of [[1146, 776]]) { g.fillStyle = 'rgba(0,0,0,0.15)'; g.beginPath(); g.ellipse(x + 4, y + 6, 72, 32, 0, 0, 7); g.fill(); g.fillStyle = '#7a4a2a'; g.beginPath(); g.ellipse(x, y, 70, 30, 0, 0, 7); g.fill(); g.strokeStyle = '#a8a8b0'; g.lineWidth = 5; g.beginPath(); g.ellipse(x, y, 70, 30, 0, 0, 7); g.stroke(); for (let k = 0; k < 40; k++) { const a = H(k + x) * 6.28, d = Math.sqrt(H(k + y)) * 58; g.fillStyle = '#3a8a32'; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.4 + 2, 3, 0, 7); g.fill(); g.fillStyle = ['#ff5a7a', '#ffd34d', '#fff', '#c88aff', '#ff8a3a'][k % 5]; g.beginPath(); g.arc(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.4, 3.6, 0, 7); g.fill(); } }
     // hold platforms
     BD.HOLDS.forEach(Hd => { const r = 110; g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(Hd.x + 10, Hd.y + 16, r + 6, (r + 6) * 0.62, 0, 0, 7); g.fill(); g.fillStyle = '#7a7060'; g.beginPath(); g.ellipse(Hd.x, Hd.y + 10, r, r * 0.62, 0, 0, 7); g.fill(); const sg = g.createRadialGradient(Hd.x - 40, Hd.y - 30, 10, Hd.x, Hd.y, r); sg.addColorStop(0, '#f4ecdc'); sg.addColorStop(1, '#b0a490'); g.fillStyle = sg; g.beginPath(); g.ellipse(Hd.x, Hd.y, r, r * 0.62, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(90,80,60,0.35)'; g.lineWidth = 2; for (let q = 0; q < 12; q++) { const a = q / 12 * 6.28; g.beginPath(); g.moveTo(Hd.x + Math.cos(a) * 40, Hd.y + Math.sin(a) * 25); g.lineTo(Hd.x + Math.cos(a) * r, Hd.y + Math.sin(a) * r * 0.62); g.stroke(); } g.beginPath(); g.ellipse(Hd.x, Hd.y, 40, 25, 0, 0, 7); g.stroke(); });
     // baked warm light from the top-left
     const sun = g.createRadialGradient(150, 50, 50, 300, 200, 1600); sun.addColorStop(0, 'rgba(255,240,180,0.24)'); sun.addColorStop(0.5, 'rgba(255,230,160,0.05)'); sun.addColorStop(1, 'rgba(20,40,80,0.2)'); g.fillStyle = sun; g.fillRect(X0, Y0, WW, HH);
+    // painted travel arrows between spaces so the way round always reads clearly
+    BD.spaces.forEach(s => s.nx.forEach(n => { const b = BD.spaces[n]; if (Math.hypot(b.x - s.x, b.y - s.y) > 400) return; const mx = (s.x + b.x) / 2, my = (s.y + b.y) / 2, a = Math.atan2(b.y - s.y, b.x - s.x);
+      g.save(); g.translate(mx, my); g.rotate(a); g.lineCap = 'round'; g.lineJoin = 'round';
+      for (const [lw, col] of [[9, 'rgba(90,60,30,0.35)'], [5, 'rgba(255,250,225,0.85)']]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(-9, -12); g.lineTo(5, 0); g.lineTo(-9, 12); g.stroke(); }
+      g.restore(); }));
     // the spaces go on top
     BD.spaces.forEach(s => this.space(g, s));
     this._g = c; return c;
@@ -114,7 +119,7 @@
 
   // raised spaces: a little stone drum with a coloured glossy top, carved rim and icon
   BoardArt.space = function (g, s) {
-    const T = BD.SPACE[s.type] || BD.SPACE.blue, big = s.type === 'gate' || s.type === 'bank', ev = !['blue', 'red', 'gate', 'bank'].includes(s.type), r = big ? 32 : ev ? 28 : 25, h = 9;
+    const T = BD.SPACE[s.type] || BD.SPACE.blue, big = s.type === 'gate' || s.type === 'bank', ev = !['blue', 'red', 'gate', 'bank'].includes(s.type), r = big ? 38 : ev ? 34 : 31, h = 11;
     g.fillStyle = 'rgba(20,20,40,0.32)'; g.beginPath(); g.ellipse(s.x + 6, s.y + h + 6, r + 4, (r + 4) * 0.66, 0, 0, 7); g.fill();
     // stone side wall
     const wg = g.createLinearGradient(s.x - r, 0, s.x + r, 0); wg.addColorStop(0, '#8a8478'); wg.addColorStop(0.45, '#c8c0b0'); wg.addColorStop(1, '#6a6458'); g.fillStyle = wg;
@@ -133,6 +138,13 @@
   };
 
   // ----------------------------------------------------------------- scenery list: region trees and plants
+  // is a point on (or right beside) any road? used to keep scenery off the paths
+  BoardArt.onRoad = function (x, y, pad) {
+    const C = BD.CORNERS, segD = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, q = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy))); return Math.hypot(x - a.x - dx * q, (y - a.y - dy * q) * 1.25); };
+    for (let k = 0; k < 4; k++) if (segD(C[k], C[(k + 1) % 4]) < pad || segD(C[k], BD.HOLDS[k]) < pad * 0.8) return true;
+    for (const B of BD.BRANCHES) { if (!B.ctrl) continue; const A = BD.spaces[B.a], E = BD.spaces[B.b]; for (let f = 0; f < 1; f += 0.05) if (segD(bez(A, B.ctrl, E, f), bez(A, B.ctrl, E, f + 0.05)) < pad) return true; }
+    return false;
+  };
   BoardArt.decor = function () {
     if (this._d) return this._d;
     const D = [], h = n => { const x = Math.sin(n * 91.7 + 12.3) * 43758.5453; return x - Math.floor(x); };
@@ -150,7 +162,7 @@
     const props = this.props(), creekNear = (x, y) => { for (let f = 0; f <= 1; f += 0.05) { const p = bez(CREEK[0], CREEK[1], CREEK[2], f); if (Math.hypot(p.x - x, p.y - y) < 46) return true; } return false; };
     this._d = D.filter(d => d.keep || (!BD.spaces.some(s => Math.hypot(s.x - d.x, (s.y - d.y) * 1.3) < 72 || (['tree', 'pine', 'maple', 'shroom', 'crystree'].includes(d.kind) && s.y < d.y && d.y - s.y < 130 * d.s && Math.abs(s.x - d.x) < 60 * d.s))
       && !props.some(p => Math.hypot(p.x - d.x, (p.y - d.y) * 1.2) < 80) && Math.hypot(d.x - 1400, d.y - 858) > 120 && Math.hypot((d.x - 1706) / 120, (d.y - 957) / 70) > 1 && !creekNear(d.x, d.y)
-      && !BD.HOLDS.some(Hd => Math.hypot(Hd.x - d.x, (Hd.y - d.y) * 1.4) < 170) && !BD.spaces.filter(s => s.type === 'bank').some(s => Math.hypot(s.x - d.x, s.y - d.y) < 140)));
+      && !BoardArt.onRoad(d.x, d.y, d.kind === 'lamp' ? 70 : 84) && !BD.HOLDS.some(Hd => Math.hypot(Hd.x - d.x, (Hd.y - d.y) * 1.4) < 170) && !BD.spaces.filter(s => s.type === 'bank').some(s => Math.hypot(s.x - d.x, s.y - d.y) < 140)));
     return this._d;
   };
   const oldDecor = BoardArt.drawDecor.bind(BoardArt);
