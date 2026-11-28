@@ -25,7 +25,7 @@
     soft: [{ x0: 330, x1: 560, y: 470 }, { x0: 1040, x1: 1270, y: 470 }, { x0: 660, x1: 940, y: 320 }],
     blast: { x0: -280, x1: 1880, y0: -560, y1: 1260 },
     spawn: [{ x: 450, y: 470 }, { x: 1150, y: 470 }, { x: 640, y: 640 }, { x: 960, y: 640 }],
-    haz: ['meteor', 'crystal', 'gale'],
+    haz: [],
     switches: [
       { x: 360, y: 470, kind: 'spikesR', look: 'lever', icon: '🗡️', label: 'SPIKE TRAP!', cdMax: 9 },
       { x: 1240, y: 470, kind: 'spikesL', look: 'lever', icon: '🗡️', label: 'SPIKE TRAP!', cdMax: 9 },
@@ -190,7 +190,7 @@
     soft: [],
     blast: { x0: -2000, x1: 4000, y0: -3000, y1: 3000 },
     spawn: [{ x: 420, y: 640 }, { x: 1180, y: 640 }, { x: 640, y: 640 }, { x: 960, y: 640 }],
-    respawnY: 260, haz: ['meteor', 'crystal'],
+    respawnY: 260, haz: [],
     switches: [
       { x: 330, y: 640, kind: 'cannonL', look: 'lever', icon: '💣', label: 'CANNON!', cdMax: 8 },
       { x: 1270, y: 640, kind: 'cannonR', look: 'lever', icon: '💣', label: 'CANNON!', cdMax: 8 },

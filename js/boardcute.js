@@ -150,14 +150,29 @@
       const tx = onMain ? (A.x + S3.x) / 2 : ent.x, ty = onMain ? (A.y + S3.y) / 2 + 4 : ent.y + 4, fx = onMain ? ent.x : (A.x + S3.x) / 2, fy = onMain ? ent.y + 4 : (A.y + S3.y) / 2 + 4;
       x = fx + (tx - fx) * st; y = fy + (ty - fy) * st - Math.sin(st * Math.PI) * 40; }
     this.sunShadow(g, x, y, 90, 120);
-    const shake = hit * Math.sin(t * 40) * 3, tag = (txt) => { g.fillStyle = 'rgba(40,24,60,0.85)'; MGH.rr(g, x - 30, y + 16, 60, 20, 10); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 1.5; g.stroke(); MGH.text(g, txt, x, y + 31, 13, '#ffe680', 'center', 'bold'); };
+    const shake = hit * Math.sin(t * 40) * 3, tag = (txt) => { g.fillStyle = 'rgba(40,24,60,0.85)'; MGH.rr(g, x - 30, y + 30, 60, 20, 10); g.fill(); g.strokeStyle = '#ffe680'; g.lineWidth = 1.5; g.stroke(); MGH.text(g, txt, x, y + 45, 13, '#ffe680', 'center', 'bold'); };
     // a little round stone stage so the guardian stands firmly on the ground
     const stand = () => { g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x + 4, y + 8, 46, 14, 0, 0, 7); g.fill(); g.fillStyle = '#8a8298'; g.beginPath(); g.ellipse(x, y + 4, 40, 12, 0, 0, 7); g.fill(); g.fillStyle = '#c8c0d4'; g.beginPath(); g.ellipse(x, y, 40, 12, 0, 0, 7); g.fill(); outline(g, 2); g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(x, y + 1, 22, 6, 0, 0, 7); g.fill(); };
     if (kind === 'alternator') { g.save(); g.translate(x + shake, y); g.scale(1.12, 1.12); golem(g, t, hit); g.restore(); tag(`🚫 ${BD.GUARDS.alternator.toll[G.tod]}🪙`); return; }
-    if (kind === 'collector') { stand(); Char.npc(g, x + shake, y - 44, 42, 'host', { t, noIdle: true, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.4, y: 0.2 }, hands: { n: { x: 1.1, y: -0.2, d: 20, o: false, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } }); g.save(); g.translate(x + 50 + shake, y - 16); g.scale(1.6, 1.6); sack(g, 0, 0, t); g.restore(); if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 64, y - 46, 6, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
-    // the Competitor: the sensei with a big die bouncing in one hand
-    stand(); Char.npc(g, x + shake, y - 44, 42, 'sensei', { t, noIdle: true, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.4, y: 0 }, hands: { n: { x: 1.2, y: -1.0, d: -50, o: true, m: true }, f: { x: -0.9, y: 0.1, d: 0, o: true, m: false } } });
-    const dz = Math.abs(Math.sin(t * 3)) * 22; die(g, x + 54 + shake, y - 108 - dz, 15, t * 3);
+    const R0 = 40, feet = y; // the NPC's feet stand exactly on the ground at y
+    const shadow = (w = 34) => { g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(x + 3, feet + 3, w, 9, 0, 0, 7); g.fill(); };
+    if (kind === 'collector') { // the Toll Collector waves from beside a little striped toll booth
+      const bx = x + 62, by = feet;
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(bx + 4, by + 3, 40, 10, 0, 0, 7); g.fill();
+      g.fillStyle = '#c8302a'; g.fillRect(bx - 30, by - 92, 60, 92); g.fillStyle = '#fff'; for (let k = 0; k < 3; k++) g.fillRect(bx - 30, by - 80 + k * 28, 60, 10);
+      g.fillStyle = '#9fd8ff'; MGH.rr(g, bx - 20, by - 82, 40, 30, 5); g.fill(); g.strokeStyle = '#7a1a10'; g.lineWidth = 2.5; MGH.rr(g, bx - 20, by - 82, 40, 30, 5); g.stroke();
+      g.fillStyle = '#2a3a6a'; g.beginPath(); g.moveTo(bx - 40, by - 90); g.lineTo(bx, by - 116); g.lineTo(bx + 40, by - 90); g.closePath(); g.fill(); g.strokeStyle = '#ffd34d'; g.stroke();
+      g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(bx, by - 100, 7, 0, 7); g.fill(); MGH.text(g, '🪙', bx, by - 61, 16, '#fff');
+      shadow(); Char.npc(g, x + shake, feet - R0 * 1.25, R0, 'host', { t, noIdle: true, mood: hit > 0 ? 'smug' : 'happy', look: { x: -0.5, y: 0.1 }, hands: { n: { x: -1.25, y: -0.9 + Math.sin(t * 5) * 0.18, d: -60, o: true, m: true }, f: { x: 0.9, y: 0.25, d: 10, o: false, m: false } } });
+      if (Math.sin(t * 6) > 0.9) MGH.star(g, x + 66, feet - 120, 6, '#ffe680', t, false); tag(`${BD.GUARDS.collector.toll[G.tod]}🪙`); return; }
+    // the Competitor: the dice sensei behind a little game table, a big die resting on it (it hops when he plays)
+    const tx = x + 6, ty = feet + 6, hop = Board.ui.guardHit && Board.ui.guardHit.f === f ? Math.abs(Math.sin(t * 12)) * 26 : Math.max(0, Math.sin(t * 2.2)) * 6;
+    shadow(30); Char.npc(g, x + shake, feet - R0 * 1.25 - 6, R0, 'sensei', { t, noIdle: true, mood: hit > 0 ? 'smug' : 'determined', look: { x: 0.2, y: 0.4 }, hands: { n: { x: -0.95, y: 0.35, d: 20, o: true, m: true }, f: { x: 0.95, y: 0.35, d: -20, o: true, m: false } } });
+    g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(tx + 4, ty + 18, 50, 11, 0, 0, 7); g.fill();
+    g.fillStyle = '#7a4a24'; g.fillRect(tx - 34, ty - 6, 8, 24); g.fillRect(tx + 26, ty - 6, 8, 24);
+    g.fillStyle = '#c8302a'; g.beginPath(); g.ellipse(tx, ty - 8, 52, 14, 0, 0, 7); g.fill(); g.fillStyle = '#e8483a'; g.beginPath(); g.ellipse(tx, ty - 11, 50, 12, 0, 0, 7); g.fill();
+    g.strokeStyle = '#ffd34d'; g.lineWidth = 2; g.beginPath(); g.ellipse(tx, ty - 11, 44, 9, 0, 0, 7); g.stroke();
+    die(g, tx + 6, ty - 28 - hop, 14, hop > 8 ? t * 10 : 0.2);
     tag(`🎲 d${BD.GUARDS.competitor.die[G.tod]}`);
   };
   // keep the iron gate from the previous art pass

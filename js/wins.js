@@ -162,7 +162,7 @@ Object.assign(Char, {
 // ======================================================================== NPCs
 // Hosts, referees and helpers are the same round species as the heroes, but never one of the 15 playable heroes.
 // kind: 'ref' (striped referee), 'host' (tuxedo + top hat), 'chef', 'guard'. o: any Char.draw options.
-Char.NPC = { ref: 20, host: 21, chef: 22, guard: 23, sensei: 24 };
+Char.NPC = { ref: 30, host: 31, chef: 32, guard: 33, sensei: 34 };
 Char.npc = function (g, x, y, r, kind = 'host', o = {}) {
   const id = Char.NPC[kind] !== undefined ? Char.NPC[kind] : 16, mood = { shout: 'cheer', shock: 'shock', smug: 'smug' }[o.mood] || o.mood || 'happy';
   Char.draw(g, x, y, r, id, '#ffffff', Object.assign({ seed: 5 + id, look: { x: 0, y: 0 } }, o, { mood }));

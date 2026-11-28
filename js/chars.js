@@ -21,13 +21,23 @@ const CLAN = [
   { wrap: '#fffaf0', wrap2: '#ffcf3a', hem: '#ffcf3a', pattern: 'star', orn: null, glove: '#ffffff', cuff: '#ffcf3a', shoe: '#fffaf0', sole: '#e0b23a', lace: '#ffcf3a' },                   // Lumi (Light)
   { wrap: '#2a2f6a', wrap2: '#fff3b0', hem: '#c8b8ff', pattern: 'moon', orn: 'moon', glove: '#3a3f80', cuff: '#c8b8ff', shoe: '#1a1d40', sole: '#c8b8ff', lace: '#fff3b0' },                   // Nyx (Night)
   { wrap: '#9aa6b4', wrap2: '#5a6676', hem: '#5a6676', pattern: 'rivet', orn: 'gear', glove: '#ffb03a', cuff: '#5a6676', shoe: '#5a6676', sole: '#2a2e36', lace: '#ffb03a', boot: true },      // Rivet (Metal)
-  // ---- the Ring Legends (15-19): wrestling crossover heroes
-  { wrap: '#1a1a22', wrap2: '#e8323e', hem: '#e8323e', pattern: 'none', orn: null, glove: '#e8323e', cuff: '#1a1a22', shoe: '#1a1a22', sole: '#e8323e', lace: '#ffffff', boot: true },   // Brick
-  { wrap: '#2ad07a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'none', orn: null, glove: '#ffd34d', cuff: '#2ad07a', shoe: '#2ad07a', sole: '#ffd34d', lace: '#ffffff', boot: true },   // Rayo
-  { wrap: '#7a2ad0', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'none', orn: null, glove: '#ffd34d', cuff: '#7a2ad0', shoe: '#ffd34d', sole: '#7a2ad0', lace: '#ffffff', boot: true },     // Duke
-  { wrap: '#1e2a1e', wrap2: '#7adf3a', hem: '#7adf3a', pattern: 'none', orn: null, glove: '#2a2a2a', cuff: '#7adf3a', shoe: '#1e2a1e', sole: '#7adf3a', lace: '#7adf3a', boot: true }, // Viper
-  { wrap: '#e8323e', wrap2: '#ffffff', hem: '#ffffff', pattern: 'star', orn: null, glove: '#3a7aff', cuff: '#ffffff', shoe: '#3a7aff', sole: '#ffffff', lace: '#e8323e', boot: true },  // Tank
-  // ---- NPCs (same species, never playable): 20 referee, 21 show host, 22 chef, 23 guard, 24 sensei
+  // ---- newer heroes (15-29): hair and tattoos are drawn in heroes2.js
+  { wrap: '#9a6aff', wrap2: '#3a1a7a', hem: '#3a1a7a', pattern: 'none', orn: null, glove: '#c8a8ff', cuff: '#4a2a8a', shoe: '#2a1a50', sole: '#9a6aff', lace: '#ffffff', boot: true }, // Gravo
+  { wrap: '#ff6ad8', wrap2: '#7a1a5a', hem: '#7a1a5a', pattern: 'none', orn: null, glove: '#ff6ad8', cuff: '#2a1a2a', shoe: '#ff6ad8', sole: '#2a1a2a', lace: '#ffffff' }, // Echo
+  { wrap: '#9aff3a', wrap2: '#2a5a0a', hem: '#2a5a0a', pattern: 'none', orn: null, glove: '#9aff3a', cuff: '#2a4a1a', shoe: '#2a4a1a', sole: '#9aff3a', lace: '#9aff3a', boot: true }, // Venom
+  { wrap: '#ff4a5a', wrap2: '#2a4aa8', hem: '#2a4aa8', pattern: 'none', orn: null, glove: '#3a6aff', cuff: '#e8323e', shoe: '#e8323e', sole: '#3a6aff', lace: '#ffffff', boot: true }, // Mags
+  { wrap: '#c8f0ff', wrap2: '#4a6a9a', hem: '#4a6a9a', pattern: 'none', orn: null, glove: '#ffffff', cuff: '#8ac8ff', shoe: '#c8e0ff', sole: '#6a8ab0', lace: '#ffffff' }, // Boo
+  { wrap: '#3ad8c8', wrap2: '#0a5a5a', hem: '#0a5a5a', pattern: 'none', orn: null, glove: '#ffd34d', cuff: '#0a5a5a', shoe: '#0a5a5a', sole: '#ffd34d', lace: '#ffd34d', boot: true }, // Tick
+  { wrap: '#3a4aff', wrap2: '#0a0a3a', hem: '#0a0a3a', pattern: 'none', orn: null, glove: '#1a1a3a', cuff: '#5a7aff', shoe: '#14143a', sole: '#5a7aff', lace: '#5a7aff' }, // Inky
+  { wrap: '#ff9ad8', wrap2: '#a83a8a', hem: '#a83a8a', pattern: 'none', orn: null, glove: '#8ad8ff', cuff: '#ff9ad8', shoe: '#ff9ad8', sole: '#8ad8ff', lace: '#ffffff' }, // Bubbles
+  { wrap: '#7a5aff', wrap2: '#1a0a4a', hem: '#1a0a4a', pattern: 'none', orn: null, glove: '#ffd34d', cuff: '#2a1a6a', shoe: '#2a1a6a', sole: '#ffd34d', lace: '#ffd34d', boot: true }, // Nova
+  { wrap: '#ff7aa8', wrap2: '#a82a5a', hem: '#a82a5a', pattern: 'none', orn: null, glove: '#ff7aa8', cuff: '#ffffff', shoe: '#7ad8ff', sole: '#ff7aa8', lace: '#ffffff' }, // Candi
+  { wrap: '#3aa84a', wrap2: '#1a4a1a', hem: '#1a4a1a', pattern: 'none', orn: null, glove: '#e8324a', cuff: '#2a5a2a', shoe: '#2a3a1a', sole: '#e8324a', lace: '#e8324a', boot: true }, // Briar
+  { wrap: '#e0884a', wrap2: '#5a2a10', hem: '#5a2a10', pattern: 'none', orn: null, glove: '#c8a050', cuff: '#5a3a2a', shoe: '#5a3a2a', sole: '#c8a050', lace: '#ffd34d', boot: true }, // Piston
+  { wrap: '#f4f0e8', wrap2: '#8a7a6a', hem: '#8a7a6a', pattern: 'none', orn: null, glove: '#ffffff', cuff: '#e8324a', shoe: '#f4f0e8', sole: '#8a7a6a', lace: '#e8324a' }, // Origa
+  { wrap: '#ff3ad8', wrap2: '#3a0a5a', hem: '#3a0a5a', pattern: 'none', orn: null, glove: '#3affe8', cuff: '#ff3ad8', shoe: '#1a0a2a', sole: '#3affe8', lace: '#ff3ad8', boot: true }, // Neon
+  { wrap: '#ffd02a', wrap2: '#3a2a0a', hem: '#3a2a0a', pattern: 'none', orn: null, glove: '#2a2a1a', cuff: '#ffd02a', shoe: '#2a2a1a', sole: '#ffd02a', lace: '#ffd02a', boot: true }, // Buzz
+  // ---- NPCs (same species, never playable): 30 referee, 31 show host, 32 chef, 33 guard, 34 sensei
   { wrap: '#1a1a1a', wrap2: '#ffffff', hem: '#ffffff', pattern: 'plain', orn: 'refcap', glove: '#ffffff', cuff: '#1a1a1a', shoe: '#1a1a1a', sole: '#ffffff', lace: '#ffffff' },
   { wrap: '#7a1a3a', wrap2: '#ffd34d', hem: '#ffd34d', pattern: 'plain', orn: 'tophat', glove: '#ffffff', cuff: '#e8e8f0', shoe: '#1a1a2a', sole: '#3a3a4a', lace: '#ffd34d' },
   { wrap: '#ffffff', wrap2: '#e0e0e8', hem: '#d8d8e0', pattern: 'plain', orn: 'chefhat', glove: '#ffffff', cuff: '#d8d8e0', shoe: '#3a3a3a', sole: '#1a1a1a', lace: '#ffffff' },
@@ -35,8 +45,8 @@ const CLAN = [
   { wrap: '#e8dcc0', wrap2: '#c8302a', hem: '#c8302a', pattern: 'plain', orn: 'strawhat', glove: '#f4ecd8', cuff: '#c8302a', shoe: '#5a3a20', sole: '#2a1a10', lace: '#c8302a' },   // 19: the old sensei
 ];
 // resting / game-face personality per hero: 0 curious, 1 sweet, 2 confident, 3 calm
-const PERSONA = [0, 1, 2, 3, 3, 1, 2, 1, 3, 0, 3, 2, 1, 3, 0, 3, 0, 2, 3, 2, 2, 0, 1, 3, 3];
-const STOIC = { 3: true, 6: true, 15: true, 18: true }; // Pebble and Flint never go bubbly
+const PERSONA = [0, 1, 2, 3, 3, 1, 2, 1, 3, 0, 3, 2, 1, 3, 0, 3, 2, 2, 0, 1, 3, 0, 1, 3, 1, 2, 0, 3, 2, 0, 2, 0, 1, 3, 3];
+const STOIC = { 3: true, 6: true }; // Pebble and Flint never go bubbly
 // personality: how each newer hero shows a feeling
 const MOODMAP = {
   4: { cheer: 'smug', laugh: 'evil', starry: 'smug', scared: 'nervous', cry: 'grim' },                 // Wisp: sly and unbothered
@@ -49,14 +59,12 @@ const MOODMAP = {
   12: { cheer: 'proud', laugh: 'proud', angry: 'stoic' },                                                // Lumi: the wise old wizard
   13: { cheer: 'evil', laugh: 'evil', happy: 'smug', starry: 'evil' },                                   // Nyx: mysterious, mischievous
   14: { cheer: 'laugh', proud: 'laugh' },                                                                 // Rivet: the cheerful tinkerer
-  15: { happy: 'stoic', cheer: 'proud', laugh: 'proud', scared: 'angry', cry: 'angry', nervous: 'grim' },  // Brick: the immovable giant
-  16: { happy: 'cheer', proud: 'starry' },                                                                // Rayo: the joyful high-flyer
-  17: { happy: 'smug', cheer: 'proud', laugh: 'smug', scared: 'shock', sad: 'shock' },                    // Duke: the showman
-  18: { happy: 'smug', cheer: 'evil', laugh: 'evil', scared: 'grim', starry: 'evil' },                     // Viper: cold and cunning
-  19: { cheer: 'laugh', proud: 'laugh', scared: 'angry' },                                               // Tank: the loud brawler
+  17: { cheer: 'evil', laugh: 'evil', happy: 'smug' },                                                // Venom: mischievous
+  21: { cheer: 'smug', happy: 'smug', laugh: 'evil' },                                                 // Inky: sly artist
+  28: { cheer: 'starry', proud: 'starry', laugh: 'starry' },                                          // Neon: hyped
 };
 // what makes each face its own (drawn on the head, facing left; see Char.faceAcc)
-const FACEACC = { 4: 'piercing', 5: 'freckles', 6: 'stubble', 7: 'diva', 9: 'boltpaint', 10: 'teeth', 11: 'skull', 12: 'halo', 13: 'goth', 14: 'goggles', 15: 'brute', 16: 'luchamask', 17: 'shades', 18: 'facepaint', 19: 'beard', 21: 'moustache', 22: 'moustache', 24: 'sagebeard' };
+const FACEACC = { 4: 'piercing', 5: 'freckles', 6: 'stubble', 7: 'diva', 9: 'boltpaint', 10: 'teeth', 11: 'skull', 12: 'halo', 13: 'goth', 14: 'goggles', 31: 'moustache', 32: 'moustache', 34: 'sagebeard' };
 // eye size per hero (width, height multipliers)
 const EYEK = { 8: [0.88, 0.58] };
 const GENERIC = { wrap: '#9aa0ad', wrap2: '#cfd3dc', hem: '#cfd3dc', pattern: 'none', glove: '#cfd3dc', cuff: '#9aa0ad', shoe: '#8a8f99', sole: '#5a5f69', lace: '#cfd3dc' };
@@ -155,11 +163,21 @@ const Char = {
     { style: 1, top: '#fffaf0', trim: '#e0b23a', bottoms: '#e0b23a', tie: '#ffd34d' }, // Lumi: white-and-gold sailor
     { style: 7, top: '#2a2f6a', trim: '#c8b8ff', bottoms: '#1a1d40' },          // Nyx: starry cloak
     { style: 3, top: '#ff8a3a', trim: '#4f6a8a', bottoms: '#4f6a8a', patch: 'gear' }, // Rivet: mechanic overalls
-    { style: 3, top: '#1a1a22', trim: '#e8323e', bottoms: '#1a1a22', belt: true },       // Brick: black-and-red singlet
-    { style: 0, top: '#2ad07a', trim: '#ffd34d', bottoms: '#1a6a3a', belt: true },       // Rayo: luchador suit
-    { style: 7, top: '#7a2ad0', trim: '#ffd34d', bottoms: '#2a0a4a', belt: true },       // Duke: sequinned entrance robe
-    { style: 4, top: '#1e2a1e', trim: '#7adf3a', bottoms: '#121a12', belt: true },       // Viper: snakeskin hoodie
-    { style: 8, top: '#2a4a8a', trim: '#ffffff', bottoms: '#e8323e', stripe: '#ffffff', belt: true }, // Tank: brawler vest
+    { style: 4, top: '#4a2a8a', trim: '#c8a8ff', bottoms: '#1a1030' }, // Gravo
+    { style: 2, top: '#2a1a2a', trim: '#ff6ad8', bottoms: '#1a1a24', stripe: '#ff6ad8' }, // Echo
+    { style: 8, top: '#2a4a1a', trim: '#9aff3a', bottoms: '#1a2a10', stripe: '#9aff3a' }, // Venom
+    { style: 0, top: '#e8323e', trim: '#3a6aff', bottoms: '#2a3a6a', badge: '#c8c8d0' }, // Mags
+    { style: 7, top: '#e8f4ff', trim: '#8ac8ff', bottoms: '#9ab0d0' }, // Boo
+    { style: 6, top: '#3ad8c8', trim: '#ffd34d', bottoms: '#0a4a4a' }, // Tick
+    { style: 4, top: '#14143a', trim: '#5a7aff', bottoms: '#0a0a1a' }, // Inky
+    { style: 9, top: '#ffc8e8', trim: '#8ad8ff', bottoms: '#ff7ab8', dots: '#ffffff' }, // Bubbles
+    { style: 7, top: '#2a1a6a', trim: '#ffd34d', bottoms: '#120a30' }, // Nova
+    { style: 9, top: '#ffe0ec', trim: '#ff7aa8', bottoms: '#7ad8ff', dots: '#ff7aa8' }, // Candi
+    { style: 8, top: '#2a5a2a', trim: '#e8324a', bottoms: '#1a2a1a', stripe: '#e8324a' }, // Briar
+    { style: 3, top: '#c8783a', trim: '#5a3a2a', bottoms: '#5a3a2a', patch: 'gear' }, // Piston
+    { style: 0, top: '#f4f0e8', trim: '#e8324a', bottoms: '#8a7a6a', badge: '#e8324a' }, // Origa
+    { style: 2, top: '#1a0a2a', trim: '#3affe8', bottoms: '#1a0a2a', stripe: '#ff3ad8' }, // Neon
+    { style: 2, top: '#ffd02a', trim: '#2a2a1a', bottoms: '#2a2a1a', stripe: '#2a2a1a' }, // Buzz
     { style: 10, top: '#ffffff', trim: '#1a1a1a', bottoms: '#1a1a1a' },        // referee stripes
     { style: 11, top: '#1a1a2a', trim: '#ffffff', bottoms: '#1a1a2a', tie: null }, // host tuxedo
     { style: 12, top: '#ffffff', trim: '#d8d8e0', bottoms: '#3a3a4a' },        // chef whites
@@ -385,7 +403,7 @@ const Char = {
     g.fillStyle = 'rgba(255,255,255,0.75)'; g.beginPath(); g.ellipse(nx - nr * 0.35, ny - nr * 0.45, nr * 0.28, nr * 0.2, -0.5, 0, 7); g.fill();
   },
 
-  IRIS: ['#4fb3c8', '#2f7fe8', '#e08a2a', '#6f8f2c', '#8a6ad8', '#3fb0a8', '#2f86ff', '#e0508a', '#4aa8d8', '#d8a800', '#c8902a', '#ff5020', '#e8b020', '#9a7aff', '#5a7a9a', '#6a4a34', '#3a6ad8', '#4a8a3a', '#5a4a8a', '#5a4a34'],
+  IRIS: ['#4fb3c8', '#2f7fe8', '#e08a2a', '#6f8f2c', '#8a6ad8', '#3fb0a8', '#2f86ff', '#e0508a', '#4aa8d8', '#d8a800', '#c8902a', '#ff5020', '#e8b020', '#9a7aff', '#5a7a9a', '#7a4aff', '#d83aa8', '#5aa82a', '#3a6aff', '#6ab8e8', '#2aa898', '#3a4aff', '#e85aa8', '#8a6aff', '#e8508a', '#3a8a3a', '#c8702a', '#8a7a6a', '#ff3ad8', '#c8a020', '#6a4a34', '#3a6ad8', '#4a8a3a', '#5a4a8a', '#5a4a34'],
   // modern cartoon eye: shaded sclera, gradient iris with limbal ring, pupil, lid shadow and twin highlights
   eyeball(g, ex, ey, ew, eh, pr, lid, pdx, pdy, skin, r) {
     const K = EYEK[this._el]; if (K) { ew *= K[0]; eh *= K[1]; }

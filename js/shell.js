@@ -8,7 +8,7 @@ const BIO = [
   'A sly puff of smoke. Now you see Wisp…', 'Sunny smile, rainy hat, never gloomy.', 'Tough as stone, twice as stubborn.', 'Blooms brighter with every win.',
   'Cool head, fast feet, frosty style.', 'Crackling with energy — zap!', 'Patient as the desert, quick as a sandstorm.', 'Hot-headed, molten-hearted.',
   'Shines brightest when the lights go out.', 'Quiet as midnight, sharp as starlight.', 'Builds, tinkers and never rusts.',
-  'A mountain in boots. Nobody moves Brick.', 'Masked, fearless, and always off the top rope!', 'The crowd is his — and he knows it.', 'Strikes when you least expect it.', 'Loud, proud and swinging from the bell.',
+  'Bends the ground under your feet. Heavy thoughts, light steps.', 'Turns every room into a dance floor — loudly.', 'Bubbly, fizzy and a little bit dangerous.', 'Opposites attract — and so does Mags.', 'A friendly little haunting. Mostly friendly.', 'Always early. Never late. Annoyingly punctual.', 'Draws first, asks questions later.', 'Pops up everywhere with a giggle.', 'Has seen a million stars and named every one.', 'Sweet as sugar, quick as a sugar rush.', 'Pretty as a rose — mind the thorns.', 'Runs hot, works hard, whistles when happy.', 'Folds under no pressure. Sharp edges.', 'Glows brightest after midnight.', 'Busy, buzzy and sweet as honey.',
 ];
 const CATS = [
   { k: 'all', n: 'All', f: () => true },
@@ -225,7 +225,7 @@ const Shell = {
   toSelect() { Sfx.tone(660, 0.15, 'triangle', 0.08); Sfx.tone(990, 0.2, 'triangle', 0.07, 0, 0.08); this.go('select'); },
 
   // ------------------------------------------------------------------ HERO SELECT
-  gridPos(c) { const col = c % 5, row = Math.floor(c / 5); return { x: 255 + col * 154, y: 78 + row * 94, w: 140, h: 88 }; },
+  gridPos(c) { const col = c % 10, row = Math.floor(c / 10); return { x: 52 + col * 118, y: 82 + row * 138, w: 110, h: 128 }; },
   takenBy(c, except) { return this.seats.findIndex((s, i) => i !== except && s.picked && s.char === c); },
   scr_select(g) {
     this.text(g, 'Select your avatar!', 640, 60, 42, '#ffe680');
@@ -244,7 +244,7 @@ const Shell = {
       const s = this.seats[si];
       if (!s.picked) {
         const NC = ELEMENTS.length; if (e.left) s.cur = (s.cur + NC - 1) % NC; if (e.right) s.cur = (s.cur + 1) % NC;
-        if (e.up) s.cur = (s.cur + NC - 5) % NC; if (e.down) s.cur = (s.cur + 5) % NC;
+        if (e.up) s.cur = (s.cur + NC - 10) % NC; if (e.down) s.cur = (s.cur + 10) % NC;
         if (e.left || e.right || e.up || e.down) Sfx.tone(880, 0.03, 'triangle', 0.03);
         if (e.a) { if (this.takenBy(s.cur, si) >= 0) Sfx.bad(); else { s.char = s.cur; s.picked = true; Sfx.select(s.char); } }
         if (e.b) { s.dev = null; s.char = null; Sfx.tone(300, 0.1, 'triangle', 0.06); }
@@ -260,8 +260,8 @@ const Shell = {
       const gr = g.createLinearGradient(0, p.y, 0, p.y + p.h); gr.addColorStop(0, Char.shade(ELEMENTS[c].color, 0.35)); gr.addColorStop(1, Char.shade(ELEMENTS[c].color, -0.35));
       g.save(); g.shadowColor = 'rgba(0,0,0,0.35)'; g.shadowBlur = 10; g.shadowOffsetY = 4; g.fillStyle = gr; this.rr(g, p.x, p.y, p.w, p.h, 16); g.fill(); g.restore();
       g.save(); this.rr(g, p.x, p.y, p.w, p.h, 16); g.clip();
-      g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(p.x + p.w / 2, p.y + 34, 44, 0, 7); g.fill();
-      this.hero(g, p.x + p.w / 2, p.y + 42, 25, c, { mood: tk >= 0 ? 'cheer' : 'happy', t: this.t + c, noShadow: true });
+      g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(p.x + p.w / 2, p.y + 50, 46, 0, 7); g.fill();
+      this.hero(g, p.x + p.w / 2, p.y + 56, 28, c, { mood: tk >= 0 ? 'cheer' : 'happy', t: this.t + c, noShadow: true });
       g.restore();
       this.text(g, ELEMENTS[c].mascot, p.x + p.w / 2, p.y + p.h - 8, 17, '#fff', 'center', 'bold');
       if (tk >= 0) { g.fillStyle = 'rgba(0,0,0,0.35)'; this.rr(g, p.x, p.y, p.w, p.h, 16); g.fill(); g.fillStyle = SEATC[tk]; this.rr(g, p.x + p.w - 46, p.y + 6, 40, 24, 10); g.fill(); this.text(g, 'P' + (tk + 1), p.x + p.w - 26, p.y + 24, 16, '#fff', 'center', 'bold', null); }
@@ -337,13 +337,12 @@ const Shell = {
     const items = [
       { label: '🏆 Challenge', sub: this.ch ? `Game ${Math.min(this.ch.idx + 1, this.ch.order.length)} of ${this.ch.order.length}` : 'Every game once — who’s the champ?', fn: () => this.go('challenge'), col: '#ffcc33' },
       { label: '🎲 Board', sub: 'The Crossing — stars, raids & duels', fn: () => this.go('boardsetup'), col: '#ff9a4a' },
-      { label: '🤼 Ring Rumble', sub: 'Wrestling: Fatal 4-Way or Tag Team', fn: () => { this.rsel = 0; this.go('ringmenu'); }, col: '#ff5a5a' },
       { label: '🎮 Free Play', sub: `${MG.list.length} minigames`, fn: () => { this.tab = this.tab || 0; this.go('browse'); }, col: '#7cf06a' },
       { label: '📜 Records', sub: 'Wins, champions, favourites', fn: () => this.go('records'), col: '#8fd8ff' },
       { label: '🙂 Change avatars', sub: 'Back to avatar select', fn: () => { this.seats.forEach(s => { s.picked = false; }); this.go('select'); }, col: '#ff9ad0' },
       { label: '⚙️ Settings', sub: 'Sound, music, controls', fn: () => this.go('settings'), col: '#c8b8ff' },
     ];
-    this.menuList(g, items, 90, 168, 470, 62, 72);
+    this.menuList(g, items, 90, 176, 470, 70, 82);
     this.panel(g, 620, 210, 600, 380);
     this.text(g, 'Today’s party', 920, 254, 26, '#ffe680');
     this.lineup(g, 700, 380, 146, 50);
@@ -537,22 +536,6 @@ const Shell = {
     this.hints(g, [['A', 'Start'], ['Y', 'Random teams'], ['B', 'Back']]);
     if (this.any('a') || this.any('start')) this.play(T.id, { mode, teams: T.teams.slice() });
     if (this.any('b')) this.go(T.back || 'browse');
-  },
-
-  // ------------------------------------------------------------------ RING RUMBLE: pick the match type
-  scr_ringmenu(g) {
-    this.text(g, '🤼 RING RUMBLE', 640, 70, 52, '#ff5a5a'); this.text(g, 'Strikes, grapples, high-flying dives, weapons and finishers — last one standing wins!', 640, 108, 19, '#ffe0e0', 'center', '', null);
-    const items = [
-      { label: '💥 Fatal 4-Way', sub: 'Every wrestler for themself', fn: () => this.play('ring4', { mode: 'ffa' }), col: '#ffcc33' },
-      { label: '🤝 Tag Team (2 vs 2)', sub: 'Pick the teams, then double-team!', fn: () => { this.teamSet = { id: 'ringtag', mode: '2v2', teams: this.randomTeams('2v2'), row: 0, back: 'ringmenu' }; this.go('teams'); }, col: '#7cf06a' },
-      { label: '◀ Back', fn: () => this.go('menu'), col: '#c8b8ff' },
-    ];
-    this.menuList(g, items, 90, 190, 470, 70, 86);
-    this.panel(g, 620, 170, 600, 440); this.text(g, 'The Ring Legends', 920, 214, 26, '#ffe680');
-    [15, 16, 17, 18, 19].forEach((c, k) => { const x = 690 + k * 115; this.hero(g, x, 330, 34, c, { mood: 'determined', t: this.t + k, look: { x: -0.5, y: 0 } }); this.text(g, ELEMENTS[c].mascot, x, 400, 17, ELEMENTS[c].color, 'center', 'bold'); this.text(g, ELEMENTS[c].name, x, 420, 12, '#d8ccff', 'center', '', null); if (window.RING_FIN && RING_FIN[c]) this.text(g, '💥 ' + RING_FIN[c][1], x, 440, 11, '#ffd34d', 'center', 'bold', null); });
-    this.wrap(g, 'Move · Ⓐ strike · Ⓑ grab, pick up, pin, climb. In a grab: Ⓐ knee, Ⓑ slam, direction + Ⓑ whip into the ropes. Full HYPE = your hero\'s own finisher!', 920, 480, 540, 24, 17, '#f0ecff', 'center');
-    this.hints(g, [['A', 'Choose'], ['B', 'Back']]);
-    if (this.any('b')) this.go('menu');
   },
 
   // ------------------------------------------------------------------ DUEL SETUP: pick the two duelists

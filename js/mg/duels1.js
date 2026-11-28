@@ -204,15 +204,18 @@ const ncDef = (spec) => MG.def(Object.assign({
         P.y = ny; if (cy) P.clim += dt * 7;
         // swing across to the neighbouring vine (left/right), unless someone is hanging there
         const sx = Math.abs(a.x) > 0.6 && Math.abs(a.y) < 0.5 ? Math.sign(a.x) : 0;
-        if (sx && !m.pressed(i, 'a')) { const nb = NC.near(P.rope, sx);
+        P.sideT = sx ? (P.sideT || 0) + dt : 0; // hold the direction a moment to swing; press A instead to jump off that way
+        if (sx && P.sideT > (m.bot(i) ? 0 : 0.13) && !m.pressed(i, 'a')) { const nb = NC.near(P.rope, sx);
           if (nb >= 0 && !S.who.some(j => j !== i && S.p[j].fall <= 0 && ((S.p[j].st === 'rope' && S.p[j].rope === nb) || (S.p[j].st === 'swing' && S.p[j].sw.to === nb)) && Math.abs(S.p[j].y - P.y) < 46)) { P.st = 'swing'; P.sw = { from: P.rope, to: nb, t: 0 }; P.face = sx; if (!m.bot(i)) Sfx.whoosh(); return; } }
-        if (m.pressed(i, 'a')) { P.st = 'air'; P.vy = -380; P.vx = (Math.abs(a.x) > 0.3 ? Math.sign(a.x) : P.face) * 250; P.rope = -1; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); }
+        if (m.pressed(i, 'a')) { P.st = 'air'; P.vy = -470; P.vx = (Math.abs(a.x) > 0.3 ? Math.sign(a.x) : P.face) * 290; P.face = Math.sign(P.vx); P.leftRope = P.rope; P.noGrab = 0.45; P.rope = -1; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); }
         else if (cy > 0 && P.y >= NC.BOT + 36) { P.st = 'air'; P.vy = 0; P.vx = 0; P.rope = -1; }
       } else if (P.st === 'swing') {
         const W = P.sw; W.t += dt / 0.32; const q = Math.min(1, W.t), x0 = NC.ROPES[W.from], x1 = NC.ROPES[W.to]; P.x = x0 + (x1 - x0) * q;
-        if (q >= 1) { P.st = 'rope'; P.rope = W.to; P.x = x1; }
+        if (q >= 1) { P.st = 'rope'; P.rope = W.to; P.x = x1; P.sideT = 0; }
+        else if (m.pressed(i, 'a')) { const d = Math.sign(x1 - x0) || P.face; P.st = 'air'; P.vy = -470; P.vx = d * 300; P.face = d; P.leftRope = W.from; P.noGrab = 0.45; P.rope = -1; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); }
       } else {
         if (P.st === 'ground') { P.vx += (a.x * 240 - P.vx) * Math.min(1, dt * 12); if (m.pressed(i, 'a')) { P.st = 'air'; P.vy = -560; if (!m.bot(i)) Sfx.tone(520, 0.05, 'triangle', 0.04, 300); } }
+        else if (P.noGrab > 0) { P.noGrab -= dt; P.vx += (a.x * 290 - P.vx) * Math.min(1, dt * 1.2); } // keep the jump's momentum off a vine
         else P.vx += (a.x * 230 - P.vx) * Math.min(1, dt * 3);
         if (P.st === 'air') { P.vy += 1500 * dt; }
         P.x = clamp(P.x + P.vx * dt, 30, 1250); const py = P.y; P.y += (P.st === 'air' ? P.vy : 0) * dt;
@@ -221,7 +224,7 @@ const ncDef = (spec) => MG.def(Object.assign({
           const I = NC.islandAt(P.x); if (I && P.vy > 0 && py <= NC.GY && P.y >= NC.GY) { P.y = NC.GY; P.vy = 0; P.st = 'ground'; }
           NC.PLAT.forEach(([a, b, y]) => { if (P.st === 'air' && P.x >= a && P.x <= b && P.vy > 0 && py <= y && P.y >= y) { P.y = y; P.vy = 0; P.st = 'ground'; } });
           // grab a vine when you touch it while holding up (or while jumping up through it)
-          const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 14); if (r >= 0 && P.bump <= 0 && !(m.bot(i) && P.wantGround) && P.y - 40 > NC.TOP && P.y - 40 < NC.BOT + 10 && (a.y < -0.3 || P.vy < 0)) { P.st = 'rope'; P.rope = r; P.vx = P.vy = 0; }
+          const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 14); if (r >= 0 && !(P.noGrab > 0 && (r === P.leftRope || a.y > -0.3)) && P.bump <= 0 && !(m.bot(i) && P.wantGround) && P.y - 40 > NC.TOP && P.y - 40 < NC.BOT + 10 && (a.y < -0.3 || P.vy < 0)) { P.st = 'rope'; P.rope = r; P.vx = P.vy = 0; }
           if (P.y > 660) { P.fall = 1.3; S.fx.push({ k: 'splash', x: P.x, t: 0 }); if (!m.bot(i)) Sfx.noise(0.3, 900, 0.08, 'lowpass'); }
         }
         if (P.st === 'ground') { const r = NC.ROPES.findIndex(rx => Math.abs(rx - P.x) < 14); if (r >= 0 && a.y < -0.5) { P.st = 'rope'; P.rope = r; P.y = Math.min(P.y, NC.BOT + 40); } }

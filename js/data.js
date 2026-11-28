@@ -17,15 +17,25 @@ const ELEMENTS = [
   { id: 12, key: 'light', mascot: 'Lumi', name: 'Light', color: '#ffe9a0', dark: '#b08a20', glyph: '✨' },
   { id: 13, key: 'night', mascot: 'Nyx', name: 'Night', color: '#8a7aff', dark: '#2a2f6a', glyph: '🌙' },
   { id: 14, key: 'metal', mascot: 'Rivet', name: 'Metal', color: '#9aa6b4', dark: '#4a5666', glyph: '⚙️' },
-  // the Ring Legends: five wrestling crossover heroes
-  { id: 15, key: 'titan', mascot: 'Brick', name: 'The Titan', color: '#e8323e', dark: '#5a0a12', glyph: '💪', wrestler: true },
-  { id: 16, key: 'flyer', mascot: 'Rayo', name: 'Masked Flyer', color: '#2ad07a', dark: '#0a5a3a', glyph: '🦅', wrestler: true },
-  { id: 17, key: 'showman', mascot: 'Duke', name: 'The Showman', color: '#c86aff', dark: '#4a1a7a', glyph: '👑', wrestler: true },
-  { id: 18, key: 'viper', mascot: 'Viper', name: 'The Serpent', color: '#7adf3a', dark: '#1e3a12', glyph: '🐍', wrestler: true },
-  { id: 19, key: 'brawler', mascot: 'Tank', name: 'The Brawler', color: '#3a7aff', dark: '#12285a', glyph: '🥊', wrestler: true },
+  // fifteen newer heroes (15-29): dyed hair, bold styles and tattoos
+  { id: 15, key: 'gravity', mascot: 'Gravo', name: 'Gravity', color: '#9a6aff', dark: '#3a1a7a', glyph: '🪐' },
+  { id: 16, key: 'sound', mascot: 'Echo', name: 'Sound', color: '#ff6ad8', dark: '#7a1a5a', glyph: '🎵' },
+  { id: 17, key: 'toxic', mascot: 'Venom', name: 'Toxic', color: '#9aff3a', dark: '#2a5a0a', glyph: '☣️' },
+  { id: 18, key: 'magnet', mascot: 'Mags', name: 'Magnet', color: '#ff4a5a', dark: '#2a4aa8', glyph: '🧲' },
+  { id: 19, key: 'spirit', mascot: 'Boo', name: 'Spirit', color: '#c8f0ff', dark: '#4a6a9a', glyph: '👻' },
+  { id: 20, key: 'time', mascot: 'Tick', name: 'Time', color: '#3ad8c8', dark: '#0a5a5a', glyph: '⏳' },
+  { id: 21, key: 'ink', mascot: 'Inky', name: 'Ink', color: '#3a4aff', dark: '#0a0a3a', glyph: '🖋️' },
+  { id: 22, key: 'bubble', mascot: 'Bubbles', name: 'Bubble', color: '#ff9ad8', dark: '#a83a8a', glyph: '🫧' },
+  { id: 23, key: 'cosmic', mascot: 'Nova', name: 'Cosmic', color: '#7a5aff', dark: '#1a0a4a', glyph: '🌌' },
+  { id: 24, key: 'sugar', mascot: 'Candi', name: 'Sugar', color: '#ff7aa8', dark: '#a82a5a', glyph: '🍭' },
+  { id: 25, key: 'thorn', mascot: 'Briar', name: 'Thorn', color: '#3aa84a', dark: '#1a4a1a', glyph: '🌹' },
+  { id: 26, key: 'steam', mascot: 'Piston', name: 'Steam', color: '#e0884a', dark: '#5a2a10', glyph: '♨️' },
+  { id: 27, key: 'paper', mascot: 'Origa', name: 'Paper', color: '#f4f0e8', dark: '#8a7a6a', glyph: '🦢' },
+  { id: 28, key: 'neon', mascot: 'Neon', name: 'Neon', color: '#ff3ad8', dark: '#3a0a5a', glyph: '💡' },
+  { id: 29, key: 'bee', mascot: 'Buzz', name: 'Bee', color: '#ffd02a', dark: '#3a2a0a', glyph: '🐝' },
 ];
 // behaviour base for each hero (0 air, 1 water, 2 fire, 3 earth): idle style, poses, celebration
-const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3, 3, 0, 2, 3, 2, 2, 0, 1, 3, 3];
+const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3, 3, 2, 1, 2, 0, 3, 1, 1, 0, 2, 3, 3, 0, 2, 0, 2, 0, 1, 3, 3];
 
 // Space types on the Crossing (main board)
 const SPACE = {
