@@ -380,7 +380,7 @@ class BoardGame {
     const finale = this.round === this.rounds && !this.brawlUsed;
     let id;
     if (finale) {
-      const arenas = MG.list.filter(g => Shell.isBrawl(g) && g.mode !== 'duel').map(g => g.id);
+      const arenas = MG.list.filter(g => Shell.isBrawl(g) && g.mode !== 'duel' && !g.noBoard).map(g => g.id);
       id = R.pick(arenas); this.brawlUsed = true;
       await Board.banner('🔥 Grand Finale! 🔥', `The last minigame is a brawl: ${MG.byId[id].name}!`, 2600);
     } else {

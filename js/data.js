@@ -17,9 +17,15 @@ const ELEMENTS = [
   { id: 12, key: 'light', mascot: 'Lumi', name: 'Light', color: '#ffe9a0', dark: '#b08a20', glyph: '✨' },
   { id: 13, key: 'night', mascot: 'Nyx', name: 'Night', color: '#8a7aff', dark: '#2a2f6a', glyph: '🌙' },
   { id: 14, key: 'metal', mascot: 'Rivet', name: 'Metal', color: '#9aa6b4', dark: '#4a5666', glyph: '⚙️' },
+  // the Ring Legends: five wrestling crossover heroes
+  { id: 15, key: 'titan', mascot: 'Brick', name: 'The Titan', color: '#e8323e', dark: '#5a0a12', glyph: '💪', wrestler: true },
+  { id: 16, key: 'flyer', mascot: 'Rayo', name: 'Masked Flyer', color: '#2ad07a', dark: '#0a5a3a', glyph: '🦅', wrestler: true },
+  { id: 17, key: 'showman', mascot: 'Duke', name: 'The Showman', color: '#c86aff', dark: '#4a1a7a', glyph: '👑', wrestler: true },
+  { id: 18, key: 'viper', mascot: 'Viper', name: 'The Serpent', color: '#7adf3a', dark: '#1e3a12', glyph: '🐍', wrestler: true },
+  { id: 19, key: 'brawler', mascot: 'Tank', name: 'The Brawler', color: '#3a7aff', dark: '#12285a', glyph: '🥊', wrestler: true },
 ];
 // behaviour base for each hero (0 air, 1 water, 2 fire, 3 earth): idle style, poses, celebration
-const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3, 2, 0, 1, 3, 3];
+const EL_BASE = [0, 1, 2, 3, 0, 1, 3, 3, 1, 2, 3, 2, 0, 0, 3, 3, 0, 2, 3, 2, 2, 0, 1, 3, 3];
 
 // Space types on the Crossing (main board)
 const SPACE = {

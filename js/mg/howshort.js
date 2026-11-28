@@ -95,6 +95,8 @@
     sorter: 'Flick each toy: RED left, GREEN down, BLUE right. Right +1, wrong −1.',
     pancake: 'Press A to flip when the marker is golden, then A to serve when side two is golden. Most points wins.',
     planes: 'Hold A to climb (slower), let go to dive (faster). Fly through rings. Furthest flight wins.',
+    ring4: 'A strikes, B grabs (then A knee, B slam, direction + B whip). Fill HYPE for your finisher. Pin a downed foe with B — kick out by pressing A in the green. Last one standing wins.',
+    ringtag: 'Two vs two in one ring. A strikes, B grabs — grab with your partner close for a double team. Pin both rivals with B to win.',
     sheep: 'Sheep run away from you — herd them into YOUR pen. A = whistle to scatter them.',
     dance: 'Press LEFT, A, B or RIGHT as each note hits the target. Keep a combo going.',
     ghosthunt: '1 vs 3. Hunters keep the ghost in their beam and press A to zap (4 wins). Ghost: sneak up, A to BOO (6 wins), B to vanish.',
